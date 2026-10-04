@@ -1,6 +1,6 @@
 // Types and Interfaces
-type ModelVersion = "sheep-wolves" | "sheep-wolves-grass";
-type PatchColor = "green" | "brown";
+type ModelVersion = 'sheep-wolves' | 'sheep-wolves-grass';
+type PatchColor = 'green' | 'brown';
 
 interface Position {
   x: number;
@@ -19,11 +19,11 @@ abstract class Turtle {
   position: Position;
   energy: number;
   heading: number; // angle in degrees
-  label: string = "";
-  
+  label: string = '';
+
   constructor(
     public config: TurtleConfig,
-    public world: World
+    public world: World,
   ) {
     this.position = this.randomPosition();
     this.energy = 0;
@@ -33,7 +33,7 @@ abstract class Turtle {
   private randomPosition(): Position {
     return {
       x: Math.random() * this.world.width,
-      y: Math.random() * this.world.height
+      y: Math.random() * this.world.height,
     };
   }
 
@@ -42,21 +42,22 @@ abstract class Turtle {
     this.heading += Math.random() * 50;
     // Turn left by random amount up to 50 degrees
     this.heading -= Math.random() * 50;
-    
+
     // Move forward 1 step
     const radians = (this.heading * Math.PI) / 180;
     this.position.x += Math.cos(radians);
     this.position.y += Math.sin(radians);
-    
+
     // Wrap around world boundaries
     this.position.x = ((this.position.x % this.world.width) + this.world.width) % this.world.width;
-    this.position.y = ((this.position.y % this.world.height) + this.world.height) % this.world.height;
+    this.position.y =
+      ((this.position.y % this.world.height) + this.world.height) % this.world.height;
   }
 
   getPatchCoords(): { x: number; y: number } {
     return {
       x: Math.floor(this.position.x),
-      y: Math.floor(this.position.y)
+      y: Math.floor(this.position.y),
     };
   }
 
@@ -73,12 +74,12 @@ class Sheep extends Turtle {
   constructor(world: World, gainFromFood: number) {
     super(
       {
-        shape: "sheep",
-        color: "white",
+        shape: 'sheep',
+        color: 'white',
         size: 1,
-        labelColor: "blue"
+        labelColor: 'blue',
       },
-      world
+      world,
     );
     this.energy = Math.random() * (2 * gainFromFood);
   }
@@ -86,9 +87,9 @@ class Sheep extends Turtle {
   eatGrass(patches: Patch[][], gainFromFood: number): void {
     const coords = this.getPatchCoords();
     const patch = patches[coords.y]?.[coords.x];
-    
-    if (patch && patch.color === "green") {
-      patch.color = "brown";
+
+    if (patch && patch.color === 'green') {
+      patch.color = 'brown';
       this.energy += gainFromFood;
     }
   }
@@ -111,31 +112,31 @@ class Wolf extends Turtle {
   constructor(world: World, gainFromFood: number) {
     super(
       {
-        shape: "wolf",
-        color: "black",
+        shape: 'wolf',
+        color: 'black',
         size: 1,
-        labelColor: "red"
+        labelColor: 'red',
       },
-      world
+      world,
     );
     this.energy = Math.random() * (2 * gainFromFood);
   }
 
   eatSheep(sheep: Sheep[], gainFromFood: number): Sheep | null {
     const coords = this.getPatchCoords();
-    
+
     // Find sheep at the same location
-    const preyIndex = sheep.findIndex(s => {
+    const preyIndex = sheep.findIndex((s) => {
       const sheepCoords = s.getPatchCoords();
       return sheepCoords.x === coords.x && sheepCoords.y === coords.y;
     });
-    
+
     if (preyIndex !== -1) {
       const prey = sheep[preyIndex];
       this.energy += gainFromFood;
       return prey;
     }
-    
+
     return null;
   }
 
@@ -161,23 +162,22 @@ class Patch {
     public x: number,
     public y: number,
     modelVersion: ModelVersion,
-    grassRegrowthTime: number
+    grassRegrowthTime: number,
   ) {
-    if (modelVersion === "sheep-wolves-grass") {
-      this.color = Math.random() < 0.5 ? "green" : "brown";
-      this.countdown = this.color === "green" 
-        ? grassRegrowthTime 
-        : Math.floor(Math.random() * grassRegrowthTime);
+    if (modelVersion === 'sheep-wolves-grass') {
+      this.color = Math.random() < 0.5 ? 'green' : 'brown';
+      this.countdown =
+        this.color === 'green' ? grassRegrowthTime : Math.floor(Math.random() * grassRegrowthTime);
     } else {
-      this.color = "green";
+      this.color = 'green';
       this.countdown = 0;
     }
   }
 
   growGrass(grassRegrowthTime: number): void {
-    if (this.color === "brown") {
+    if (this.color === 'brown') {
       if (this.countdown <= 0) {
-        this.color = "green";
+        this.color = 'green';
         this.countdown = grassRegrowthTime;
       } else {
         this.countdown--;
@@ -198,7 +198,7 @@ export class WolfSheepModel {
   private patches: Patch[][] = [];
   private ticks: number = 0;
   private maxSheep: number;
-  
+
   constructor(
     private world: World,
     private config: {
@@ -211,7 +211,7 @@ export class WolfSheepModel {
       sheepReproduce: number;
       wolfReproduce: number;
       showEnergy: boolean;
-    }
+    },
   ) {
     this.maxSheep = 30000; // Can be adjusted based on platform
   }
@@ -230,7 +230,7 @@ export class WolfSheepModel {
           x,
           y,
           this.config.modelVersion,
-          this.config.grassRegrowthTime
+          this.config.grassRegrowthTime,
         );
       }
     }
@@ -256,19 +256,19 @@ export class WolfSheepModel {
 
     // Stop if sheep have inherited the earth
     if (this.wolves.length === 0 && this.sheep.length > this.maxSheep) {
-      console.log("The sheep have inherited the earth");
+      console.log('The sheep have inherited the earth');
       return false;
     }
 
     // Process sheep
     const newSheep: Sheep[] = [];
-    this.sheep = this.sheep.filter(sheep => {
+    this.sheep = this.sheep.filter((sheep) => {
       sheep.move();
 
-      if (this.config.modelVersion === "sheep-wolves-grass") {
+      if (this.config.modelVersion === 'sheep-wolves-grass') {
         sheep.energy -= 1;
         sheep.eatGrass(this.patches, this.config.sheepGainFromFood);
-        
+
         if (sheep.death()) {
           return false;
         }
@@ -285,13 +285,13 @@ export class WolfSheepModel {
 
     // Process wolves
     const newWolves: Wolf[] = [];
-    this.wolves = this.wolves.filter(wolf => {
+    this.wolves = this.wolves.filter((wolf) => {
       wolf.move();
       wolf.energy -= 1;
 
       const eatenSheep = wolf.eatSheep(this.sheep, this.config.wolfGainFromFood);
       if (eatenSheep) {
-        this.sheep = this.sheep.filter(s => s !== eatenSheep);
+        this.sheep = this.sheep.filter((s) => s !== eatenSheep);
       }
 
       if (wolf.death()) {
@@ -308,7 +308,7 @@ export class WolfSheepModel {
     this.wolves.push(...newWolves);
 
     // Grow grass
-    if (this.config.modelVersion === "sheep-wolves-grass") {
+    if (this.config.modelVersion === 'sheep-wolves-grass') {
       for (const row of this.patches) {
         for (const patch of row) {
           patch.growGrass(this.config.grassRegrowthTime);
@@ -318,30 +318,30 @@ export class WolfSheepModel {
 
     this.ticks++;
     this.displayLabels();
-    
+
     return true;
   }
 
   private displayLabels(): void {
     // Clear all labels
-    this.sheep.forEach(s => s.setLabel(""));
-    this.wolves.forEach(w => w.setLabel(""));
+    this.sheep.forEach((s) => s.setLabel(''));
+    this.wolves.forEach((w) => w.setLabel(''));
 
     if (this.config.showEnergy) {
-      this.wolves.forEach(w => w.setLabel(Math.round(w.energy).toString()));
-      
-      if (this.config.modelVersion === "sheep-wolves-grass") {
-        this.sheep.forEach(s => s.setLabel(Math.round(s.energy).toString()));
+      this.wolves.forEach((w) => w.setLabel(Math.round(w.energy).toString()));
+
+      if (this.config.modelVersion === 'sheep-wolves-grass') {
+        this.sheep.forEach((s) => s.setLabel(Math.round(s.energy).toString()));
       }
     }
   }
 
   getGrassCount(): number {
-    if (this.config.modelVersion === "sheep-wolves-grass") {
+    if (this.config.modelVersion === 'sheep-wolves-grass') {
       let count = 0;
       for (const row of this.patches) {
         for (const patch of row) {
-          if (patch.color === "green") {
+          if (patch.color === 'green') {
             count++;
           }
         }

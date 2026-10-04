@@ -18,7 +18,12 @@
  *   6. Server sends `asset_delete` → store revokes blob URLs and removes entries.
  */
 
-import { decodeBinaryString, encodeBytesAsDataUrl, type AssetId, type AssetMeta } from '@tensnap/protocol';
+import {
+  decodeBinaryString,
+  encodeBytesAsDataUrl,
+  type AssetId,
+  type AssetMeta,
+} from '@tensnap/protocol';
 import type { AssetSnapshot, AssetStoreListener, ResolvedAsset } from './types';
 
 // ---------------------------------------------------------------------------
@@ -113,12 +118,16 @@ export class AssetStore {
    * For all other types the raw Uint8Array is stored.
    * A payload whose hash conflicts with announced metadata is ignored.
    */
-  async receiveData(id: AssetId, hash: string, mime: string, raw: string | Uint8Array): Promise<void> {
+  async receiveData(
+    id: AssetId,
+    hash: string,
+    mime: string,
+    raw: string | Uint8Array,
+  ): Promise<void> {
     const announced = this._meta.get(id);
     if (this._announced.has(id) && announced?.hash !== hash) return;
     // Decode JSON-side base64/data-URL strings into bytes before resolving by mime.
-    const bytes: Uint8Array =
-      typeof raw === 'string' ? decodeBinaryString(raw).bytes : raw;
+    const bytes: Uint8Array = typeof raw === 'string' ? decodeBinaryString(raw).bytes : raw;
 
     let url: string | Uint8Array;
     let source: string | Uint8Array | undefined;
@@ -147,7 +156,9 @@ export class AssetStore {
     if (newBlobUrl !== undefined) this._blobUrls.set(id, newBlobUrl);
 
     // Update or create metadata if we didn't receive asset_metadata first
-    const meta: AssetMeta = { ...(this._meta.get(id) ?? { id, hash, mime, size: bytes.byteLength }) };
+    const meta: AssetMeta = {
+      ...(this._meta.get(id) ?? { id, hash, mime, size: bytes.byteLength }),
+    };
     meta.hash = hash;
     meta.mime = mime;
     this._meta.set(id, meta);
@@ -200,11 +211,12 @@ export class AssetStore {
         // Persist every resolved value as an encoded binary semantic payload.
         // JSON project files otherwise turn Uint8Array into object properties,
         // and plain text/SVG source is not itself a protocol binary string.
-        data: typeof source === 'string'
-          ? encodeBytesAsDataUrl(new TextEncoder().encode(source), meta.mime)
-          : source instanceof Uint8Array
-            ? encodeBytesAsDataUrl(source, meta.mime)
-            : undefined,
+        data:
+          typeof source === 'string'
+            ? encodeBytesAsDataUrl(new TextEncoder().encode(source), meta.mime)
+            : source instanceof Uint8Array
+              ? encodeBytesAsDataUrl(source, meta.mime)
+              : undefined,
       };
     });
   }

@@ -35,9 +35,7 @@ describe('createRenderPlanFromSnapshot', () => {
         metadata: {},
         dependencyLayerIds: {},
         storageSnapshot: {
-          agents: [
-            { id: 'agent-1', x: 5, y: 5, size: 1, color: '#ff0000' },
-          ],
+          agents: [{ id: 'agent-1', x: 5, y: 5, size: 1, color: '#ff0000' }],
         },
       },
       {

@@ -46,11 +46,10 @@ describe('view mutation utilities', () => {
     const root = createDefaultRootLayout([child]);
     const onViewUpdate = vi.fn();
 
-    updateViewInPlace(
-      { rootView: root, onViewUpdate, adjustRootPadding: false },
-      child,
-      { left: 24, top: 36 } as Partial<AnyView>,
-    );
+    updateViewInPlace({ rootView: root, onViewUpdate, adjustRootPadding: false }, child, {
+      left: 24,
+      top: 36,
+    } as Partial<AnyView>);
 
     expect(child.left).toBe(24);
     expect(child.top).toBe(36);
@@ -62,11 +61,13 @@ describe('view mutation utilities', () => {
     const root = createDefaultRootLayout([createButton('duplicate')]);
     const onViewUpdate = vi.fn();
 
-    expect(() => addViewToContainerInPlace(
-      { rootView: root, onViewUpdate },
-      root.id,
-      createButton('duplicate'),
-    )).toThrow('duplicate');
+    expect(() =>
+      addViewToContainerInPlace(
+        { rootView: root, onViewUpdate },
+        root.id,
+        createButton('duplicate'),
+      ),
+    ).toThrow('duplicate');
 
     expect(root.views).toHaveLength(1);
     expect(onViewUpdate).not.toHaveBeenCalled();
@@ -77,14 +78,16 @@ describe('view mutation utilities', () => {
     const parent = createContainer('parent-container', [child]);
     const root = createDefaultRootLayout([parent]);
 
-    expect(() => moveViewInPlace({
-      rootView: root,
-      view: parent,
-      left: 40,
-      top: 50,
-      sourceParentId: root.id,
-      targetContainerId: child.id,
-    })).toThrow('Cannot move container');
+    expect(() =>
+      moveViewInPlace({
+        rootView: root,
+        view: parent,
+        left: 40,
+        top: 50,
+        sourceParentId: root.id,
+        targetContainerId: child.id,
+      }),
+    ).toThrow('Cannot move container');
 
     expect(root.views[0]).toBe(parent);
     expect(parent.views[0]).toBe(child);
@@ -100,7 +103,9 @@ describe('view mutation utilities', () => {
 
     expect(container.expanded).toBe(false);
     expect(container.height).toBe(300);
-    expect(root.height).toBe(Math.ceil(container.top + viewConstants.windowHeaderHeight + MAIN_VIEW_PADDING));
+    expect(root.height).toBe(
+      Math.ceil(container.top + viewConstants.windowHeaderHeight + MAIN_VIEW_PADDING),
+    );
     expect(onViewUpdate).toHaveBeenCalledWith(root);
   });
 });

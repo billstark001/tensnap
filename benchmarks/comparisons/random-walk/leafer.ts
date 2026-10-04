@@ -1,7 +1,13 @@
 import { Ellipse, Leafer } from '@leafer-ui/core';
 import type { BenchmarkWorkload } from '@tensnap/benchmark/harness';
 import type { BrowserBenchmarkCase } from '@tensnap/benchmark/harness';
-import { applyRandomWalkDelta, canonicalRandomWalkState, cloneRandomWalkAgents, createRandomWalkTrace, traceExpectedRandomWalkState } from '../../shared/random-walk';
+import {
+  applyRandomWalkDelta,
+  canonicalRandomWalkState,
+  cloneRandomWalkAgents,
+  createRandomWalkTrace,
+  traceExpectedRandomWalkState,
+} from '../../shared/random-walk';
 import { resolveRendererComparisonConfig, type RendererComparisonConfig } from './config';
 
 export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
@@ -27,33 +33,52 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
           host.style.width = `${config.width}px`;
           host.style.height = `${config.height}px`;
           container.replaceChildren(host);
-          const leafer = new Leafer({ view: host, width: config.width, height: config.height, type: 'design', pixelRatio: 1 });
+          const leafer = new Leafer({
+            view: host,
+            width: config.width,
+            height: config.height,
+            type: 'design',
+            pixelRatio: 1,
+          });
           const scale = config.width / config.worldSize;
-          const shapes = agents.map((agent) => new Ellipse({
-            x: agent.x * scale,
-            y: agent.y * scale,
-            width: Math.max(1, scale * agent.size),
-            height: Math.max(1, scale * agent.size),
-            fill: agent.color,
-          }));
+          const shapes = agents.map(
+            (agent) =>
+              new Ellipse({
+                x: agent.x * scale,
+                y: agent.y * scale,
+                width: Math.max(1, scale * agent.size),
+                height: Math.max(1, scale * agent.size),
+                fill: agent.color,
+              }),
+          );
           leafer.add(shapes);
           return {
             kind: 'component',
             tick(frameIndex) {
               const delta = trace.frames[frameIndex];
-              if (!delta) throw new Error(`Renderer profile needs trace frame ${frameIndex}; increase traceFrames.`);
+              if (!delta)
+                throw new Error(
+                  `Renderer profile needs trace frame ${frameIndex}; increase traceFrames.`,
+                );
               applyRandomWalkDelta(agents, delta);
               for (const update of delta) {
                 const index = Number(update.id.slice('walker_'.length));
                 shapes[index]!.set({ x: update.x * scale, y: update.y * scale });
               }
             },
-            destroy() { leafer.destroy(); host.remove(); },
+            destroy() {
+              leafer.destroy();
+              host.remove();
+            },
           };
         },
       },
-      snapshot() { return canonicalRandomWalkState(agents); },
-      expectedState(totalFrames) { return traceExpectedRandomWalkState(trace, totalFrames); },
+      snapshot() {
+        return canonicalRandomWalkState(agents);
+      },
+      expectedState(totalFrames) {
+        return traceExpectedRandomWalkState(trace, totalFrames);
+      },
     };
   },
 };

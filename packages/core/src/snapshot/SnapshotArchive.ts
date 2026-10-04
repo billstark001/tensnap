@@ -1,11 +1,10 @@
-import { decodeBinaryString, decodeMessagePack, encodeBytesAsDataUrl, encodeMessagePack } from '@tensnap/protocol';
-import type {
-  Keyframe,
-  Snapshot,
-  SnapshotArchive,
-  SnapshotFrame,
-  SnapshotSegment,
-} from './types';
+import {
+  decodeBinaryString,
+  decodeMessagePack,
+  encodeBytesAsDataUrl,
+  encodeMessagePack,
+} from '@tensnap/protocol';
+import type { Keyframe, Snapshot, SnapshotArchive, SnapshotFrame, SnapshotSegment } from './types';
 
 type SegmentPayload = {
   base: Keyframe;
@@ -51,7 +50,8 @@ function decompressRle(input: Uint8Array): Uint8Array {
     }
     const count = input[++index];
     const repeated = input[++index];
-    if (count === undefined || repeated === undefined) throw new Error('Invalid RLE snapshot segment.');
+    if (count === undefined || repeated === undefined)
+      throw new Error('Invalid RLE snapshot segment.');
     if (count === 0) output.push(repeated);
     else for (let repeat = 0; repeat < count; repeat += 1) output.push(repeated);
   }
@@ -77,7 +77,9 @@ function decodedMetadata(metadata: SnapshotArchive['metadata']): SnapshotArchive
   return structuredClone(metadata);
 }
 
-function encodeSegment(payload: SegmentPayload): Pick<SnapshotSegment, 'encoding' | 'compression' | 'data' | 'byteLength'> {
+function encodeSegment(
+  payload: SegmentPayload,
+): Pick<SnapshotSegment, 'encoding' | 'compression' | 'data' | 'byteLength'> {
   const raw = encodeMessagePack(payload);
   const compressed = compressRle(raw);
   const useCompressed = compressed.byteLength < raw.byteLength;
@@ -91,16 +93,23 @@ function encodeSegment(payload: SegmentPayload): Pick<SnapshotSegment, 'encoding
 }
 
 function decodeSegment(segment: SnapshotSegment): SegmentPayload {
-  if (segment.encoding !== 'msgpack') throw new Error(`Unsupported snapshot segment encoding: ${segment.encoding}.`);
+  if (segment.encoding !== 'msgpack')
+    throw new Error(`Unsupported snapshot segment encoding: ${segment.encoding}.`);
   const data = asBytes(segment.data);
   if (data.byteLength !== segment.byteLength) {
-    throw new Error(`Snapshot segment byteLength mismatch: declared ${segment.byteLength}, received ${data.byteLength}.`);
+    throw new Error(
+      `Snapshot segment byteLength mismatch: declared ${segment.byteLength}, received ${data.byteLength}.`,
+    );
   }
   const bytes = segment.compression === 'rle' ? decompressRle(data) : data;
   return decodeMessagePack<SegmentPayload>(bytes);
 }
 
-function validateSegmentPayload(segment: SnapshotSegment, payload: SegmentPayload, previousFrame: number | null): number {
+function validateSegmentPayload(
+  segment: SnapshotSegment,
+  payload: SegmentPayload,
+  previousFrame: number | null,
+): number {
   if (!payload.base || !Number.isInteger(payload.base.frame) || payload.base.frame < 0) {
     throw new Error('Snapshot segment has an invalid base keyframe.');
   }
@@ -113,7 +122,10 @@ function validateSegmentPayload(segment: SnapshotSegment, payload: SegmentPayloa
     if (!frame || !Number.isInteger(frame.index) || frame.index < 0) {
       throw new Error('Snapshot segment has an invalid frame index.');
     }
-    if ((index > 0 && frame.index <= lastFrame) || (priorFrame !== null && frame.index <= priorFrame)) {
+    if (
+      (index > 0 && frame.index <= lastFrame) ||
+      (priorFrame !== null && frame.index <= priorFrame)
+    ) {
       throw new Error(`Snapshot archive frame ${frame.index} is duplicated or out of order.`);
     }
     if (index === 0) firstFrame = frame.index;
@@ -154,14 +166,19 @@ export function encodeSnapshotArchive(snapshot: Snapshot, segmentFrames = 120): 
   while (frameOffset < snapshot.frames.length || segments.length === 0) {
     const first = snapshot.frames[frameOffset];
     const firstFrame = first?.index ?? snapshot.initial.frame;
-    while (keyframeIndex + 1 < keyframes.length && keyframes[keyframeIndex + 1]!.frame <= firstFrame) {
+    while (
+      keyframeIndex + 1 < keyframes.length &&
+      keyframes[keyframeIndex + 1]!.frame <= firstFrame
+    ) {
       keyframeIndex += 1;
     }
     const base = keyframes[keyframeIndex]!;
     let end = Math.min(snapshot.frames.length, frameOffset + segmentFrames);
     const nextKeyframe = keyframes[keyframeIndex + 1];
     if (nextKeyframe) {
-      const boundary = snapshot.frames.findIndex((frame, index) => index >= frameOffset && frame.index >= nextKeyframe.frame);
+      const boundary = snapshot.frames.findIndex(
+        (frame, index) => index >= frameOffset && frame.index >= nextKeyframe.frame,
+      );
       if (boundary >= frameOffset && boundary < end) end = boundary;
     }
     // A keyframe on the first frame belongs to its own segment so the following
@@ -191,7 +208,8 @@ export function encodeSnapshotArchive(snapshot: Snapshot, segmentFrames = 120): 
 
 /** Decode a persisted archive back into the public in-memory replay shape. */
 export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
-  if (archive.version !== 1) throw new Error(`Unsupported snapshot archive version: ${archive.version}.`);
+  if (archive.version !== 1)
+    throw new Error(`Unsupported snapshot archive version: ${archive.version}.`);
   if (!archive.segments.length) throw new Error('Snapshot archive has no segments.');
   let previousFrame: number | null = null;
   const decoded = archive.segments.map((segment) => {
@@ -203,7 +221,11 @@ export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
   const keyframes = decoded
     .slice(1)
     .map(({ payload }) => structuredClone(payload.base))
-    .filter((keyframe, index, all) => keyframe.frame !== initial.frame && all.findIndex((other) => other.frame === keyframe.frame) === index)
+    .filter(
+      (keyframe, index, all) =>
+        keyframe.frame !== initial.frame &&
+        all.findIndex((other) => other.frame === keyframe.frame) === index,
+    )
     .sort((a, b) => a.frame - b.frame);
   const frames = decoded
     .flatMap(({ payload }) => payload.frames)
@@ -228,7 +250,10 @@ export function snapshotArchiveForJson(archive: SnapshotArchive): SnapshotArchiv
     metadata: jsonSafeMetadata(archive.metadata),
     segments: archive.segments.map((segment) => ({
       ...segment,
-      data: typeof segment.data === 'string' ? segment.data : encodeBytesAsDataUrl(segment.data, 'application/x-tensnap-snapshot-segment'),
+      data:
+        typeof segment.data === 'string'
+          ? segment.data
+          : encodeBytesAsDataUrl(segment.data, 'application/x-tensnap-snapshot-segment'),
     })),
   };
 }

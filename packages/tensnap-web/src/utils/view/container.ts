@@ -1,5 +1,5 @@
-import { ContainerView, AnyView } from "@/types/ui";
-import { getEffectiveViewBox } from "./geometry";
+import { ContainerView, AnyView } from '@/types/ui';
+import { getEffectiveViewBox } from './geometry';
 
 export type ViewParentEntry = {
   parent: ContainerView;
@@ -107,37 +107,23 @@ export const validateViewTree = (root: ContainerView): string[] => {
   return errors;
 };
 
-export const assertValidViewTree = (
-  root: ContainerView,
-  operation = 'view mutation',
-): void => {
+export const assertValidViewTree = (root: ContainerView, operation = 'view mutation'): void => {
   const errors = validateViewTree(root);
   if (errors.length > 0) {
     throw new Error(`${operation} produced an invalid view tree: ${errors.join('; ')}`);
   }
 };
 
-
-export const getViewSizeByChildren = (
-  container: ContainerView,
-  padding = 32,
-  min = 128,
-) => {
+export const getViewSizeByChildren = (container: ContainerView, padding = 32, min = 128) => {
   const children = container.views || [];
-  const maxHeight = children.reduce(
-    (acc, child) => {
-      const box = getEffectiveViewBox(child);
-      return acc > (box.top + box.height)
-        ? acc : (box.top + box.height);
-    },
-    0);
-  const maxWidth = children.reduce(
-    (acc, child) => {
-      const box = getEffectiveViewBox(child);
-      return acc > (box.left + box.width)
-        ? acc : (box.left + box.width);
-    },
-    0);
+  const maxHeight = children.reduce((acc, child) => {
+    const box = getEffectiveViewBox(child);
+    return acc > box.top + box.height ? acc : box.top + box.height;
+  }, 0);
+  const maxWidth = children.reduce((acc, child) => {
+    const box = getEffectiveViewBox(child);
+    return acc > box.left + box.width ? acc : box.left + box.width;
+  }, 0);
 
   return {
     height: Math.max(maxHeight + padding, min),

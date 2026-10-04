@@ -143,10 +143,20 @@ describe('scenario ws event handlers', () => {
     });
     transport.emitError(new Error('invalid protocol message'));
 
-    expect(useStore.getState().diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ severity: 'warning', code: 'validation_warning', message: 'invalid monitor payload' }),
-      expect.objectContaining({ severity: 'error', code: 'transport_error', message: 'invalid protocol message' }),
-    ]));
+    expect(useStore.getState().diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          severity: 'warning',
+          code: 'validation_warning',
+          message: 'invalid monitor payload',
+        }),
+        expect.objectContaining({
+          severity: 'error',
+          code: 'transport_error',
+          message: 'invalid protocol message',
+        }),
+      ]),
+    );
     useTransportStore.getState().destroy();
   });
 
@@ -197,7 +207,12 @@ describe('scenario ws event handlers', () => {
     const before = useStore.getState().environmentUpdateTrigger.value;
     transport.emitMessage({
       type: 'state_sync_begin',
-      payload: { request_id: requestId, model_id: 'ws-model', instance_id: 'ws-instance', mode: 'replace' },
+      payload: {
+        request_id: requestId,
+        model_id: 'ws-model',
+        instance_id: 'ws-instance',
+        mode: 'replace',
+      },
     });
     transport.emitMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
     await Promise.resolve();
@@ -205,7 +220,10 @@ describe('scenario ws event handlers', () => {
     expect(useStore.getState().environments.has('env-1')).toBe(false);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before);
 
-    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+    transport.emitMessage({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: '1' },
+    });
     await Promise.resolve();
 
     expect(useStore.getState().environments.has('env-1')).toBe(true);
@@ -221,25 +239,40 @@ describe('scenario ws event handlers', () => {
     first.emitMessage({
       type: 'simulator_info',
       payload: {
-        protocol_version: '0.3', binding: { name: 'ws-test', version: '0.3.0' },
-        model: { id: 'ws-model' }, instance_id: 'ws-instance', capabilities: [],
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance',
+        capabilities: [],
       },
     });
     let finishCapture!: (blob: Blob) => void;
-    useStore.getState().registerScreenshotCapture('env-1', () => new Promise<Blob>((resolve) => {
-      finishCapture = resolve;
-    }));
-    first.emitMessage({ type: 'screenshot_request', payload: {
-      request_id: 'screen-1', env_id: 'env-1', format: 'png',
-    } });
+    useStore.getState().registerScreenshotCapture(
+      'env-1',
+      () =>
+        new Promise<Blob>((resolve) => {
+          finishCapture = resolve;
+        }),
+    );
+    first.emitMessage({
+      type: 'screenshot_request',
+      payload: {
+        request_id: 'screen-1',
+        env_id: 'env-1',
+        format: 'png',
+      },
+    });
 
     const second = new MockTransport();
     await useTransportStore.getState().initialize(second);
     second.emitMessage({
       type: 'simulator_info',
       payload: {
-        protocol_version: '0.3', binding: { name: 'ws-test', version: '0.3.0' },
-        model: { id: 'ws-model' }, instance_id: 'ws-instance-2', capabilities: [],
+        protocol_version: '0.3',
+        binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' },
+        instance_id: 'ws-instance-2',
+        capabilities: [],
       },
     });
     expect(useStore.getState().session.isConnected).toBe(true);

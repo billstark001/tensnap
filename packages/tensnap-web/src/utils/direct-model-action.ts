@@ -6,8 +6,8 @@ import type { Action } from '@tensnap/protocol';
  */
 export function isDirectModelAction(action: Action | undefined): action is Action {
   return Boolean(
-    action
-      && (action.scope === undefined || action.scope === 'model')
-      && !action.kwargs?.some((argument) => argument.required === true),
+    action &&
+    (action.scope === undefined || action.scope === 'model') &&
+    !action.kwargs?.some((argument) => argument.required === true),
   );
 }

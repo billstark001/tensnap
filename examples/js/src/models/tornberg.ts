@@ -24,11 +24,7 @@ import {
 
 // #region Types
 
-export type TornbergNetworkType =
-  | 'moore'
-  | 'random-regular'
-  | 'scale-free'
-  | 'connected-caveman';
+export type TornbergNetworkType = 'moore' | 'random-regular' | 'scale-free' | 'connected-caveman';
 
 /** Extended configuration for the Tornberg model */
 export interface TornbergConfig extends AxelrodConfig {
@@ -191,7 +187,10 @@ function gridPositions(width: number, height: number): Array<{ x: number; y: num
   }));
 }
 
-function circularPositions(totalAgents: number, radius = Math.max(10, totalAgents / 10)): Array<{ x: number; y: number }> {
+function circularPositions(
+  totalAgents: number,
+  radius = Math.max(10, totalAgents / 10),
+): Array<{ x: number; y: number }> {
   return Array.from({ length: totalAgents }, (_, id) => {
     const angle = (2 * Math.PI * id) / Math.max(1, totalAgents);
     return {
@@ -220,7 +219,10 @@ function buildMooreNetwork(config: TornbergConfig): TornbergNetwork {
   return finalizeNetwork('moore', adjacency, edges, gridPositions(width, height));
 }
 
-function buildRingLatticeNetwork(totalAgents: number, degree: number): {
+function buildRingLatticeNetwork(
+  totalAgents: number,
+  degree: number,
+): {
   adjacency: Array<Set<number>>;
   edges: TornbergNetworkEdge[];
   seen: Set<string>;
@@ -279,7 +281,12 @@ function buildRandomRegularNetwork(config: TornbergConfig, rng: () => number): T
   }
 
   const fallback = buildRingLatticeNetwork(totalAgents, degree);
-  return finalizeNetwork('random-regular', fallback.adjacency, fallback.edges, circularPositions(totalAgents));
+  return finalizeNetwork(
+    'random-regular',
+    fallback.adjacency,
+    fallback.edges,
+    circularPositions(totalAgents),
+  );
 }
 
 function buildScaleFreeNetwork(config: TornbergConfig, rng: () => number): TornbergNetwork {
@@ -310,12 +317,16 @@ function buildScaleFreeNetwork(config: TornbergConfig, rng: () => number): Tornb
     let safety = 0;
     while (targets.size < Math.min(attachmentCount, source) && safety++ < source * 10) {
       const lastTarget = targets.size > 0 ? [...targets][targets.size - 1] : null;
-      const closureCandidates = lastTarget === null
-        ? []
-        : [...adjacency[lastTarget]].filter((candidate) => candidate < source && candidate !== source);
-      const target = closureCandidates.length > 0 && rng() < 0.01
-        ? closureCandidates[randomInt(closureCandidates.length, rng)]
-        : choosePreferential(source);
+      const closureCandidates =
+        lastTarget === null
+          ? []
+          : [...adjacency[lastTarget]].filter(
+              (candidate) => candidate < source && candidate !== source,
+            );
+      const target =
+        closureCandidates.length > 0 && rng() < 0.01
+          ? closureCandidates[randomInt(closureCandidates.length, rng)]
+          : choosePreferential(source);
       if (target !== source) {
         targets.add(target);
       }
@@ -363,17 +374,19 @@ function buildConnectedCavemanNetwork(config: TornbergConfig, rng: () => number)
   for (const edge of [...edges]) {
     if (rng() >= rewiringProbability) continue;
     const sourceClique = Math.floor(edge.source / cliqueSize);
-    const outside = Array.from({ length: totalAgents }, (_, id) => id)
-      .filter((candidate) => (
-        candidate !== edge.source
-        && Math.floor(candidate / cliqueSize) !== sourceClique
-        && !seen.has(edgeKey(edge.source, candidate))
-      ));
+    const outside = Array.from({ length: totalAgents }, (_, id) => id).filter(
+      (candidate) =>
+        candidate !== edge.source &&
+        Math.floor(candidate / cliqueSize) !== sourceClique &&
+        !seen.has(edgeKey(edge.source, candidate)),
+    );
     if (outside.length === 0) continue;
 
     const target = outside[randomInt(outside.length, rng)];
     removeEdge(adjacency, seen, edge.source, edge.target);
-    const index = edges.findIndex((current) => edgeKey(current.source, current.target) === edgeKey(edge.source, edge.target));
+    const index = edges.findIndex(
+      (current) => edgeKey(current.source, current.target) === edgeKey(edge.source, edge.target),
+    );
     if (index >= 0) edges.splice(index, 1);
     addEdge(adjacency, edges, seen, edge.source, target);
   }
@@ -423,17 +436,15 @@ export function buildTornbergNetwork(
  */
 export function initializeTornberg(
   config: TornbergConfig,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
 ): TornbergState {
   const base: AxelrodState = initializeAxelrod(config, rng);
 
   const agents: TornbergAgent[][] = base.agents.map((row) =>
-    row.map(
-      (agent): TornbergAgent => ({
-        ...agent,
-        partisan: randomInt(config.numPartisans, rng),
-      })
-    )
+    row.map((agent): TornbergAgent => ({
+      ...agent,
+      partisan: randomInt(config.numPartisans, rng),
+    })),
   );
   const agentsById = agents.flat();
 
@@ -458,11 +469,7 @@ export function initializeTornberg(
  * The partisan attribute contributes c times as much as any single dynamic
  * attribute. Partisan affiliation is never copied.
  */
-export function computeAbsoluteSimilarity(
-  a: TornbergAgent,
-  b: TornbergAgent,
-  c: number
-): number {
+export function computeAbsoluteSimilarity(a: TornbergAgent, b: TornbergAgent, c: number): number {
   const n = a.features.length;
   const partisanScore = a.partisan === b.partisan ? c : 0;
   let dynamicScore = 0;
@@ -480,11 +487,9 @@ export function computeRelativeWeights(
   focal: TornbergAgent,
   interlocutors: TornbergAgent[],
   c: number,
-  h: number
+  h: number,
 ): number[] {
-  const powered = interlocutors.map((b) =>
-    Math.pow(computeAbsoluteSimilarity(focal, b, c), h)
-  );
+  const powered = interlocutors.map((b) => Math.pow(computeAbsoluteSimilarity(focal, b, c), h));
   const total = powered.reduce((s, v) => s + v, 0);
 
   if (total === 0) {
@@ -498,11 +503,7 @@ export function computeRelativeWeights(
 
 // #region Interlocutors
 
-function sampleAgentIds(
-  totalAgents: number,
-  count: number,
-  rng: () => number,
-): number[] {
+function sampleAgentIds(totalAgents: number, count: number, rng: () => number): number[] {
   const ids = Array.from({ length: totalAgents }, (_, id) => id);
   shuffle(ids, rng);
   return ids.slice(0, Math.min(count, totalAgents));
@@ -518,7 +519,7 @@ function sampleAgentIds(
 export function buildInterlocutors(
   state: TornbergState,
   focal: TornbergAgent,
-  rng: () => number
+  rng: () => number,
 ): TornbergAgent[] {
   const neighborIds = [...(state.network.adjacency[focal.id] ?? [])];
   if (neighborIds.length === 0) return [];
@@ -541,7 +542,7 @@ export function buildInterlocutors(
 export function weightedSample(
   candidates: TornbergAgent[],
   weights: number[],
-  rng: () => number
+  rng: () => number,
 ): TornbergAgent {
   const r = rng();
   let cumulative = 0;
@@ -564,10 +565,7 @@ export function weightedSample(
  *
  * @returns true if a dynamic attribute update occurred.
  */
-export function stepTornberg(
-  state: TornbergState,
-  rng: () => number = Math.random
-): boolean {
+export function stepTornberg(state: TornbergState, rng: () => number = Math.random): boolean {
   const { config } = state;
   const focal = state.agentsById[randomInt(state.agentsById.length, rng)];
 
@@ -614,15 +612,19 @@ export function computeDynamicSimilarity(a: TornbergAgent, b: TornbergAgent): nu
 function computeSortingFromPairs(
   pairs: Array<[TornbergAgent, TornbergAgent]>,
 ): TornbergSortingComponents {
-  let samePairSum = 0, samePairCount = 0;
-  let diffPairSum = 0, diffPairCount = 0;
+  let samePairSum = 0,
+    samePairCount = 0;
+  let diffPairSum = 0,
+    diffPairCount = 0;
 
   for (const [a, b] of pairs) {
     const d = computeDynamicSimilarity(a, b);
     if (a.partisan === b.partisan) {
-      samePairSum += d; samePairCount++;
+      samePairSum += d;
+      samePairCount++;
     } else {
-      diffPairSum += d; diffPairCount++;
+      diffPairSum += d;
+      diffPairCount++;
     }
   }
 
@@ -666,17 +668,19 @@ export function computeSorting(state: TornbergState): number {
 export function computeTornbergMetrics(state: TornbergState): TornbergMetrics {
   const global = computeSortingComponents(state);
   const network = computeNetworkSortingComponents(state);
-  const crossPartyEdges = state.network.edges.filter((edge) => (
-    state.agentsById[edge.source]?.partisan !== state.agentsById[edge.target]?.partisan
-  )).length;
+  const crossPartyEdges = state.network.edges.filter(
+    (edge) => state.agentsById[edge.source]?.partisan !== state.agentsById[edge.target]?.partisan,
+  ).length;
 
   return {
     ...global,
     networkSorting: network.sorting,
     networkWithinSimilarity: network.withinSimilarity,
     networkBetweenSimilarity: network.betweenSimilarity,
-    crossPartyEdgeFraction: state.network.edges.length > 0 ? crossPartyEdges / state.network.edges.length : 0,
-    averageDegree: state.agentsById.length > 0 ? (2 * state.network.edges.length) / state.agentsById.length : 0,
+    crossPartyEdgeFraction:
+      state.network.edges.length > 0 ? crossPartyEdges / state.network.edges.length : 0,
+    averageDegree:
+      state.agentsById.length > 0 ? (2 * state.network.edges.length) / state.agentsById.length : 0,
   };
 }
 
@@ -693,7 +697,7 @@ export function computeTornbergMetrics(state: TornbergState): TornbergMetrics {
 export function runTornberg(
   config: TornbergConfig,
   maxIterations = 1_000_000,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
 ): TornbergResult {
   const state = initializeTornberg(config, rng);
   const threshold = 10 * config.width * config.height;

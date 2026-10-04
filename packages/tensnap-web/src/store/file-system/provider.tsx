@@ -1,5 +1,9 @@
 import { useEffect } from 'react';
-import { FileSystemAdapter, FileSystemAdapterFactory, FileSystemPicker } from '@tensnap/web-common/types/file';
+import {
+  FileSystemAdapter,
+  FileSystemAdapterFactory,
+  FileSystemPicker,
+} from '@tensnap/web-common/types/file';
 import { createFileSystemStore } from './store';
 import { createUpdateTriggerStore } from '../update-trigger';
 
@@ -68,7 +72,7 @@ export const useFileSystem = () => {
   if (!useFileSystemStore) {
     throw new Error('File system store not initialized');
   }
-  useUpdateTriggerStore(store => store.value);
+  useUpdateTriggerStore((store) => store.value);
   const fileSystem = useFileSystemStore();
   useEffect(() => {
     if (!fileSystem.initialized) {

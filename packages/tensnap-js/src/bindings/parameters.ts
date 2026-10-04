@@ -117,11 +117,7 @@ export function stringParameter<TConfig extends object, TModel>(
   };
 }
 
-export function enumParameter<
-  TConfig extends object,
-  TModel,
-  TValue extends string,
->(
+export function enumParameter<TConfig extends object, TModel, TValue extends string>(
   id: string,
   options: EnumParameterOptions<TConfig, TModel, TValue>,
 ): ParameterBinding<TConfig, TModel> {
@@ -163,13 +159,9 @@ export function createConfigParameter<TConfig extends object, TModel, TSource ex
 ): ParameterBinding<TConfig, TModel> {
   const getter = (model: TModel, config: TConfig) => options.get(model, config)[key];
   const setter = options.set
-    ? async (
-      model: TModel,
-      value: TSource[keyof TSource],
-      ctx: ModelSessionContext<TConfig>,
-    ) => {
-      await options.set!(model, { [key]: value } as Partial<TSource>, key, value, ctx);
-    }
+    ? async (model: TModel, value: TSource[keyof TSource], ctx: ModelSessionContext<TConfig>) => {
+        await options.set!(model, { [key]: value } as Partial<TSource>, key, value, ctx);
+      }
     : undefined;
 
   switch (field.type) {
@@ -181,9 +173,7 @@ export function createConfigParameter<TConfig extends object, TModel, TSource ex
         set: setter
           ? (model, value, ctx) => setter(model, value as TSource[keyof TSource], ctx)
           : undefined,
-        normalize: field.normalize
-          ? (value) => field.normalize!(value)
-          : undefined,
+        normalize: field.normalize ? (value) => field.normalize!(value) : undefined,
       });
     case 'boolean':
       return booleanParameter(key, {
@@ -215,7 +205,9 @@ export function createConfigParameter<TConfig extends object, TModel, TSource ex
   }
 }
 
-export function inferConfigFields<TSource extends object>(source: TSource): ConfigParamFieldMap<TSource> {
+export function inferConfigFields<TSource extends object>(
+  source: TSource,
+): ConfigParamFieldMap<TSource> {
   const fields: Record<string, ConfigParamField> = {};
   for (const [key, value] of Object.entries(source)) {
     switch (typeof value) {

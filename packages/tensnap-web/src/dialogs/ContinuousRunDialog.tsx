@@ -22,7 +22,9 @@ export const ContinuousRunDialog = ({
 }: ContinuousRunDialogProps) => {
   const [maxSteps, setMaxSteps] = useState(String(profile?.maxSteps ?? 1000));
   const [stopWhen, setStopWhen] = useState(profile?.stopWhen ?? '');
-  const [maxWallTimeMs, setMaxWallTimeMs] = useState(profile?.maxWallTimeMs ? String(profile.maxWallTimeMs) : '');
+  const [maxWallTimeMs, setMaxWallTimeMs] = useState(
+    profile?.maxWallTimeMs ? String(profile.maxWallTimeMs) : '',
+  );
   const [record, setRecord] = useState(profile?.record ?? false);
   const [error, setError] = useState<'max-steps' | 'wall-time' | null>(null);
 
@@ -49,16 +51,25 @@ export const ContinuousRunDialog = ({
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Title><Trans>Continuous run</Trans></Dialog.Title>
+      <Dialog.Title>
+        <Trans>Continuous run</Trans>
+      </Dialog.Title>
       <Dialog.Description>
         <Trans>Configure a bounded continuous run for action {actionId}.</Trans>
       </Dialog.Description>
       <Dialog.CloseButton />
 
-      <Form.Root onSubmit={(event) => { event.preventDefault(); submit(); }}>
+      <Form.Root
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
         <Dialog.Body>
           <Form.FieldSet>
-            <Form.Label htmlFor="continuous-run-max-steps"><Trans>Maximum steps</Trans></Form.Label>
+            <Form.Label htmlFor="continuous-run-max-steps">
+              <Trans>Maximum steps</Trans>
+            </Form.Label>
             <Form.Input
               id="continuous-run-max-steps"
               type="number"
@@ -69,7 +80,9 @@ export const ContinuousRunDialog = ({
             />
           </Form.FieldSet>
           <Form.FieldSet>
-            <Form.Label htmlFor="continuous-run-stop-expression"><Trans>Stop expression (optional)</Trans></Form.Label>
+            <Form.Label htmlFor="continuous-run-stop-expression">
+              <Trans>Stop expression (optional)</Trans>
+            </Form.Label>
             <Form.Input
               id="continuous-run-stop-expression"
               value={stopWhen}
@@ -78,7 +91,9 @@ export const ContinuousRunDialog = ({
             />
           </Form.FieldSet>
           <Form.FieldSet>
-            <Form.Label htmlFor="continuous-run-wall-time"><Trans>Wall-clock limit, ms (optional)</Trans></Form.Label>
+            <Form.Label htmlFor="continuous-run-wall-time">
+              <Trans>Wall-clock limit, ms (optional)</Trans>
+            </Form.Label>
             <Form.Input
               id="continuous-run-wall-time"
               type="number"
@@ -100,17 +115,25 @@ export const ContinuousRunDialog = ({
             </Form.Label>
           </Form.FieldSet>
           {error === 'max-steps' && (
-            <p role="alert"><Trans>Maximum steps must be an integer from 1 to 1,000,000.</Trans></p>
+            <p role="alert">
+              <Trans>Maximum steps must be an integer from 1 to 1,000,000.</Trans>
+            </p>
           )}
           {error === 'wall-time' && (
-            <p role="alert"><Trans>Wall-clock limit must be a positive number of milliseconds.</Trans></p>
+            <p role="alert">
+              <Trans>Wall-clock limit must be a positive number of milliseconds.</Trans>
+            </p>
           )}
         </Dialog.Body>
         <Dialog.Footer>
           <Dialog.Close asChild>
-            <Dialog.Button type="button"><Trans>Cancel</Trans></Dialog.Button>
+            <Dialog.Button type="button">
+              <Trans>Cancel</Trans>
+            </Dialog.Button>
           </Dialog.Close>
-          <Dialog.Button type="submit" variant="primary"><Trans>Start continuous run</Trans></Dialog.Button>
+          <Dialog.Button type="submit" variant="primary">
+            <Trans>Start continuous run</Trans>
+          </Dialog.Button>
         </Dialog.Footer>
       </Form.Root>
     </Dialog.Root>

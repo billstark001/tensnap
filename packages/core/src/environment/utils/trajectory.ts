@@ -11,7 +11,10 @@ export const DEFAULT_TRAJECTORY_CONFIG: GlobalTrajectoryConfig = {
   color: DEFAULT_TRAJECTORY_COLOR,
 };
 
-type TrajectoryConfigLike = Partial<Pick<GlobalTrajectoryConfig, 'length' | 'width' | 'color'>> | null | undefined;
+type TrajectoryConfigLike =
+  | Partial<Pick<GlobalTrajectoryConfig, 'length' | 'width' | 'color'>>
+  | null
+  | undefined;
 
 export interface ResolvedTrajectoryRenderStyle {
   width: number;
@@ -23,21 +26,29 @@ export interface TrajectoryWorldBounds {
   height?: number;
 }
 
-export function resolveTrajectoryLength(value: number | undefined, fallback = DEFAULT_TRAJECTORY_LENGTH): number {
-  const candidate = typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
-  return Number.isFinite(candidate) && candidate >= 0 ? Math.floor(candidate) : DEFAULT_TRAJECTORY_LENGTH;
+export function resolveTrajectoryLength(
+  value: number | undefined,
+  fallback = DEFAULT_TRAJECTORY_LENGTH,
+): number {
+  const candidate =
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+  return Number.isFinite(candidate) && candidate >= 0
+    ? Math.floor(candidate)
+    : DEFAULT_TRAJECTORY_LENGTH;
 }
 
-export function resolveTrajectoryWidth(value: number | undefined, fallback = DEFAULT_TRAJECTORY_WIDTH): number {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : fallback;
+export function resolveTrajectoryWidth(
+  value: number | undefined,
+  fallback = DEFAULT_TRAJECTORY_WIDTH,
+): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-export function resolveTrajectoryColor(value: string | undefined, fallback = DEFAULT_TRAJECTORY_COLOR): string {
-  return typeof value === 'string' && value.length > 0
-    ? value
-    : fallback;
+export function resolveTrajectoryColor(
+  value: string | undefined,
+  fallback = DEFAULT_TRAJECTORY_COLOR,
+): string {
+  return typeof value === 'string' && value.length > 0 ? value : fallback;
 }
 
 export function resolveTrajectoryConfig(
@@ -61,7 +72,9 @@ export function resolveTrajectoryRenderStyle(
   points: readonly TrajectoryPoint[],
   config?: Pick<Partial<GlobalTrajectoryConfig>, 'width' | 'color'>,
 ): ResolvedTrajectoryRenderStyle {
-  const pointColor = points.find((point) => typeof point.color === 'string' && point.color.length > 0)?.color;
+  const pointColor = points.find(
+    (point) => typeof point.color === 'string' && point.color.length > 0,
+  )?.color;
   return {
     width: resolveTrajectoryWidth(config?.width),
     color: pointColor ?? resolveTrajectoryColor(config?.color),
@@ -69,9 +82,7 @@ export function resolveTrajectoryRenderStyle(
 }
 
 function normalizeExtent(value: number | undefined): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
-    ? value
-    : undefined;
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
 function shouldBreakSegment(

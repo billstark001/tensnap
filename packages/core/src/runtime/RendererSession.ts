@@ -25,8 +25,18 @@ import type { RecordingOptions, Snapshot, SnapshotFrame, SnapshotModelIdentity }
 import type { ChartGroup } from '../chart';
 import { ActionRunMetrics, type ActionRunMetricSnapshot } from './ActionRunMetrics';
 
-export type RendererMessageOrigin = 'live' | 'state-sync' | 'scene-restore' | 'replay' | 'optimistic-control';
-export type RendererIdentityStatus = 'awaiting-info' | 'matching' | 'instance-changed' | 'sync-required' | 'model-mismatch';
+export type RendererMessageOrigin =
+  | 'live'
+  | 'state-sync'
+  | 'scene-restore'
+  | 'replay'
+  | 'optimistic-control';
+export type RendererIdentityStatus =
+  | 'awaiting-info'
+  | 'matching'
+  | 'instance-changed'
+  | 'sync-required'
+  | 'model-mismatch';
 
 export interface RendererSessionMessageDetail {
   message: SimulatorToRendererMessage;
@@ -209,7 +219,9 @@ export class RendererSession extends LazyEventTarget {
     });
     this.dispatch('transport:error', error);
   };
-  private readonly transportValidationWarningHandler = (warning: TransportEventMap['validation-warning']) => {
+  private readonly transportValidationWarningHandler = (
+    warning: TransportEventMap['validation-warning'],
+  ) => {
     this.reportDiagnostic({
       severity: 'warning',
       domain: 'protocol',
@@ -264,19 +276,26 @@ export class RendererSession extends LazyEventTarget {
       onRunStart: (status) => {
         onRunStart?.(status);
         if (status.spec.record) {
-          this.beginRecording({
-            maxSteps: status.spec.record.maxSteps ?? 10_000,
-            maxBytes: status.spec.record.maxBytes ?? 64 * 1024 * 1024,
-            ringBuffer: status.spec.record.ringBuffer ?? true,
-            ...status.spec.record,
-          }, 'run');
+          this.beginRecording(
+            {
+              maxSteps: status.spec.record.maxSteps ?? 10_000,
+              maxBytes: status.spec.record.maxBytes ?? 64 * 1024 * 1024,
+              ringBuffer: status.spec.record.ringBuffer ?? true,
+              ...status.spec.record,
+            },
+            'run',
+          );
         }
       },
       onRunStop: (status) => {
         onRunStop?.(status);
         if (!status.spec.record) return;
         const snapshot = this.recorder.stop();
-        if (snapshot) this.dispatch('recording:complete', { snapshot, reason: 'run' } satisfies RendererSessionRecordingDetail);
+        if (snapshot)
+          this.dispatch('recording:complete', {
+            snapshot,
+            reason: 'run',
+          } satisfies RendererSessionRecordingDetail);
       },
       onActionRendered: (payload) => {
         this.dispatch('action:rendered', payload);
@@ -311,12 +330,17 @@ export class RendererSession extends LazyEventTarget {
     if (this.legacySession) {
       return this.expectedIdentity === null ? null : structuredClone(this.expectedIdentity);
     }
-    const info = this.committedInfo
-      ?? (this.expectedIdentity !== null && this.identityStatusState !== 'matching' ? null : this.announcedInfo);
+    const info =
+      this.committedInfo ??
+      (this.expectedIdentity !== null && this.identityStatusState !== 'matching'
+        ? null
+        : this.announcedInfo);
     if (info) {
       return {
         model_id: info.model.id,
-        ...(info.model.state_schema_version === undefined ? {} : { state_schema_version: info.model.state_schema_version }),
+        ...(info.model.state_schema_version === undefined
+          ? {}
+          : { state_schema_version: info.model.state_schema_version }),
         ...(info.instance_id === undefined ? {} : { instance_id: info.instance_id }),
       };
     }
@@ -329,7 +353,9 @@ export class RendererSession extends LazyEventTarget {
     if (this.committedInfo) {
       return {
         model_id: this.committedInfo.model.id,
-        ...(this.committedInfo.model.state_schema_version === undefined ? {} : { state_schema_version: this.committedInfo.model.state_schema_version }),
+        ...(this.committedInfo.model.state_schema_version === undefined
+          ? {}
+          : { state_schema_version: this.committedInfo.model.state_schema_version }),
         instance_id: this.committedInfo.instance_id,
       };
     }
@@ -341,7 +367,8 @@ export class RendererSession extends LazyEventTarget {
    * A later incompatible handshake remains disconnected from the project state.
    */
   setExpectedSimulatorIdentity(identity: SnapshotModelIdentity | null | undefined): void {
-    this.expectedIdentity = identity === null || identity === undefined ? null : structuredClone(identity);
+    this.expectedIdentity =
+      identity === null || identity === undefined ? null : structuredClone(identity);
     if (this.legacySession) {
       this.identityStatusState = this.expectedIdentity === null ? 'matching' : 'model-mismatch';
       return;
@@ -415,9 +442,19 @@ export class RendererSession extends LazyEventTarget {
   requestStateSync(requestId = createRequestId('sync'), inventory?: StateSyncInventory): string {
     const info = this.requireCompatibleSimulator(true);
     this.assertNoActiveRequest();
-    const payload = inventory === undefined
-      ? this.scenario.createStateSyncMessage(info.model.id, requestId, this.stateSyncIdentity?.instance_id).payload
-      : createStateSyncRequest(info.model.id, requestId, this.stateSyncIdentity?.instance_id, inventory);
+    const payload =
+      inventory === undefined
+        ? this.scenario.createStateSyncMessage(
+            info.model.id,
+            requestId,
+            this.stateSyncIdentity?.instance_id,
+          ).payload
+        : createStateSyncRequest(
+            info.model.id,
+            requestId,
+            this.stateSyncIdentity?.instance_id,
+            inventory,
+          );
     if (!this.run.requestStateSync(requestId)) {
       throw new Error('Cannot request state sync while another state sync is active.');
     }
@@ -425,7 +462,11 @@ export class RendererSession extends LazyEventTarget {
     try {
       this.send({ type: 'state_sync', payload });
     } catch (error) {
-      this.failActiveRequest('transaction_send_failed', error instanceof Error ? error.message : String(error), false);
+      this.failActiveRequest(
+        'transaction_send_failed',
+        error instanceof Error ? error.message : String(error),
+        false,
+      );
       throw error;
     }
     return requestId;
@@ -466,17 +507,23 @@ export class RendererSession extends LazyEventTarget {
     this.assertRestoreCapability(info, payload);
     const chartPolicy = options.chartPolicy ?? 'preserve';
     if (chartPolicy === 'replace' && !options.replacementCharts) {
-      throw new Error('Replacing charts during scene restore requires a local snapshot chart state.');
+      throw new Error(
+        'Replacing charts during scene restore requires a local snapshot chart state.',
+      );
     }
     if (chartPolicy === 'truncate' && payload.time === undefined) {
       throw new Error('Truncating charts during scene restore requires an explicit restore time.');
     }
     this.run.stop('stopped');
-    if (this.run.hasInFlightAction) throw new Error('Wait for the in-flight action before scene restore.');
+    if (this.run.hasInFlightAction)
+      throw new Error('Wait for the in-flight action before scene restore.');
     const requestId = payload.request_id ?? createRequestId('restore');
     this.activateRequest('scene-restore', requestId, options, completion, {
       chartPolicy,
-      replacementCharts: options.replacementCharts === undefined ? undefined : structuredClone(options.replacementCharts),
+      replacementCharts:
+        options.replacementCharts === undefined
+          ? undefined
+          : structuredClone(options.replacementCharts),
       truncateTime: payload.time,
     });
     try {
@@ -485,14 +532,21 @@ export class RendererSession extends LazyEventTarget {
         payload: { ...payload, request_id: requestId, model_id: info.model.id },
       });
     } catch (error) {
-      this.failActiveRequest('transaction_send_failed', error instanceof Error ? error.message : String(error), false);
+      this.failActiveRequest(
+        'transaction_send_failed',
+        error instanceof Error ? error.message : String(error),
+        false,
+      );
       throw error;
     }
     return requestId;
   }
 
   /** Request an exact scene checkpoint at an action boundary. */
-  requestSceneCapture(requestId = createRequestId('capture'), options: SceneOperationOptions = {}): string {
+  requestSceneCapture(
+    requestId = createRequestId('capture'),
+    options: SceneOperationOptions = {},
+  ): string {
     return this.issueSceneCapture(requestId, options);
   }
 
@@ -530,7 +584,11 @@ export class RendererSession extends LazyEventTarget {
     try {
       this.send({ type: 'scene_capture', payload: { request_id: requestId } });
     } catch (error) {
-      this.failActiveRequest('transaction_send_failed', error instanceof Error ? error.message : String(error), false);
+      this.failActiveRequest(
+        'transaction_send_failed',
+        error instanceof Error ? error.message : String(error),
+        false,
+      );
       throw error;
     }
     return requestId;
@@ -558,11 +616,16 @@ export class RendererSession extends LazyEventTarget {
     return this.beginRecording(options, 'manual');
   }
 
-  private beginRecording(options: RecordingOptions, reason: RendererSessionRecordingDetail['reason']): Snapshot {
+  private beginRecording(
+    options: RecordingOptions,
+    reason: RendererSessionRecordingDetail['reason'],
+  ): Snapshot {
     const snapshot = this.recorder.start({
       ...options,
       legacyCreateReplacement: this.legacySession,
-      ...(options.modelIdentity === undefined && this.modelIdentity !== null ? { modelIdentity: this.modelIdentity } : {}),
+      ...(options.modelIdentity === undefined && this.modelIdentity !== null
+        ? { modelIdentity: this.modelIdentity }
+        : {}),
     });
     this.dispatch('recording:start', { snapshot, reason } satisfies RendererSessionRecordingDetail);
     return snapshot;
@@ -570,7 +633,11 @@ export class RendererSession extends LazyEventTarget {
 
   stopRecording(): Snapshot | null {
     const snapshot = this.recorder.stop();
-    if (snapshot) this.dispatch('recording:complete', { snapshot, reason: 'manual' } satisfies RendererSessionRecordingDetail);
+    if (snapshot)
+      this.dispatch('recording:complete', {
+        snapshot,
+        reason: 'manual',
+      } satisfies RendererSessionRecordingDetail);
     return snapshot;
   }
 
@@ -589,25 +656,37 @@ export class RendererSession extends LazyEventTarget {
   handleIncoming(message: SimulatorToRendererMessage): void {
     if (message.type === 'simulator_info') {
       if (this.legacySession) {
-        this.reportSessionError('protocol_mode_changed', 'A transport session cannot switch from legacy to strict protocol mode.');
+        this.reportSessionError(
+          'protocol_mode_changed',
+          'A transport session cannot switch from legacy to strict protocol mode.',
+        );
         return;
       }
       this.acceptSimulatorInfo(message.payload as SimulatorInfoPayload);
       return;
     }
     if (!this.announcedInfo && !this.legacySession) {
-      this.reportSessionError('handshake_required', 'simulator_info must be the first simulator message.');
+      this.reportSessionError(
+        'handshake_required',
+        'simulator_info must be the first simulator message.',
+      );
       return;
     }
     // A persisted project may be attached to a different model at the same
     // endpoint. Keep its loaded Scenario entirely isolated until the user
     // explicitly changes source or discards the old state.
     if (this.identityStatusState === 'model-mismatch') return;
-    if ((this.identityStatusState === 'sync-required' || this.identityStatusState === 'instance-changed')
-      && !this.transaction
-      && message.type !== 'state_sync_begin'
-      && message.type !== 'error') {
-      this.reportSessionError('state_sync_required', 'A replacement state sync is required before accepting simulator mutations.');
+    if (
+      (this.identityStatusState === 'sync-required' ||
+        this.identityStatusState === 'instance-changed') &&
+      !this.transaction &&
+      message.type !== 'state_sync_begin' &&
+      message.type !== 'error'
+    ) {
+      this.reportSessionError(
+        'state_sync_required',
+        'A replacement state sync is required before accepting simulator mutations.',
+      );
       return;
     }
     if (message.type === 'state_sync_begin') {
@@ -675,30 +754,46 @@ export class RendererSession extends LazyEventTarget {
   beginLegacyProtocol(): void {
     if (this.legacySession) return;
     if (this.announcedInfo !== null) {
-      this.reportSessionError('protocol_mode_changed', 'A transport session cannot switch from strict to legacy protocol mode.');
+      this.reportSessionError(
+        'protocol_mode_changed',
+        'A transport session cannot switch from strict to legacy protocol mode.',
+      );
       return;
     }
     this.legacySession = true;
     this.scenario.enableLegacyMutationRules();
-    this.identityStatusState = this.expectedIdentity === null && this.committedInfo === null
-      ? 'matching'
-      : 'model-mismatch';
+    this.identityStatusState =
+      this.expectedIdentity === null && this.committedInfo === null ? 'matching' : 'model-mismatch';
     this.dispatch('simulator:legacy', { status: this.identityStatusState });
   }
 
-  private beginStateSync(payload: StateSyncBeginPayload, message: SimulatorToRendererMessage): void {
+  private beginStateSync(
+    payload: StateSyncBeginPayload,
+    message: SimulatorToRendererMessage,
+  ): void {
     const info = this.announcedInfo ?? LEGACY_SIMULATOR_INFO;
     const active = this.activeRequest;
     const invalidLegacySync = this.legacySession
       ? this.transaction || active?.kind !== 'state-sync' || payload.request_id !== active.requestId
-      : this.transaction || active?.kind !== 'state-sync' || payload.request_id !== active.requestId || payload.model_id !== info.model.id || payload.instance_id !== info.instance_id || (payload.mode === 'reconcile' && this.stateSyncIdentity?.instance_id !== payload.instance_id);
+      : this.transaction ||
+        active?.kind !== 'state-sync' ||
+        payload.request_id !== active.requestId ||
+        payload.model_id !== info.model.id ||
+        payload.instance_id !== info.instance_id ||
+        (payload.mode === 'reconcile' &&
+          this.stateSyncIdentity?.instance_id !== payload.instance_id);
     if (invalidLegacySync) {
       this.reportSessionError('invalid_state_sync', 'Rejected unmatched state_sync_begin.');
       return;
     }
     const staging = this.createStagingScenario();
     if (payload.mode === 'reconcile') staging.load(this.scenario.dump());
-    this.transaction = { kind: 'state-sync', requestId: payload.request_id, scenario: staging, messages: [message] };
+    this.transaction = {
+      kind: 'state-sync',
+      requestId: payload.request_id,
+      scenario: staging,
+      messages: [message],
+    };
     try {
       staging.apply(message);
     } catch (error) {
@@ -711,12 +806,19 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     this.run.recordStateSyncBoundary('begin', payload);
-    this.dispatch('message', { message, origin: 'state-sync' } satisfies RendererSessionMessageDetail);
+    this.dispatch('message', {
+      message,
+      origin: 'state-sync',
+    } satisfies RendererSessionMessageDetail);
   }
 
   private endStateSync(payload: StateSyncEndPayload, message: SimulatorToRendererMessage): void {
     const transaction = this.transaction;
-    if (!transaction || transaction.kind !== 'state-sync' || payload.request_id !== transaction.requestId) {
+    if (
+      !transaction ||
+      transaction.kind !== 'state-sync' ||
+      payload.request_id !== transaction.requestId
+    ) {
       this.reportSessionError('invalid_state_sync', 'Rejected unmatched state_sync_end.');
       return;
     }
@@ -735,8 +837,14 @@ export class RendererSession extends LazyEventTarget {
       );
       return;
     }
-    this.dispatch('commit', { origin: 'state-sync', messages: transaction.messages } satisfies RendererSessionCommitDetail);
-    this.dispatch('message', { message, origin: 'state-sync' } satisfies RendererSessionMessageDetail);
+    this.dispatch('commit', {
+      origin: 'state-sync',
+      messages: transaction.messages,
+    } satisfies RendererSessionCommitDetail);
+    this.dispatch('message', {
+      message,
+      origin: 'state-sync',
+    } satisfies RendererSessionMessageDetail);
     if (this.legacySession) {
       this.committedInfo = null;
       this.expectedIdentity = null;
@@ -748,13 +856,18 @@ export class RendererSession extends LazyEventTarget {
     this.transaction = null;
     this.completeActiveRequest('state-sync');
     this.run.recordStateSyncBoundary('end', payload);
-    if (transaction.messages.some((entry) => entry.type === 'asset_metadata')) this.send(this.scenario.createAssetSyncMessage());
+    if (transaction.messages.some((entry) => entry.type === 'asset_metadata'))
+      this.send(this.scenario.createAssetSyncMessage());
   }
 
   private beginSceneRestore(message: SimulatorToRendererMessage): void {
     const payload = message.payload as { request_id: string };
     const active = this.activeRequest;
-    if (this.transaction || active?.kind !== 'scene-restore' || payload.request_id !== active.requestId) {
+    if (
+      this.transaction ||
+      active?.kind !== 'scene-restore' ||
+      payload.request_id !== active.requestId
+    ) {
       this.reportSessionError('invalid_scene_restore', 'Rejected unmatched scene_restore_begin.');
       return;
     }
@@ -770,12 +883,22 @@ export class RendererSession extends LazyEventTarget {
       replacementCharts: options?.replacementCharts,
       truncateTime: options?.truncateTime,
     };
-    this.dispatch('message', { message, origin: 'scene-restore' } satisfies RendererSessionMessageDetail);
+    this.dispatch('message', {
+      message,
+      origin: 'scene-restore',
+    } satisfies RendererSessionMessageDetail);
   }
 
-  private endSceneRestore(payload: SceneRestoreEndPayload, message: SimulatorToRendererMessage): void {
+  private endSceneRestore(
+    payload: SceneRestoreEndPayload,
+    message: SimulatorToRendererMessage,
+  ): void {
     const transaction = this.transaction;
-    if (!transaction || transaction.kind !== 'scene-restore' || payload.request_id !== transaction.requestId) {
+    if (
+      !transaction ||
+      transaction.kind !== 'scene-restore' ||
+      payload.request_id !== transaction.requestId
+    ) {
       this.reportSessionError('invalid_scene_restore', 'Rejected unmatched scene_restore_end.');
       return;
     }
@@ -792,7 +915,10 @@ export class RendererSession extends LazyEventTarget {
         }
         this.scenario.load(transaction.scenario.dump());
         this.recorder.recordMessages(transaction.messages);
-        this.dispatch('commit', { origin: 'scene-restore', messages: transaction.messages } satisfies RendererSessionCommitDetail);
+        this.dispatch('commit', {
+          origin: 'scene-restore',
+          messages: transaction.messages,
+        } satisfies RendererSessionCommitDetail);
       }
     } catch (error) {
       this.failActiveRequest(
@@ -803,22 +929,34 @@ export class RendererSession extends LazyEventTarget {
       );
       return;
     }
-    this.dispatch('message', { message, origin: 'scene-restore' } satisfies RendererSessionMessageDetail);
+    this.dispatch('message', {
+      message,
+      origin: 'scene-restore',
+    } satisfies RendererSessionMessageDetail);
     this.transaction = null;
     this.completeActiveRequest('scene-restore', structuredClone(payload));
   }
 
-  private completeSceneCapture(payload: SceneCaptureResultPayload, message: SimulatorToRendererMessage): void {
+  private completeSceneCapture(
+    payload: SceneCaptureResultPayload,
+    message: SimulatorToRendererMessage,
+  ): void {
     const info = this.announcedInfo!;
     const active = this.activeRequest;
     if (active?.kind !== 'scene-capture' || payload.request_id !== active.requestId) {
-      this.reportSessionError('invalid_scene_capture', 'Rejected unmatched scene_capture_result.', payload.request_id);
+      this.reportSessionError(
+        'invalid_scene_capture',
+        'Rejected unmatched scene_capture_result.',
+        payload.request_id,
+      );
       return;
     }
-    if (payload.model_id !== info.model.id
-      || (payload.state_schema_version !== undefined
-        && info.model.state_schema_version !== undefined
-        && payload.state_schema_version !== info.model.state_schema_version)) {
+    if (
+      payload.model_id !== info.model.id ||
+      (payload.state_schema_version !== undefined &&
+        info.model.state_schema_version !== undefined &&
+        payload.state_schema_version !== info.model.state_schema_version)
+    ) {
       this.failActiveRequest(
         'invalid_scene_capture',
         'Rejected scene_capture_result for a different model or state schema.',
@@ -827,14 +965,21 @@ export class RendererSession extends LazyEventTarget {
     }
     this.recorder.recordMessage(message);
     this.dispatch('message', { message, origin: 'live' } satisfies RendererSessionMessageDetail);
-    this.dispatch('scene:capture', { result: structuredClone(payload) } satisfies RendererSceneCaptureDetail);
+    this.dispatch('scene:capture', {
+      result: structuredClone(payload),
+    } satisfies RendererSceneCaptureDetail);
     this.completeActiveRequest('scene-capture', structuredClone(payload));
   }
 
   private applyTransactionMessage(message: SimulatorToRendererMessage): void {
     const transaction = this.transaction!;
     if (transaction.kind === 'scene-restore' && message.type.startsWith('chart_')) {
-      this.failActiveRequest('invalid_scene_restore', 'Chart messages are forbidden during scene restore.', true, true);
+      this.failActiveRequest(
+        'invalid_scene_restore',
+        'Chart messages are forbidden during scene restore.',
+        true,
+        true,
+      );
       return;
     }
     try {
@@ -855,7 +1000,10 @@ export class RendererSession extends LazyEventTarget {
     } satisfies RendererSessionMessageDetail);
   }
 
-  private applyCommittedMessage(message: SimulatorToRendererMessage, origin: RendererMessageOrigin): void {
+  private applyCommittedMessage(
+    message: SimulatorToRendererMessage,
+    origin: RendererMessageOrigin,
+  ): void {
     this.scenario.apply(message);
     this.recorder.recordMessage(message);
     this.dispatch('message', { message, origin } satisfies RendererSessionMessageDetail);
@@ -863,7 +1011,8 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private abortCorrelatedControl(payload: ErrorPayload): void {
-    if (payload.request_id === undefined || payload.request_id !== this.activeRequest?.requestId) return;
+    if (payload.request_id === undefined || payload.request_id !== this.activeRequest?.requestId)
+      return;
     this.failActiveRequest(payload.code, payload.message, false);
   }
 
@@ -880,7 +1029,8 @@ export class RendererSession extends LazyEventTarget {
     completion?: Pick<ActiveProtocolRequest, 'resolve' | 'reject'>,
     restoreOptions?: ActiveProtocolRequest['restoreOptions'],
   ): void {
-    if (options.signal?.aborted) throw new Error('The protocol transaction was aborted before it started.');
+    if (options.signal?.aborted)
+      throw new Error('The protocol transaction was aborted before it started.');
     const timeoutMs = normalizeTransactionTimeout(options.timeoutMs ?? this.transactionTimeoutMs);
     const active: ActiveProtocolRequest = {
       kind,
@@ -965,21 +1115,39 @@ export class RendererSession extends LazyEventTarget {
     payload: Omit<SceneRestorePayload, 'request_id' | 'model_id'> & { request_id?: string },
   ): void {
     const capabilities = new Set(info.capabilities);
-    if (payload.expected_instance_id !== undefined && payload.expected_instance_id !== info.instance_id) {
-      throw new Error('scene_restore expected_instance_id does not match the active simulator instance.');
+    if (
+      payload.expected_instance_id !== undefined &&
+      payload.expected_instance_id !== info.instance_id
+    ) {
+      throw new Error(
+        'scene_restore expected_instance_id does not match the active simulator instance.',
+      );
     }
-    if (payload.state_schema_version !== undefined && info.model.state_schema_version !== undefined && payload.state_schema_version !== info.model.state_schema_version) {
-      throw new Error('scene_restore state_schema_version does not match the active simulator model.');
+    if (
+      payload.state_schema_version !== undefined &&
+      info.model.state_schema_version !== undefined &&
+      payload.state_schema_version !== info.model.state_schema_version
+    ) {
+      throw new Error(
+        'scene_restore state_schema_version does not match the active simulator model.',
+      );
     }
     if (payload.checkpoint !== undefined && !capabilities.has('scene.restore.checkpoint')) {
       throw new Error('The connected simulator does not support checkpoint scene restore.');
     }
-    if ((payload.time !== undefined || payload.parameters !== undefined || payload.envs !== undefined) && !capabilities.has('scene.restore.projected')) {
+    if (
+      (payload.time !== undefined ||
+        payload.parameters !== undefined ||
+        payload.envs !== undefined) &&
+      !capabilities.has('scene.restore.projected')
+    ) {
       throw new Error('The connected simulator does not support projected scene restore.');
     }
-    if (payload.envs !== undefined
-      && !capabilities.has('scene.restore.topology')
-      && projectedRestoreChangesTopology(this.scenario, payload.envs)) {
+    if (
+      payload.envs !== undefined &&
+      !capabilities.has('scene.restore.topology') &&
+      projectedRestoreChangesTopology(this.scenario, payload.envs)
+    ) {
       throw new Error('Changing scene topology requires scene.restore.topology capability.');
     }
   }
@@ -987,14 +1155,17 @@ export class RendererSession extends LazyEventTarget {
   private requireCompatibleSimulator(allowStateSyncRecovery = false): SimulatorInfoPayload {
     if (this.legacySession) {
       if (this.identityStatusState === 'model-mismatch') {
-        throw new Error('A legacy simulator cannot be verified against this renderer project. Start a new project before synchronising.');
+        throw new Error(
+          'A legacy simulator cannot be verified against this renderer project. Start a new project before synchronising.',
+        );
       }
       if (!allowStateSyncRecovery && this.identityStatusState !== 'matching') {
         throw new Error('Complete a replacement state sync before mutating the simulator.');
       }
       return LEGACY_SIMULATOR_INFO;
     }
-    if (!this.announcedInfo) throw new Error('Wait for simulator_info before sending renderer messages.');
+    if (!this.announcedInfo)
+      throw new Error('Wait for simulator_info before sending renderer messages.');
     if (this.identityStatusState === 'model-mismatch') {
       throw new Error('The connected simulator model does not match this renderer project.');
     }
@@ -1007,24 +1178,29 @@ export class RendererSession extends LazyEventTarget {
   private updateIdentityStatus(info: SimulatorInfoPayload): void {
     const expected = this.committedInfo
       ? {
-        model_id: this.committedInfo.model.id,
-        ...(this.committedInfo.model.state_schema_version === undefined ? {} : { state_schema_version: this.committedInfo.model.state_schema_version }),
-        instance_id: this.committedInfo.instance_id,
-      }
+          model_id: this.committedInfo.model.id,
+          ...(this.committedInfo.model.state_schema_version === undefined
+            ? {}
+            : { state_schema_version: this.committedInfo.model.state_schema_version }),
+          instance_id: this.committedInfo.instance_id,
+        }
       : this.expectedIdentity;
     if (!expected) {
       this.identityStatusState = 'matching';
       return;
     }
-    if (expected.model_id !== info.model.id
-      || (expected.state_schema_version !== undefined
-        && expected.state_schema_version !== info.model.state_schema_version)) {
+    if (
+      expected.model_id !== info.model.id ||
+      (expected.state_schema_version !== undefined &&
+        expected.state_schema_version !== info.model.state_schema_version)
+    ) {
       this.identityStatusState = 'model-mismatch';
       return;
     }
-    this.identityStatusState = expected.instance_id !== undefined && expected.instance_id !== info.instance_id
-      ? 'instance-changed'
-      : 'matching';
+    this.identityStatusState =
+      expected.instance_id !== undefined && expected.instance_id !== info.instance_id
+        ? 'instance-changed'
+        : 'matching';
   }
 
   private reportSessionError(code: string, message: string, requestId?: string): void {
@@ -1045,7 +1221,9 @@ export class RendererSession extends LazyEventTarget {
     this.dispatch('protocol:error', payload);
   }
 
-  private reportDiagnostic(event: Omit<DiagnosticEvent, 'timestamp'> & { timestamp?: number }): void {
+  private reportDiagnostic(
+    event: Omit<DiagnosticEvent, 'timestamp'> & { timestamp?: number },
+  ): void {
     this.dispatch('diagnostic', {
       ...event,
       timestamp: event.timestamp ?? Date.now(),
@@ -1076,18 +1254,23 @@ export class RendererSession extends LazyEventTarget {
     if (message.type === 'scene_capture' && activeKind !== 'scene-capture') {
       throw new Error('scene_capture must belong to the active capture transaction.');
     }
-    if (message.type === 'state_sync'
-      || message.type === 'param_change'
-      || message.type === 'action_invoke'
-      || message.type === 'scene_restore'
-      || message.type === 'scene_capture') {
+    if (
+      message.type === 'state_sync' ||
+      message.type === 'param_change' ||
+      message.type === 'action_invoke' ||
+      message.type === 'scene_restore' ||
+      message.type === 'scene_capture'
+    ) {
       this.requireCompatibleSimulator(message.type === 'state_sync');
     }
     this.recorder.recordControl(message);
     if (message.type === 'action_invoke') {
       this.actionMetrics?.recordDispatch(message.payload as ActionInvokePayload);
     }
-    this.dispatch('outbound', { message, origin: 'optimistic-control' } satisfies RendererSessionOutboundDetail);
+    this.dispatch('outbound', {
+      message,
+      origin: 'optimistic-control',
+    } satisfies RendererSessionOutboundDetail);
     this.transport.send(message);
   }
 

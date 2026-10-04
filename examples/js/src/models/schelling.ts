@@ -1,9 +1,9 @@
 /**
  * Schelling Segregation Model
- * 
+ *
  * A classic agent-based model demonstrating how individual preferences
  * for similar neighbors can lead to large-scale segregation patterns.
- * 
+ *
  * Based on Thomas Schelling's work on racial segregation (1969, 1971).
  */
 
@@ -54,7 +54,8 @@ type AgentChange = {
   appearance?: true;
 };
 
-export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> & Partial<Pick<GridAgentState, 'x' | 'y' | 'size'>>;
+export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> &
+  Partial<Pick<GridAgentState, 'x' | 'y' | 'size'>>;
 
 export class SchellingModel {
   private config: Required<Omit<SchellingConfig, 'seed'>>;
@@ -112,17 +113,19 @@ export class SchellingModel {
   }
 
   private static normalizeSeed(value: number | undefined): number | undefined {
-    return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) >>> 0 : undefined;
+    return typeof value === 'number' && Number.isFinite(value)
+      ? Math.trunc(value) >>> 0
+      : undefined;
   }
 
   /** Mulberry32 keeps both seeded and default runs replayable from a checkpoint. */
   private random = (): number => {
-    this.rngState = (this.rngState + 0x6D2B79F5) >>> 0;
+    this.rngState = (this.rngState + 0x6d2b79f5) >>> 0;
     let value = this.rngState;
     value = Math.imul(value ^ (value >>> 15), value | 1);
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
-  }
+  };
 
   // ── Event handling ──────────────────────────────────────────────────────────
 
@@ -132,12 +135,12 @@ export class SchellingModel {
 
   off(event: string, handler: Function) {
     if (this.eventHandlers[event]) {
-      this.eventHandlers[event] = this.eventHandlers[event].filter(h => h !== handler);
+      this.eventHandlers[event] = this.eventHandlers[event].filter((h) => h !== handler);
     }
   }
 
   private emit(event: string, ...args: any[]) {
-    this.eventHandlers[event]?.forEach(handler => handler(...args));
+    this.eventHandlers[event]?.forEach((handler) => handler(...args));
   }
 
   // ── Empty-spots pool ────────────────────────────────────────────────────────
@@ -217,7 +220,8 @@ export class SchellingModel {
     const { gridWidth: W, gridHeight: H } = this.config;
     const grid = this.grid;
     const t = agent.type;
-    let total = 0, similar = 0;
+    let total = 0,
+      similar = 0;
 
     for (let dy = -1; dy <= 1; dy++) {
       const ny = y + dy;
@@ -228,7 +232,10 @@ export class SchellingModel {
         const nx = x + dx;
         if (nx < 0 || nx >= W) continue;
         const n = grid[rowOff + nx];
-        if (n !== null) { total++; if (n.type === t) similar++; }
+        if (n !== null) {
+          total++;
+          if (n.type === t) similar++;
+        }
       }
     }
 
@@ -301,10 +308,12 @@ export class SchellingModel {
   private calculateSegregationIndex(): number {
     const { gridWidth: W, gridHeight: H } = this.config;
     const grid = this.grid;
-    let totalSimilarity = 0, count = 0;
+    let totalSimilarity = 0,
+      count = 0;
 
     for (const { x, y, type } of this.agents) {
-      let total = 0, similar = 0;
+      let total = 0,
+        similar = 0;
       for (let dy = -1; dy <= 1; dy++) {
         const ny = y + dy;
         if (ny < 0 || ny >= H) continue;
@@ -314,10 +323,16 @@ export class SchellingModel {
           const nx = x + dx;
           if (nx < 0 || nx >= W) continue;
           const n = grid[rowOff + nx];
-          if (n !== null) { total++; if (n.type === type) similar++; }
+          if (n !== null) {
+            total++;
+            if (n.type === type) similar++;
+          }
         }
       }
-      if (total > 0) { totalSimilarity += similar / total; count++; }
+      if (total > 0) {
+        totalSimilarity += similar / total;
+        count++;
+      }
     }
 
     return count > 0 ? totalSimilarity / count : 0;
@@ -335,7 +350,8 @@ export class SchellingModel {
     this.grid[newEnc] = agent;
     this.removeEmptySpot(newEnc);
 
-    const oldX = agent.x, oldY = agent.y;
+    const oldX = agent.x,
+      oldY = agent.y;
     agent.x = newEnc % W;
     agent.y = (newEnc / W) | 0;
     this.markAgentChanged(agent, 'position');
@@ -383,7 +399,7 @@ export class SchellingModel {
   // ── Data access ─────────────────────────────────────────────────────────────
 
   private getAgentColor(type: 1 | 2): string {
-    return SchellingModel.AGENT_TYPES.find(t => t.type === type)?.color ?? '#000000';
+    return SchellingModel.AGENT_TYPES.find((t) => t.type === type)?.color ?? '#000000';
   }
 
   takeAgentUpdates(): SchellingAgentUpdate[] {
@@ -404,7 +420,7 @@ export class SchellingModel {
       type: 'grid' as const,
       width: this.config.gridWidth,
       height: this.config.gridHeight,
-      agents: this.agents.map(agent => ({
+      agents: this.agents.map((agent) => ({
         id: agent.id,
         x: agent.x,
         y: agent.y,
@@ -432,11 +448,18 @@ export class SchellingModel {
   }
 
   /** Validate a complete renderer-projected agent layer before it mutates this model. */
-  validateRestoredAgents(items: readonly Record<string, unknown>[], metadata?: Record<string, unknown>): void {
-    const width = typeof metadata?.width === 'number' ? Math.floor(metadata.width) : this.config.gridWidth;
-    const height = typeof metadata?.height === 'number' ? Math.floor(metadata.height) : this.config.gridHeight;
+  validateRestoredAgents(
+    items: readonly Record<string, unknown>[],
+    metadata?: Record<string, unknown>,
+  ): void {
+    const width =
+      typeof metadata?.width === 'number' ? Math.floor(metadata.width) : this.config.gridWidth;
+    const height =
+      typeof metadata?.height === 'number' ? Math.floor(metadata.height) : this.config.gridHeight;
     if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
-      throw new Error('Restored Schelling layer metadata requires positive integer width and height.');
+      throw new Error(
+        'Restored Schelling layer metadata requires positive integer width and height.',
+      );
     }
     const ids = new Set<string>();
     const positions = new Set<number>();
@@ -445,13 +468,25 @@ export class SchellingModel {
       const x = item.x;
       const y = item.y;
       const data = item.data;
-      const type = typeof data === 'object' && data !== null
-        ? (data as Record<string, unknown>).type
-        : undefined;
-      if (typeof id !== 'string' || typeof x !== 'number' || typeof y !== 'number'
-        || !Number.isInteger(x) || !Number.isInteger(y)
-        || x < 0 || x >= width || y < 0 || y >= height || (type !== 1 && type !== 2)) {
-        throw new Error('Restored Schelling agents require unique string IDs, in-bounds integer coordinates, and data.type of 1 or 2.');
+      const type =
+        typeof data === 'object' && data !== null
+          ? (data as Record<string, unknown>).type
+          : undefined;
+      if (
+        typeof id !== 'string' ||
+        typeof x !== 'number' ||
+        typeof y !== 'number' ||
+        !Number.isInteger(x) ||
+        !Number.isInteger(y) ||
+        x < 0 ||
+        x >= width ||
+        y < 0 ||
+        y >= height ||
+        (type !== 1 && type !== 2)
+      ) {
+        throw new Error(
+          'Restored Schelling agents require unique string IDs, in-bounds integer coordinates, and data.type of 1 or 2.',
+        );
       }
       if (ids.has(id) || positions.has(y * width + x)) {
         throw new Error('Restored Schelling agents must not duplicate an ID or grid position.');
@@ -501,9 +536,17 @@ export class SchellingModel {
   restoreGridMetadata(metadata: Record<string, unknown>): void {
     const width = metadata.width;
     const height = metadata.height;
-    if (typeof width !== 'number' || typeof height !== 'number'
-      || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
-      throw new Error('Restored Schelling layer metadata requires positive integer width and height.');
+    if (
+      typeof width !== 'number' ||
+      typeof height !== 'number' ||
+      !Number.isInteger(width) ||
+      !Number.isInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      throw new Error(
+        'Restored Schelling layer metadata requires positive integer width and height.',
+      );
     }
     this.updateConfig({ gridWidth: width, gridHeight: height });
     this.prepareRestoredAgents();
@@ -534,7 +577,6 @@ export class SchellingModel {
     };
   }
 
-
   restoreCheckpointData(data: unknown): void {
     if (typeof data !== 'object' || data === null || Array.isArray(data)) {
       throw new Error('Schelling checkpoint must be an object.');
@@ -547,8 +589,14 @@ export class SchellingModel {
     const emptySpots = checkpoint.emptySpots;
     const unsatisfiedIds = checkpoint.unsatisfiedIds;
     const lastMoved = checkpoint.lastMoved;
-    if (typeof config !== 'object' || config === null || Array.isArray(config)
-      || !Array.isArray(agents) || typeof time !== 'number' || !Number.isFinite(time)) {
+    if (
+      typeof config !== 'object' ||
+      config === null ||
+      Array.isArray(config) ||
+      !Array.isArray(agents) ||
+      typeof time !== 'number' ||
+      !Number.isFinite(time)
+    ) {
       throw new Error('Schelling checkpoint requires config, finite time, and agents.');
     }
     const records = agents.map((agent) => {
@@ -560,30 +608,50 @@ export class SchellingModel {
     const configPatch = config as Record<string, unknown>;
     const width = configPatch.gridWidth;
     const height = configPatch.gridHeight;
-    if (typeof width !== 'number' || typeof height !== 'number'
-      || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
+    if (
+      typeof width !== 'number' ||
+      typeof height !== 'number' ||
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
       throw new Error('Schelling checkpoint config requires gridWidth and gridHeight.');
     }
-    if (!Number.isSafeInteger(rngState) || (rngState as number) < 0 || (rngState as number) > 0xffffffff) {
+    if (
+      !Number.isSafeInteger(rngState) ||
+      (rngState as number) < 0 ||
+      (rngState as number) > 0xffffffff
+    ) {
       throw new Error('Schelling checkpoint RNG state must be an unsigned 32-bit integer.');
     }
     if (!Number.isSafeInteger(lastMoved) || (lastMoved as number) < 0) {
       throw new Error('Schelling checkpoint lastMoved must be a nonnegative integer.');
     }
-    if (!Array.isArray(emptySpots)
-      || emptySpots.some((position) => !Number.isSafeInteger(position) || position < 0 || position >= width * height)
-      || new Set(emptySpots).size !== emptySpots.length) {
+    if (
+      !Array.isArray(emptySpots) ||
+      emptySpots.some(
+        (position) => !Number.isSafeInteger(position) || position < 0 || position >= width * height,
+      ) ||
+      new Set(emptySpots).size !== emptySpots.length
+    ) {
       throw new Error('Schelling checkpoint empty spots must be unique in-bounds positions.');
     }
-    if (!Array.isArray(unsatisfiedIds)
-      || unsatisfiedIds.some((id) => typeof id !== 'string')
-      || new Set(unsatisfiedIds).size !== unsatisfiedIds.length) {
+    if (
+      !Array.isArray(unsatisfiedIds) ||
+      unsatisfiedIds.some((id) => typeof id !== 'string') ||
+      new Set(unsatisfiedIds).size !== unsatisfiedIds.length
+    ) {
       throw new Error('Schelling checkpoint unsatisfied IDs must be unique strings.');
     }
     this.validateRestoredAgents(records, { width, height });
-    const occupied = new Set(records.map((agent) => (agent.y as number) * width + (agent.x as number)));
-    if (emptySpots.length + records.length !== width * height
-      || emptySpots.some((position) => occupied.has(position))) {
+    const occupied = new Set(
+      records.map((agent) => (agent.y as number) * width + (agent.x as number)),
+    );
+    if (
+      emptySpots.length + records.length !== width * height ||
+      emptySpots.some((position) => occupied.has(position))
+    ) {
       throw new Error('Schelling checkpoint empty spots must complement the occupied positions.');
     }
     this.updateConfig(configPatch as Partial<SchellingConfig>);
@@ -594,8 +662,10 @@ export class SchellingModel {
     this.emptySpots = [...emptySpots];
     this.emptySpotIndexMap = new Map(this.emptySpots.map((position, index) => [position, index]));
     const unsatisfiedById = new Map([...this.unsatisfiedSet].map((agent) => [agent.id, agent]));
-    if (unsatisfiedById.size !== unsatisfiedIds.length
-      || !unsatisfiedIds.every((id) => unsatisfiedById.has(id))) {
+    if (
+      unsatisfiedById.size !== unsatisfiedIds.length ||
+      !unsatisfiedIds.every((id) => unsatisfiedById.has(id))
+    ) {
       throw new Error('Schelling checkpoint unsatisfied IDs do not match the restored agents.');
     }
     this.unsatisfiedSet = new Set(unsatisfiedIds.map((id) => unsatisfiedById.get(id)!));
@@ -625,19 +695,60 @@ export class SchellingModel {
       step?: number;
       allow_runtime_change: boolean;
     }> = [
-      { id: 'gridWidth', type: 'number', label: 'Grid Width', min: 10, max: 100, step: 1, allow_runtime_change: false },
-      { id: 'gridHeight', type: 'number', label: 'Grid Height', min: 10, max: 100, step: 1, allow_runtime_change: false },
-      { id: 'similarityThreshold', type: 'number', label: 'Similarity Threshold', min: 0, max: 1, step: 0.05, allow_runtime_change: true },
-      { id: 'density', type: 'number', label: 'Density', min: 0, max: 1, step: 0.05, allow_runtime_change: false },
-      { id: 'balance', type: 'number', label: 'Balance', min: 0, max: 1, step: 0.05, allow_runtime_change: false },
+      {
+        id: 'gridWidth',
+        type: 'number',
+        label: 'Grid Width',
+        min: 10,
+        max: 100,
+        step: 1,
+        allow_runtime_change: false,
+      },
+      {
+        id: 'gridHeight',
+        type: 'number',
+        label: 'Grid Height',
+        min: 10,
+        max: 100,
+        step: 1,
+        allow_runtime_change: false,
+      },
+      {
+        id: 'similarityThreshold',
+        type: 'number',
+        label: 'Similarity Threshold',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        allow_runtime_change: true,
+      },
+      {
+        id: 'density',
+        type: 'number',
+        label: 'Density',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        allow_runtime_change: false,
+      },
+      {
+        id: 'balance',
+        type: 'number',
+        label: 'Balance',
+        min: 0,
+        max: 1,
+        step: 0.05,
+        allow_runtime_change: false,
+      },
     ];
-    return paramDefs.map(p => ({ ...p, value: this.config[p.id as keyof typeof this.config] }));
+    return paramDefs.map((p) => ({ ...p, value: this.config[p.id as keyof typeof this.config] }));
   }
 
   updateParameter(id: string, value: any) {
-    (this.config as any)[id] = typeof value === 'number' && ['similarityThreshold', 'density', 'balance'].includes(id)
-      ? SchellingModel.clamp01(value)
-      : value;
+    (this.config as any)[id] =
+      typeof value === 'number' && ['similarityThreshold', 'density', 'balance'].includes(id)
+        ? SchellingModel.clamp01(value)
+        : value;
     if (id === 'similarityThreshold') this.updateAllSatisfaction(true);
   }
 
@@ -674,9 +785,13 @@ export class SchellingModel {
     this.lastMoved = 0;
   }
 
-  getIsRunning(): boolean { return this.isRunning; }
+  getIsRunning(): boolean {
+    return this.isRunning;
+  }
 
-  getConfig(): SchellingConfig { return { ...this.config }; }
+  getConfig(): SchellingConfig {
+    return { ...this.config };
+  }
 
   updateConfig(updates: Partial<SchellingConfig>) {
     Object.assign(this.config, updates);

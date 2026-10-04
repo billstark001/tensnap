@@ -38,7 +38,10 @@ async function loadRegisteredLocaleMessages(locale: Locale): Promise<void> {
       const { messages } = await loader();
       i18n.load(locale, messages);
     } catch (error) {
-      console.warn(`[i18n] Failed to load catalog "${registration.name}" for locale "${locale}"`, error);
+      console.warn(
+        `[i18n] Failed to load catalog "${registration.name}" for locale "${locale}"`,
+        error,
+      );
     }
   }
 }
@@ -99,13 +102,13 @@ export async function activateLocale(locale: string) {
  */
 export async function initI18n(locale?: string): Promise<Locale> {
   let activeLocale: Locale;
-  
+
   if (locale && isValidLocale(locale)) {
     activeLocale = locale;
   } else {
     activeLocale = detectLocale();
   }
-  
+
   await activateLocale(activeLocale);
   return activeLocale;
 }

@@ -1,15 +1,13 @@
-import { useScenarioStore } from "@/store/scenario/store";
-import { useButtonControls } from "../../hooks/useButtonControls";
-import ViewRoot from "../view/ViewRoot";
-import { AnchoredViewRenderer } from "./AnchoredViewRenderer";
-import { useSettingsStore } from "@/store/settings";
-import { ViewContextMenuRenderer } from "./ViewContextMenuRenderer";
-import { useCreateView } from "./view-edit-hooks";
+import { useScenarioStore } from '@/store/scenario/store';
+import { useButtonControls } from '../../hooks/useButtonControls';
+import ViewRoot from '../view/ViewRoot';
+import { AnchoredViewRenderer } from './AnchoredViewRenderer';
+import { useSettingsStore } from '@/store/settings';
+import { ViewContextMenuRenderer } from './ViewContextMenuRenderer';
+import { useCreateView } from './view-edit-hooks';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
-import { Trans } from "@lingui/react/macro";
-import { Radar } from "lucide-react";
-
-
+import { Trans } from '@lingui/react/macro';
+import { Radar } from 'lucide-react';
 
 export function MainViewRenderer() {
   const mainView = useScenarioStore((store) => store.mainView);
@@ -24,11 +22,13 @@ export function MainViewRenderer() {
   const { handleButtonAction, isRunning } = useButtonControls();
 
   if (!mainView) {
-    return <EmptyState
-      icon={<Radar size={64} />}
-      title={<Trans>No main view available.</Trans>}
-      description={<Trans>Please create or open a project to get started.</Trans>}
-    />
+    return (
+      <EmptyState
+        icon={<Radar size={64} />}
+        title={<Trans>No main view available.</Trans>}
+        description={<Trans>Please create or open a project to get started.</Trans>}
+      />
+    );
   }
 
   return (

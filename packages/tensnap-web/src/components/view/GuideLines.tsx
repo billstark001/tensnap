@@ -3,7 +3,6 @@ import { AlignType, GuideLine } from '@/utils/layout/guideline';
 import * as styles from './GuideLines.css';
 import clsx from 'clsx';
 
-
 export interface GuidelinesProps {
   guidelines: GuideLine[];
   className?: string;
@@ -21,7 +20,7 @@ const getGuidelineColor = (
   alignType: AlignType,
   defaultColor: string,
   spacingColor?: string,
-  sizeColor?: string
+  sizeColor?: string,
 ): string => {
   if (alignType.startsWith('spacing-')) {
     return spacingColor || '#FF9500';
@@ -32,10 +31,7 @@ const getGuidelineColor = (
   return defaultColor;
 };
 
-const getDashedStyle = (
-  alignType: AlignType,
-  isVertical: boolean
-): React.CSSProperties => {
+const getDashedStyle = (alignType: AlignType, isVertical: boolean): React.CSSProperties => {
   if (alignType.startsWith('spacing-')) {
     return {
       backgroundImage: isVertical
@@ -67,10 +63,7 @@ export const Guidelines: React.FC<GuidelinesProps> = ({
   sizeColor,
   showLabels = true,
 }) => {
-  const containerClassName = clsx(
-    styles.guidelinesContainer,
-    className,
-  );
+  const containerClassName = clsx(styles.guidelinesContainer, className);
 
   return (
     <div className={containerClassName} style={customStyle}>
@@ -80,7 +73,7 @@ export const Guidelines: React.FC<GuidelinesProps> = ({
           guideline.alignType,
           color,
           spacingColor,
-          sizeColor
+          sizeColor,
         );
         const lineStyle: React.CSSProperties = isVertical
           ? { left: `${leftShift + guideline.position}px` }

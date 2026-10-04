@@ -32,7 +32,9 @@ export const ConfirmEditDialog: React.FC<ConfirmEditDialogProps> = ({
         <Trans>Confirm</Trans>
       </Dialog.Button>
       <Dialog.Close asChild>
-        <Dialog.Button><Trans>Cancel</Trans></Dialog.Button>
+        <Dialog.Button>
+          <Trans>Cancel</Trans>
+        </Dialog.Button>
       </Dialog.Close>
     </Dialog.Footer>
   </Dialog.Root>

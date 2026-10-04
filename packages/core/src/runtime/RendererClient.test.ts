@@ -4,7 +4,9 @@ import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import { RendererClient } from './RendererClient';
 import { RendererSession } from './RendererSession';
 
-type TestTransport = ISimulatorTransport & { emitMessage(message: SimulatorToRendererMessage): void };
+type TestTransport = ISimulatorTransport & {
+  emitMessage(message: SimulatorToRendererMessage): void;
+};
 
 function synchronousTransport(modelId = 'model'): TestTransport {
   const listeners = new Map<string, Set<(value: unknown) => void>>();
@@ -12,31 +14,57 @@ function synchronousTransport(modelId = 'model'): TestTransport {
     for (const listener of listeners.get(type) ?? []) listener(value);
   };
   return {
-    connectionId: 'sync-test', transportKind: 'inmemory', encoding: 'json',
-    connectionState: 'open', isConnected: true,
+    connectionId: 'sync-test',
+    transportKind: 'inmemory',
+    encoding: 'json',
+    connectionState: 'open',
+    isConnected: true,
     connect: async () => {
-      emit('message', { type: 'simulator_info', payload: {
-        protocol_version: '0.3', binding: { name: 'test', version: '1' },
-        model: { id: modelId }, instance_id: 'instance', capabilities: [],
-      } } satisfies SimulatorToRendererMessage);
+      emit('message', {
+        type: 'simulator_info',
+        payload: {
+          protocol_version: '0.3',
+          binding: { name: 'test', version: '1' },
+          model: { id: modelId },
+          instance_id: 'instance',
+          capabilities: [],
+        },
+      } satisfies SimulatorToRendererMessage);
     },
-    disconnect: () => {}, destroy: () => {},
+    disconnect: () => {},
+    destroy: () => {},
     send: (message: RendererToSimulatorMessage) => {
       if (message.type !== 'state_sync') return;
       const requestId = (message.payload as { request_id: string }).request_id;
-      emit('message', { type: 'state_sync_begin', payload: {
-        request_id: requestId, model_id: modelId, instance_id: 'instance', mode: 'replace',
-      } } satisfies SimulatorToRendererMessage);
-      emit('message', { type: 'state_sync_end', payload: {
-        request_id: requestId, state_revision: '1',
-      } } satisfies SimulatorToRendererMessage);
+      emit('message', {
+        type: 'state_sync_begin',
+        payload: {
+          request_id: requestId,
+          model_id: modelId,
+          instance_id: 'instance',
+          mode: 'replace',
+        },
+      } satisfies SimulatorToRendererMessage);
+      emit('message', {
+        type: 'state_sync_end',
+        payload: {
+          request_id: requestId,
+          state_revision: '1',
+        },
+      } satisfies SimulatorToRendererMessage);
     },
-    on: <K extends keyof TransportEventMap>(type: K, listener: (value: TransportEventMap[K]) => void) => {
+    on: <K extends keyof TransportEventMap>(
+      type: K,
+      listener: (value: TransportEventMap[K]) => void,
+    ) => {
       const group = listeners.get(type) ?? new Set<(value: unknown) => void>();
       group.add(listener as (value: unknown) => void);
       listeners.set(type, group);
     },
-    off: <K extends keyof TransportEventMap>(type: K, listener?: (value: TransportEventMap[K]) => void) => {
+    off: <K extends keyof TransportEventMap>(
+      type: K,
+      listener?: (value: TransportEventMap[K]) => void,
+    ) => {
       if (listener) listeners.get(type)?.delete(listener as (value: unknown) => void);
       else listeners.delete(type);
     },
@@ -49,15 +77,16 @@ function deferredTransport(modelId = 'model') {
   const connect = transport.connect.bind(transport);
   const destroy = vi.spyOn(transport, 'destroy');
   let open: (() => void) | null = null;
-  transport.connect = (signal?: AbortSignal) => new Promise<void>((resolve, reject) => {
-    const abort = () => reject(new Error('Connection was aborted'));
-    if (signal?.aborted) return abort();
-    signal?.addEventListener('abort', abort, { once: true });
-    open = () => {
-      signal?.removeEventListener('abort', abort);
-      void connect(signal).then(resolve, reject);
-    };
-  });
+  transport.connect = (signal?: AbortSignal) =>
+    new Promise<void>((resolve, reject) => {
+      const abort = () => reject(new Error('Connection was aborted'));
+      if (signal?.aborted) return abort();
+      signal?.addEventListener('abort', abort, { once: true });
+      open = () => {
+        signal?.removeEventListener('abort', abort);
+        void connect(signal).then(resolve, reject);
+      };
+    });
   return { transport, destroy, open: () => open?.() };
 }
 
@@ -97,9 +126,13 @@ describe('RendererClient', () => {
 
     const stale = deferredTransport('stale-model');
     const latest = deferredTransport('latest-model');
-    const staleReplacement = client.replaceTransport(stale.transport, { requestInitialSync: false });
+    const staleReplacement = client.replaceTransport(stale.transport, {
+      requestInitialSync: false,
+    });
     const staleRejection = expect(staleReplacement).rejects.toThrow(/abort/i);
-    const latestReplacement = client.replaceTransport(latest.transport, { requestInitialSync: false });
+    const latestReplacement = client.replaceTransport(latest.transport, {
+      requestInitialSync: false,
+    });
     latest.open();
     await staleRejection;
     await latestReplacement;
@@ -115,9 +148,11 @@ describe('RendererClient', () => {
     const first = synchronousTransport();
     await client.connect(first, false);
     const next = deferredTransport();
-    first.disconnect = () => next.transport.emitMessage({
-      type: 'action_create', payload: { id: 'during-swap', label: 'During swap' },
-    });
+    first.disconnect = () =>
+      next.transport.emitMessage({
+        type: 'action_create',
+        payload: { id: 'during-swap', label: 'During swap' },
+      });
 
     const replacement = client.replaceTransport(next.transport, { requestInitialSync: false });
     next.open();
@@ -135,7 +170,9 @@ describe('RendererClient', () => {
     const destroyNext = vi.spyOn(next, 'destroy');
     first.disconnect = () => client.disconnect();
 
-    await expect(client.replaceTransport(next, { requestInitialSync: false })).rejects.toThrow(/cancelled/);
+    await expect(client.replaceTransport(next, { requestInitialSync: false })).rejects.toThrow(
+      /cancelled/,
+    );
 
     expect(client.renderer.attachedTransport).toBeNull();
     expect(destroyNext).toHaveBeenCalledOnce();
@@ -148,15 +185,29 @@ describe('RendererClient', () => {
     await client.connect(transport, false);
 
     const inventory = {
-      parameters: [], actions: [], envs: [], charts: [], monitors: [],
-      request_id: 'forged', model_id: 'other-model', instance_id: 'other-instance',
+      parameters: [],
+      actions: [],
+      envs: [],
+      charts: [],
+      monitors: [],
+      request_id: 'forged',
+      model_id: 'other-model',
+      instance_id: 'other-instance',
     };
     client.renderer.requestStateSync('actual-request', inventory);
 
-    expect(sent).toHaveBeenCalledWith({ type: 'state_sync', payload: {
-      request_id: 'actual-request', model_id: 'model',
-      parameters: [], actions: [], envs: [], charts: [], monitors: [],
-    } });
+    expect(sent).toHaveBeenCalledWith({
+      type: 'state_sync',
+      payload: {
+        request_id: 'actual-request',
+        model_id: 'model',
+        parameters: [],
+        actions: [],
+        envs: [],
+        charts: [],
+        monitors: [],
+      },
+    });
     client.disconnect();
   });
 
@@ -167,9 +218,15 @@ describe('RendererClient', () => {
     transport.send = (message) => {
       if (message.type !== 'state_sync') return;
       const requestId = (message.payload as { request_id: string }).request_id;
-      transport.emitMessage({ type: 'state_sync_begin', payload: {
-        request_id: requestId, model_id: 'model', instance_id: 'instance', mode: 'replace',
-      } });
+      transport.emitMessage({
+        type: 'state_sync_begin',
+        payload: {
+          request_id: requestId,
+          model_id: 'model',
+          instance_id: 'instance',
+          mode: 'replace',
+        },
+      });
       const action = { type: 'action_create', payload: { id: 'step', label: 'Step' } } as const;
       transport.emitMessage(action);
       transport.emitMessage(action);
@@ -181,9 +238,16 @@ describe('RendererClient', () => {
 
   it('waits for the host render barrier before returning an action result', async () => {
     let finishRender: (() => void) | null = null;
-    const session = new RendererSession({ run: { renderBarrier: {
-      wait: () => new Promise<void>((resolve) => { finishRender = resolve; }),
-    } } });
+    const session = new RendererSession({
+      run: {
+        renderBarrier: {
+          wait: () =>
+            new Promise<void>((resolve) => {
+              finishRender = resolve;
+            }),
+        },
+      },
+    });
     const client = new RendererClient({ session });
     const transport = synchronousTransport();
     await client.connect(transport);
@@ -191,14 +255,20 @@ describe('RendererClient', () => {
     const send = transport.send;
     transport.send = (message) => {
       if (message.type === 'action_invoke') {
-        transport.emitMessage({ type: 'action_result', payload: {
-          id: 'step', request_id: (message.payload as { request_id: string }).request_id,
-        } });
+        transport.emitMessage({
+          type: 'action_result',
+          payload: {
+            id: 'step',
+            request_id: (message.payload as { request_id: string }).request_id,
+          },
+        });
       } else send(message);
     };
 
     let returned = false;
-    const invocation = client.invokeAction('step').then(() => { returned = true; });
+    const invocation = client.invokeAction('step').then(() => {
+      returned = true;
+    });
     await Promise.resolve();
     expect(returned).toBe(false);
     expect(finishRender).toBeTypeOf('function');
@@ -216,8 +286,14 @@ describe('RendererClient', () => {
     transport.send = (message) => {
       if (message.type !== 'action_invoke') return;
       const requestId = (message.payload as { request_id: string }).request_id;
-      transport.emitMessage({ type: 'action_result', payload: { id: 'reset', request_id: requestId } });
-      transport.emitMessage({ type: 'action_result', payload: { id: 'step', request_id: requestId } });
+      transport.emitMessage({
+        type: 'action_result',
+        payload: { id: 'reset', request_id: requestId },
+      });
+      transport.emitMessage({
+        type: 'action_result',
+        payload: { id: 'step', request_id: requestId },
+      });
     };
 
     const { result } = await client.invokeAction('step');

@@ -1,14 +1,16 @@
-import { CreateStoreFunction } from "@/utils/zustand";
-import { create } from "zustand";
-
+import { CreateStoreFunction } from '@/utils/zustand';
+import { create } from 'zustand';
 
 export interface UpdateTriggerState {
   value: any;
   set: () => void;
   reset: () => void;
-};
+}
 
-export const createUpdateTriggerStoreFunction: CreateStoreFunction<UpdateTriggerState> = (set, get) => ({
+export const createUpdateTriggerStoreFunction: CreateStoreFunction<UpdateTriggerState> = (
+  set,
+  get,
+) => ({
   value: 0,
   set: () => {
     set({ value: get().value + 1 });
@@ -19,7 +21,6 @@ export const createUpdateTriggerStoreFunction: CreateStoreFunction<UpdateTrigger
 });
 
 export const createUpdateTriggerStore = () => {
-
   const useStore = create<UpdateTriggerState>(createUpdateTriggerStoreFunction);
 
   return useStore;

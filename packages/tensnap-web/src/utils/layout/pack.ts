@@ -64,13 +64,13 @@ class MaxRectsPacker {
     maxWidth: number,
     maxHeight: number,
     private padding: number,
-    private inPlace: boolean
+    private inPlace: boolean,
   ) {
     this.freeRectangles.push({
       x: 0,
       y: 0,
       width: maxWidth,
-      height: maxHeight
+      height: maxHeight,
     });
   }
 
@@ -91,7 +91,8 @@ class MaxRectsPacker {
 
         // 优先选择短边剩余最小的，其次是长边剩余最小的
         // 同时优先选择左上角的位置
-        const score = shortSideFit * 1000000 + longSideFit * 1000 + freeRect.y * 10 + freeRect.x * 0.1;
+        const score =
+          shortSideFit * 1000000 + longSideFit * 1000 + freeRect.y * 10 + freeRect.x * 0.1;
 
         if (score < bestScore) {
           bestScore = score;
@@ -114,7 +115,11 @@ class MaxRectsPacker {
     return placed;
   }
 
-  insertNearPosition(rect: PlacedRectangle, preferredX: number, preferredY: number): PlacedRectangle | null {
+  insertNearPosition(
+    rect: PlacedRectangle,
+    preferredX: number,
+    preferredY: number,
+  ): PlacedRectangle | null {
     const paddedWidth = rect.width + this.padding;
     const paddedHeight = rect.height + this.padding;
 
@@ -126,7 +131,7 @@ class MaxRectsPacker {
       if (freeRect.width >= paddedWidth && freeRect.height >= paddedHeight) {
         // 计算到原始位置的距离
         const distance = Math.sqrt(
-          Math.pow(freeRect.x - preferredX, 2) + Math.pow(freeRect.y - preferredY, 2)
+          Math.pow(freeRect.x - preferredX, 2) + Math.pow(freeRect.y - preferredY, 2),
         );
 
         // 优先选择距离最近的，距离相同时优先左上角
@@ -152,7 +157,12 @@ class MaxRectsPacker {
     return placed;
   }
 
-  private splitFreeNodeGuillotine(freeNode: FreeRectangle, usedWidth: number, usedHeight: number, placed: PlacedRectangle): void {
+  private splitFreeNodeGuillotine(
+    freeNode: FreeRectangle,
+    usedWidth: number,
+    usedHeight: number,
+    placed: PlacedRectangle,
+  ): void {
     // Partition once instead of repeatedly searching and splicing the free
     // list as it grows. Preserve survivor and split order.
     const survivors: FreeRectangle[] = [];
@@ -176,7 +186,7 @@ class MaxRectsPacker {
         x: freeNode.x + usedWidth,
         y: freeNode.y,
         width: freeNode.width - usedWidth,
-        height: usedHeight
+        height: usedHeight,
       });
     }
 
@@ -186,12 +196,17 @@ class MaxRectsPacker {
         x: freeNode.x,
         y: freeNode.y + usedHeight,
         width: freeNode.width,
-        height: freeNode.height - usedHeight
+        height: freeNode.height - usedHeight,
       });
     }
   }
 
-  private intersects(rect: FreeRectangle, placed: PlacedRectangle, placedPaddedWidth: number, placedPaddedHeight: number): boolean {
+  private intersects(
+    rect: FreeRectangle,
+    placed: PlacedRectangle,
+    placedPaddedWidth: number,
+    placedPaddedHeight: number,
+  ): boolean {
     return !(
       rect.x >= placed.left + placedPaddedWidth ||
       rect.x + rect.width <= placed.left ||
@@ -200,7 +215,12 @@ class MaxRectsPacker {
     );
   }
 
-  private splitRectByIntersection(rect: FreeRectangle, placed: PlacedRectangle, placedPaddedWidth: number, placedPaddedHeight: number): FreeRectangle[] {
+  private splitRectByIntersection(
+    rect: FreeRectangle,
+    placed: PlacedRectangle,
+    placedPaddedWidth: number,
+    placedPaddedHeight: number,
+  ): FreeRectangle[] {
     const result: FreeRectangle[] = [];
 
     // 左侧剩余
@@ -209,7 +229,7 @@ class MaxRectsPacker {
         x: rect.x,
         y: rect.y,
         width: Math.min(rect.width, placed.left - rect.x),
-        height: rect.height
+        height: rect.height,
       });
     }
 
@@ -218,8 +238,8 @@ class MaxRectsPacker {
       result.push({
         x: Math.max(rect.x, placed.left + placedPaddedWidth),
         y: rect.y,
-        width: (rect.x + rect.width) - Math.max(rect.x, placed.left + placedPaddedWidth),
-        height: rect.height
+        width: rect.x + rect.width - Math.max(rect.x, placed.left + placedPaddedWidth),
+        height: rect.height,
       });
     }
 
@@ -229,7 +249,7 @@ class MaxRectsPacker {
         x: rect.x,
         y: rect.y,
         width: rect.width,
-        height: Math.min(rect.height, placed.top - rect.y)
+        height: Math.min(rect.height, placed.top - rect.y),
       });
     }
 
@@ -239,17 +259,17 @@ class MaxRectsPacker {
         x: rect.x,
         y: Math.max(rect.y, placed.top + placedPaddedHeight),
         width: rect.width,
-        height: (rect.y + rect.height) - Math.max(rect.y, placed.top + placedPaddedHeight)
+        height: rect.y + rect.height - Math.max(rect.y, placed.top + placedPaddedHeight),
       });
     }
 
-    return result.filter(r => r.width > 0 && r.height > 0);
+    return result.filter((r) => r.width > 0 && r.height > 0);
   }
 
   private pruneFreeList(): void {
     // 移除被其他矩形完全包含的空闲矩形
     for (let i = 0; i < this.freeRectangles.length; i++) {
-      for (let j = i + 1; j < this.freeRectangles.length; ) {
+      for (let j = i + 1; j < this.freeRectangles.length;) {
         if (this.isContainedIn(this.freeRectangles[i], this.freeRectangles[j])) {
           this.freeRectangles.splice(i, 1);
           i--;
@@ -266,10 +286,7 @@ class MaxRectsPacker {
 
   private isContainedIn(a: FreeRectangle, b: FreeRectangle): boolean {
     return (
-      a.x >= b.x &&
-      a.y >= b.y &&
-      a.x + a.width <= b.x + b.width &&
-      a.y + a.height <= b.y + b.height
+      a.x >= b.x && a.y >= b.y && a.x + a.width <= b.x + b.width && a.y + a.height <= b.y + b.height
     );
   }
 
@@ -295,11 +312,12 @@ class MaxRectsPacker {
 function calculateSuggestedDimensions(
   rectangles: Rectangle[],
   targetAspectRatio: number | undefined,
-  padding: number
+  padding: number,
 ): { width: number; height: number } {
   if (rectangles.length === 0) return { width: 80, height: 60 };
 
-  const totalArea = rectangles.reduce((sum, r) => sum + (r.width + padding) * (r.height + padding), 0) * 1.2;
+  const totalArea =
+    rectangles.reduce((sum, r) => sum + (r.width + padding) * (r.height + padding), 0) * 1.2;
   const height = targetAspectRatio ? Math.ceil(Math.sqrt(totalArea / targetAspectRatio)) : 60;
   const width = targetAspectRatio ? Math.ceil(height * targetAspectRatio) : 80;
 
@@ -312,7 +330,7 @@ function calculateSuggestedDimensions(
 
   return {
     width: Math.max(width, maxWidth + padding * 2),
-    height: Math.max(height, maxHeight + padding * 2)
+    height: Math.max(height, maxHeight + padding * 2),
   };
 }
 
@@ -320,7 +338,7 @@ function normalizeOptions(rectangles: Rectangle[], options: PackingOptions): Nor
   const suggested = calculateSuggestedDimensions(
     rectangles,
     options.targetAspectRatio,
-    options.padding ?? 10
+    options.padding ?? 10,
   );
 
   const [paddingBorderY = 0, paddingBorderX = 0] = Array.isArray(options.paddingBorder)
@@ -359,7 +377,7 @@ export function groupRectanglesByType(rectangles: Rectangle[]): Rectangle[] {
 export function calculateBounds(
   rectangles: PlacedRectangle[],
   paddingBorderX = 0,
-  paddingBorderY = 0
+  paddingBorderY = 0,
 ): { width: number; height: number } {
   if (rectangles.length === 0) return { width: paddingBorderX, height: paddingBorderY };
 
@@ -377,38 +395,43 @@ export function calculateBounds(
 
 // #region Core Packing Functions
 
-function sortRectangles(rects: Rectangle[], sortBy: 'area' | 'position', groupByType: boolean, padding: number): Rectangle[] {
+function sortRectangles(
+  rects: Rectangle[],
+  sortBy: 'area' | 'position',
+  groupByType: boolean,
+  padding: number,
+): Rectangle[] {
   let sorted = [...rects];
 
   if (sortBy === 'area') {
     // 按面积降序排列，面积相同时优先放置正方形（比例接近1的）
     // 为了保证稳定性，添加索引作为最后的排序依据
     const indexed = sorted.map((rect, idx) => ({ rect, idx }));
-    
+
     indexed.sort((a, b) => {
       const areaA = a.rect.width * a.rect.height;
       const areaB = b.rect.width * b.rect.height;
       if (areaA !== areaB) return areaB - areaA;
-      
+
       const ratioA = Math.min(a.rect.width, a.rect.height) / Math.max(a.rect.width, a.rect.height);
       const ratioB = Math.min(b.rect.width, b.rect.height) / Math.max(b.rect.width, b.rect.height);
       if (Math.abs(ratioA - ratioB) > 0.001) return ratioB - ratioA;
-      
+
       // 如果groupByType，按类型排序
       if (groupByType) {
         const typeCompare = a.rect.type.localeCompare(b.rect.type);
         if (typeCompare !== 0) return typeCompare;
       }
-      
+
       // 保持原始顺序以确保稳定性
       return a.idx - b.idx;
     });
-    
-    sorted = indexed.map(item => item.rect);
+
+    sorted = indexed.map((item) => item.rect);
   } else {
     // 按位置排序，添加索引保证稳定性
     const indexed = sorted.map((rect, idx) => ({ rect, idx }));
-    
+
     indexed.sort((a, b) => {
       const topA = (a.rect as PlacedRectangle).top ?? 0;
       const topB = (b.rect as PlacedRectangle).top ?? 0;
@@ -423,8 +446,8 @@ function sortRectangles(rects: Rectangle[], sortBy: 'area' | 'position', groupBy
       if (Math.abs(topA - topB) < 0.001) return a.idx - b.idx;
       return topA - topB;
     });
-    
-    sorted = indexed.map(item => item.rect);
+
+    sorted = indexed.map((item) => item.rect);
   }
 
   return sorted;
@@ -434,7 +457,7 @@ function packWithMaxRects(
   rectangles: Rectangle[],
   options: NormalizedOptions,
   sortBy: 'area' | 'position',
-  preservePosition: boolean
+  preservePosition: boolean,
 ): { placed: PlacedRectangle[]; actualWidth: number; actualHeight: number } {
   const sorted = sortRectangles(rectangles, sortBy, options.groupByType, options.padding);
   const usePositionAware = preservePosition && sortBy === 'position';
@@ -472,7 +495,11 @@ function packWithMaxRects(
     } else {
       for (const rect of sorted) {
         const placed = usePositionAware
-          ? packer.insertNearPosition(rect as PlacedRectangle, (rect as PlacedRectangle).left ?? 0, (rect as PlacedRectangle).top ?? 0)
+          ? packer.insertNearPosition(
+              rect as PlacedRectangle,
+              (rect as PlacedRectangle).left ?? 0,
+              (rect as PlacedRectangle).top ?? 0,
+            )
           : packer.insert(rect);
 
         if (!placed) {
@@ -501,7 +528,7 @@ function packWithMaxRects(
   return {
     placed: placedRects,
     actualWidth: bounds.width,
-    actualHeight: bounds.height
+    actualHeight: bounds.height,
   };
 }
 
@@ -515,16 +542,16 @@ export function pack(rectangles: Rectangle[], rawOptions: PackingOptions = {}): 
       rectangles: [],
       suggestedContainerWidth: rawOptions.containerWidth || 80,
       suggestedContainerHeight: rawOptions.containerHeight || 60,
-      actualBounds: { width: 0, height: 0 }
+      actualBounds: { width: 0, height: 0 },
     };
   }
 
   const options = normalizeOptions(rectangles, rawOptions);
   const sortBy = options.sortBy || 'area';
-  const preservePosition = options.preservePosition ?? (sortBy === 'position');
-  
+  const preservePosition = options.preservePosition ?? sortBy === 'position';
+
   // 创建副本以避免修改原数据（除非 inPlace 模式）
-  const processedRects = options.inPlace ? rectangles : rectangles.map(r => ({ ...r }));
+  const processedRects = options.inPlace ? rectangles : rectangles.map((r) => ({ ...r }));
 
   // 在 preservePosition 模式下，先移除已有的 paddingBorder 偏移
   if (preservePosition && (options.paddingBorderX || options.paddingBorderY)) {
@@ -538,12 +565,7 @@ export function pack(rectangles: Rectangle[], rawOptions: PackingOptions = {}): 
     }
   }
 
-  const { placed } = packWithMaxRects(
-    processedRects,
-    options,
-    sortBy,
-    preservePosition
-  );
+  const { placed } = packWithMaxRects(processedRects, options, sortBy, preservePosition);
 
   // 应用 paddingBorder 偏移
   if (options.paddingBorderX || options.paddingBorderY) {
@@ -553,23 +575,13 @@ export function pack(rectangles: Rectangle[], rawOptions: PackingOptions = {}): 
     }
   }
 
-  const actualBounds = calculateBounds(
-    placed,
-    options.paddingBorderX,
-    options.paddingBorderY
-  );
+  const actualBounds = calculateBounds(placed, options.paddingBorderX, options.paddingBorderY);
 
   return {
     rectangles: placed,
-    suggestedContainerWidth: Math.ceil(Math.max(
-      options.containerWidth,
-      actualBounds.width
-    )),
-    suggestedContainerHeight: Math.ceil(Math.max(
-      options.containerHeight,
-      actualBounds.height
-    )),
-    actualBounds
+    suggestedContainerWidth: Math.ceil(Math.max(options.containerWidth, actualBounds.width)),
+    suggestedContainerHeight: Math.ceil(Math.max(options.containerHeight, actualBounds.height)),
+    actualBounds,
   };
 }
 

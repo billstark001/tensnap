@@ -34,9 +34,9 @@
  * Only `capture` (not `once`, `passive`, etc.) affects listener identity.
  */
 function resolveCapture(
-  options?: boolean | AddEventListenerOptions | EventListenerOptions
+  options?: boolean | AddEventListenerOptions | EventListenerOptions,
 ): boolean {
-  if (typeof options === "boolean") return options;
+  if (typeof options === 'boolean') return options;
   return options?.capture ?? false;
 }
 
@@ -46,9 +46,9 @@ function resolveCapture(
 function invokeListener(
   listener: EventListenerOrEventListenerObject,
   event: Event,
-  context: EventTarget
+  context: EventTarget,
 ): void {
-  if (typeof listener === "function") {
+  if (typeof listener === 'function') {
     listener.call(context, event);
   } else {
     listener.handleEvent(event);
@@ -98,7 +98,7 @@ export class LazyEventTarget extends EventTarget {
     string, // event type
     Map<
       EventListenerOrEventListenerObject, // original listener
-      Map<boolean, ListenerRecord>         // capture → record
+      Map<boolean, ListenerRecord> // capture → record
     >
   >();
 
@@ -110,7 +110,7 @@ export class LazyEventTarget extends EventTarget {
   #getRecord(
     type: string,
     listener: EventListenerOrEventListenerObject,
-    capture: boolean
+    capture: boolean,
   ): ListenerRecord | undefined {
     return this.#registry.get(type)?.get(listener)?.get(capture);
   }
@@ -119,7 +119,7 @@ export class LazyEventTarget extends EventTarget {
     type: string,
     listener: EventListenerOrEventListenerObject,
     capture: boolean,
-    record: ListenerRecord
+    record: ListenerRecord,
   ): void {
     let byListener = this.#registry.get(type);
     if (!byListener) {
@@ -141,7 +141,7 @@ export class LazyEventTarget extends EventTarget {
   #deleteRecord(
     type: string,
     listener: EventListenerOrEventListenerObject,
-    capture: boolean
+    capture: boolean,
   ): boolean {
     const byListener = this.#registry.get(type);
     if (!byListener) return false;
@@ -173,7 +173,7 @@ export class LazyEventTarget extends EventTarget {
   #unregister(
     type: string,
     listener: EventListenerOrEventListenerObject,
-    capture: boolean
+    capture: boolean,
   ): ListenerRecord | undefined {
     const record = this.#getRecord(type, listener, capture);
     if (!record) return undefined;
@@ -189,15 +189,15 @@ export class LazyEventTarget extends EventTarget {
   override addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | AddEventListenerOptions
+    options?: boolean | AddEventListenerOptions,
   ): void {
     // Per spec, a null/undefined listener is silently ignored.
     if (listener == null) return;
 
     const capture = resolveCapture(options);
-    const opts = typeof options === "object" ? options : undefined;
+    const opts = typeof options === 'object' ? options : undefined;
     const signal = opts?.signal;
-    const once   = opts?.once ?? false;
+    const once = opts?.once ?? false;
 
     // Per spec, an already-aborted signal makes the call a no-op.
     if (signal?.aborted) return;
@@ -243,9 +243,8 @@ export class LazyEventTarget extends EventTarget {
           // Note: no super.removeEventListener() needed — native handles it.
         };
         // once: true so the handler is auto-removed after the signal fires.
-        signal.addEventListener("abort", abortHandler, { once: true });
-        const cleanup = () =>
-          signal.removeEventListener("abort", abortHandler);
+        signal.addEventListener('abort', abortHandler, { once: true });
+        const cleanup = () => signal.removeEventListener('abort', abortHandler);
         abortCleanupRef.fn = cleanup;
         record.abortCleanup = cleanup;
       }
@@ -262,9 +261,8 @@ export class LazyEventTarget extends EventTarget {
         const abortHandler = () => {
           this.#unregister(type, listener, capture);
         };
-        signal.addEventListener("abort", abortHandler, { once: true });
-        record.abortCleanup = () =>
-          signal.removeEventListener("abort", abortHandler);
+        signal.addEventListener('abort', abortHandler, { once: true });
+        record.abortCleanup = () => signal.removeEventListener('abort', abortHandler);
       }
 
       this.#setRecord(type, listener, capture, record);
@@ -276,7 +274,7 @@ export class LazyEventTarget extends EventTarget {
   override removeEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    options?: boolean | EventListenerOptions
+    options?: boolean | EventListenerOptions,
   ): void {
     if (listener == null) return;
 
@@ -318,11 +316,7 @@ export class LazyEventTarget extends EventTarget {
    *          otherwise the return value of dispatchEvent() (false if any
    *          listener called preventDefault(), true otherwise).
    */
-  dispatchLazy(
-    type: string,
-    factory: () => Event,
-    opts: DispatchLazyOptions = {}
-  ): boolean {
+  dispatchLazy(type: string, factory: () => Event, opts: DispatchLazyOptions = {}): boolean {
     if (!this.hasListeners(type)) return false;
     try {
       return this.dispatchEvent(factory());
@@ -345,14 +339,12 @@ export class LazyEventTarget extends EventTarget {
   dispatchLazyCustom<T = unknown>(
     type: string,
     detailFactory: () => T,
-    init?: Omit<CustomEventInit<T>, "detail">,
-    opts: DispatchLazyOptions = {}
+    init?: Omit<CustomEventInit<T>, 'detail'>,
+    opts: DispatchLazyOptions = {},
   ): boolean {
     if (!this.hasListeners(type)) return false;
     try {
-      return this.dispatchEvent(
-        new CustomEvent<T>(type, { ...init, detail: detailFactory() })
-      );
+      return this.dispatchEvent(new CustomEvent<T>(type, { ...init, detail: detailFactory() }));
     } catch (err) {
       if (opts.throwOnError) throw err;
       return false;

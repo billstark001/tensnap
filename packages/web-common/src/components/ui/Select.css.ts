@@ -1,5 +1,5 @@
-import { vars } from "../../styles/global.css";
-import { globalStyle, style } from "@vanilla-extract/css";
+import { vars } from '../../styles/global.css';
+import { globalStyle, style } from '@vanilla-extract/css';
 
 export const selectTrigger = style({
   display: 'flex',
@@ -13,7 +13,7 @@ export const selectTrigger = style({
   fontSize: vars.fontSize.sm,
   cursor: 'pointer',
   transition: 'border-color 0.2s ease',
-  
+
   selectors: {
     '&:focus': {
       outline: 'none',
@@ -36,7 +36,7 @@ export const selectContent = style({
   overflow: 'hidden',
   position: 'relative',
   zIndex: 50,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -45,14 +45,12 @@ export const selectContent = style({
   },
 });
 
-
 globalStyle('[data-radix-popper-content-wrapper]', {
   position: 'absolute',
   top: '0',
   left: '0',
   willChange: 'transform',
 });
-
 
 export const selectItem = style({
   fontSize: vars.fontSize.sm,

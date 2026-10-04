@@ -16,10 +16,7 @@ export interface FileOperationsContextValue {
 }
 
 export const useFileOperations = (): FileOperationsContextValue => {
-  const {
-    openFile,
-    saveFileAs,
-  } = useFileSystem();
+  const { openFile, saveFileAs } = useFileSystem();
 
   const withLoading = useWithLoading();
   const toast = useToast();
@@ -76,10 +73,12 @@ export const useFileOperations = (): FileOperationsContextValue => {
       const file = await saveFileAs({
         title: t`Save As`,
         defaultPath: `project.${extension}`,
-        filters: [{
-          name: saveFormat === 'msgpack' ? 'TenSnap MessagePack project' : 'TenSnap JSON project',
-          extensions: [extension],
-        }],
+        filters: [
+          {
+            name: saveFormat === 'msgpack' ? 'TenSnap MessagePack project' : 'TenSnap JSON project',
+            extensions: [extension],
+          },
+        ],
       });
       if (file) {
         await withLoading(() => save(undefined, file.path));
@@ -89,7 +88,6 @@ export const useFileOperations = (): FileOperationsContextValue => {
       toast.error(t`Failed to save file`, String(error));
     }
   }, [withLoading, saveFileAs, save, saveFormat, toast]);
-
 
   const contextValue: FileOperationsContextValue = {
     canSaveFile,

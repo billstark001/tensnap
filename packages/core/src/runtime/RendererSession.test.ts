@@ -1,4 +1,9 @@
-import type { ISimulatorTransport, TransportConnectionState, TransportEventHandler, TransportEventMap } from '../transport';
+import type {
+  ISimulatorTransport,
+  TransportConnectionState,
+  TransportEventHandler,
+  TransportEventMap,
+} from '../transport';
 import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
@@ -14,13 +19,23 @@ function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTranspor
     connect: async () => {},
     disconnect: () => {},
     destroy: () => {},
-    on: <K extends keyof TransportEventMap>(_type: K, _handler: TransportEventHandler<TransportEventMap[K]>) => {},
-    off: <K extends keyof TransportEventMap>(_type: K, _handler?: TransportEventHandler<TransportEventMap[K]>) => {},
+    on: <K extends keyof TransportEventMap>(
+      _type: K,
+      _handler: TransportEventHandler<TransportEventMap[K]>,
+    ) => {},
+    off: <K extends keyof TransportEventMap>(
+      _type: K,
+      _handler?: TransportEventHandler<TransportEventMap[K]>,
+    ) => {},
     send: (message) => sent.push(message),
   };
 }
 
-function announce(session: RendererSession, instanceId = 'test-instance', capabilities: string[] = []): void {
+function announce(
+  session: RendererSession,
+  instanceId = 'test-instance',
+  capabilities: string[] = [],
+): void {
   session.handleIncoming({
     type: 'simulator_info',
     payload: {
@@ -60,14 +75,25 @@ describe('RendererSession', () => {
     session.attachTransport(createTransport([]));
     announce(session);
     const requestId = session.requestStateSync();
-    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: requestId,
+        model_id: 'test-model',
+        instance_id: 'test-instance',
+        mode: 'replace',
+      },
+    });
     session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
     session.handleIncoming({ type: 'metadata_update', payload: { time: 4 } });
 
     expect(commits).toHaveLength(0);
     expect(session.scenario.getEnvironment('main')).toBeUndefined();
 
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: '1' },
+    });
 
     expect(commits).toEqual([
       expect.objectContaining({
@@ -90,12 +116,21 @@ describe('RendererSession', () => {
     session.attachTransport(createTransport([]));
     announce(session);
     const requestId = session.requestStateSync('duplicate-create');
-    session.handleIncoming({ type: 'state_sync_begin', payload: {
-      request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace',
-    } });
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: requestId,
+        model_id: 'test-model',
+        instance_id: 'test-instance',
+        mode: 'replace',
+      },
+    });
     session.handleIncoming({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
     session.handleIncoming({ type: 'action_create', payload: { id: 'step', label: 'Duplicate' } });
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: '1' },
+    });
 
     expect(commits).not.toHaveBeenCalled();
     expect(session.scenario.getEnvironment('committed')).toBeDefined();
@@ -109,32 +144,65 @@ describe('RendererSession', () => {
     announce(session);
     const apply = session.scenario.apply.bind(session.scenario);
     apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     apply({
       type: 'env_layer_create',
       payload: {
-        env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
-        dependency_layer_ids: { agent: 'agents' }, metadata: { on_state_sync: 'preserve' },
+        env_id: 'main',
+        layer_id: 'trails',
+        layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'agents' },
+        metadata: { on_state_sync: 'preserve' },
       },
     });
-    apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
-    apply({ type: 'item_update', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } });
+    apply({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] },
+    });
+    apply({
+      type: 'item_update',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] },
+    });
 
     const requestId = session.requestStateSync('replace-trajectories');
-    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: requestId,
+        model_id: 'test-model',
+        instance_id: 'test-instance',
+        mode: 'replace',
+      },
+    });
     session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    session.handleIncoming({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    session.handleIncoming({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     session.handleIncoming({
       type: 'env_layer_create',
       payload: {
-        env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
-        dependency_layer_ids: { agent: 'agents' }, metadata: { on_state_sync: 'preserve' },
+        env_id: 'main',
+        layer_id: 'trails',
+        layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'agents' },
+        metadata: { on_state_sync: 'preserve' },
       },
     });
-    session.handleIncoming({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } });
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '2' } });
+    session.handleIncoming({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] },
+    });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: '2' },
+    });
 
-    const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!.storage as import('../environment').TrajectoryStorage;
+    const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!
+      .storage as import('../environment').TrajectoryStorage;
     expect(storage.dump().trajectories[0]?.points).toEqual([
       expect.objectContaining({ x: 0, y: 0 }),
       expect.objectContaining({ x: 1, y: 1 }),
@@ -148,30 +216,55 @@ describe('RendererSession', () => {
     announce(session);
     const apply = session.scenario.apply.bind(session.scenario);
     apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
-    for (const [layerId, onReset] of [['clear-trails', 'clear'], ['kept-trails', 'preserve']] as const) {
+    apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
+    for (const [layerId, onReset] of [
+      ['clear-trails', 'clear'],
+      ['kept-trails', 'preserve'],
+    ] as const) {
       apply({
         type: 'env_layer_create',
         payload: {
-          env_id: 'main', layer_id: layerId, layer_type: 'trajectory',
-          dependency_layer_ids: { agent: 'agents' }, metadata: { on_reset: onReset },
+          env_id: 'main',
+          layer_id: layerId,
+          layer_type: 'trajectory',
+          dependency_layer_ids: { agent: 'agents' },
+          metadata: { on_reset: onReset },
         },
       });
     }
     for (const layerId of ['clear-trails', 'kept-trails']) {
-      apply({ type: 'item_create', payload: { env_id: 'main', layer_id: layerId, items: [{ id: 'a', width: 3 }] } });
+      apply({
+        type: 'item_create',
+        payload: { env_id: 'main', layer_id: layerId, items: [{ id: 'a', width: 3 }] },
+      });
     }
-    apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
+    apply({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] },
+    });
 
     session.run.requestReset('reset');
     const requestId = (sent[sent.length - 1]!.payload as { request_id: string }).request_id;
     apply({ type: 'item_delete', payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } });
-    apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 5, y: 5 }] } });
-    session.handleIncoming({ type: 'action_result', payload: { id: 'reset', request_id: requestId } });
+    apply({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 5, y: 5 }] },
+    });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'reset', request_id: requestId },
+    });
 
-    const clearStorage = session.scenario.getEnvironment('main')!.layers.get('clear-trails')!.storage as import('../environment').TrajectoryStorage;
-    const keptStorage = session.scenario.getEnvironment('main')!.layers.get('kept-trails')!.storage as import('../environment').TrajectoryStorage;
-    expect(clearStorage.dump().trajectories[0]?.points).toEqual([expect.objectContaining({ x: 5, y: 5 })]);
+    const clearStorage = session.scenario.getEnvironment('main')!.layers.get('clear-trails')!
+      .storage as import('../environment').TrajectoryStorage;
+    const keptStorage = session.scenario.getEnvironment('main')!.layers.get('kept-trails')!
+      .storage as import('../environment').TrajectoryStorage;
+    expect(clearStorage.dump().trajectories[0]?.points).toEqual([
+      expect.objectContaining({ x: 5, y: 5 }),
+    ]);
     expect(keptStorage.dump().trajectories[0]?.segments).toEqual([
       [expect.objectContaining({ x: 0, y: 0 })],
       [expect.objectContaining({ x: 5, y: 5 })],
@@ -189,21 +282,31 @@ describe('RendererSession', () => {
       announce(session);
       const apply = session.scenario.apply.bind(session.scenario);
       apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-      apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+      apply({
+        type: 'env_layer_create',
+        payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+      });
       apply({
         type: 'env_layer_create',
         payload: {
-          env_id: 'main', layer_id: 'trails', layer_type: 'trajectory',
-          dependency_layer_ids: { agent: 'agents' }, metadata: { on_reset: 'preserve' },
+          env_id: 'main',
+          layer_id: 'trails',
+          layer_type: 'trajectory',
+          dependency_layer_ids: { agent: 'agents' },
+          metadata: { on_reset: 'preserve' },
         },
       });
-      apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } });
+      apply({
+        type: 'item_create',
+        payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] },
+      });
 
       session.run.requestReset('reset-timeout');
       await vi.advanceTimersByTimeAsync(10);
       apply({ type: 'item_delete', payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } });
 
-      const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!.storage as import('../environment').TrajectoryStorage;
+      const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!
+        .storage as import('../environment').TrajectoryStorage;
       expect(storage.dump().trajectories).toEqual([]);
     } finally {
       vi.useRealTimers();
@@ -218,13 +321,26 @@ describe('RendererSession', () => {
     const requestId = session.requestStateSync('sync-with-queued-action');
     session.run.requestAction('step');
 
-    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: requestId,
+        model_id: 'test-model',
+        instance_id: 'test-instance',
+        mode: 'replace',
+      },
+    });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: '1' },
+    });
 
-    expect(sent).toContainEqual(expect.objectContaining({
-      type: 'action_invoke',
-      payload: expect.objectContaining({ id: 'step' }),
-    }));
+    expect(sent).toContainEqual(
+      expect.objectContaining({
+        type: 'action_invoke',
+        payload: expect.objectContaining({ id: 'step' }),
+      }),
+    );
   });
 
   it('treats a requested state sync as an active transaction before begin', () => {
@@ -246,7 +362,10 @@ describe('RendererSession', () => {
     announce(session);
 
     const requestId = session.requestStateSync('sync-1');
-    session.handleIncoming({ type: 'error', payload: { code: 'busy', message: 'Try again.', request_id: requestId } });
+    session.handleIncoming({
+      type: 'error',
+      payload: { code: 'busy', message: 'Try again.', request_id: requestId },
+    });
 
     expect(() => session.requestStateSync('sync-2')).not.toThrow();
   });
@@ -257,7 +376,10 @@ describe('RendererSession', () => {
     announce(session, 'test-instance', ['scene.restore.projected']);
 
     const requestId = session.requestSceneRestore({ time: 2 });
-    session.handleIncoming({ type: 'error', payload: { code: 'busy', message: 'Try again.', request_id: requestId } });
+    session.handleIncoming({
+      type: 'error',
+      payload: { code: 'busy', message: 'Try again.', request_id: requestId },
+    });
 
     expect(() => session.requestSceneRestore({ time: 3 })).not.toThrow();
   });
@@ -267,22 +389,43 @@ describe('RendererSession', () => {
     session.attachTransport(createTransport([]));
     announce(session, 'test-instance', ['scene.restore.projected']);
     session.scenario.apply({ type: 'env_create', payload: { id: 'world', type: '2d' } });
-    session.scenario.apply({ type: 'env_layer_create', payload: { env_id: 'world', layer_id: 'agents-a', layer_type: 'agent' } });
-    session.scenario.apply({ type: 'env_layer_create', payload: { env_id: 'world', layer_id: 'agents-b', layer_type: 'agent' } });
     session.scenario.apply({
       type: 'env_layer_create',
-      payload: { env_id: 'world', layer_id: 'edges', layer_type: 'edge', dependency_layer_ids: { agent: 'agents-a' } },
+      payload: { env_id: 'world', layer_id: 'agents-a', layer_type: 'agent' },
+    });
+    session.scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'world', layer_id: 'agents-b', layer_type: 'agent' },
+    });
+    session.scenario.apply({
+      type: 'env_layer_create',
+      payload: {
+        env_id: 'world',
+        layer_id: 'edges',
+        layer_type: 'edge',
+        dependency_layer_ids: { agent: 'agents-a' },
+      },
     });
 
-    expect(() => session.requestSceneRestore({
-      envs: [{
-        id: 'world', type: '2d', layers: [
-          { layer_id: 'agents-a', layer_type: 'agent' },
-          { layer_id: 'agents-b', layer_type: 'agent' },
-          { layer_id: 'edges', layer_type: 'edge', dependency_layer_ids: { agent: 'agents-b' } },
+    expect(() =>
+      session.requestSceneRestore({
+        envs: [
+          {
+            id: 'world',
+            type: '2d',
+            layers: [
+              { layer_id: 'agents-a', layer_type: 'agent' },
+              { layer_id: 'agents-b', layer_type: 'agent' },
+              {
+                layer_id: 'edges',
+                layer_type: 'edge',
+                dependency_layer_ids: { agent: 'agents-b' },
+              },
+            ],
+          },
         ],
-      }],
-    })).toThrow('topology');
+      }),
+    ).toThrow('topology');
   });
 
   it('forgets identity before a project source is replaced', () => {
@@ -291,8 +434,19 @@ describe('RendererSession', () => {
     session.attachTransport(createTransport(firstMessages));
     announce(session);
     const firstSync = session.requestStateSync('first-sync');
-    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: firstSync, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: firstSync, state_revision: '1' } });
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: firstSync,
+        model_id: 'test-model',
+        instance_id: 'test-instance',
+        mode: 'replace',
+      },
+    });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: firstSync, state_revision: '1' },
+    });
 
     session.detachTransport();
     session.resetSimulatorIdentity();
@@ -311,10 +465,12 @@ describe('RendererSession', () => {
 
     expect(session.identityStatus).toBe('matching');
     expect(() => session.requestStateSync('replacement-sync')).not.toThrow();
-    expect(secondMessages).toContainEqual(expect.objectContaining({
-      type: 'state_sync',
-      payload: expect.objectContaining({ model_id: 'replacement-model' }),
-    }));
+    expect(secondMessages).toContainEqual(
+      expect.objectContaining({
+        type: 'state_sync',
+        payload: expect.objectContaining({ model_id: 'replacement-model' }),
+      }),
+    );
   });
 
   it('blocks state sync when a persisted project identity does not match the handshake', () => {
@@ -355,30 +511,57 @@ describe('RendererSession', () => {
     expect(session.modelIdentity).toBeNull();
 
     const requestId = session.requestStateSync('legacy-sync');
-    expect(sent).toContainEqual(expect.objectContaining({
-      type: 'state_sync', payload: expect.objectContaining({ request_id: requestId, model_id: 'legacy' }),
-    }));
+    expect(sent).toContainEqual(
+      expect.objectContaining({
+        type: 'state_sync',
+        payload: expect.objectContaining({ request_id: requestId, model_id: 'legacy' }),
+      }),
+    );
     session.handleIncoming({
       type: 'state_sync_begin',
-      payload: { request_id: requestId, model_id: 'legacy', instance_id: 'legacy', mode: 'replace' },
+      payload: {
+        request_id: requestId,
+        model_id: 'legacy',
+        instance_id: 'legacy',
+        mode: 'replace',
+      },
     });
     session.handleIncoming({ type: 'env_create', payload: { id: 'legacy-world', type: '2d' } });
-    session.handleIncoming({ type: 'env_layer_create', payload: { env_id: 'legacy-world', layer_id: 'agents', layer_type: 'agent' } });
-    session.handleIncoming({ type: 'item_create', payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 1 }] } });
-    session.handleIncoming({ type: 'item_create', payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 2 }] } });
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: 'legacy' } });
+    session.handleIncoming({
+      type: 'env_layer_create',
+      payload: { env_id: 'legacy-world', layer_id: 'agents', layer_type: 'agent' },
+    });
+    session.handleIncoming({
+      type: 'item_create',
+      payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 1 }] },
+    });
+    session.handleIncoming({
+      type: 'item_create',
+      payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 2 }] },
+    });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: 'legacy' },
+    });
 
     expect(session.scenario.getEnvironment('legacy-world')).toBeDefined();
-    const agents = session.scenario.getEnvironment('legacy-world')!.layers.get('agents')!.storage as import('../environment').AgentStorage;
+    const agents = session.scenario.getEnvironment('legacy-world')!.layers.get('agents')!
+      .storage as import('../environment').AgentStorage;
     expect(agents.getAgent('a')?.x).toBe(2);
-    session.handleIncoming({ type: 'item_create', payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 3 }] } });
+    session.handleIncoming({
+      type: 'item_create',
+      payload: { env_id: 'legacy-world', layer_id: 'agents', items: [{ id: 'a', x: 3 }] },
+    });
     expect(agents.getAgent('a')?.x).toBe(3);
     expect(session.modelIdentity).toBeNull();
   });
 
   it('does not bind a persisted project to an unverified legacy simulator', () => {
     const session = new RendererSession();
-    session.setExpectedSimulatorIdentity({ model_id: 'saved-model', instance_id: 'saved-instance' });
+    session.setExpectedSimulatorIdentity({
+      model_id: 'saved-model',
+      instance_id: 'saved-instance',
+    });
     session.attachTransport(createTransport([]));
     session.beginLegacyProtocol();
 
@@ -388,7 +571,10 @@ describe('RendererSession', () => {
 
   it('treats a persisted state-schema mismatch as a model mismatch', () => {
     const session = new RendererSession();
-    session.setExpectedSimulatorIdentity({ model_id: 'test-model', state_schema_version: 'old-schema' });
+    session.setExpectedSimulatorIdentity({
+      model_id: 'test-model',
+      state_schema_version: 'old-schema',
+    });
     session.handleIncoming({
       type: 'simulator_info',
       payload: {
@@ -494,7 +680,10 @@ describe('RendererSession', () => {
 
     await expect(session.captureScene()).rejects.toThrow('send failed');
     expect(() => session.requestSceneCapture('capture-after-send-failure')).not.toThrow();
-    expect(sent).toContainEqual({ type: 'scene_capture', payload: { request_id: 'capture-after-send-failure' } });
+    expect(sent).toContainEqual({
+      type: 'scene_capture',
+      payload: { request_id: 'capture-after-send-failure' },
+    });
   });
 
   it('sends asset_sync through the same optimistic control path', () => {
@@ -564,7 +753,10 @@ describe('RendererSession', () => {
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
     announce(session);
-    session.scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    session.scenario.apply({
+      type: 'param_create',
+      payload: { id: 'density', label: 'Density', type: 'number', value: 1 },
+    });
     const optimistic: unknown[] = [];
     session.scenario.addEventListener('param:optimistic', (event) => {
       optimistic.push((event as CustomEvent).detail);
@@ -577,8 +769,12 @@ describe('RendererSession', () => {
     expect(sent).toContainEqual({ type: 'param_change', payload: { id: 'density', value: 3 } });
     expect(session.scenario.getParameter('density')?.value).toBe(3);
     expect(optimistic).toEqual([{ id: 'density', value: 3 }]);
-    expect(snapshot.frames[0]?.controls).toEqual([{ type: 'param_change', payload: { id: 'density', value: 3 } }]);
-    expect(snapshot.frames[0]?.messages.some((message) => message.type === 'param_sync')).toBe(false);
+    expect(snapshot.frames[0]?.controls).toEqual([
+      { type: 'param_change', payload: { id: 'density', value: 3 } },
+    ]);
+    expect(snapshot.frames[0]?.messages.some((message) => message.type === 'param_sync')).toBe(
+      false,
+    );
   });
 
   it('starts run recording before the first dispatch and completes a seekable snapshot', () => {
@@ -591,7 +787,12 @@ describe('RendererSession', () => {
     session.attachTransport(createTransport(sent));
     announce(session);
 
-    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: { maxSteps: 10, maxBytes: 1_000_000 } });
+    session.run.start({
+      mode: 'bounded',
+      actionId: 'step',
+      maxSteps: 1,
+      record: { maxSteps: 10, maxBytes: 1_000_000 },
+    });
     const tickId = (sent[0].payload as { request_id: string }).request_id;
     session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
     session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: tickId } });
@@ -607,14 +808,19 @@ describe('RendererSession', () => {
     session.attachTransport(createTransport(sent));
     announce(session, 'test-instance', ['scene.restore.projected']);
 
-    expect(() => session.requestSceneRestore({ time: 2, checkpoint: { encoding: 'raw', data: 'AQ==' } })).toThrow(/checkpoint/);
+    expect(() =>
+      session.requestSceneRestore({ time: 2, checkpoint: { encoding: 'raw', data: 'AQ==' } }),
+    ).toThrow(/checkpoint/);
     const requestId = session.requestSceneRestore({ time: 2 });
     expect(sent[sent.length - 1]).toEqual(expect.objectContaining({ type: 'scene_restore' }));
 
     session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: requestId } });
     session.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
     expect(session.scenario.metadata.time).toBeUndefined();
-    session.handleIncoming({ type: 'scene_restore_end', payload: { request_id: requestId, status: 'ok' } });
+    session.handleIncoming({
+      type: 'scene_restore_end',
+      payload: { request_id: requestId, status: 'ok' },
+    });
     expect(session.scenario.metadata.time).toBe(2);
   });
 
@@ -624,8 +830,14 @@ describe('RendererSession', () => {
     announce(session, 'test-instance', ['scene.restore.projected']);
     const requestId = session.requestSceneRestore({ time: 3 });
     session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: requestId } });
-    session.handleIncoming({ type: 'chart_create', payload: { id: 'forbidden', label: 'Forbidden' } });
-    session.handleIncoming({ type: 'scene_restore_end', payload: { request_id: requestId, status: 'ok' } });
+    session.handleIncoming({
+      type: 'chart_create',
+      payload: { id: 'forbidden', label: 'Forbidden' },
+    });
+    session.handleIncoming({
+      type: 'scene_restore_end',
+      payload: { request_id: requestId, status: 'ok' },
+    });
 
     expect(session.scenario.charts.getGroup('forbidden')).toBeUndefined();
     expect(session.scenario.metadata.time).toBeUndefined();
@@ -636,19 +848,39 @@ describe('RendererSession', () => {
     const session = new RendererSession();
     session.attachTransport(createTransport(sent));
     announce(session, 'test-instance', ['scene.restore.projected']);
-    session.scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    session.scenario.apply({
+      type: 'param_create',
+      payload: { id: 'density', label: 'Density', type: 'number', value: 1 },
+    });
 
     const restore = session.restoreScene({ request_id: 'restore-invalid-chart', time: 3 });
-    session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id: 'restore-invalid-chart' } });
-    session.handleIncoming({ type: 'chart_create', payload: { id: 'forbidden', label: 'Forbidden' } });
+    session.handleIncoming({
+      type: 'scene_restore_begin',
+      payload: { request_id: 'restore-invalid-chart' },
+    });
+    session.handleIncoming({
+      type: 'chart_create',
+      payload: { id: 'forbidden', label: 'Forbidden' },
+    });
 
     await expect(restore).rejects.toThrow(/Chart messages are forbidden/);
     expect(session.identityStatus).toBe('sync-required');
     expect(() => session.setParameter('density', 2)).toThrow(/replacement state sync/);
 
     const syncId = session.requestStateSync('recover-sync');
-    session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: syncId, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace' } });
-    session.handleIncoming({ type: 'state_sync_end', payload: { request_id: syncId, state_revision: '2' } });
+    session.handleIncoming({
+      type: 'state_sync_begin',
+      payload: {
+        request_id: syncId,
+        model_id: 'test-model',
+        instance_id: 'test-instance',
+        mode: 'replace',
+      },
+    });
+    session.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: syncId, state_revision: '2' },
+    });
     expect(session.identityStatus).toBe('matching');
   });
 });

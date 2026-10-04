@@ -3,7 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ButtonViewComponent } from './ButtonViewComponent';
 
 const onButtonAction = vi.fn();
-const scenarioState: { session: any; runRevision: number; actionRevision: number; running: boolean; actions: Map<string, any> } = {
+const scenarioState: {
+  session: any;
+  runRevision: number;
+  actionRevision: number;
+  running: boolean;
+  actions: Map<string, any>;
+} = {
   session: null,
   runRevision: 0,
   actionRevision: 0,
@@ -49,8 +55,15 @@ describe('ButtonViewComponent', () => {
     const { container, rerender } = render(
       <ButtonViewComponent
         view={{
-          id: 'start-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
-          expanded: false, disabled: false, data: { id: 'start', text: 'Start', continuous: true },
+          id: 'start-button',
+          type: 'button',
+          left: 0,
+          top: 0,
+          width: 120,
+          height: 40,
+          expanded: false,
+          disabled: false,
+          data: { id: 'start', text: 'Start', continuous: true },
         }}
       />,
     );
@@ -64,8 +77,15 @@ describe('ButtonViewComponent', () => {
     rerender(
       <ButtonViewComponent
         view={{
-          id: 'start-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
-          expanded: false, disabled: false, data: { id: 'start', text: 'Start', continuous: true },
+          id: 'start-button',
+          type: 'button',
+          left: 0,
+          top: 0,
+          width: 120,
+          height: 40,
+          expanded: false,
+          disabled: false,
+          data: { id: 'start', text: 'Start', continuous: true },
         }}
       />,
     );
@@ -113,8 +133,15 @@ describe('ButtonViewComponent', () => {
     render(
       <ButtonViewComponent
         view={{
-          id: 'start-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
-          expanded: false, disabled: false, data: { id: 'start', text: 'Start', continuous: true },
+          id: 'start-button',
+          type: 'button',
+          left: 0,
+          top: 0,
+          width: 120,
+          height: 40,
+          expanded: false,
+          disabled: false,
+          data: { id: 'start', text: 'Start', continuous: true },
         }}
       />,
     );
@@ -140,8 +167,15 @@ describe('ButtonViewComponent', () => {
     render(
       <ButtonViewComponent
         view={{
-          id: 'start-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
-          expanded: false, disabled: false, data: { id: 'start', text: 'Start' },
+          id: 'start-button',
+          type: 'button',
+          left: 0,
+          top: 0,
+          width: 120,
+          height: 40,
+          expanded: false,
+          disabled: false,
+          data: { id: 'start', text: 'Start' },
         }}
       />,
     );
@@ -154,14 +188,26 @@ describe('ButtonViewComponent', () => {
   it('does not invoke actions that need a target or required arguments', () => {
     scenarioState.actions = new Map([
       ['agent-action', { id: 'agent-action', label: 'Agent action', scope: 'agent' }],
-      ['seed', { id: 'seed', label: 'Seed', kwargs: [{ name: 'value', type: 'number', required: true }] }],
+      [
+        'seed',
+        { id: 'seed', label: 'Seed', kwargs: [{ name: 'value', type: 'number', required: true }] },
+      ],
     ]);
 
     const { rerender } = render(
-      <ButtonViewComponent view={{
-        id: 'agent-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
-        expanded: false, disabled: false, data: { id: 'agent-action', text: 'Agent action' },
-      }} />,
+      <ButtonViewComponent
+        view={{
+          id: 'agent-button',
+          type: 'button',
+          left: 0,
+          top: 0,
+          width: 120,
+          height: 40,
+          expanded: false,
+          disabled: false,
+          data: { id: 'agent-action', text: 'Agent action' },
+        }}
+      />,
     );
 
     expect(screen.getByRole('button', { name: 'Agent action' })).toBeDisabled();
@@ -169,10 +215,19 @@ describe('ButtonViewComponent', () => {
     expect(onButtonAction).not.toHaveBeenCalled();
 
     rerender(
-      <ButtonViewComponent view={{
-        id: 'seed-button', type: 'button', left: 0, top: 0, width: 120, height: 40,
-        expanded: false, disabled: false, data: { id: 'seed', text: 'Seed' },
-      }} />,
+      <ButtonViewComponent
+        view={{
+          id: 'seed-button',
+          type: 'button',
+          left: 0,
+          top: 0,
+          width: 120,
+          height: 40,
+          expanded: false,
+          disabled: false,
+          data: { id: 'seed', text: 'Seed' },
+        }}
+      />,
     );
     expect(screen.getByRole('button', { name: 'Seed' })).toBeDisabled();
   });

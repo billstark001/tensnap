@@ -19,7 +19,11 @@ import type { SimulatorSession } from '../runtime';
 import { SimulatorSession as BaseSimulatorSession } from '../runtime';
 import { ScenarioRegistry, type ScenarioDefinition } from '../scenario';
 import { layerCreatePayload } from '../scenario/definitionHelpers';
-import { markCompiledTopology, orderLayers, sameDependencyLayerIds } from '../scenario/layerTopology';
+import {
+  markCompiledTopology,
+  orderLayers,
+  sameDependencyLayerIds,
+} from '../scenario/layerTopology';
 import { validateActionInvocation } from './actions';
 import { buildScenarioDefinition, getCurrentConfig } from './definition';
 import { projectLayerItems } from './layers';
@@ -51,7 +55,9 @@ import {
 type ActionExecutionError = NonNullable<ActionResultPayload['error']>;
 
 function parameterDefinitionChanged(previous: Parameter, next: Parameter): boolean {
-  const { value: _previousValue, ...previousDefinition } = previous as Parameter & { value: unknown };
+  const { value: _previousValue, ...previousDefinition } = previous as Parameter & {
+    value: unknown;
+  };
   const { value: _nextValue, ...nextDefinition } = next as Parameter & { value: unknown };
   return JSON.stringify(previousDefinition) !== JSON.stringify(nextDefinition);
 }
@@ -66,7 +72,11 @@ export function createBoundSession<TConfig extends object, TModel>(
   const sourceCursors = new Map<string, unknown>();
   const parameterMap = new Map(binding.parameters.map((parameter) => [parameter.id, parameter]));
   const actionMap = new Map(binding.actions.map((action) => [action.metadata.id, action]));
-  let currentDefinition = buildScenarioDefinition(binding, model, getCurrentConfig(binding, model, initialConfig));
+  let currentDefinition = buildScenarioDefinition(
+    binding,
+    model,
+    getCurrentConfig(binding, model, initialConfig),
+  );
   let registry = ScenarioRegistry.from(currentDefinition);
   let session!: SimulatorSession;
   let fallbackTime = 0;
@@ -78,13 +88,20 @@ export function createBoundSession<TConfig extends object, TModel>(
   const instanceId = crypto.randomUUID();
   const capabilities = new Set(binding.metadata.capabilities ?? []);
   if (binding.monitors.length > 0) capabilities.add('monitor');
-  if (binding.actions.some((action) => action.metadata.scope !== undefined && action.metadata.scope !== 'model')) {
+  if (
+    binding.actions.some(
+      (action) => action.metadata.scope !== undefined && action.metadata.scope !== 'model',
+    )
+  ) {
     capabilities.add('action.target');
   }
-  if (binding.actions.some((action) => action.metadata.kwargs?.length)) capabilities.add('action.kwargs');
+  if (binding.actions.some((action) => action.metadata.kwargs?.length))
+    capabilities.add('action.kwargs');
   const hasDeclarativeLayerRestore = binding.environments.some((environment) =>
-    environment.layers.some((layer) => layer.restore !== undefined));
-  const hasProjectedRestore = binding.options.sceneRestore !== undefined || hasDeclarativeLayerRestore;
+    environment.layers.some((layer) => layer.restore !== undefined),
+  );
+  const hasProjectedRestore =
+    binding.options.sceneRestore !== undefined || hasDeclarativeLayerRestore;
   if (hasProjectedRestore) capabilities.add('scene.restore.projected');
   if (binding.options.restoreCheckpoint && binding.options.captureCheckpoint) {
     capabilities.add('scene.restore.checkpoint');
@@ -101,7 +118,11 @@ export function createBoundSession<TConfig extends object, TModel>(
   };
 
   const rebuildDefinition = (): void => {
-    currentDefinition = buildScenarioDefinition(binding, model, getCurrentConfig(binding, model, initialConfig));
+    currentDefinition = buildScenarioDefinition(
+      binding,
+      model,
+      getCurrentConfig(binding, model, initialConfig),
+    );
     registry = ScenarioRegistry.from(currentDefinition);
   };
 
@@ -140,7 +161,9 @@ export function createBoundSession<TConfig extends object, TModel>(
           if (layer.items) {
             const items = layer.items(model, { phase, full });
             const records = projectLayerItems(model, items, layer.project);
-            await ctx.syncRecords(environment.id, layer.id, records, { key: layer.key as ItemKeySelector<ItemRecord> });
+            await ctx.syncRecords(environment.id, layer.id, records, {
+              key: layer.key as ItemKeySelector<ItemRecord>,
+            });
             if (layer.revision) sourceCursors.set(layerKey, layer.revision(model));
           }
           continue;
@@ -150,7 +173,9 @@ export function createBoundSession<TConfig extends object, TModel>(
         const records = projectLayerItems(
           model,
           updates as readonly (Partial<unknown> & object)[],
-          (layer.updateProject ?? layer.project) as LayerProjector<TModel, Partial<unknown> & object> | undefined,
+          (layer.updateProject ?? layer.project) as
+            | LayerProjector<TModel, Partial<unknown> & object>
+            | undefined,
         );
         await ctx.updateItems(environment.id, layer.id, records);
       }
@@ -193,9 +218,16 @@ export function createBoundSession<TConfig extends object, TModel>(
   };
 
   /** Reconcile declarations without using create frames as implicit upserts. */
-  const reconcileDefinitions = async (previous: ScenarioDefinition, includeCharts = false): Promise<void> => {
-    const previousParameters = new Map((previous.parameters ?? []).map((parameter) => [parameter.id, parameter]));
-    const nextParameters = new Map((currentDefinition.parameters ?? []).map((parameter) => [parameter.id, parameter]));
+  const reconcileDefinitions = async (
+    previous: ScenarioDefinition,
+    includeCharts = false,
+  ): Promise<void> => {
+    const previousParameters = new Map(
+      (previous.parameters ?? []).map((parameter) => [parameter.id, parameter]),
+    );
+    const nextParameters = new Map(
+      (currentDefinition.parameters ?? []).map((parameter) => [parameter.id, parameter]),
+    );
     for (const id of previousParameters.keys()) {
       if (!nextParameters.has(id)) await session.emitter.paramDelete({ id });
     }
@@ -205,7 +237,9 @@ export function createBoundSession<TConfig extends object, TModel>(
     }
 
     const previousActions = new Map((previous.actions ?? []).map((action) => [action.id, action]));
-    const nextActions = new Map((currentDefinition.actions ?? []).map((action) => [action.id, action]));
+    const nextActions = new Map(
+      (currentDefinition.actions ?? []).map((action) => [action.id, action]),
+    );
     for (const id of previousActions.keys()) {
       if (!nextActions.has(id)) await session.emitter.actionDelete({ id });
     }
@@ -214,8 +248,12 @@ export function createBoundSession<TConfig extends object, TModel>(
       else await session.emitter.actionCreate(action);
     }
 
-    const previousEnvironments = new Map((previous.environments ?? []).map((environment) => [environment.id, environment]));
-    const nextEnvironments = new Map((currentDefinition.environments ?? []).map((environment) => [environment.id, environment]));
+    const previousEnvironments = new Map(
+      (previous.environments ?? []).map((environment) => [environment.id, environment]),
+    );
+    const nextEnvironments = new Map(
+      (currentDefinition.environments ?? []).map((environment) => [environment.id, environment]),
+    );
     for (const [id, environment] of previousEnvironments) {
       const next = nextEnvironments.get(id);
       if (!next || next.type !== environment.type) await session.emitter.envDelete({ id });
@@ -234,14 +272,19 @@ export function createBoundSession<TConfig extends object, TModel>(
       const nextLayers = new Map((environment.layers ?? []).map((layer) => [layer.layerId, layer]));
       for (const [layerId, layer] of [...previousLayers].reverse()) {
         const next = nextLayers.get(layerId);
-        const topologyChanged = next !== undefined && (next.layerType !== layer.layerType
-          || !sameDependencyLayerIds(next.dependencyLayerIds, layer.dependencyLayerIds));
-        if (!next || topologyChanged) await session.emitter.envLayerDelete({ env_id: id, layer_id: layerId });
+        const topologyChanged =
+          next !== undefined &&
+          (next.layerType !== layer.layerType ||
+            !sameDependencyLayerIds(next.dependencyLayerIds, layer.dependencyLayerIds));
+        if (!next || topologyChanged)
+          await session.emitter.envLayerDelete({ env_id: id, layer_id: layerId });
       }
       for (const [layerId, layer] of nextLayers) {
         const priorLayer = previousLayers.get(layerId);
-        const topologyChanged = priorLayer !== undefined && (priorLayer.layerType !== layer.layerType
-          || !sameDependencyLayerIds(priorLayer.dependencyLayerIds, layer.dependencyLayerIds));
+        const topologyChanged =
+          priorLayer !== undefined &&
+          (priorLayer.layerType !== layer.layerType ||
+            !sameDependencyLayerIds(priorLayer.dependencyLayerIds, layer.dependencyLayerIds));
         if (!priorLayer || topologyChanged) {
           await session.emitter.envLayerCreate(layerCreatePayload(id, layer));
         } else {
@@ -256,7 +299,9 @@ export function createBoundSession<TConfig extends object, TModel>(
 
     if (includeCharts) {
       const previousCharts = new Map((previous.charts ?? []).map((chart) => [chart.id, chart]));
-      const nextCharts = new Map((currentDefinition.charts ?? []).map((chart) => [chart.id, chart]));
+      const nextCharts = new Map(
+        (currentDefinition.charts ?? []).map((chart) => [chart.id, chart]),
+      );
       for (const [id, chart] of previousCharts) {
         const next = nextCharts.get(id);
         if (!next || JSON.stringify(next) !== JSON.stringify(chart)) {
@@ -271,8 +316,12 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
     }
 
-    const previousMonitors = new Map((previous.monitors ?? []).map((monitor) => [monitor.id, monitor]));
-    const nextMonitors = new Map((currentDefinition.monitors ?? []).map((monitor) => [monitor.id, monitor]));
+    const previousMonitors = new Map(
+      (previous.monitors ?? []).map((monitor) => [monitor.id, monitor]),
+    );
+    const nextMonitors = new Map(
+      (currentDefinition.monitors ?? []).map((monitor) => [monitor.id, monitor]),
+    );
     for (const [id, monitor] of previousMonitors) {
       const next = nextMonitors.get(id);
       if (!next || JSON.stringify(next) !== JSON.stringify(monitor)) {
@@ -288,9 +337,13 @@ export function createBoundSession<TConfig extends object, TModel>(
   };
 
   const syncChangedLayerMetadata = async (previous: ScenarioDefinition): Promise<void> => {
-    const oldEnvironments = new Map((previous.environments ?? []).map((environment) => [environment.id, environment]));
+    const oldEnvironments = new Map(
+      (previous.environments ?? []).map((environment) => [environment.id, environment]),
+    );
     for (const environment of currentDefinition.environments ?? []) {
-      const oldLayers = new Map((oldEnvironments.get(environment.id)?.layers ?? []).map((layer) => [layer.layerId, layer]));
+      const oldLayers = new Map(
+        (oldEnvironments.get(environment.id)?.layers ?? []).map((layer) => [layer.layerId, layer]),
+      );
       for (const layer of environment.layers ?? []) {
         const old = oldLayers.get(layer.layerId);
         if (old && JSON.stringify(old.metadata ?? {}) !== JSON.stringify(layer.metadata ?? {})) {
@@ -344,7 +397,11 @@ export function createBoundSession<TConfig extends object, TModel>(
     replayDefinition: () => registry.replay(session.emitter),
     sync: runSync,
     async refreshParameters(ids) {
-      const nextDefinition = buildScenarioDefinition(binding, model, getCurrentConfig(binding, model, initialConfig));
+      const nextDefinition = buildScenarioDefinition(
+        binding,
+        model,
+        getCurrentConfig(binding, model, initialConfig),
+      );
       const currentParameters = new Map(
         (currentDefinition.parameters ?? []).map((parameter) => [parameter.id, parameter]),
       );
@@ -397,23 +454,27 @@ export function createBoundSession<TConfig extends object, TModel>(
       });
     },
     updateCharts: (payload: ChartUpdatePayload) => session.emitter.chartUpdate(payload),
-    clearCharts: (...chartIds) => session.emitter.chartUpdate({
-      operations: chartIds.map((id) => ({
-        id,
-        operation: 'clear' as const,
-        kind: (currentDefinition.charts ?? []).some((chart) => chart.id === id) ? 'group' as const : 'series' as const,
-      })),
-    }),
+    clearCharts: (...chartIds) =>
+      session.emitter.chartUpdate({
+        operations: chartIds.map((id) => ({
+          id,
+          operation: 'clear' as const,
+          kind: (currentDefinition.charts ?? []).some((chart) => chart.id === id)
+            ? ('group' as const)
+            : ('series' as const),
+        })),
+      }),
     clearAllCharts() {
       return session.emitter.chartUpdate({
         operations: [{ operation: 'clear', kind: 'all' }],
       });
     },
-    setMonitor: (id, value, revision) => session.emitter.monitorUpdate({
-      id,
-      value,
-      ...(revision === undefined ? {} : { revision }),
-    }),
+    setMonitor: (id, value, revision) =>
+      session.emitter.monitorUpdate({
+        id,
+        value,
+        ...(revision === undefined ? {} : { revision }),
+      }),
     createItems: (envId, layerId, items) => {
       if (items.length === 0) {
         return Promise.resolve();
@@ -522,7 +583,8 @@ export function createBoundSession<TConfig extends object, TModel>(
       const items = new Map(previous.items);
       const deleteKeys = new Map(previous.deleteKeys);
       const latest = new Map<string, (typeof changes)[number]>();
-      for (const change of changes) latest.set(`id:${typeof change.key}:${String(change.key)}`, change);
+      for (const change of changes)
+        latest.set(`id:${typeof change.key}:${String(change.key)}`, change);
       const creates: ItemRecord[] = [];
       const updates: ItemRecord[] = [];
       const deletes: ItemDeleteKey[] = [];
@@ -540,7 +602,8 @@ export function createBoundSession<TConfig extends object, TModel>(
         if (!change.record) throw new Error(`Missing source record for ${storageKey}.`);
         const record = cloneItem(change.record);
         const resolved = resolveItemKey(record, record);
-        if (resolved.storageKey !== storageKey) throw new Error(`Source change ID mismatch: ${storageKey}.`);
+        if (resolved.storageKey !== storageKey)
+          throw new Error(`Source change ID mismatch: ${storageKey}.`);
         if (!old) creates.push(record);
         else {
           const diff = diffItem(old, record, resolved);
@@ -557,11 +620,12 @@ export function createBoundSession<TConfig extends object, TModel>(
     syncItems(envId, layerId, items, options) {
       return this.syncRecords(envId, layerId, items, options);
     },
-    finishAction: (payload, shouldContinue = false) => session.emitter.actionResult({
-      id: payload.id,
-      request_id: payload.request_id,
-      should_continue: !!payload.continuous && shouldContinue,
-    }),
+    finishAction: (payload, shouldContinue = false) =>
+      session.emitter.actionResult({
+        id: payload.id,
+        request_id: payload.request_id,
+        should_continue: !!payload.continuous && shouldContinue,
+      }),
     async publishAsset(id, mime, data, label) {
       const normalizedData = data.slice();
       const hash = await hashAssetData(normalizedData);
@@ -606,9 +670,11 @@ export function createBoundSession<TConfig extends object, TModel>(
     return result ?? true;
   };
 
-  const handleDefaultAction = async (
-    payload: { id: string; continuous?: boolean; request_id: string },
-  ): Promise<boolean | undefined> => {
+  const handleDefaultAction = async (payload: {
+    id: string;
+    continuous?: boolean;
+    request_id: string;
+  }): Promise<boolean | undefined> => {
     if (payload.id === 'start') {
       return runStep();
     }
@@ -644,23 +710,35 @@ export function createBoundSession<TConfig extends object, TModel>(
     const target = payload.target;
     if (target === undefined) return undefined;
     const environment = binding.environments.find((entry) => entry.id === target.env_id);
-    if (!environment) return { code: 'invalid_target', message: `Unknown environment: ${target.env_id}.` };
+    if (!environment)
+      return { code: 'invalid_target', message: `Unknown environment: ${target.env_id}.` };
     if (target.type === 'env') return undefined;
 
     const layer = environment.layers.find((entry) => entry.id === target.layer_id);
     if (!layer) return { code: 'invalid_target', message: `Unknown layer: ${target.layer_id}.` };
     if (target.type === 'layer') return undefined;
     if (layer.type !== 'agent' || !layer.items) {
-      return { code: 'invalid_target', message: `Layer ${target.layer_id} cannot resolve agent targets.` };
+      return {
+        code: 'invalid_target',
+        message: `Layer ${target.layer_id} cannot resolve agent targets.`,
+      };
     }
-    const records = projectLayerItems(model, layer.items(model, { phase: 'step', full: false }), layer.project);
+    const records = projectLayerItems(
+      model,
+      layer.items(model, { phase: 'step', full: false }),
+      layer.project,
+    );
     if (!records.some((record) => Object.is(record.id, target.agent_id))) {
       return { code: 'invalid_target', message: `Unknown agent: ${String(target.agent_id)}.` };
     }
     return undefined;
   };
 
-  const rejectRestore = async (payload: SceneRestorePayload, code: string, message: string): Promise<void> => {
+  const rejectRestore = async (
+    payload: SceneRestorePayload,
+    code: string,
+    message: string,
+  ): Promise<void> => {
     const result: SceneRestoreEndPayload = {
       request_id: payload.request_id,
       status: 'rejected',
@@ -676,7 +754,7 @@ export function createBoundSession<TConfig extends object, TModel>(
     layerId: string;
     dependencies: Record<string, string>;
     inbound: NonNullable<SceneRestorePayload['envs']>[number]['layers'][number];
-    restore: NonNullable<typeof binding.environments[number]['layers'][number]['restore']>;
+    restore: NonNullable<(typeof binding.environments)[number]['layers'][number]['restore']>;
     itemCud: boolean;
     current: Map<string, ItemDeleteKey>;
     incoming: Map<string, { item: Record<string, ProtocolValue>; key: ItemDeleteKey }>;
@@ -689,17 +767,27 @@ export function createBoundSession<TConfig extends object, TModel>(
     message: error instanceof Error ? error.message : String(error),
   });
 
-  const validateRestoredParameter = (parameter: Parameter, value: ProtocolValue): string | undefined => {
+  const validateRestoredParameter = (
+    parameter: Parameter,
+    value: ProtocolValue,
+  ): string | undefined => {
     switch (parameter.type) {
       case 'number':
-        if (typeof value !== 'number' || !Number.isFinite(value)) return `Parameter ${parameter.id} requires a finite number.`;
-        if (parameter.min !== undefined && value < parameter.min) return `Parameter ${parameter.id} is below its minimum.`;
-        if (parameter.max !== undefined && value > parameter.max) return `Parameter ${parameter.id} is above its maximum.`;
+        if (typeof value !== 'number' || !Number.isFinite(value))
+          return `Parameter ${parameter.id} requires a finite number.`;
+        if (parameter.min !== undefined && value < parameter.min)
+          return `Parameter ${parameter.id} is below its minimum.`;
+        if (parameter.max !== undefined && value > parameter.max)
+          return `Parameter ${parameter.id} is above its maximum.`;
         return undefined;
       case 'boolean':
-        return typeof value === 'boolean' ? undefined : `Parameter ${parameter.id} requires a boolean.`;
+        return typeof value === 'boolean'
+          ? undefined
+          : `Parameter ${parameter.id} requires a boolean.`;
       case 'string':
-        return typeof value === 'string' ? undefined : `Parameter ${parameter.id} requires a string.`;
+        return typeof value === 'string'
+          ? undefined
+          : `Parameter ${parameter.id} requires a string.`;
       case 'enum':
         return typeof value === 'string' && parameter.options.includes(value)
           ? undefined
@@ -716,9 +804,15 @@ export function createBoundSession<TConfig extends object, TModel>(
       byEnvironment.set(plan.environmentId, group);
     }
     for (const [environmentId, group] of byEnvironment) {
-      output.push(...orderLayers(environmentId, group,
-        (plan) => plan.layerId, (plan) => plan.inbound.layer_type,
-        (plan) => plan.dependencies));
+      output.push(
+        ...orderLayers(
+          environmentId,
+          group,
+          (plan) => plan.layerId,
+          (plan) => plan.inbound.layer_type,
+          (plan) => plan.dependencies,
+        ),
+      );
     }
     return output;
   };
@@ -731,33 +825,73 @@ export function createBoundSession<TConfig extends object, TModel>(
     const plans: LayerRestorePlan[] = [];
     for (const environment of payload.envs ?? []) {
       if (seenEnvironmentIds.has(environment.id)) {
-        return { error: { code: 'invalid_scene_restore', message: `Duplicate environment: ${environment.id}.` } };
+        return {
+          error: {
+            code: 'invalid_scene_restore',
+            message: `Duplicate environment: ${environment.id}.`,
+          },
+        };
       }
       seenEnvironmentIds.add(environment.id);
 
       const declaredEnvironment = binding.environments.find((entry) => entry.id === environment.id);
-      if (!permitsTopologyChanges && (!declaredEnvironment || declaredEnvironment.type !== environment.type)) {
-        return { error: { code: 'invalid_scene_restore', message: `Environment ${environment.id} does not match the declared topology.` } };
+      if (
+        !permitsTopologyChanges &&
+        (!declaredEnvironment || declaredEnvironment.type !== environment.type)
+      ) {
+        return {
+          error: {
+            code: 'invalid_scene_restore',
+            message: `Environment ${environment.id} does not match the declared topology.`,
+          },
+        };
       }
-      if (!permitsTopologyChanges && declaredEnvironment && declaredEnvironment.layers.length !== environment.layers.length) {
-        return { error: { code: 'invalid_scene_restore', message: `Environment ${environment.id} has a different layer topology.` } };
+      if (
+        !permitsTopologyChanges &&
+        declaredEnvironment &&
+        declaredEnvironment.layers.length !== environment.layers.length
+      ) {
+        return {
+          error: {
+            code: 'invalid_scene_restore',
+            message: `Environment ${environment.id} has a different layer topology.`,
+          },
+        };
       }
 
       const seenLayerIds = new Set<string>();
       for (const layer of environment.layers) {
         if (seenLayerIds.has(layer.layer_id)) {
-          return { error: { code: 'invalid_scene_restore', message: `Duplicate layer: ${environment.id}/${layer.layer_id}.` } };
+          return {
+            error: {
+              code: 'invalid_scene_restore',
+              message: `Duplicate layer: ${environment.id}/${layer.layer_id}.`,
+            },
+          };
         }
         seenLayerIds.add(layer.layer_id);
 
-        const declaredLayer = declaredEnvironment?.layers.find((entry) => entry.id === layer.layer_id);
-        if (!permitsTopologyChanges && (!declaredLayer
-          || declaredLayer.type !== layer.layer_type
-          || !sameDependencyLayerIds(declaredLayer.dependencyLayerIds, layer.dependency_layer_ids))) {
-          return { error: { code: 'invalid_scene_restore', message: `Layer ${environment.id}/${layer.layer_id} does not match the declared topology.` } };
+        const declaredLayer = declaredEnvironment?.layers.find(
+          (entry) => entry.id === layer.layer_id,
+        );
+        if (
+          !permitsTopologyChanges &&
+          (!declaredLayer ||
+            declaredLayer.type !== layer.layer_type ||
+            !sameDependencyLayerIds(declaredLayer.dependencyLayerIds, layer.dependency_layer_ids))
+        ) {
+          return {
+            error: {
+              code: 'invalid_scene_restore',
+              message: `Layer ${environment.id}/${layer.layer_id} does not match the declared topology.`,
+            },
+          };
         }
 
-        const incoming = new Map<string, { item: Record<string, ProtocolValue>; key: ItemDeleteKey }>();
+        const incoming = new Map<
+          string,
+          { item: Record<string, ProtocolValue>; key: ItemDeleteKey }
+        >();
         for (const item of layer.items ?? []) {
           try {
             if (declaredLayer?.restore?.replace) continue;
@@ -767,7 +901,12 @@ export function createBoundSession<TConfig extends object, TModel>(
               declaredLayer?.key as ItemKeySelector<Record<string, ProtocolValue>> | undefined,
             );
             if (incoming.has(key.storageKey)) {
-              return { error: { code: 'invalid_scene_restore', message: `Duplicate item key in ${environment.id}/${layer.layer_id}.` } };
+              return {
+                error: {
+                  code: 'invalid_scene_restore',
+                  message: `Duplicate item key in ${environment.id}/${layer.layer_id}.`,
+                },
+              };
             }
             incoming.set(key.storageKey, {
               item: item as Record<string, ProtocolValue>,
@@ -791,15 +930,25 @@ export function createBoundSession<TConfig extends object, TModel>(
         }
         const metadataOnly = declaredLayer.type === 'grid' || declaredLayer.type === 'background';
         if (metadataOnly && (layer.items?.length ?? 0) > 0) {
-          return { error: { code: 'invalid_scene_restore', message: `Metadata-only layer ${environment.id}/${layer.layer_id} has items.` } };
+          return {
+            error: {
+              code: 'invalid_scene_restore',
+              message: `Metadata-only layer ${environment.id}/${layer.layer_id} has items.`,
+            },
+          };
         }
-        const itemCud = !metadataOnly && (
-          declaredLayer.items !== undefined
-          || (layer.items?.length ?? 0) > 0
-          || ['agent', 'edge', 'trajectory'].includes(declaredLayer.type)
-        );
-        if (itemCud && !declaredLayer.restore.replace
-          && (!declaredLayer.restore.create || !declaredLayer.restore.update || !declaredLayer.restore.delete)) {
+        const itemCud =
+          !metadataOnly &&
+          (declaredLayer.items !== undefined ||
+            (layer.items?.length ?? 0) > 0 ||
+            ['agent', 'edge', 'trajectory'].includes(declaredLayer.type));
+        if (
+          itemCud &&
+          !declaredLayer.restore.replace &&
+          (!declaredLayer.restore.create ||
+            !declaredLayer.restore.update ||
+            !declaredLayer.restore.delete)
+        ) {
           return {
             error: {
               code: 'invalid_scene_restore',
@@ -827,11 +976,16 @@ export function createBoundSession<TConfig extends object, TModel>(
             const records = projectLayerItems(model, sourceItems, declaredLayer.project);
             sourceItems.forEach((sourceItem, index) => {
               const itemKey = resolveItemKey(sourceItem, records[index]!, declaredLayer.key);
-              if (current.has(itemKey.storageKey)) throw new Error(`Duplicate current item key in ${environment.id}/${layer.layer_id}.`);
+              if (current.has(itemKey.storageKey))
+                throw new Error(
+                  `Duplicate current item key in ${environment.id}/${layer.layer_id}.`,
+                );
               current.set(itemKey.storageKey, itemKey.deleteKey);
             });
           } else {
-            throw new Error(`Layer ${environment.id}/${layer.layer_id} must provide items for declarative restore.`);
+            throw new Error(
+              `Layer ${environment.id}/${layer.layer_id} must provide items for declarative restore.`,
+            );
           }
           await declaredLayer.restore.validate?.(model, layer);
         } catch (error) {
@@ -853,24 +1007,39 @@ export function createBoundSession<TConfig extends object, TModel>(
     const parameterIds = new Set<string>();
     for (const change of payload.parameters ?? []) {
       if (parameterIds.has(change.id)) {
-        return { error: { code: 'invalid_scene_restore', message: `Duplicate parameter: ${change.id}.` } };
+        return {
+          error: { code: 'invalid_scene_restore', message: `Duplicate parameter: ${change.id}.` },
+        };
       }
       parameterIds.add(change.id);
       const parameter = parameterMap.get(change.id);
       if (!parameter) {
-        return { error: { code: 'invalid_scene_restore', message: `Unknown parameter: ${change.id}.` } };
+        return {
+          error: { code: 'invalid_scene_restore', message: `Unknown parameter: ${change.id}.` },
+        };
       }
-      const validation = validateRestoredParameter(parameter.metadata(model, getCurrentConfig(binding, model, initialConfig)), change.value);
+      const validation = validateRestoredParameter(
+        parameter.metadata(model, getCurrentConfig(binding, model, initialConfig)),
+        change.value,
+      );
       if (validation) {
         return { error: { code: 'invalid_scene_restore', message: validation } };
       }
     }
 
     const sceneRestore = binding.options.sceneRestore;
-    if (payload.time !== undefined && binding.options.time
-      && sceneRestore?.mode !== 'imperative'
-      && (sceneRestore?.mode !== 'compose' || !sceneRestore.restoreTime)) {
-      return { error: { code: 'invalid_scene_restore', message: 'sceneRestore.restoreTime is required when the model owns time.' } };
+    if (
+      payload.time !== undefined &&
+      binding.options.time &&
+      sceneRestore?.mode !== 'imperative' &&
+      (sceneRestore?.mode !== 'compose' || !sceneRestore.restoreTime)
+    ) {
+      return {
+        error: {
+          code: 'invalid_scene_restore',
+          message: 'sceneRestore.restoreTime is required when the model owns time.',
+        },
+      };
     }
     try {
       await sceneRestore?.validate?.(model, payload, context);
@@ -880,7 +1049,10 @@ export function createBoundSession<TConfig extends object, TModel>(
     return { plan: { layers: plans } };
   };
 
-  const applyProjectedRestore = async (payload: SceneRestorePayload, plan: ProjectedRestorePlan): Promise<void> => {
+  const applyProjectedRestore = async (
+    payload: SceneRestorePayload,
+    plan: ProjectedRestorePlan,
+  ): Promise<void> => {
     const sceneRestore = binding.options.sceneRestore;
     if (sceneRestore?.mode === 'imperative') {
       await sceneRestore.apply(model, payload, context);
@@ -890,7 +1062,12 @@ export function createBoundSession<TConfig extends object, TModel>(
     await sceneRestore?.beforeApply?.(model, payload, context);
     for (const change of payload.parameters ?? []) {
       const parameter = parameterMap.get(change.id)!;
-      const result = await parameter.apply(model, change, context, getCurrentConfig(binding, model, initialConfig));
+      const result = await parameter.apply(
+        model,
+        change,
+        context,
+        getCurrentConfig(binding, model, initialConfig),
+      );
       if (!result.accepted) throw new Error(`Parameter ${change.id} rejected restored value.`);
     }
 
@@ -909,7 +1086,10 @@ export function createBoundSession<TConfig extends object, TModel>(
     for (const entry of ordered) {
       if (!entry.itemCud) continue;
       if (entry.restore.replace) {
-        await entry.restore.replace(model, (entry.inbound.items ?? []) as Record<string, ProtocolValue>[]);
+        await entry.restore.replace(
+          model,
+          (entry.inbound.items ?? []) as Record<string, ProtocolValue>[],
+        );
         continue;
       }
       for (const [storageKey, { item, key }] of entry.incoming) {
@@ -937,11 +1117,13 @@ export function createBoundSession<TConfig extends object, TModel>(
   };
 
   const decodeCheckpoint = (checkpoint: Checkpoint): CheckpointData => {
-    const bytes = checkpoint.data instanceof Uint8Array
-      ? checkpoint.data
-      : decodeBinaryString(checkpoint.data).bytes;
+    const bytes =
+      checkpoint.data instanceof Uint8Array
+        ? checkpoint.data
+        : decodeBinaryString(checkpoint.data).bytes;
     if (checkpoint.encoding === 'application/octet-stream') return bytes;
-    if (checkpoint.encoding === 'application/msgpack') return decodeMessagePack<ProtocolValue>(bytes);
+    if (checkpoint.encoding === 'application/msgpack')
+      return decodeMessagePack<ProtocolValue>(bytes);
     throw new Error(`Unsupported checkpoint encoding: ${checkpoint.encoding}.`);
   };
 
@@ -999,7 +1181,10 @@ export function createBoundSession<TConfig extends object, TModel>(
         });
         await context.replayDefinition();
         await pushState(context, 'sync', true);
-        await session.emitter.stateSyncEnd({ request_id: payload.request_id, state_revision: String(++stateRevision) });
+        await session.emitter.stateSyncEnd({
+          request_id: payload.request_id,
+          state_revision: String(++stateRevision),
+        });
       } finally {
         activeTransaction = undefined;
       }
@@ -1011,18 +1196,16 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
       const parameter = parameterMap.get(payload.id);
       if (!parameter) {
-        await session.emitter.error({ code: 'unknown_parameter', message: `Unknown parameter: ${payload.id}.` });
+        await session.emitter.error({
+          code: 'unknown_parameter',
+          message: `Unknown parameter: ${payload.id}.`,
+        });
         return;
       }
       const previousDefinition = currentDefinition;
       const previousConfig = getCurrentConfig(binding, model, initialConfig);
       const previous = parameter.metadata(model, previousConfig);
-      const result = await parameter.apply(
-        model,
-        payload,
-        context,
-        previousConfig,
-      );
+      const result = await parameter.apply(model, payload, context, previousConfig);
       const nextConfig = getCurrentConfig(binding, model, initialConfig);
       const next = parameter.metadata(model, nextConfig);
       rebuildDefinition();
@@ -1055,20 +1238,29 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
       const validation = validateActionInvocation(action, payload);
       if (validation.error) {
-        await session.emitter.actionResult({ id: payload.id, request_id: payload.request_id, error: validation.error });
+        await session.emitter.actionResult({
+          id: payload.id,
+          request_id: payload.request_id,
+          error: validation.error,
+        });
         return;
       }
       const resolvedPayload = validation.payload!;
       const targetError = invalidTarget(resolvedPayload);
       if (targetError) {
-        await session.emitter.actionResult({ id: payload.id, request_id: payload.request_id, error: targetError });
+        await session.emitter.actionResult({
+          id: payload.id,
+          request_id: payload.request_id,
+          error: targetError,
+        });
         return;
       }
       const customAction = actionMap.get(resolvedPayload.id);
       actionInFlight = true;
       try {
         const defaultResult = await handleDefaultAction(resolvedPayload);
-        const result = defaultResult ?? await customAction!.run(model, context, resolvedPayload) ?? false;
+        const result =
+          defaultResult ?? (await customAction!.run(model, context, resolvedPayload)) ?? false;
         if (customAction?.sync) {
           rebuildDefinition();
           await pushState(context, 'step', false);
@@ -1078,7 +1270,10 @@ export function createBoundSession<TConfig extends object, TModel>(
         await session.emitter.actionResult({
           id: payload.id,
           request_id: payload.request_id,
-          error: { code: 'action_failed', message: error instanceof Error ? error.message : String(error) },
+          error: {
+            code: 'action_failed',
+            message: error instanceof Error ? error.message : String(error),
+          },
         });
       } finally {
         actionInFlight = false;
@@ -1098,29 +1293,58 @@ export function createBoundSession<TConfig extends object, TModel>(
         await rejectRestore(payload, 'model_mismatch', `Expected model ${binding.metadata.id}.`);
         return;
       }
-      if (payload.expected_instance_id !== undefined && payload.expected_instance_id !== instanceId) {
-        await rejectRestore(payload, 'instance_mismatch', 'scene_restore expected_instance_id does not match this binding instance.');
+      if (
+        payload.expected_instance_id !== undefined &&
+        payload.expected_instance_id !== instanceId
+      ) {
+        await rejectRestore(
+          payload,
+          'instance_mismatch',
+          'scene_restore expected_instance_id does not match this binding instance.',
+        );
         return;
       }
-      if (payload.state_schema_version !== undefined && payload.state_schema_version !== binding.metadata.stateSchemaVersion) {
-        await rejectRestore(payload, 'state_schema_mismatch', 'scene_restore state schema version does not match this model.');
+      if (
+        payload.state_schema_version !== undefined &&
+        payload.state_schema_version !== binding.metadata.stateSchemaVersion
+      ) {
+        await rejectRestore(
+          payload,
+          'state_schema_mismatch',
+          'scene_restore state schema version does not match this model.',
+        );
         return;
       }
       if (isBusy()) {
         await rejectRestore(payload, 'busy', 'Wait for the active protocol operation to finish.');
         return;
       }
-      const hasProjectedState = payload.time !== undefined || payload.parameters !== undefined || payload.envs !== undefined;
+      const hasProjectedState =
+        payload.time !== undefined ||
+        payload.parameters !== undefined ||
+        payload.envs !== undefined;
       if (hasProjectedState && !capabilities.has('scene.restore.projected')) {
-        await rejectRestore(payload, 'unsupported_capability', 'This binding does not provide projected scene restore.');
+        await rejectRestore(
+          payload,
+          'unsupported_capability',
+          'This binding does not provide projected scene restore.',
+        );
         return;
       }
       if (payload.checkpoint !== undefined && !capabilities.has('scene.restore.checkpoint')) {
-        await rejectRestore(payload, 'unsupported_capability', 'This binding does not provide checkpoint scene restore.');
+        await rejectRestore(
+          payload,
+          'unsupported_capability',
+          'This binding does not provide checkpoint scene restore.',
+        );
         return;
       }
       if (!hasProjectedState && payload.checkpoint === undefined) {
-        await rejectRestore(payload, 'invalid_scene_restore', 'scene_restore contains no restorable state.');
+        await rejectRestore(
+          payload,
+          'invalid_scene_restore',
+          'scene_restore contains no restorable state.',
+        );
         return;
       }
       const validation = hasProjectedState
@@ -1160,14 +1384,19 @@ export function createBoundSession<TConfig extends object, TModel>(
         try {
           const previousDefinition = currentDefinition;
           if (payload.checkpoint !== undefined) {
-            await binding.options.restoreCheckpoint!(model, decodeCheckpoint(payload.checkpoint), context);
+            await binding.options.restoreCheckpoint!(
+              model,
+              decodeCheckpoint(payload.checkpoint),
+              context,
+            );
           }
           if (hasProjectedState) {
             // Importing a checkpoint may replace the model's collection.
             // Recompute current keys against that authoritative state.
-            const postCheckpoint = payload.checkpoint === undefined
-              ? validation
-              : await validateProjectedRestore(payload);
+            const postCheckpoint =
+              payload.checkpoint === undefined
+                ? validation
+                : await validateProjectedRestore(payload);
             if (postCheckpoint.error) throw new Error(postCheckpoint.error.message);
             await applyProjectedRestore(payload, postCheckpoint.plan!);
           }
@@ -1217,7 +1446,9 @@ export function createBoundSession<TConfig extends object, TModel>(
         return;
       }
       try {
-        const checkpoint = encodeCheckpoint(await binding.options.captureCheckpoint!(model, context));
+        const checkpoint = encodeCheckpoint(
+          await binding.options.captureCheckpoint!(model, context),
+        );
         await session.emitter.sceneCaptureResult({
           request_id: payload.request_id,
           model_id: binding.metadata.id,

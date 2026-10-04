@@ -47,7 +47,9 @@ describe('TrajectoryStorage – trajectory updates', () => {
     expect(storage.dump().trajectories[0].points[0].x).toBe(1);
     storage.appendTrajectoryPoint('a1', { x: 3, y: 4, time: 1 });
     expect(storage.dump().config.length).toBe(1);
-    expect(storage.dump().trajectories[0].points).toEqual([{ x: 3, y: 4, time: 1, color: DEFAULT_TRAJECTORY_CONFIG.color }]);
+    expect(storage.dump().trajectories[0].points).toEqual([
+      { x: 3, y: 4, time: 1, color: DEFAULT_TRAJECTORY_CONFIG.color },
+    ]);
   });
 
   it('setConfig refreshes cached entry limits and widths', () => {
@@ -115,12 +117,14 @@ describe('TrajectoryStorage – trajectory updates', () => {
 
     expect(listener.mock.calls[1][1]).toMatchObject({
       appended: ['a1'],
-      appendDeltas: [{
-        id: 'a1',
-        point: { x: 1, y: 0, time: 1 },
-        evicted: { x: 0, y: 0, time: 0 },
-        startedSegment: false,
-      }],
+      appendDeltas: [
+        {
+          id: 'a1',
+          point: { x: 1, y: 0, time: 1 },
+          evicted: { x: 0, y: 0, time: 0 },
+          startedSegment: false,
+        },
+      ],
     });
   });
 
@@ -166,20 +170,20 @@ describe('TrajectoryStorage – serialization', () => {
     expect(snap2.config).toEqual(snap.config);
     expect(snap2.configs).toEqual(snap.configs);
     expect(snap2.trajectories).toHaveLength(2);
-    expect(snap2.trajectories).toEqual(expect.arrayContaining([
-      {
-        id: 'a1',
-        points: [
-          { x: 1, y: 1, time: 0, color: '#000' },
-          { x: 2, y: 2, time: 100, color: '#000' },
-        ],
-      },
-      {
-        id: 'a2',
-        points: [
-          { x: 10, y: 10, time: 0, color: '#f0f' },
-        ],
-      },
-    ]));
+    expect(snap2.trajectories).toEqual(
+      expect.arrayContaining([
+        {
+          id: 'a1',
+          points: [
+            { x: 1, y: 1, time: 0, color: '#000' },
+            { x: 2, y: 2, time: 100, color: '#000' },
+          ],
+        },
+        {
+          id: 'a2',
+          points: [{ x: 10, y: 10, time: 0, color: '#f0f' }],
+        },
+      ]),
+    );
   });
 });

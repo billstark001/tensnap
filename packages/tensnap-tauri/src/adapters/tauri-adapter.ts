@@ -6,15 +6,7 @@ import {
   FileSystemAdapter,
   type FileSystemStats,
 } from '@tensnap/web-common/types/file';
-import {
-  exists,
-  mkdir,
-  readDir,
-  readFile,
-  remove,
-  stat,
-  writeFile,
-} from '@tauri-apps/plugin-fs';
+import { exists, mkdir, readDir, readFile, remove, stat, writeFile } from '@tauri-apps/plugin-fs';
 
 /**
  * Native filesystem adapter backed by Tauri's scoped fs plugin.
@@ -38,9 +30,13 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     _metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
   ): Promise<FileContent> {
     void _metadata;
-    const bytes = content instanceof ArrayBuffer ? new Uint8Array(content) : new TextEncoder().encode(content);
+    const bytes =
+      content instanceof ArrayBuffer ? new Uint8Array(content) : new TextEncoder().encode(content);
     await writeFile(path, bytes);
-    const contentBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const contentBuffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength,
+    ) as ArrayBuffer;
 
     return {
       metadata: await this.getFileMetadata(path),
@@ -52,7 +48,10 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
   async readFile(path: string): Promise<FileContent | null> {
     try {
       const [bytes, metadata] = await Promise.all([readFile(path), this.getFileMetadata(path)]);
-      const content = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+      const content = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer;
       return {
         metadata,
         content,
@@ -69,7 +68,7 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
   }
 
   async fileExists(path: string): Promise<boolean> {
-    if (!await exists(path)) return false;
+    if (!(await exists(path))) return false;
     return (await stat(path)).isFile;
   }
 
@@ -84,16 +83,19 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
 
   async list(path: string): Promise<DirectoryEntry[]> {
     const entries = await readDir(path);
-    return Promise.all(entries.flatMap(async (entry): Promise<DirectoryEntry[]> => {
-      const entryPath = this.joinPath(path, entry.name);
-      if (entry.isFile) return [{ type: 'file', ...await this.getFileMetadata(entryPath) }];
-      if (entry.isDirectory) return [{ type: 'directory', ...await this.getDirectoryMetadata(entryPath) }];
-      return [];
-    })).then((groups) => groups.flat());
+    return Promise.all(
+      entries.flatMap(async (entry): Promise<DirectoryEntry[]> => {
+        const entryPath = this.joinPath(path, entry.name);
+        if (entry.isFile) return [{ type: 'file', ...(await this.getFileMetadata(entryPath)) }];
+        if (entry.isDirectory)
+          return [{ type: 'directory', ...(await this.getDirectoryMetadata(entryPath)) }];
+        return [];
+      }),
+    ).then((groups) => groups.flat());
   }
 
   async directoryExists(path: string): Promise<boolean> {
-    if (!await exists(path)) return false;
+    if (!(await exists(path))) return false;
     return (await stat(path)).isDirectory;
   }
 
@@ -154,18 +156,33 @@ export class TauriFileSystemAdapter extends FileSystemAdapter {
     const parts = path.split('.');
     const extension = parts[parts.length - 1]?.toLowerCase();
     const mimeTypes: Record<string, string> = {
-      txt: 'text/plain', json: 'application/json', js: 'application/javascript',
-      ts: 'application/typescript', tsx: 'application/typescript', jsx: 'application/javascript',
-      html: 'text/html', css: 'text/css', png: 'image/png', jpg: 'image/jpeg',
-      jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', pdf: 'application/pdf',
-      zip: 'application/zip', npy: 'application/octet-stream', md: 'text/markdown',
-      xml: 'application/xml', csv: 'text/csv',
+      txt: 'text/plain',
+      json: 'application/json',
+      js: 'application/javascript',
+      ts: 'application/typescript',
+      tsx: 'application/typescript',
+      jsx: 'application/javascript',
+      html: 'text/html',
+      css: 'text/css',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      svg: 'image/svg+xml',
+      pdf: 'application/pdf',
+      zip: 'application/zip',
+      npy: 'application/octet-stream',
+      md: 'text/markdown',
+      xml: 'application/xml',
+      csv: 'text/csv',
     };
     return mimeTypes[extension ?? ''] ?? 'application/octet-stream';
   }
 
   private async calculateChecksum(content: ArrayBuffer): Promise<string> {
     const hashBuffer = await crypto.subtle.digest('SHA-256', content);
-    return Array.from(new Uint8Array(hashBuffer), (byte) => byte.toString(16).padStart(2, '0')).join('');
+    return Array.from(new Uint8Array(hashBuffer), (byte) =>
+      byte.toString(16).padStart(2, '0'),
+    ).join('');
   }
 }

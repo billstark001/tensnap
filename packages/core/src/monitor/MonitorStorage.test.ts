@@ -15,7 +15,10 @@ describe('MonitorStorage', () => {
 
     const scenario = new Scenario();
     scenario.apply({ type: 'monitor_create', payload: { id: 'health', label: 'Health' } });
-    scenario.apply({ type: 'monitor_update', payload: { id: 'health', value: ['ok'], revision: 3 } });
+    scenario.apply({
+      type: 'monitor_update',
+      payload: { id: 'health', value: ['ok'], revision: 3 },
+    });
     const restored = new Scenario();
     restored.load(scenario.dump());
     expect(restored.monitors.get('health')).toMatchObject({ value: ['ok'], revision: 3 });

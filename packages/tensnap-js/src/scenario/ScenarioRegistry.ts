@@ -11,7 +11,11 @@ import type {
 } from '@tensnap/protocol';
 import type { SimulatorSessionHandlers } from '../runtime';
 import { SimulatorSession } from '../runtime';
-import { cloneChartGroupMetadata, cloneLayerDefinition, layerCreatePayload } from './definitionHelpers';
+import {
+  cloneChartGroupMetadata,
+  cloneLayerDefinition,
+  layerCreatePayload,
+} from './definitionHelpers';
 import { hasCompiledTopology, orderLayers } from './layerTopology';
 
 export interface ScenarioLayerDefinition {
@@ -93,13 +97,24 @@ export class ScenarioRegistry {
     return this.storeEnvironment(environment, false);
   }
 
-  private storeEnvironment(environment: ScenarioEnvironmentDefinition, topologyValidated: boolean): this {
+  private storeEnvironment(
+    environment: ScenarioEnvironmentDefinition,
+    topologyValidated: boolean,
+  ): this {
     const layers = environment.layers?.map(cloneLayerDefinition);
     this.environments.set(environment.id, {
       ...environment,
-      layers: layers && (topologyValidated ? layers : orderLayers(environment.id, layers,
-        (layer) => layer.layerId, (layer) => layer.layerType,
-        (layer) => layer.dependencyLayerIds)),
+      layers:
+        layers &&
+        (topologyValidated
+          ? layers
+          : orderLayers(
+              environment.id,
+              layers,
+              (layer) => layer.layerId,
+              (layer) => layer.layerType,
+              (layer) => layer.dependencyLayerIds,
+            )),
     });
     return this;
   }
@@ -140,7 +155,10 @@ export class ScenarioRegistry {
         });
         await registry.replay(session.emitter);
         await onStateSync?.(payload, session);
-        await session.emitter.stateSyncEnd({ request_id: payload.request_id, state_revision: String(++stateRevision) });
+        await session.emitter.stateSyncEnd({
+          request_id: payload.request_id,
+          state_revision: String(++stateRevision),
+        });
       },
     });
   }

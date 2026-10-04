@@ -10,7 +10,11 @@ export function resolveToolbarActionIds(actions: ReadonlyMap<string, Action> | u
   return {
     // The minimal profile has only continuous `step`; it is valid for both run
     // and one-shot controls when no explicit start action is callable.
-    runActionId: isDirectModelAction(start) ? 'start' : isDirectModelAction(step) ? 'step' : undefined,
+    runActionId: isDirectModelAction(start)
+      ? 'start'
+      : isDirectModelAction(step)
+        ? 'step'
+        : undefined,
     stepActionId: isDirectModelAction(step) ? 'step' : undefined,
     resetActionId: isDirectModelAction(reset) ? 'reset' : undefined,
   };

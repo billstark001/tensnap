@@ -1,12 +1,17 @@
-import { ComponentType, PropsWithChildren } from "react";
-import ReactDOM from "react-dom/client";
-import { FileMetadata, FilePickerOptions, FileSystemAdapter, FileSystemPicker } from '@tensnap/web-common/types/file';
-import { FilePickerProvider } from "./FilePickerProvider";
+import { ComponentType, PropsWithChildren } from 'react';
+import ReactDOM from 'react-dom/client';
+import {
+  FileMetadata,
+  FilePickerOptions,
+  FileSystemAdapter,
+  FileSystemPicker,
+} from '@tensnap/web-common/types/file';
+import { FilePickerProvider } from './FilePickerProvider';
 import { FilePickerBridge } from './FilePickerBridge';
 
 /**
  * InBrowserFilePicker: 在浏览器环境中实现的文件选择器
- * 
+ *
  * 这个类创建一个隐藏的 React 根节点来渲染 FilePickerProvider，
  * 从而在非 React 应用或需要独立文件选择器的场景中使用。
  */
@@ -17,11 +22,11 @@ export class InBrowserFilePicker extends FileSystemPicker {
   private _pickFiles?: FileSystemPicker['pickFiles'];
   private reactRootNode?: ReactDOM.Root;
   private isInitialized = false;
-  
+
   constructor(
-    rootElement: HTMLElement, 
-    fileSystem: FileSystemAdapter, 
-    Wrapper?: ComponentType<PropsWithChildren<object>>
+    rootElement: HTMLElement,
+    fileSystem: FileSystemAdapter,
+    Wrapper?: ComponentType<PropsWithChildren<object>>,
   ) {
     super();
     this.rootElement = rootElement;
@@ -36,7 +41,7 @@ export class InBrowserFilePicker extends FileSystemPicker {
     }
 
     const { rootElement, fileSystem, Wrapper } = this;
-    
+
     // 创建 React 组件树
     const children = (
       <FilePickerProvider fileSystem={fileSystem}>
@@ -47,13 +52,13 @@ export class InBrowserFilePicker extends FileSystemPicker {
         />
       </FilePickerProvider>
     );
-    
+
     const rootNode = Wrapper ? <Wrapper>{children}</Wrapper> : children;
 
     // 创建并渲染 React 根节点
     this.reactRootNode = ReactDOM.createRoot(rootElement);
     this.reactRootNode.render(rootNode);
-    
+
     this.isInitialized = true;
 
     // 等待一个 tick 确保 React 组件已渲染
@@ -69,14 +74,14 @@ export class InBrowserFilePicker extends FileSystemPicker {
       this.reactRootNode.unmount();
       this.reactRootNode = undefined;
     }
-    
+
     this._pickFiles = undefined;
     this.isInitialized = false;
   }
 
   pickFiles(options?: FilePickerOptions): Promise<FileMetadata[]> {
     if (!this.isInitialized || !this._pickFiles) {
-      throw new Error("File picker not initialized. Call initialize() first.");
+      throw new Error('File picker not initialized. Call initialize() first.');
     }
     return this._pickFiles(options);
   }

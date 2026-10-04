@@ -1,5 +1,5 @@
-import { vars } from "@tensnap/web-common/styles/global.css";
-import { style } from "@vanilla-extract/css";
+import { vars } from '@tensnap/web-common/styles/global.css';
+import { style } from '@vanilla-extract/css';
 
 export const rightPanel = style({
   height: '100%',
@@ -8,7 +8,7 @@ export const rightPanel = style({
   backgroundColor: vars.color.background,
   borderLeft: `1px solid ${vars.color.gridLine}`,
   overflow: 'hidden',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -21,7 +21,7 @@ export const panelHeader = style({
   padding: vars.space.md,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.gridBackground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkSecondary,

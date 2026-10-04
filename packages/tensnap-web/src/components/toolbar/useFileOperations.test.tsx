@@ -25,17 +25,19 @@ vi.mock('@/store/loading', () => ({
 }));
 
 vi.mock('@/store/project', () => ({
-  useProjectStore: (selector: (state: Record<string, unknown>) => unknown) => selector({
-    activeProject: null,
-    activeFilepath: null,
-    new: mocks.createProject,
-    open: mocks.openProject,
-    save: mocks.saveProject,
-  }),
+  useProjectStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({
+      activeProject: null,
+      activeFilepath: null,
+      new: mocks.createProject,
+      open: mocks.openProject,
+      save: mocks.saveProject,
+    }),
 }));
 
 vi.mock('@/store/settings', () => ({
-  useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) => selector({ saveFormat: mocks.saveFormat }),
+  useSettingsStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({ saveFormat: mocks.saveFormat }),
 }));
 
 vi.mock('@/dialogs/CreateNewProjectDialogStore', () => ({
@@ -67,7 +69,10 @@ describe('useFileOperations', () => {
 
     expect(mocks.withLoading).toHaveBeenCalledTimes(1);
     expect(mocks.openProject).toHaveBeenCalledWith('/broken-project.msgpack');
-    expect(mocks.toast.error).toHaveBeenCalledWith('Failed to open files', 'Error: Invalid project archive');
+    expect(mocks.toast.error).toHaveBeenCalledWith(
+      'Failed to open files',
+      'Error: Invalid project archive',
+    );
   });
 
   it('warns when a project was opened through best-effort recovery', async () => {

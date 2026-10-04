@@ -1,13 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createHistoryStore, type HistoryCommand } from './undo-redo';
 
-const command = (label: string, state: { value: number }, from: number, to: number, byteSize = 1): HistoryCommand => ({
+const command = (
+  label: string,
+  state: { value: number },
+  from: number,
+  to: number,
+  byteSize = 1,
+): HistoryCommand => ({
   id: label,
   label,
   scope: 'layout',
   byteSize,
-  apply: () => { state.value = to; },
-  revert: () => { state.value = from; },
+  apply: () => {
+    state.value = to;
+  },
+  revert: () => {
+    state.value = from;
+  },
 });
 
 describe('project command history', () => {
@@ -26,8 +36,14 @@ describe('project command history', () => {
     const onError = vi.fn();
     const history = createHistoryStore({ onError });
     history.getState().recordApplied({
-      id: 'bad', label: 'Bad command', scope: 'layout', byteSize: 1,
-      apply: () => {}, revert: async () => { throw new Error('gone'); },
+      id: 'bad',
+      label: 'Bad command',
+      scope: 'layout',
+      byteSize: 1,
+      apply: () => {},
+      revert: async () => {
+        throw new Error('gone');
+      },
     });
     expect(await history.getState().undo()).toBe(false);
     expect(history.getState().past).toHaveLength(1);
@@ -72,7 +88,9 @@ describe('project command history', () => {
     expect(() => createHistoryStore({ maxBytes: Number.POSITIVE_INFINITY })).toThrow(/maxBytes/);
     const target = { value: 0 };
     const history = createHistoryStore();
-    expect(await history.getState().execute(command('invalid', target, 0, 1, Number.NaN))).toBe(false);
+    expect(await history.getState().execute(command('invalid', target, 0, 1, Number.NaN))).toBe(
+      false,
+    );
     expect(target.value).toBe(0);
     expect(history.getState().past).toEqual([]);
   });

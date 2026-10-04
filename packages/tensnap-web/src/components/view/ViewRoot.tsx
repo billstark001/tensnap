@@ -21,12 +21,11 @@ import { useDragContent, useResizeContent } from './useDragAndResizeContent';
 import { PropsWithChildren, useMemo } from 'react';
 import { getEffectiveViewBox } from '@/utils/view/geometry';
 
-export type ViewRendererProps = ViewProps<ContainerView> &
-  Partial<ViewContextScheme>;
+export type ViewRendererProps = ViewProps<ContainerView> & Partial<ViewContextScheme>;
 
 const NaiveRenderer = (props: PropsWithChildren<object>) => {
   return <>{props.children}</>;
-}
+};
 
 export default function ViewRoot({
   view: rootView,
@@ -39,27 +38,23 @@ export default function ViewRoot({
   AnchoredViewRenderer: _AnchoredViewRenderer,
   ViewContextMenuRenderer: _ViewContextMenuRenderer,
 }: ViewRendererProps) {
-
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
   const isRunning = useCallbackRef(_isRunning ?? (() => false));
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
   const onViewCreateRequest = useCallbackRef(_onViewCreateRequest ?? (() => void 0));
 
-  const AnchoredViewRenderer = useCallbackRef(_AnchoredViewRenderer ?? NaiveRenderer as any);
-  const ViewContextMenuRenderer = useCallbackRef(_ViewContextMenuRenderer ?? NaiveRenderer as any);
+  const AnchoredViewRenderer = useCallbackRef(_AnchoredViewRenderer ?? (NaiveRenderer as any));
+  const ViewContextMenuRenderer = useCallbackRef(
+    _ViewContextMenuRenderer ?? (NaiveRenderer as any),
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor),
   );
 
   // drag
-  const {
-    dragState,
-    onDragStart,
-    onDragMove,
-    onDragEnd,
-  } = useDragContent({
+  const { dragState, onDragStart, onDragMove, onDragEnd } = useDragContent({
     rootView,
     onViewUpdate,
   });
@@ -67,25 +62,35 @@ export default function ViewRoot({
   const { state } = dragState;
 
   // resize
-  const {
-    resizeState,
-    onResizeStart,
-  } = useResizeContent({
+  const { resizeState, onResizeStart } = useResizeContent({
     rootView,
     onViewUpdate,
   });
 
-  const contextValue: ViewContextScheme = useMemo(() => ({
-    rootView,
-    isAdjusting,
-    onButtonAction,
-    isRunning,
-    AnchoredViewRenderer,
-    ViewContextMenuRenderer,
-    onResizeStart,
-    onViewUpdate,
-    onViewCreateRequest,
-  }), [rootView, isAdjusting, onButtonAction, isRunning, AnchoredViewRenderer, ViewContextMenuRenderer, onResizeStart, onViewUpdate, onViewCreateRequest]);
+  const contextValue: ViewContextScheme = useMemo(
+    () => ({
+      rootView,
+      isAdjusting,
+      onButtonAction,
+      isRunning,
+      AnchoredViewRenderer,
+      ViewContextMenuRenderer,
+      onResizeStart,
+      onViewUpdate,
+      onViewCreateRequest,
+    }),
+    [
+      rootView,
+      isAdjusting,
+      onButtonAction,
+      isRunning,
+      AnchoredViewRenderer,
+      ViewContextMenuRenderer,
+      onResizeStart,
+      onViewUpdate,
+      onViewCreateRequest,
+    ],
+  );
 
   const { state: resizeStateValue } = resizeState;
   const dragOverlayBox = state.content ? getEffectiveViewBox(state.content.view) : null;
@@ -101,12 +106,11 @@ export default function ViewRoot({
         modifiers={[restrictToWindowEdges]}
       >
         <div className={styles.container}>
-          <div className={styles.rootView} style={{ width: rootView.width, height: rootView.height }}>
-            <ContainerViewComponent
-              view={rootView}
-              updateTrigger={updateTrigger}
-              isRootView
-            />
+          <div
+            className={styles.rootView}
+            style={{ width: rootView.width, height: rootView.height }}
+          >
+            <ContainerViewComponent view={rootView} updateTrigger={updateTrigger} isRootView />
 
             {state.guideLines.length > 0 && (
               <Guidelines
@@ -145,8 +149,10 @@ export default function ViewRoot({
                 style={{
                   width: resizeStateValue.suggestedSnap.width,
                   height: resizeStateValue.suggestedSnap.height,
-                  left: resizeStateValue.guideOrigin.relativeLeft + resizeStateValue.suggestedSnap.left,
-                  top: resizeStateValue.guideOrigin.relativeTop + resizeStateValue.suggestedSnap.top,
+                  left:
+                    resizeStateValue.guideOrigin.relativeLeft + resizeStateValue.suggestedSnap.left,
+                  top:
+                    resizeStateValue.guideOrigin.relativeTop + resizeStateValue.suggestedSnap.top,
                 }}
               />
             )}

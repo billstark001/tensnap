@@ -59,7 +59,7 @@ export interface IBoundedLayer extends ILayer {
    * Returns null if the layer has no content or doesn't contribute to scene bounds.
    */
   getSceneBounds(): SceneBounds | null;
-  
+
   /**
    * Get the origin mode for this layer's content.
    * Determines how the layer's content is positioned relative to its bounds.

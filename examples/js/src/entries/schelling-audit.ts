@@ -20,7 +20,11 @@ export function schellingAuditState(model: SchellingModel) {
     time: live.timeStep,
     config: { ...live.config, seed: live.seed ?? null },
     agents: live.agents.map((agent) => ({
-      id: agent.id, x: agent.x, y: agent.y, group: agent.type, satisfied: agent.satisfied,
+      id: agent.id,
+      x: agent.x,
+      y: agent.y,
+      group: agent.type,
+      satisfied: agent.satisfied,
     })),
     rngState: live.rngState,
     emptySpots: [...live.emptySpots],

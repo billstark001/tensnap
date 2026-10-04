@@ -59,7 +59,8 @@ export class MonitorStorage {
   }
 
   create(metadata: MonitorMetadata): void {
-    if (this.monitors.has(metadata.id)) throw new Error(`monitor_create already exists: ${metadata.id}`);
+    if (this.monitors.has(metadata.id))
+      throw new Error(`monitor_create already exists: ${metadata.id}`);
     this.monitors.set(metadata.id, structuredClone(metadata));
     this.publish([metadata.id], true);
   }

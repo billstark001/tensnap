@@ -129,8 +129,15 @@ export interface ScenarioEventDetailMap {
 export type ScenarioEventType = keyof ScenarioEventDetailMap;
 
 export interface ScenarioMessageFactory {
-  createStateSyncMessage(modelId: string, requestId: string, instanceId?: string): { type: 'state_sync'; payload: StateSyncRequest };
-  createParamChangeMessage(id: string, value: ParameterChangePayload['value']): { type: 'param_change'; payload: ParameterChangePayload };
+  createStateSyncMessage(
+    modelId: string,
+    requestId: string,
+    instanceId?: string,
+  ): { type: 'state_sync'; payload: StateSyncRequest };
+  createParamChangeMessage(
+    id: string,
+    value: ParameterChangePayload['value'],
+  ): { type: 'param_change'; payload: ParameterChangePayload };
   createActionInvokeMessage(
     id: string,
     requestId: string,

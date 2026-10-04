@@ -48,16 +48,18 @@ function readWorkspacePackageVersions() {
 
 function resolvePublishedDependencies(dependencies) {
   const workspaceVersions = readWorkspacePackageVersions();
-  return Object.fromEntries(Object.entries(dependencies).map(([name, version]) => {
-    if (typeof version === 'string' && version.startsWith('workspace:')) {
-      const publishedVersion = workspaceVersions.get(name);
-      if (!publishedVersion) {
-        throw new Error(`Cannot resolve workspace dependency ${name}`);
+  return Object.fromEntries(
+    Object.entries(dependencies).map(([name, version]) => {
+      if (typeof version === 'string' && version.startsWith('workspace:')) {
+        const publishedVersion = workspaceVersions.get(name);
+        if (!publishedVersion) {
+          throw new Error(`Cannot resolve workspace dependency ${name}`);
+        }
+        return [name, publishedVersion];
       }
-      return [name, publishedVersion];
-    }
-    return [name, version];
-  }));
+      return [name, version];
+    }),
+  );
 }
 
 const sharedBuildOptions = {
@@ -99,32 +101,36 @@ copyFileSync(ROOT_LICENSE, resolve(DIST, 'LICENSE'));
 
 writeFileSync(
   resolve(DIST, 'package.json'),
-  JSON.stringify({
-    name: manifest.name,
-    version: manifest.version,
-    type: manifest.type,
-    description: manifest.description,
-    main: './index.js',
-    exports: {
-      '.': './index.js',
-      './runtime': './runtime/index.js',
-      './session': './session/index.js',
+  JSON.stringify(
+    {
+      name: manifest.name,
+      version: manifest.version,
+      type: manifest.type,
+      description: manifest.description,
+      main: './index.js',
+      exports: {
+        '.': './index.js',
+        './runtime': './runtime/index.js',
+        './session': './session/index.js',
+      },
+      bin: {
+        'tensnap-agent': './cli.js',
+      },
+      scripts: {
+        cli: 'node ./cli.js',
+      },
+      dependencies: publishedDependencies,
+      keywords: manifest.keywords,
+      license: 'SEE LICENSE IN LICENSE',
+      publishConfig: {
+        access: 'public',
+      },
+      engines: {
+        node: '>=18.0.0',
+      },
     },
-    bin: {
-      'tensnap-agent': './cli.js',
-    },
-    scripts: {
-      cli: 'node ./cli.js',
-    },
-    dependencies: publishedDependencies,
-    keywords: manifest.keywords,
-    license: 'SEE LICENSE IN LICENSE',
-    publishConfig: {
-      access: 'public',
-    },
-    engines: {
-      node: '>=18.0.0',
-    },
-  }, null, 2) + '\n',
+    null,
+    2,
+  ) + '\n',
   'utf8',
 );

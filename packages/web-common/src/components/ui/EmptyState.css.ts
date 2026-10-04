@@ -12,7 +12,7 @@ export const emptyState = style({
   textAlign: 'center',
   gap: '12px',
   minHeight: '200px',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextTertiary,
@@ -20,10 +20,13 @@ export const emptyState = style({
   },
 });
 
-export const emptyStateCompact = style([emptyState, {
-  padding: '32px 24px',
-  minHeight: '150px',
-}]);
+export const emptyStateCompact = style([
+  emptyState,
+  {
+    padding: '32px 24px',
+    minHeight: '150px',
+  },
+]);
 
 export const emptyStateIcon = style({
   fontSize: '48px',
@@ -36,7 +39,7 @@ export const emptyStateTitle = style({
   fontWeight: '500',
   color: vars.color.textSecondary,
   marginBottom: '4px',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextSecondary,
@@ -48,7 +51,7 @@ export const emptyStateDescription = style({
   fontSize: '14px',
   color: vars.color.textTertiary,
   lineHeight: '1.5',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextTertiary,
@@ -74,12 +77,12 @@ export const emptyStateButton = style({
   color: vars.color.textPrimary,
   fontWeight: '500',
   transition: 'all 0.2s',
-  
+
   ':hover': {
     backgroundColor: vars.color.inputHoverBackground,
     borderColor: vars.color.primary,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkInputBackground,
@@ -93,28 +96,31 @@ export const emptyStateButton = style({
   },
 });
 
-export const emptyStatePrimaryButton = style([emptyStateButton, {
-  backgroundColor: vars.color.primary,
-  color: vars.color.background,
-  borderColor: vars.color.primary,
-  
-  ':hover': {
-    backgroundColor: vars.color.primaryHover,
-    borderColor: vars.color.primaryHover,
-  },
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.primary,
-      color: vars.color.darkForeground,
-      borderColor: vars.color.primary,
-    },
-    'body[data-theme="dark"] &:hover': {
+export const emptyStatePrimaryButton = style([
+  emptyStateButton,
+  {
+    backgroundColor: vars.color.primary,
+    color: vars.color.background,
+    borderColor: vars.color.primary,
+
+    ':hover': {
       backgroundColor: vars.color.primaryHover,
       borderColor: vars.color.primaryHover,
     },
+
+    selectors: {
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.primary,
+        color: vars.color.darkForeground,
+        borderColor: vars.color.primary,
+      },
+      'body[data-theme="dark"] &:hover': {
+        backgroundColor: vars.color.primaryHover,
+        borderColor: vars.color.primaryHover,
+      },
+    },
   },
-}]);
+]);
 
 export const uploadArea = style({
   border: `2px dashed ${vars.color.inputBorder}`,
@@ -126,12 +132,12 @@ export const uploadArea = style({
   transition: 'all 0.2s',
   cursor: 'pointer',
   minWidth: '280px',
-  
+
   ':hover': {
     borderColor: vars.color.primary,
     backgroundColor: vars.color.cardHoverBackground,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderColor: vars.color.darkInputBorder,
@@ -144,23 +150,26 @@ export const uploadArea = style({
   },
 });
 
-export const uploadAreaActive = style([uploadArea, {
-  borderColor: vars.color.primary,
-  backgroundColor: vars.color.cardHoverBackground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkCardHoverBackground,
+export const uploadAreaActive = style([
+  uploadArea,
+  {
+    borderColor: vars.color.primary,
+    backgroundColor: vars.color.cardHoverBackground,
+
+    selectors: {
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.darkCardHoverBackground,
+      },
     },
   },
-}]);
+]);
 
 export const uploadText = style({
   fontSize: '14px',
   color: vars.color.textSecondary,
   marginBottom: '4px',
   fontWeight: '500',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextSecondary,
@@ -171,7 +180,7 @@ export const uploadText = style({
 export const uploadHint = style({
   fontSize: '12px',
   color: vars.color.textTertiary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextTertiary,

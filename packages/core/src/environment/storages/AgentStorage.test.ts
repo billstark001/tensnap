@@ -32,7 +32,10 @@ describe('AgentStorage – addAgent / addAgents', () => {
   it('addAgents with duplicate id in the same batch updates existing', () => {
     const s = new AgentStorage();
     s.addAgent({ id: 'a1', x: 0 });
-    s.addAgents([{ id: 'a1', x: 5 }, { id: 'a2', x: 7 }]);
+    s.addAgents([
+      { id: 'a1', x: 5 },
+      { id: 'a2', x: 7 },
+    ]);
     expect(s.getData().agents.get('a1')?.x).toBe(5);
     expect(s.getData().agents.size).toBe(2);
   });
@@ -62,10 +65,12 @@ describe('AgentStorage – addAgent / addAgents', () => {
     storage.addAgent({ id: 'existing', x: 1 });
     const revision = storage.revision;
 
-    expect(() => storage.addAgents([
-      { id: 'existing', x: 2 },
-      { id: 'invalid', data: { callback: () => 1 } },
-    ])).toThrow();
+    expect(() =>
+      storage.addAgents([
+        { id: 'existing', x: 2 },
+        { id: 'invalid', data: { callback: () => 1 } },
+      ]),
+    ).toThrow();
     expect(storage.getAgent('existing')?.x).toBe(1);
     expect(storage.hasAgent('invalid')).toBe(false);
     expect(storage.revision).toBe(revision);
@@ -99,20 +104,31 @@ describe('AgentStorage – updateAgent / updateAgents', () => {
 
   it('updateAgents updates multiple agents in one call', () => {
     const s = new AgentStorage();
-    s.addAgents([{ id: 'a1', x: 0 }, { id: 'a2', x: 0 }]);
-    s.updateAgents([{ id: 'a1', x: 10 }, { id: 'a2', x: 20 }]);
+    s.addAgents([
+      { id: 'a1', x: 0 },
+      { id: 'a2', x: 0 },
+    ]);
+    s.updateAgents([
+      { id: 'a1', x: 10 },
+      { id: 'a2', x: 20 },
+    ]);
     expect(s.getData().agents.get('a1')?.x).toBe(10);
     expect(s.getData().agents.get('a2')?.x).toBe(20);
   });
 
   it('owns the complete update batch before changing any agent', () => {
     const storage = new AgentStorage();
-    storage.addAgents([{ id: 'a1', x: 0 }, { id: 'a2', x: 0 }]);
+    storage.addAgents([
+      { id: 'a1', x: 0 },
+      { id: 'a2', x: 0 },
+    ]);
     const revision = storage.revision;
-    expect(() => storage.updateAgents([
-      { id: 'a1', x: 10 },
-      { id: 'a2', data: { unsupported: () => undefined } },
-    ])).toThrow();
+    expect(() =>
+      storage.updateAgents([
+        { id: 'a1', x: 10 },
+        { id: 'a2', data: { unsupported: () => undefined } },
+      ]),
+    ).toThrow();
     expect(storage.getAgent('a1')?.x).toBe(0);
     expect(storage.revision).toBe(revision);
   });
@@ -176,7 +192,12 @@ describe('AgentStorage – setAgents full replace', () => {
       { id: 'far', x: 100, y: 100 },
       { id: 'edge', x: 3, y: 4 },
     ]);
-    expect(s.getAgentsWithinRadius(0, 0, 5).map((agent) => agent.id).sort()).toEqual(['edge', 'near']);
+    expect(
+      s
+        .getAgentsWithinRadius(0, 0, 5)
+        .map((agent) => agent.id)
+        .sort(),
+    ).toEqual(['edge', 'near']);
 
     s.updateAgent('near', { x: 50, y: 50 });
     s.removeAgent('edge');
@@ -201,7 +222,12 @@ describe('AgentStorage – setAgents full replace', () => {
 
     release();
     s.updateAgent('near', { x: 1, y: 1 });
-    expect(s.getAgentsWithinRadius(0, 0, 3).map((agent) => agent.id).sort()).toEqual(['far', 'near']);
+    expect(
+      s
+        .getAgentsWithinRadius(0, 0, 3)
+        .map((agent) => agent.id)
+        .sort(),
+    ).toEqual(['far', 'near']);
   });
 
   it('falls back to a bounded scan for huge retained-index queries', () => {
@@ -265,10 +291,13 @@ describe('AgentStorage – subscriber notifications', () => {
 describe('AgentStorage – dump / load', () => {
   it('dump returns agents array', () => {
     const s = new AgentStorage();
-    s.addAgents([{ id: 'a1', x: 1 }, { id: 'a2', x: 2 }]);
+    s.addAgents([
+      { id: 'a1', x: 1 },
+      { id: 'a2', x: 2 },
+    ]);
     const snap = s.dump();
     expect(snap.agents).toHaveLength(2);
-    expect(snap.agents.map(a => a.id)).toEqual(expect.arrayContaining(['a1', 'a2']));
+    expect(snap.agents.map((a) => a.id)).toEqual(expect.arrayContaining(['a1', 'a2']));
   });
 
   it('load restores agents from snapshot', () => {

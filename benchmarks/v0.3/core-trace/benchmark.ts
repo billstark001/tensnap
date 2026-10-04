@@ -23,7 +23,12 @@ const defaults: CoreTraceConfig = {
 };
 
 function integer(value: unknown, name: string, minimum: number, maximum?: number): number {
-  if (!Number.isInteger(value) || typeof value !== 'number' || value < minimum || (maximum !== undefined && value > maximum)) {
+  if (
+    !Number.isInteger(value) ||
+    typeof value !== 'number' ||
+    value < minimum ||
+    (maximum !== undefined && value > maximum)
+  ) {
     throw new Error(`${name} must be an integer in [${minimum}, ${maximum ?? '∞'}].`);
   }
   return value;
@@ -37,22 +42,46 @@ function resolveConfig(overrides: Partial<CoreTraceConfig> = {}): CoreTraceConfi
     agentCount,
     changedAgents: integer(config.changedAgents, 'changedAgents', 0, agentCount),
     monitorArrayLength: integer(config.monitorArrayLength, 'monitorArrayLength', 0, 10_000),
-    worldSize: typeof config.worldSize === 'number' && config.worldSize > 0 ? config.worldSize : defaults.worldSize,
-    stepSize: typeof config.stepSize === 'number' && config.stepSize >= 0 ? config.stepSize : defaults.stepSize,
+    worldSize:
+      typeof config.worldSize === 'number' && config.worldSize > 0
+        ? config.worldSize
+        : defaults.worldSize,
+    stepSize:
+      typeof config.stepSize === 'number' && config.stepSize >= 0
+        ? config.stepSize
+        : defaults.stepSize,
     seed: integer(config.seed, 'seed', 0, 0xffff_ffff),
   };
 }
 
-function createTraceScenario(agents: ReturnType<typeof createRandomWalkAgents>, config: CoreTraceConfig): Scenario {
+function createTraceScenario(
+  agents: ReturnType<typeof createRandomWalkAgents>,
+  config: CoreTraceConfig,
+): Scenario {
   const scenario = new Scenario();
   scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
   scenario.apply({
     type: 'env_layer_create',
-    payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent', metadata: { width: config.worldSize, height: config.worldSize, coord_offset: 'float' } },
+    payload: {
+      env_id: 'main',
+      layer_id: 'agents',
+      layer_type: 'agent',
+      metadata: { width: config.worldSize, height: config.worldSize, coord_offset: 'float' },
+    },
   });
-  scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: structuredClone(agents) as unknown as Array<Record<string, never>> } });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'main',
+      layer_id: 'agents',
+      items: structuredClone(agents) as unknown as Array<Record<string, never>>,
+    },
+  });
   scenario.apply({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
-  scenario.apply({ type: 'monitor_create', payload: { id: 'diagnostics', label: 'Diagnostics', render_hint: 'tree' } });
+  scenario.apply({
+    type: 'monitor_create',
+    payload: { id: 'diagnostics', label: 'Diagnostics', render_hint: 'tree' },
+  });
   return scenario;
 }
 
@@ -74,19 +103,35 @@ function createNodeCase(config: CoreTraceConfig): NodeBenchmarkCase {
       const changed = stepRandomWalk(agents, config, random, iteration);
       scenario.apply({
         type: 'item_update',
-        payload: { env_id: 'main', layer_id: 'agents', items: changed.map(({ id, x, y }) => ({ id, x, y })) },
+        payload: {
+          env_id: 'main',
+          layer_id: 'agents',
+          items: changed.map(({ id, x, y }) => ({ id, x, y })),
+        },
       });
-      scenario.apply({ type: 'chart_update', payload: { updates: [{ id: 'population', time: iteration, value: config.agentCount }] } });
+      scenario.apply({
+        type: 'chart_update',
+        payload: { updates: [{ id: 'population', time: iteration, value: config.agentCount }] },
+      });
       scenario.apply({
         type: 'monitor_update',
         payload: {
           id: 'diagnostics',
           revision: iteration + 1,
-          value: { tick: iteration, changed: changed.length, sample: Array.from({ length: config.monitorArrayLength }, (_, index) => (iteration + index) % 97) },
+          value: {
+            tick: iteration,
+            changed: changed.length,
+            sample: Array.from(
+              { length: config.monitorArrayLength },
+              (_, index) => (iteration + index) % 97,
+            ),
+          },
         },
       });
       completed += 1;
-      return { metrics: { changedItems: changed.length, monitorValues: config.monitorArrayLength } };
+      return {
+        metrics: { changedItems: changed.length, monitorValues: config.monitorArrayLength },
+      };
     },
     snapshot() {
       return {
@@ -95,7 +140,9 @@ function createNodeCase(config: CoreTraceConfig): NodeBenchmarkCase {
         monitorRevision: completed,
       };
     },
-    expectedState(actions) { return expected(config, actions); },
+    expectedState(actions) {
+      return expected(config, actions);
+    },
   };
 }
 
@@ -105,7 +152,8 @@ export const workload: BenchmarkWorkload<CoreTraceConfig> = {
   version: 1,
   kind: 'node',
   category: 'core',
-  description: 'Scenario incremental apply: sparse agent deltas plus chart append and structured monitor replacement.',
+  description:
+    'Scenario incremental apply: sparse agent deltas plus chart append and structured monitor replacement.',
   supportedSuites: ['node'],
   resolveConfig,
   createNodeCase,

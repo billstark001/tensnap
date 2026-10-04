@@ -23,7 +23,7 @@ registerBuiltinModels(
     description: entry.description,
     protocolVersion: entry.protocolVersion,
     create: entry.createTransport,
-  }))
+  })),
 );
 
 function isDarkMode() {
@@ -37,9 +37,8 @@ function isDarkMode() {
     persistence.get('theme'),
     persistence.get('locale'),
   ]);
-  const initialTheme = savedTheme === 'light' || savedTheme === 'dark'
-    ? savedTheme
-    : (isDarkMode() ? 'dark' : 'light');
+  const initialTheme =
+    savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : isDarkMode() ? 'dark' : 'light';
   useSettingsStore.getState().setTheme(initialTheme);
   const initialLocale = detectLocale(savedLocale);
   useSettingsStore.getState().setLocale(initialLocale);
@@ -53,17 +52,17 @@ function isDarkMode() {
     name: 'indexeddb',
     description: 'Browser IndexedDB storage (recommended for web)',
     supported: typeof window !== 'undefined' && 'indexedDB' in window,
-    create: () => new IndexedDBFileSystemAdapter()
+    create: () => new IndexedDBFileSystemAdapter(),
   });
-  await registerFileSystemPicker(new InBrowserFilePicker(
-    document.getElementById('file-picker-root')!,
-    adapter,
-    ({ children }: PropsWithChildren) => <I18nProvider i18n={i18n}>{children}</I18nProvider>
-  ));
-
-  const root = ReactDOM.createRoot(
-    document.getElementById('root') as HTMLElement
+  await registerFileSystemPicker(
+    new InBrowserFilePicker(
+      document.getElementById('file-picker-root')!,
+      adapter,
+      ({ children }: PropsWithChildren) => <I18nProvider i18n={i18n}>{children}</I18nProvider>,
+    ),
   );
+
+  const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
 
   root.render(
     <React.StrictMode>
@@ -72,6 +71,6 @@ function isDarkMode() {
           <App />
         </Providers>
       </AppErrorBoundary>
-    </React.StrictMode>
+    </React.StrictMode>,
   );
 })();

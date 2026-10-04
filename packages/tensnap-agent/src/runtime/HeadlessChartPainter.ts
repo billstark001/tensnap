@@ -49,14 +49,22 @@ export class HeadlessChartPainter implements ScenePainter {
   async render(request: RenderRequest): Promise<RenderArtifact[]> {
     if (request.options.envId) return [];
     const charts = request.options.chartId
-      ? request.snapshot.charts.filter((group) => group.id === request.options.chartId || request.options.chartId! in group.metadataDict)
+      ? request.snapshot.charts.filter(
+          (group) =>
+            group.id === request.options.chartId || request.options.chartId! in group.metadataDict,
+        )
       : request.snapshot.charts;
     const artifacts: RenderArtifact[] = [];
-    for (const group of charts) artifacts.push(await this.renderGroup(group, request, charts.length > 1));
+    for (const group of charts)
+      artifacts.push(await this.renderGroup(group, request, charts.length > 1));
     return artifacts;
   }
 
-  private async renderGroup(group: ChartGroup, request: RenderRequest, appendId: boolean): Promise<RenderArtifact> {
+  private async renderGroup(
+    group: ChartGroup,
+    request: RenderRequest,
+    appendId: boolean,
+  ): Promise<RenderArtifact> {
     const width = Math.max(1, request.options.width ?? this.options.defaultWidth ?? 960);
     const height = Math.max(1, request.options.height ?? this.options.defaultHeight ?? 480);
     const format = request.options.format ?? this.options.defaultFormat ?? 'png';
@@ -64,9 +72,10 @@ export class HeadlessChartPainter implements ScenePainter {
     const scene = new ChartScene(chartConfig(group));
     scene.updateData(group.data);
     scene.render(canvas.getContext('2d'), width, height, { theme: this.options.theme ?? 'light' });
-    const data = format === 'jpeg'
-      ? canvas.toBuffer('image/jpeg', { quality: request.options.quality })
-      : canvas.toBuffer('image/png');
+    const data =
+      format === 'jpeg'
+        ? canvas.toBuffer('image/jpeg', { quality: request.options.quality })
+        : canvas.toBuffer('image/png');
 
     let path: string | undefined;
     if (request.options.persist !== false) {

@@ -1,4 +1,3 @@
-
 export const SNAP_THRESHOLD = 8;
 export const GRID_SIZE = 20;
 
@@ -23,7 +22,6 @@ const windowTopDelta = windowHeaderHeight - windowBorderWidth;
 const windowLeftDelta = windowBorderWidth;
 
 export const viewConstants = {
-
   dragHandleContentDelta: 12,
   dragHandleMinHeight: 24,
   dragHandleMinWidth: 72,
@@ -35,12 +33,13 @@ export const viewConstants = {
 
   windowLeftDelta,
   windowTopDelta,
-
 } as const;
 
 // 确保窗口增量是整数
 export const WINDOW_X_DELTA = Math.ceil(viewConstants.windowBorderWidth * 2);
-export const WINDOW_Y_DELTA = Math.ceil(viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight);
+export const WINDOW_Y_DELTA = Math.ceil(
+  viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight,
+);
 
 export const PARAMETER_CARD_HEIGHT = 40 + WINDOW_Y_DELTA;
 

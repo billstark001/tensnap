@@ -18,12 +18,7 @@ describe('AssetStore binary string decoding', () => {
   it('keeps bare base64 support for existing JSON asset payloads', async () => {
     const store = new AssetStore();
 
-    await store.receiveData(
-      'asset-2',
-      'hash-2',
-      'text/plain',
-      'aGVsbG8=',
-    );
+    await store.receiveData('asset-2', 'hash-2', 'text/plain', 'aGVsbG8=');
 
     expect(store.get('asset-2')?.url).toBe('hello');
   });
@@ -32,12 +27,7 @@ describe('AssetStore binary string decoding', () => {
     const store = new AssetStore();
     const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
 
-    await store.receiveData(
-      'asset-3',
-      'hash-3',
-      'image/svg+xml',
-      new TextEncoder().encode(svg),
-    );
+    await store.receiveData('asset-3', 'hash-3', 'image/svg+xml', new TextEncoder().encode(svg));
 
     const asset = store.get('asset-3');
     expect(asset?.url).toMatch(/^data:image\/svg\+xml;base64,/);
@@ -97,8 +87,9 @@ describe('AssetStore binary string decoding', () => {
     });
     const revoke = vi.spyOn(URL, 'revokeObjectURL');
 
-    await expect(store.receiveData('asset', 'two', 'image/png', new Uint8Array([2])))
-      .rejects.toThrow('URL unavailable');
+    await expect(
+      store.receiveData('asset', 'two', 'image/png', new Uint8Array([2])),
+    ).rejects.toThrow('URL unavailable');
     expect(store.getUrl('asset')).toBe(previousUrl);
     expect(revoke).not.toHaveBeenCalledWith(previousUrl);
 
@@ -110,6 +101,8 @@ describe('AssetStore binary string decoding', () => {
   it('includes prototype-shaped ids in held hashes', async () => {
     const store = new AssetStore();
     await store.receiveData('__proto__', 'hash', 'text/plain', new Uint8Array([65]));
-    expect(JSON.parse(JSON.stringify(store.getHeldHashes()))).toEqual(Object.fromEntries([['__proto__', 'hash']]));
+    expect(JSON.parse(JSON.stringify(store.getHeldHashes()))).toEqual(
+      Object.fromEntries([['__proto__', 'hash']]),
+    );
   });
 });

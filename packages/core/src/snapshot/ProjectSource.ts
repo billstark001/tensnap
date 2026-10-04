@@ -69,11 +69,16 @@ export class SnapshotPlaybackSource {
   stepFrame(): SnapshotFrame | null {
     // `player` is public for inspection/explicit seeking. Recompute only if a
     // caller moved it backwards; normal playback advances this cursor O(1).
-    if (this.frameCursor > 0 && this.snapshot.frames[this.frameCursor - 1]!.index > this.player.frame) {
+    if (
+      this.frameCursor > 0 &&
+      this.snapshot.frames[this.frameCursor - 1]!.index > this.player.frame
+    ) {
       this.resetFrameCursor();
     }
-    while (this.frameCursor < this.snapshot.frames.length
-      && this.snapshot.frames[this.frameCursor]!.index <= this.player.frame) {
+    while (
+      this.frameCursor < this.snapshot.frames.length &&
+      this.snapshot.frames[this.frameCursor]!.index <= this.player.frame
+    ) {
       this.frameCursor += 1;
     }
     const next = this.snapshot.frames[this.frameCursor];

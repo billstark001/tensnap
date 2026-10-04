@@ -1,5 +1,9 @@
 import { Leafer } from '@leafer-ui/core';
-import { BaseEnvironmentView, normalizeSurfaceDimension, type BaseEnvironmentViewOptions } from './BaseEnvironmentView';
+import {
+  BaseEnvironmentView,
+  normalizeSurfaceDimension,
+  type BaseEnvironmentViewOptions,
+} from './BaseEnvironmentView';
 import type { EnvironmentViewType } from './host';
 
 export interface HeadlessLeaferConfig {
@@ -36,11 +40,15 @@ export class HeadlessEnvironmentView extends BaseEnvironmentView {
     options.initializeRuntime?.();
     const leafer = options.createLeafer?.(config) ?? new Leafer(config);
 
-    super(leafer, { width, height }, {
-      fitMode: options.fitMode,
-      initialViewport: options.initialViewport,
-      enableLayerInteraction: options.enableLayerInteraction ?? false,
-    });
+    super(
+      leafer,
+      { width, height },
+      {
+        fitMode: options.fitMode,
+        initialViewport: options.initialViewport,
+        enableLayerInteraction: options.enableLayerInteraction ?? false,
+      },
+    );
   }
 
   setSize(width: number, height: number): void {

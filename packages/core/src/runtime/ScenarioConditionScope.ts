@@ -14,7 +14,11 @@ export interface RunConditionScope {
   readonly metadata: Readonly<Record<string, unknown>>;
   readonly parameters: Readonly<Record<string, unknown>>;
   readonly charts: Readonly<Record<string, unknown>>;
-  agent(environmentId: string, layerId: string, id: string | number): Readonly<Record<string, unknown>> | undefined;
+  agent(
+    environmentId: string,
+    layerId: string,
+    id: string | number,
+  ): Readonly<Record<string, unknown>> | undefined;
   agentCount(environmentId: string, layerId: string): number;
 }
 
@@ -36,12 +40,11 @@ type CachedConditionViews = {
 
 const conditionViews = new WeakMap<Scenario, CachedConditionViews>();
 
-const isNode = (value: unknown): value is JSExprNode => (
-  typeof value === 'object'
-  && value !== null
-  && 'type' in value
-  && typeof (value as { type?: unknown }).type === 'string'
-);
+const isNode = (value: unknown): value is JSExprNode =>
+  typeof value === 'object' &&
+  value !== null &&
+  'type' in value &&
+  typeof (value as { type?: unknown }).type === 'string';
 
 /**
  * pure-expr supports substantially more expression syntax than a run stop
@@ -50,29 +53,29 @@ const isNode = (value: unknown): value is JSExprNode => (
  */
 function validateConditionAst(node: JSExprNode): void {
   if (
-    node.type === 'regex'
-    || node.type === 'arrow-function'
-    || node.type === 'template'
-    || node.type === 'pipeline'
-    || node.type === 'sequence'
-    || node.type === 'topic'
-    || node.type === 'spread'
+    node.type === 'regex' ||
+    node.type === 'arrow-function' ||
+    node.type === 'template' ||
+    node.type === 'pipeline' ||
+    node.type === 'sequence' ||
+    node.type === 'topic' ||
+    node.type === 'spread'
   ) {
     throw new Error(`Unsupported stop expression syntax: ${node.type}.`);
   }
 
   if (node.type === 'call') {
     if (
-      node.callee.type !== 'identifier'
-      || (node.callee.name !== 'agent' && node.callee.name !== 'agentCount')
+      node.callee.type !== 'identifier' ||
+      (node.callee.name !== 'agent' && node.callee.name !== 'agentCount')
     ) {
       throw new Error('Only agent(...) and agentCount(...) calls are allowed in stop expressions.');
     }
   }
 
   if (
-    node.type === 'binary'
-    && ['=', '+=', '-=', '*=', '/=', '%=', '**=', '&&=', '||=', '??='].includes(node.operator)
+    node.type === 'binary' &&
+    ['=', '+=', '-=', '*=', '/=', '%=', '**=', '&&=', '||=', '??='].includes(node.operator)
   ) {
     throw new Error('Assignment is not allowed in stop expressions.');
   }
@@ -163,27 +166,27 @@ function getCachedConditionViews(scenario: Scenario): CachedConditionViews {
   const parameterRevision = scenario.parameterRevision;
   const chartRevision = scenario.charts.revision;
   if (
-    cached
-    && cached.metadataRevision === metadataRevision
-    && cached.parameterRevision === parameterRevision
-    && cached.chartRevision === chartRevision
+    cached &&
+    cached.metadataRevision === metadataRevision &&
+    cached.parameterRevision === parameterRevision &&
+    cached.chartRevision === chartRevision
   ) {
     return cached;
   }
 
   const next: CachedConditionViews = {
     metadataRevision,
-    metadata: cached?.metadataRevision === metadataRevision
-      ? cached.metadata
-      : Object.freeze(scenario.metadata),
+    metadata:
+      cached?.metadataRevision === metadataRevision
+        ? cached.metadata
+        : Object.freeze(scenario.metadata),
     parameterRevision,
-    parameters: cached?.parameterRevision === parameterRevision
-      ? cached.parameters
-      : createParameterView(scenario),
+    parameters:
+      cached?.parameterRevision === parameterRevision
+        ? cached.parameters
+        : createParameterView(scenario),
     chartRevision,
-    charts: cached?.chartRevision === chartRevision
-      ? cached.charts
-      : createChartView(scenario),
+    charts: cached?.chartRevision === chartRevision ? cached.charts : createChartView(scenario),
   };
   conditionViews.set(scenario, next);
   return next;
@@ -210,9 +213,8 @@ export function createRunConditionScope(scenario: Scenario, steps: number): RunC
     const value = findAgentStorage(scenario, environmentId, layerId)?.getAgent(id as AgentId);
     return value === undefined ? undefined : Object.freeze(cloneReadonly(value));
   };
-  const agentCount = (environmentId: string, layerId: string) => (
-    findAgentStorage(scenario, environmentId, layerId)?.getAgentCount() ?? 0
-  );
+  const agentCount = (environmentId: string, layerId: string) =>
+    findAgentStorage(scenario, environmentId, layerId)?.getAgentCount() ?? 0;
 
   return Object.freeze({
     steps,

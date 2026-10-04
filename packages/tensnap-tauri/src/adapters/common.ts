@@ -1,4 +1,3 @@
-
 import { invoke } from '@tauri-apps/api/core';
 import type { Locale } from '@tensnap/web/i18n';
 

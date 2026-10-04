@@ -7,7 +7,7 @@ import {
   type DirectoryEntry,
   type FileSystemStats,
   type FileSystemError as FileSystemErrorType,
-  FileSystemAdapter
+  FileSystemAdapter,
 } from '@tensnap/web-common/types/file';
 
 class FileSystemError extends Error {
@@ -19,7 +19,7 @@ class FileSystemError extends Error {
     message: string,
     code: FileSystemErrorType['code'],
     path?: string,
-    operation?: string
+    operation?: string,
   ) {
     super(message);
     this.name = 'FileSystemError';
@@ -57,7 +57,8 @@ function inferMimeType(path: string): string {
   if (normalizedPath.endsWith('.md')) return 'text/markdown';
   if (normalizedPath.endsWith('.txt')) return 'text/plain';
   if (normalizedPath.endsWith('.csv')) return 'text/csv';
-  if (normalizedPath.endsWith('.yaml') || normalizedPath.endsWith('.yml')) return 'application/x-yaml';
+  if (normalizedPath.endsWith('.yaml') || normalizedPath.endsWith('.yml'))
+    return 'application/x-yaml';
   return DEFAULT_MIME_TYPE;
 }
 
@@ -84,7 +85,12 @@ function toFileSystemError(
     return new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path, operation);
   }
   if (code === 'ENOTDIR' || code === 'EISDIR') {
-    return new FileSystemError('Invalid path type for operation', 'INVALID_OPERATION', path, operation);
+    return new FileSystemError(
+      'Invalid path type for operation',
+      'INVALID_OPERATION',
+      path,
+      operation,
+    );
   }
 
   return new FileSystemError(fallbackMessage, 'STORAGE_ERROR', path, operation);
@@ -122,7 +128,8 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
 
       const request = indexedDB.deleteDatabase(databaseName);
       request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error ?? new Error(`Failed to delete IndexedDB database: ${databaseName}`));
+      request.onerror = () =>
+        reject(request.error ?? new Error(`Failed to delete IndexedDB database: ${databaseName}`));
       request.onblocked = () => {
         // Best-effort cleanup. If another tab blocks deletion, continue and let retry decide.
         resolve();
@@ -346,86 +353,106 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
   async writeFile(
     path: string,
     content: ArrayBuffer | string,
-    metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>
+    metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
   ): Promise<FileContent> {
-    return this.safeExecute(async () => {
-      if (!PathUtils.validatePath(path)) {
-        throw new FileSystemError('Invalid file path', 'INVALID_OPERATION', path);
-      }
+    return this.safeExecute(
+      async () => {
+        if (!PathUtils.validatePath(path)) {
+          throw new FileSystemError('Invalid file path', 'INVALID_OPERATION', path);
+        }
 
-      const normalizedPath = PathUtils.normalizePath(path);
-      const parentPath = PathUtils.getParentPath(normalizedPath);
+        const normalizedPath = PathUtils.normalizePath(path);
+        const parentPath = PathUtils.getParentPath(normalizedPath);
 
-      if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
-        await this.ensureDirectoryChain(parentPath);
-      }
+        if (parentPath && parentPath !== '/' && !(await this.directoryExists(parentPath))) {
+          await this.ensureDirectoryChain(parentPath);
+        }
 
-      const existingCreatedAt = this.metadata.files[normalizedPath]?.createdAt;
-      const contentType: ContentType = typeof content === 'string' ? 'text' : 'binary';
-      const writable = typeof content === 'string' ? content : new Uint8Array(content);
+        const existingCreatedAt = this.metadata.files[normalizedPath]?.createdAt;
+        const contentType: ContentType = typeof content === 'string' ? 'text' : 'binary';
+        const writable = typeof content === 'string' ? content : new Uint8Array(content);
 
-      await this.fsPromises.writeFile(normalizedPath, writable);
-      const stat = await this.fsPromises.stat(normalizedPath);
+        await this.fsPromises.writeFile(normalizedPath, writable);
+        const stat = await this.fsPromises.stat(normalizedPath);
 
-      this.metadata.files[normalizedPath] = {
-        createdAt: existingCreatedAt ?? new Date().toISOString(),
-        mimeType: metadata?.mimeType || inferMimeType(normalizedPath),
-        tags: metadata?.tags,
-        description: metadata?.description,
-        contentType,
-      };
-      await this.persistMetadata();
+        this.metadata.files[normalizedPath] = {
+          createdAt: existingCreatedAt ?? new Date().toISOString(),
+          mimeType: metadata?.mimeType || inferMimeType(normalizedPath),
+          tags: metadata?.tags,
+          description: metadata?.description,
+          contentType,
+        };
+        await this.persistMetadata();
 
-      const fileMetadata = this.createFileMetadata(normalizedPath, stat);
-      const storedContent = contentType === 'text'
-        ? await this.fsPromises.readFile(normalizedPath, 'utf8')
-        : toArrayBuffer(await this.fsPromises.readFile(normalizedPath));
+        const fileMetadata = this.createFileMetadata(normalizedPath, stat);
+        const storedContent =
+          contentType === 'text'
+            ? await this.fsPromises.readFile(normalizedPath, 'utf8')
+            : toArrayBuffer(await this.fsPromises.readFile(normalizedPath));
 
-      return {
-        metadata: fileMetadata,
-        content: storedContent,
-        checksum: PathUtils.calculateChecksum(storedContent),
-      };
-    }, 'Failed to write file', 'STORAGE_ERROR', path, 'writeFile');
+        return {
+          metadata: fileMetadata,
+          content: storedContent,
+          checksum: PathUtils.calculateChecksum(storedContent),
+        };
+      },
+      'Failed to write file',
+      'STORAGE_ERROR',
+      path,
+      'writeFile',
+    );
   }
 
   async readFile(path: string): Promise<FileContent | null> {
-    return this.safeExecute(async () => {
-      const normalizedPath = PathUtils.normalizePath(path);
+    return this.safeExecute(
+      async () => {
+        const normalizedPath = PathUtils.normalizePath(path);
 
-      try {
-        const fileMeta = this.metadata.files[normalizedPath];
-        const contentType = fileMeta?.contentType ?? 'binary';
+        try {
+          const fileMeta = this.metadata.files[normalizedPath];
+          const contentType = fileMeta?.contentType ?? 'binary';
 
-        const content = contentType === 'text'
-          ? await this.fsPromises.readFile(normalizedPath, 'utf8')
-          : toArrayBuffer(await this.fsPromises.readFile(normalizedPath));
-        const stat = await this.fsPromises.stat(normalizedPath);
-        const metadata = this.createFileMetadata(normalizedPath, stat);
+          const content =
+            contentType === 'text'
+              ? await this.fsPromises.readFile(normalizedPath, 'utf8')
+              : toArrayBuffer(await this.fsPromises.readFile(normalizedPath));
+          const stat = await this.fsPromises.stat(normalizedPath);
+          const metadata = this.createFileMetadata(normalizedPath, stat);
 
-        return {
-          metadata,
-          content,
-          checksum: PathUtils.calculateChecksum(content),
-        };
-      } catch (error) {
-        const fsError = error as Error & { code?: string };
-        if (fsError?.code === 'ENOENT') {
-          return null;
+          return {
+            metadata,
+            content,
+            checksum: PathUtils.calculateChecksum(content),
+          };
+        } catch (error) {
+          const fsError = error as Error & { code?: string };
+          if (fsError?.code === 'ENOENT') {
+            return null;
+          }
+          throw error;
         }
-        throw error;
-      }
-    }, 'Failed to read file', 'STORAGE_ERROR', path, 'readFile');
+      },
+      'Failed to read file',
+      'STORAGE_ERROR',
+      path,
+      'readFile',
+    );
   }
 
   async deleteFile(path: string): Promise<void> {
-    return this.safeExecute(async () => {
-      const normalizedPath = PathUtils.normalizePath(path);
+    return this.safeExecute(
+      async () => {
+        const normalizedPath = PathUtils.normalizePath(path);
 
-      await this.fsPromises.unlink(normalizedPath);
-      delete this.metadata.files[normalizedPath];
-      await this.persistMetadata();
-    }, 'Failed to delete file', 'STORAGE_ERROR', path, 'deleteFile');
+        await this.fsPromises.unlink(normalizedPath);
+        delete this.metadata.files[normalizedPath];
+        await this.persistMetadata();
+      },
+      'Failed to delete file',
+      'STORAGE_ERROR',
+      path,
+      'deleteFile',
+    );
   }
 
   async fileExists(path: string): Promise<boolean> {
@@ -439,74 +466,91 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
   }
 
   async createDirectory(path: string, allowExist = false): Promise<DirectoryMetadata> {
-    return this.safeExecute(async () => {
-      if (!PathUtils.validatePath(path)) {
-        throw new FileSystemError('Invalid directory path', 'INVALID_OPERATION', path);
-      }
-
-      const normalizedPath = PathUtils.normalizePath(path);
-
-      if (await this.directoryExists(normalizedPath)) {
-        if (allowExist) {
-          const stat = await this.fsPromises.stat(normalizedPath);
-          return this.createDirectoryMetadata(normalizedPath, stat);
+    return this.safeExecute(
+      async () => {
+        if (!PathUtils.validatePath(path)) {
+          throw new FileSystemError('Invalid directory path', 'INVALID_OPERATION', path);
         }
-        throw new FileSystemError(`Directory already exists at ${normalizedPath}`, 'PATH_EXISTS', path);
-      }
 
-      const parentPath = PathUtils.getParentPath(normalizedPath);
-      if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
-        await this.ensureDirectoryChain(parentPath);
-      }
+        const normalizedPath = PathUtils.normalizePath(path);
 
-      await this.fsPromises.mkdir(normalizedPath);
-      const stat = await this.fsPromises.stat(normalizedPath);
+        if (await this.directoryExists(normalizedPath)) {
+          if (allowExist) {
+            const stat = await this.fsPromises.stat(normalizedPath);
+            return this.createDirectoryMetadata(normalizedPath, stat);
+          }
+          throw new FileSystemError(
+            `Directory already exists at ${normalizedPath}`,
+            'PATH_EXISTS',
+            path,
+          );
+        }
 
-      this.metadata.directories[normalizedPath] = {
-        createdAt: this.metadata.directories[normalizedPath]?.createdAt ?? new Date().toISOString(),
-      };
-      await this.persistMetadata();
+        const parentPath = PathUtils.getParentPath(normalizedPath);
+        if (parentPath && parentPath !== '/' && !(await this.directoryExists(parentPath))) {
+          await this.ensureDirectoryChain(parentPath);
+        }
 
-      return this.createDirectoryMetadata(normalizedPath, stat);
-    }, 'Failed to create directory', 'STORAGE_ERROR', path, 'createDirectory');
+        await this.fsPromises.mkdir(normalizedPath);
+        const stat = await this.fsPromises.stat(normalizedPath);
+
+        this.metadata.directories[normalizedPath] = {
+          createdAt:
+            this.metadata.directories[normalizedPath]?.createdAt ?? new Date().toISOString(),
+        };
+        await this.persistMetadata();
+
+        return this.createDirectoryMetadata(normalizedPath, stat);
+      },
+      'Failed to create directory',
+      'STORAGE_ERROR',
+      path,
+      'createDirectory',
+    );
   }
 
   async deleteDirectory(path: string, recursive = false): Promise<void> {
-    return this.safeExecute(async () => {
-      const normalizedPath = PathUtils.normalizePath(path);
-      if (!await this.directoryExists(normalizedPath)) {
-        throw new FileSystemError(`Directory not found at ${normalizedPath}`, 'NOT_FOUND', path);
-      }
+    return this.safeExecute(
+      async () => {
+        const normalizedPath = PathUtils.normalizePath(path);
+        if (!(await this.directoryExists(normalizedPath))) {
+          throw new FileSystemError(`Directory not found at ${normalizedPath}`, 'NOT_FOUND', path);
+        }
 
-      if (normalizedPath === '/') {
-        throw new FileSystemError('Cannot delete root directory', 'INVALID_OPERATION', path);
-      }
+        if (normalizedPath === '/') {
+          throw new FileSystemError('Cannot delete root directory', 'INVALID_OPERATION', path);
+        }
 
-      if (recursive) {
-        const contents = await this.walk(normalizedPath);
-        contents.sort((a, b) => b.path.length - a.path.length);
+        if (recursive) {
+          const contents = await this.walk(normalizedPath);
+          contents.sort((a, b) => b.path.length - a.path.length);
 
-        for (const entry of contents) {
-          if (entry.type === 'file') {
-            await this.deleteFile(entry.path);
-          } else {
-            await this.fsPromises.rmdir(entry.path);
-            delete this.metadata.directories[entry.path];
+          for (const entry of contents) {
+            if (entry.type === 'file') {
+              await this.deleteFile(entry.path);
+            } else {
+              await this.fsPromises.rmdir(entry.path);
+              delete this.metadata.directories[entry.path];
+            }
           }
+
+          await this.fsPromises.rmdir(normalizedPath);
+        } else {
+          const contents = await this.collectEntries(normalizedPath);
+          if (contents.length > 0) {
+            throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
+          }
+          await this.fsPromises.rmdir(normalizedPath);
         }
 
-        await this.fsPromises.rmdir(normalizedPath);
-      } else {
-        const contents = await this.collectEntries(normalizedPath);
-        if (contents.length > 0) {
-          throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
-        }
-        await this.fsPromises.rmdir(normalizedPath);
-      }
-
-      delete this.metadata.directories[normalizedPath];
-      await this.persistMetadata();
-    }, 'Failed to delete directory', 'STORAGE_ERROR', path, 'deleteDirectory');
+        delete this.metadata.directories[normalizedPath];
+        await this.persistMetadata();
+      },
+      'Failed to delete directory',
+      'STORAGE_ERROR',
+      path,
+      'deleteDirectory',
+    );
   }
 
   async list(path: string): Promise<DirectoryEntry[]> {
@@ -530,32 +574,38 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
   }
 
   async getStats(): Promise<FileSystemStats> {
-    return this.safeExecute(async () => {
-      const allEntries = await this.walk('/');
-      const files = allEntries.filter((entry) => entry.type === 'file');
-      const directories = allEntries.filter((entry) => entry.type === 'directory');
-      const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+    return this.safeExecute(
+      async () => {
+        const allEntries = await this.walk('/');
+        const files = allEntries.filter((entry) => entry.type === 'file');
+        const directories = allEntries.filter((entry) => entry.type === 'directory');
+        const totalSize = files.reduce((sum, file) => sum + file.size, 0);
 
-      let storageQuota: number | undefined;
-      let storageUsed: number | undefined;
+        let storageQuota: number | undefined;
+        let storageUsed: number | undefined;
 
-      if ('storage' in navigator && 'estimate' in navigator.storage) {
-        try {
-          const estimate = await navigator.storage.estimate();
-          storageQuota = estimate.quota;
-          storageUsed = estimate.usage;
-        } catch {
-          // Ignore quota estimation errors.
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+          try {
+            const estimate = await navigator.storage.estimate();
+            storageQuota = estimate.quota;
+            storageUsed = estimate.usage;
+          } catch {
+            // Ignore quota estimation errors.
+          }
         }
-      }
 
-      return {
-        totalFiles: files.length,
-        totalDirectories: directories.length,
-        totalSize,
-        storageQuota,
-        storageUsed
-      };
-    }, 'Failed to get file system stats', 'STORAGE_ERROR', undefined, 'getStats');
+        return {
+          totalFiles: files.length,
+          totalDirectories: directories.length,
+          totalSize,
+          storageQuota,
+          storageUsed,
+        };
+      },
+      'Failed to get file system stats',
+      'STORAGE_ERROR',
+      undefined,
+      'getStats',
+    );
   }
 }

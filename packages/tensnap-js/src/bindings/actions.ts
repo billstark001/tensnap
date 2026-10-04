@@ -13,7 +13,8 @@ export interface ValidatedActionInvocation {
   error?: ActionExecutionError;
 }
 
-const hasOwn = (value: object, key: string): boolean => Object.prototype.hasOwnProperty.call(value, key);
+const hasOwn = (value: object, key: string): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
 
 function error(code: string, message: string, data?: ProtocolValue): ValidatedActionInvocation {
   return { error: { code, message, data } };
@@ -25,20 +26,27 @@ function validateKwargValue(
 ): ActionExecutionError | undefined {
   switch (definition.type) {
     case 'number':
-      if (typeof value !== 'number') return { code: 'invalid_kwargs', message: `${definition.name} must be a number.` };
+      if (typeof value !== 'number')
+        return { code: 'invalid_kwargs', message: `${definition.name} must be a number.` };
       break;
     case 'integer':
-      if (typeof value !== 'number' || !Number.isInteger(value)) return { code: 'invalid_kwargs', message: `${definition.name} must be an integer.` };
+      if (typeof value !== 'number' || !Number.isInteger(value))
+        return { code: 'invalid_kwargs', message: `${definition.name} must be an integer.` };
       break;
     case 'string':
-      if (typeof value !== 'string') return { code: 'invalid_kwargs', message: `${definition.name} must be a string.` };
+      if (typeof value !== 'string')
+        return { code: 'invalid_kwargs', message: `${definition.name} must be a string.` };
       break;
     case 'boolean':
-      if (typeof value !== 'boolean') return { code: 'invalid_kwargs', message: `${definition.name} must be a boolean.` };
+      if (typeof value !== 'boolean')
+        return { code: 'invalid_kwargs', message: `${definition.name} must be a boolean.` };
       break;
     case 'enum':
       if (typeof value !== 'string' || !definition.options?.includes(value)) {
-        return { code: 'invalid_kwargs', message: `${definition.name} must be one of its declared options.` };
+        return {
+          code: 'invalid_kwargs',
+          message: `${definition.name} must be one of its declared options.`,
+        };
       }
       break;
     case 'json':

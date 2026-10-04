@@ -23,9 +23,8 @@ export const editableObjectKinds = new Set<AnyView['type']>([
   'chart',
 ]);
 
-export const getEditableObjectKind = (view: AnyView): EditableObjectKind | null => (
-  editableObjectKinds.has(view.type) ? view.type as EditableObjectKind : null
-);
+export const getEditableObjectKind = (view: AnyView): EditableObjectKind | null =>
+  editableObjectKinds.has(view.type) ? (view.type as EditableObjectKind) : null;
 
 export const getBoundObjectId = (view: AnyView): string => {
   if (!getEditableObjectKind(view)) {
@@ -47,7 +46,10 @@ export const withBoundObjectId = (view: AnyView, id: string): AnyView => {
   return updated;
 };
 
-export const getEditableObjectData = (view: AnyView, sources: ScenarioDataSources): EditableObjectData => {
+export const getEditableObjectData = (
+  view: AnyView,
+  sources: ScenarioDataSources,
+): EditableObjectData => {
   const id = getBoundObjectId(view);
 
   switch (view.type) {
@@ -65,10 +67,10 @@ export const getEditableObjectData = (view: AnyView, sources: ScenarioDataSource
       const chart = sources.charts?.getGroup(id);
       return chart
         ? {
-          ...chart,
-          metadataDict: structuredClone(chart.metadataDict),
-          data: chart.data,
-        }
+            ...chart,
+            metadataDict: structuredClone(chart.metadataDict),
+            data: chart.data,
+          }
         : null;
     }
     default:
@@ -108,12 +110,8 @@ export const getObjectIdConflict = (
   return hasObjectId(kind, nextId, sources);
 };
 
-export const withObjectDataId = (
-  objectData: EditableObjectData,
-  id: string,
-): EditableObjectData => (
-  objectData ? ({ ...objectData, id } as EditableObjectData) : null
-);
+export const withObjectDataId = (objectData: EditableObjectData, id: string): EditableObjectData =>
+  objectData ? ({ ...objectData, id } as EditableObjectData) : null;
 
 const toFiniteNumber = (value: unknown, fallback: number): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -151,9 +149,7 @@ export const normalizeParameterForType = (
       const options = Array.isArray(next.options)
         ? next.options.filter((option): option is string => typeof option === 'string')
         : [];
-      const value = typeof next.value === 'string'
-        ? next.value
-        : options[0] ?? '';
+      const value = typeof next.value === 'string' ? next.value : (options[0] ?? '');
       next.value = value;
       next.options = value && !options.includes(value) ? [...options, value] : options;
       if (next.labels == null || typeof next.labels !== 'object' || Array.isArray(next.labels)) {
@@ -163,9 +159,10 @@ export const normalizeParameterForType = (
     }
     case 'boolean': {
       const value = next.value;
-      next.value = typeof value === 'boolean'
-        ? value
-        : !(value === 'false' || value === 'False' || value === '' || value == null);
+      next.value =
+        typeof value === 'boolean'
+          ? value
+          : !(value === 'false' || value === 'False' || value === '' || value == null);
       return next as Parameter;
     }
     case 'string':

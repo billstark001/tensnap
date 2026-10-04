@@ -24,7 +24,12 @@ export interface CanvasImageSource {
 
 type ResolvedBackground =
   | { kind: 'color'; value: string }
-  | { kind: 'image'; source: string | Uint8Array; mime?: string; interpolation: 'nearest' | 'linear' };
+  | {
+      kind: 'image';
+      source: string | Uint8Array;
+      mime?: string;
+      interpolation: 'nearest' | 'linear';
+    };
 
 interface ResolvedImageUrl {
   url: string;
@@ -37,8 +42,6 @@ export interface ResolvedBackgroundLayer {
   width?: number;
   height?: number;
 }
-
-
 
 export function cloneValue<T>(value: T): T {
   if (value === null || value === undefined || typeof value !== 'object') {
@@ -54,7 +57,6 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 export function isInlineSvgString(value: string): boolean {
   return /^\s*(<svg[\s>]|<\?xml)/i.test(value);
 }
-
 
 export function toImageDataUrl(bytes: Uint8Array, mime: string): string {
   return `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`;
@@ -79,15 +81,15 @@ export function detectImageMime(bytes: Uint8Array, fallback?: string): string {
   }
 
   if (
-    bytes.length >= 8
-    && bytes[0] === 0x89
-    && bytes[1] === 0x50
-    && bytes[2] === 0x4e
-    && bytes[3] === 0x47
-    && bytes[4] === 0x0d
-    && bytes[5] === 0x0a
-    && bytes[6] === 0x1a
-    && bytes[7] === 0x0a
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
   ) {
     return 'image/png';
   }
@@ -101,32 +103,34 @@ export function detectImageMime(bytes: Uint8Array, fallback?: string): string {
   }
 
   if (
-    bytes.length >= 6
-    && bytes[0] === 0x47
-    && bytes[1] === 0x49
-    && bytes[2] === 0x46
-    && bytes[3] === 0x38
-    && (bytes[4] === 0x37 || bytes[4] === 0x39)
-    && bytes[5] === 0x61
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38 &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) &&
+    bytes[5] === 0x61
   ) {
     return 'image/gif';
   }
 
   if (
-    bytes.length >= 12
-    && bytes[0] === 0x52
-    && bytes[1] === 0x49
-    && bytes[2] === 0x46
-    && bytes[3] === 0x46
-    && bytes[8] === 0x57
-    && bytes[9] === 0x45
-    && bytes[10] === 0x42
-    && bytes[11] === 0x50
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
   ) {
     return 'image/webp';
   }
 
-  const headerText = Buffer.from(bytes.slice(0, Math.min(bytes.length, 256))).toString('utf8').trimStart();
+  const headerText = Buffer.from(bytes.slice(0, Math.min(bytes.length, 256)))
+    .toString('utf8')
+    .trimStart();
   if (isInlineSvgString(headerText)) {
     return 'image/svg+xml';
   }
@@ -134,7 +138,9 @@ export function detectImageMime(bytes: Uint8Array, fallback?: string): string {
   throw new Error('Unable to determine image mime type for binary source.');
 }
 
-export async function loadCanvasImageSource(input: CanvasImageSource): Promise<Awaited<ReturnType<typeof loadImage>>> {
+export async function loadCanvasImageSource(
+  input: CanvasImageSource,
+): Promise<Awaited<ReturnType<typeof loadImage>>> {
   if (input.source instanceof Uint8Array) {
     return loadImage(Buffer.from(input.source));
   }
@@ -165,13 +171,17 @@ export async function loadCanvasImageSource(input: CanvasImageSource): Promise<A
   if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
     const response = await fetch(source);
     if (!response.ok) {
-      throw new Error(`Unable to fetch image source: ${response.status} ${response.statusText}`.trim());
+      throw new Error(
+        `Unable to fetch image source: ${response.status} ${response.statusText}`.trim(),
+      );
     }
     return loadImage(Buffer.from(await response.arrayBuffer()));
   }
 
   if (parsedUrl.protocol === 'blob:') {
-    throw new Error('Headless rendering cannot resolve browser blob URLs. Provide bytes, a data URL, or a file/http URL instead.');
+    throw new Error(
+      'Headless rendering cannot resolve browser blob URLs. Provide bytes, a data URL, or a file/http URL instead.',
+    );
   }
 
   throw new Error(`Unsupported image source protocol: ${parsedUrl.protocol}`);
@@ -263,8 +273,14 @@ export function resolveBackgroundBounds(
   viewport: Viewport,
   background: ResolvedBackgroundLayer | null,
 ): Partial<Viewport> {
-  const width = normalizeDimension(environment.width) ?? normalizeDimension(background?.width) ?? viewport.width;
-  const height = normalizeDimension(environment.height) ?? normalizeDimension(background?.height) ?? viewport.height;
+  const width =
+    normalizeDimension(environment.width) ??
+    normalizeDimension(background?.width) ??
+    viewport.width;
+  const height =
+    normalizeDimension(environment.height) ??
+    normalizeDimension(background?.height) ??
+    viewport.height;
   const usesViewportOrigin = environment.width === undefined && environment.height === undefined;
 
   return {
@@ -308,7 +324,9 @@ export async function toExportBuffer(data: unknown): Promise<Buffer> {
   throw new Error('Unsupported Leafer export payload type.');
 }
 
-async function normalizeStoredBackground(data: BackgroundData): Promise<ResolvedBackgroundLayer | null> {
+async function normalizeStoredBackground(
+  data: BackgroundData,
+): Promise<ResolvedBackgroundLayer | null> {
   if (!data) {
     return null;
   }

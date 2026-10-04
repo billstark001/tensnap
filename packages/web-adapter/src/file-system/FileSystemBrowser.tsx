@@ -42,30 +42,32 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<DirectoryEntry | null>(null);
 
   // 加载目录内容
-  const loadDirectory = useCallback(async (path: string) => {
-    const normalizedPath = normalizePath(path);
-    setLoading(true);
-    setError(null);
-    setSelectedItems(new Set()); // 清除选择
-    
-    try {
-      const entries = await fileSystem.list(normalizedPath);
-      setCurrentDirectoryRaw(normalizedPath);
-      onCurrentDirectoryChange?.(normalizedPath);
-      setDirectoryContentsRaw(entries);
-    } catch (err) {
-      setError((err as Error).message || t`Failed to load directory`);
-      setDirectoryContentsRaw([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [fileSystem, onCurrentDirectoryChange]);
+  const loadDirectory = useCallback(
+    async (path: string) => {
+      const normalizedPath = normalizePath(path);
+      setLoading(true);
+      setError(null);
+      setSelectedItems(new Set()); // 清除选择
+
+      try {
+        const entries = await fileSystem.list(normalizedPath);
+        setCurrentDirectoryRaw(normalizedPath);
+        onCurrentDirectoryChange?.(normalizedPath);
+        setDirectoryContentsRaw(entries);
+      } catch (err) {
+        setError((err as Error).message || t`Failed to load directory`);
+        setDirectoryContentsRaw([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fileSystem, onCurrentDirectoryChange],
+  );
 
   // 初始化：加载初始目录
   useEffect(() => {
@@ -80,13 +82,16 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   }, [currentDirectory, loadDirectory]);
 
   // 切换目录
-  const setCurrentDirectory = useCallback((path: string) => {
-    loadDirectory(path);
-  }, [loadDirectory]);
+  const setCurrentDirectory = useCallback(
+    (path: string) => {
+      loadDirectory(path);
+    },
+    [loadDirectory],
+  );
 
   // 处理项目选择
   const toggleItemSelection = useCallback((itemId: string) => {
-    setSelectedItems(prev => {
+    setSelectedItems((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(itemId)) {
         newSet.delete(itemId);
@@ -97,70 +102,82 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     });
   }, []);
 
-  const handleItemClick = useCallback((entry: DirectoryEntry) => {
-    if (entry.type === 'directory') {
-      // 如果有自定义的目录选择处理，使用它；否则导航到该目录
-      if (onDirectorySelect) {
-        onDirectorySelect(entry);
+  const handleItemClick = useCallback(
+    (entry: DirectoryEntry) => {
+      if (entry.type === 'directory') {
+        // 如果有自定义的目录选择处理，使用它；否则导航到该目录
+        if (onDirectorySelect) {
+          onDirectorySelect(entry);
+        } else {
+          setCurrentDirectory(entry.path);
+        }
       } else {
+        // 文件选择
+        if (onFileSelect) {
+          onFileSelect(entry);
+        }
+      }
+
+      // 更新选择状态
+      if (multiSelect) {
+        toggleItemSelection(entry.path);
+      } else {
+        setSelectedItems(new Set([entry.path]));
+      }
+    },
+    [onFileSelect, onDirectorySelect, multiSelect, setCurrentDirectory, toggleItemSelection],
+  );
+
+  const handleItemDoubleClick = useCallback(
+    (entry: DirectoryEntry) => {
+      if (entry.type === 'directory') {
+        // 双击目录时导航
         setCurrentDirectory(entry.path);
+      } else {
+        // 双击文件时触发双击回调
+        if (onFileDoubleClick) {
+          onFileDoubleClick(entry);
+        }
       }
-    } else {
-      // 文件选择
-      if (onFileSelect) {
-        onFileSelect(entry);
-      }
-    }
-
-    // 更新选择状态
-    if (multiSelect) {
-      toggleItemSelection(entry.path);
-    } else {
-      setSelectedItems(new Set([entry.path]));
-    }
-  }, [onFileSelect, onDirectorySelect, multiSelect, setCurrentDirectory, toggleItemSelection]);
-
-  const handleItemDoubleClick = useCallback((entry: DirectoryEntry) => {
-    if (entry.type === 'directory') {
-      // 双击目录时导航
-      setCurrentDirectory(entry.path);
-    } else {
-      // 双击文件时触发双击回调
-      if (onFileDoubleClick) {
-        onFileDoubleClick(entry);
-      }
-    }
-  }, [onFileDoubleClick, setCurrentDirectory]);
+    },
+    [onFileDoubleClick, setCurrentDirectory],
+  );
 
   // 文件上传处理
-  const handleFileUpload = useCallback(async (files: FileList) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const uploadPromises = Array.from(files).map(async (file) => {
-        const content = await readFileContent(file);
-        const filePath = joinPath(currentDirectory, file.name);
-        await fileSystem.writeFile(filePath, content, {
-          name: file.name,
-          size: file.size,
-          mimeType: file.type || 'application/octet-stream'
+  const handleFileUpload = useCallback(
+    async (files: FileList) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const uploadPromises = Array.from(files).map(async (file) => {
+          const content = await readFileContent(file);
+          const filePath = joinPath(currentDirectory, file.name);
+          await fileSystem.writeFile(filePath, content, {
+            name: file.name,
+            size: file.size,
+            mimeType: file.type || 'application/octet-stream',
+          });
         });
-      });
-      
-      await Promise.all(uploadPromises);
-      await refreshCurrentDirectory();
-    } catch (err) {
-      setError((err as Error).message || t`Failed to upload files`);
-    } finally {
-      setLoading(false);
-    }
-  }, [fileSystem, currentDirectory, refreshCurrentDirectory]);
 
-  const handleFileInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const { files } = event.target;
-    if (files) handleFileUpload(files);
-    event.target.value = ''; // 重置以允许重复上传相同文件
-  }, [handleFileUpload]);
+        await Promise.all(uploadPromises);
+        await refreshCurrentDirectory();
+      } catch (err) {
+        setError((err as Error).message || t`Failed to upload files`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fileSystem, currentDirectory, refreshCurrentDirectory],
+  );
+
+  const handleFileInputChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const { files } = event.target;
+      if (files) handleFileUpload(files);
+      event.target.value = ''; // 重置以允许重复上传相同文件
+    },
+    [handleFileUpload],
+  );
 
   // 拖拽处理
   const handleDragOver = useCallback((event: React.DragEvent) => {
@@ -173,63 +190,72 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback(async (event: React.DragEvent) => {
-    event.preventDefault();
-    setIsDragOver(false);
-    const { files } = event.dataTransfer;
-    if (files.length > 0) await handleFileUpload(files);
-  }, [handleFileUpload]);
+  const handleDrop = useCallback(
+    async (event: React.DragEvent) => {
+      event.preventDefault();
+      setIsDragOver(false);
+      const { files } = event.dataTransfer;
+      if (files.length > 0) await handleFileUpload(files);
+    },
+    [handleFileUpload],
+  );
 
   // 创建操作
-  const handleCreateItem = useCallback(async (itemName: string, itemType: 'file' | 'directory') => {
-    // 验证名称
-    const validation = validateName(itemName);
-    if (!validation.valid) {
-      setError(validation.error || t`Invalid name`);
-      throw new Error(validation.error || t`Invalid name`);
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const itemPath = joinPath(currentDirectory, itemName);
-      
-      if (itemType === 'file') {
-        await fileSystem.writeFile(itemPath, '', {
-          name: itemName,
-          size: 0,
-          mimeType: 'text/plain'
-        });
-      } else {
-        await fileSystem.createDirectory(itemPath);
+  const handleCreateItem = useCallback(
+    async (itemName: string, itemType: 'file' | 'directory') => {
+      // 验证名称
+      const validation = validateName(itemName);
+      if (!validation.valid) {
+        setError(validation.error || t`Invalid name`);
+        throw new Error(validation.error || t`Invalid name`);
       }
 
-      await refreshCurrentDirectory();
-    } catch (err) {
-      const errorMsg = (err as Error).message || t`Failed to create item`;
-      setError(errorMsg);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [fileSystem, currentDirectory, refreshCurrentDirectory]);
+      setLoading(true);
+      setError(null);
+      try {
+        const itemPath = joinPath(currentDirectory, itemName);
 
-  const deleteItem = useCallback(async (entry: DirectoryEntry) => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (entry.type === 'file') {
-        await fileSystem.deleteFile(entry.path);
-      } else {
-        await fileSystem.deleteDirectory(entry.path, true);
+        if (itemType === 'file') {
+          await fileSystem.writeFile(itemPath, '', {
+            name: itemName,
+            size: 0,
+            mimeType: 'text/plain',
+          });
+        } else {
+          await fileSystem.createDirectory(itemPath);
+        }
+
+        await refreshCurrentDirectory();
+      } catch (err) {
+        const errorMsg = (err as Error).message || t`Failed to create item`;
+        setError(errorMsg);
+        throw err;
+      } finally {
+        setLoading(false);
       }
-      await refreshCurrentDirectory();
-    } catch (err) {
-      setError((err as Error).message || t`Failed to delete item`);
-    } finally {
-      setLoading(false);
-    }
-  }, [fileSystem, refreshCurrentDirectory]);
+    },
+    [fileSystem, currentDirectory, refreshCurrentDirectory],
+  );
+
+  const deleteItem = useCallback(
+    async (entry: DirectoryEntry) => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (entry.type === 'file') {
+          await fileSystem.deleteFile(entry.path);
+        } else {
+          await fileSystem.deleteDirectory(entry.path, true);
+        }
+        await refreshCurrentDirectory();
+      } catch (err) {
+        setError((err as Error).message || t`Failed to delete item`);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [fileSystem, refreshCurrentDirectory],
+  );
 
   const handleDeleteItem = useCallback((entry: DirectoryEntry) => {
     setPendingDeleteEntry(entry);
@@ -240,8 +266,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     setShowExportDialog(true);
   }, []);
 
-
-
   return (
     <div
       className={clsx(styles.browserContainer, className)}
@@ -251,10 +275,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     >
       {/* 头部导航 */}
       <div className={styles.browserHeader}>
-        <Breadcrumbs
-          currentDirectory={currentDirectory}
-          onNavigate={setCurrentDirectory}
-        />
+        <Breadcrumbs currentDirectory={currentDirectory} onNavigate={setCurrentDirectory} />
         <ActionButtons
           loading={loading}
           allowUpload={allowUpload}
@@ -267,13 +288,13 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
 
       {/* 内容区域 */}
       <div className={styles.browserContent}>
-        {loading && (
-          <div className={styles.loadingState}>{t`Loading...`}</div>
-        )}
+        {loading && <div className={styles.loadingState}>{t`Loading...`}</div>}
 
         {error && (
           <div className={styles.errorState}>
-            <div>{t`Failed to load`}: {error}</div>
+            <div>
+              {t`Failed to load`}: {error}
+            </div>
             <button className={styles.actionButton} onClick={refreshCurrentDirectory}>
               {t`Retry`}
             </button>
@@ -281,14 +302,18 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         )}
 
         {!loading && !error && directoryContents.length === 0 && (
-          <EmptyState 
+          <EmptyState
             icon="📂"
             title={t`Directory is empty`}
-            upload={allowUpload ? {
-              isDragOver: isDragOver,
-              uploadText: t`Drag files here`,
-              uploadHint: t`Or click to browse`,
-            } : undefined}
+            upload={
+              allowUpload
+                ? {
+                    isDragOver: isDragOver,
+                    uploadText: t`Drag files here`,
+                    uploadHint: t`Or click to browse`,
+                  }
+                : undefined
+            }
           />
         )}
 
@@ -327,9 +352,11 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
           if (!open) setPendingDeleteEntry(null);
         }}
         title={t`Delete "${pendingDeleteEntry?.name ?? ''}"?`}
-        description={pendingDeleteEntry?.type === 'directory'
-          ? t`This will delete all nested content.`
-          : t`This file will be permanently deleted.`}
+        description={
+          pendingDeleteEntry?.type === 'directory'
+            ? t`This will delete all nested content.`
+            : t`This file will be permanently deleted.`
+        }
         confirmLabel={t`Delete`}
         cancelLabel={t`Cancel`}
         confirmVariant="danger"

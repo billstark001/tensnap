@@ -15,7 +15,12 @@ function createView(width: number, height: number) {
   return new TestView(leafer, { width, height });
 }
 
-function boundsLayer(bounds: { minX: number; minY: number; maxX: number; maxY: number }): IResizableLayer & IBoundedLayer {
+function boundsLayer(bounds: {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}): IResizableLayer & IBoundedLayer {
   return {
     zIndex: 0,
     defaultZIndex: 0,

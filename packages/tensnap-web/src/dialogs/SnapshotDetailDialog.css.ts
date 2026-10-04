@@ -43,7 +43,11 @@ export const timelineButton = style({
   color: vars.color.foreground,
   cursor: 'pointer',
   selectors: {
-    'body[data-theme="dark"] &': { borderColor: vars.color.darkInputBorder, background: vars.color.darkInputBackground, color: vars.color.darkForeground },
+    'body[data-theme="dark"] &': {
+      borderColor: vars.color.darkInputBorder,
+      background: vars.color.darkInputBackground,
+      color: vars.color.darkForeground,
+    },
   },
 });
 
@@ -100,8 +104,6 @@ export const detailSection = style({
     },
   },
 });
-
-
 
 export const detailRow = style({
   display: 'flex',

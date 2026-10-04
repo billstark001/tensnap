@@ -3,7 +3,7 @@ import type { ChartGroup } from './types';
 
 export function instantiateChartMetadata(meta: ChartGroupMetadata): ChartGroup {
   const metadataDict = meta.data_list?.length
-    ? Object.fromEntries(meta.data_list.map(m => [m.id, m]))
+    ? Object.fromEntries(meta.data_list.map((m) => [m.id, m]))
     : { [meta.id]: meta };
 
   return {
@@ -26,9 +26,7 @@ export function createCsvContent(chartGroup: ChartGroup): string {
   const chartIds = Object.keys(metadataDict);
 
   const header = ['time', ...chartIds].map(csvCell).join(',');
-  const rows = data.map(dp =>
-    [dp.time, ...chartIds.map(id => dp[id])].map(csvCell).join(',')
-  );
+  const rows = data.map((dp) => [dp.time, ...chartIds.map((id) => dp[id])].map(csvCell).join(','));
 
   return [header, ...rows].join('\n');
 }

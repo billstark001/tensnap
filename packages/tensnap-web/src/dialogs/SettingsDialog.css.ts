@@ -105,7 +105,6 @@ export const switchThumb = style({
   },
 });
 
-
 export const projectSettingsContainer = style({
   display: 'flex',
   flexDirection: 'column',

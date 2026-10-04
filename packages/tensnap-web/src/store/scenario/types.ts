@@ -9,7 +9,12 @@ import {
 } from '@tensnap/core';
 import type { ActionRunMetricSnapshot } from '@tensnap/core/runtime';
 import type { DiagnosticEvent } from '@tensnap/core';
-import type { RecordingOptions, Snapshot, SnapshotCheckpoint, SnapshotModelIdentity } from '@tensnap/core/snapshot';
+import type {
+  RecordingOptions,
+  Snapshot,
+  SnapshotCheckpoint,
+  SnapshotModelIdentity,
+} from '@tensnap/core/snapshot';
 import type {
   Action,
   ChartGroupMetadata,
@@ -50,7 +55,10 @@ export interface EditableEnvironmentDraft {
   height?: number;
 }
 
-export type ScreenshotCaptureHandler = (format: 'png' | 'jpeg', quality?: number) => Promise<Blob | null>;
+export type ScreenshotCaptureHandler = (
+  format: 'png' | 'jpeg',
+  quality?: number,
+) => Promise<Blob | null>;
 
 export interface SetDataPayload {
   environments?: EditableEnvironmentDraft[];
@@ -85,7 +93,9 @@ export interface ScenarioStore {
   diagnostics: readonly ProjectDiagnostic[];
 
   setConnected: (connected: boolean) => void;
-  appendDiagnostic: (diagnostic: Omit<DiagnosticEvent, 'timestamp'> & { timestamp?: number }) => void;
+  appendDiagnostic: (
+    diagnostic: Omit<DiagnosticEvent, 'timestamp'> & { timestamp?: number },
+  ) => void;
   clearDiagnostics: () => void;
   prepareStateSync: (requestId: string, options?: { autoLayoutOnComplete?: boolean }) => void;
   handleStateSyncBoundary: (
@@ -102,7 +112,10 @@ export interface ScenarioStore {
   dump: () => ScenarioSnapshot;
   load: (snapshot: ScenarioSnapshot) => void;
   clearAll: () => void;
-  setData: (payload: SetDataPayload, options?: { updateLayout?: boolean; preserveExisting?: boolean }) => void;
+  setData: (
+    payload: SetDataPayload,
+    options?: { updateLayout?: boolean; preserveExisting?: boolean },
+  ) => void;
   upsertAction: (action: Action) => void;
   updateActionProps: (id: string, props: Partial<Action>) => boolean;
   renameAction: (id: string, newId: string) => boolean;

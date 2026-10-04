@@ -34,13 +34,17 @@ export function ConfirmDialog({
       <RadixAlertDialog.Portal>
         <RadixAlertDialog.Overlay className={dialogStyles.dialogOverlay} />
         <RadixAlertDialog.Content className={clsx(dialogStyles.dialogContent)}>
-          <RadixAlertDialog.Title className={dialogStyles.dialogTitle}>{title}</RadixAlertDialog.Title>
+          <RadixAlertDialog.Title className={dialogStyles.dialogTitle}>
+            {title}
+          </RadixAlertDialog.Title>
           <RadixAlertDialog.Description className={dialogStyles.dialogDescription}>
             {description}
           </RadixAlertDialog.Description>
           <div className={dialogStyles.dialogFooter}>
             <RadixAlertDialog.Cancel asChild>
-              <button type="button" className={dialogStyles.dialogButton}>{cancelLabel}</button>
+              <button type="button" className={dialogStyles.dialogButton}>
+                {cancelLabel}
+              </button>
             </RadixAlertDialog.Cancel>
             <RadixAlertDialog.Action asChild>
               <button
@@ -85,7 +89,9 @@ export function AlertDialog({
       <RadixAlertDialog.Portal>
         <RadixAlertDialog.Overlay className={dialogStyles.dialogOverlay} />
         <RadixAlertDialog.Content className={dialogStyles.dialogContent}>
-          <RadixAlertDialog.Title className={dialogStyles.dialogTitle}>{title}</RadixAlertDialog.Title>
+          <RadixAlertDialog.Title className={dialogStyles.dialogTitle}>
+            {title}
+          </RadixAlertDialog.Title>
           <RadixAlertDialog.Description className={dialogStyles.dialogDescription}>
             {description}
           </RadixAlertDialog.Description>

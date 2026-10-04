@@ -8,10 +8,7 @@ export interface BreadcrumbsProps {
   onNavigate: (path: string) => void;
 }
 
-export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
-  currentDirectory,
-  onNavigate
-}) => {
+export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ currentDirectory, onNavigate }) => {
   const breadcrumbs = useMemo(() => parseBreadcrumbs(currentDirectory), [currentDirectory]);
 
   return (
@@ -19,8 +16,10 @@ export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({
       {breadcrumbs.map((crumb, index) => (
         <React.Fragment key={crumb.path}>
           {index > 0 && <span className={styles.breadcrumbSeparator}>/</span>}
-          <span 
-            className={index === breadcrumbs.length - 1 ? styles.breadcrumbCurrent : styles.breadcrumbItem}
+          <span
+            className={
+              index === breadcrumbs.length - 1 ? styles.breadcrumbCurrent : styles.breadcrumbItem
+            }
             onClick={() => onNavigate(crumb.path)}
           >
             {crumb.path === '/' ? t`Root` : crumb.name}

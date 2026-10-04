@@ -1,11 +1,15 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useProjectStore } from './project';
 import { getFileSystemState } from './file-system/provider';
 import { createSingleSnapshot } from '@tensnap/core/snapshot';
 import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import { decode, encode } from '@msgpack/msgpack';
-import { archiveProjectFileContent, parseProjectFileContent, PROJECT_FILE_VERSION, recoverProjectFileContent } from '@/types/project';
+import {
+  archiveProjectFileContent,
+  parseProjectFileContent,
+  PROJECT_FILE_VERSION,
+  recoverProjectFileContent,
+} from '@/types/project';
 
 const mockedSettings = vi.hoisted(() => ({
   saveFormat: 'json' as 'json' | 'msgpack',
@@ -81,19 +85,22 @@ describe('ProjectStore', () => {
     });
 
     // Add a dummy snapshot
-    const dummySnapshot = createSingleSnapshot({
-      metadata: {},
-      actions: [],
-      parameters: [],
-      environments: [],
-      charts: [],
-      monitors: [],
-      logs: [],
-      assets: [],
-    }, { id: 'snapshot-1' });
+    const dummySnapshot = createSingleSnapshot(
+      {
+        metadata: {},
+        actions: [],
+        parameters: [],
+        environments: [],
+        charts: [],
+        monitors: [],
+        logs: [],
+        assets: [],
+      },
+      { id: 'snapshot-1' },
+    );
 
     activeProject.useScenarioStore.setState({
-      snapshots: [dummySnapshot]
+      snapshots: [dummySnapshot],
     });
     activeProject.useScenarioStore.getState().setMainView({
       ...activeProject.useScenarioStore.getState().mainView,
@@ -127,7 +134,12 @@ describe('ProjectStore', () => {
 
   it('stays dirty when the project changes during an asynchronous save', async () => {
     let finishWrite!: () => void;
-    const writeFile = vi.fn(() => new Promise<void>((resolve) => { finishWrite = resolve; }));
+    const writeFile = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishWrite = resolve;
+        }),
+    );
     (getFileSystemState as any).mockReturnValue({ writeFile });
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'save-race' });
     useProjectStore.getState().openOfflineSnapshot(snapshot);
@@ -152,11 +164,13 @@ describe('ProjectStore', () => {
     useProjectStore.getState().new({ kind: 'websocket', url: 'ws://unused' });
     const scenarioStore = useProjectStore.getState().activeProject!.useScenarioStore.getState();
     scenarioStore.load({
-      ...emptyScenario(), metadata: Object.fromEntries([['__proto__', 'saved']]),
+      ...emptyScenario(),
+      metadata: Object.fromEntries([['__proto__', 'saved']]),
     });
 
-    await expect(useProjectStore.getState().save(0, '/test/project.msgpack'))
-      .rejects.toThrow(/MessagePack cannot save the __proto__ key/);
+    await expect(useProjectStore.getState().save(0, '/test/project.msgpack')).rejects.toThrow(
+      /MessagePack cannot save the __proto__ key/,
+    );
     expect(writeFile).not.toHaveBeenCalled();
 
     mockedSettings.saveFormat = 'json';
@@ -198,7 +212,9 @@ describe('ProjectStore', () => {
   it('publishes a new project-list reference and rejects invalid tab positions', async () => {
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'tab-position' });
     const before = useProjectStore.getState().projects;
-    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, -1)).toThrow(/insertion index/);
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, -1)).toThrow(
+      /insertion index/,
+    );
     expect(useProjectStore.getState().projects).toBe(before);
 
     useProjectStore.getState().openOfflineSnapshot(snapshot);
@@ -206,9 +222,12 @@ describe('ProjectStore', () => {
     expect(inserted).not.toBe(before);
     expect(() => useProjectStore.getState().setActive(0.5)).toThrow(/Invalid project index/);
     expect(() => useProjectStore.getState().close(0.5)).toThrow(/Invalid project index/);
-    await expect(useProjectStore.getState().save(0.5, '/invalid.json')).rejects.toThrow(/Invalid project index/);
-    await expect(useProjectStore.getState().changeSource(0.5, { kind: 'websocket', url: 'ws://other' }))
-      .rejects.toThrow(/Invalid project index/);
+    await expect(useProjectStore.getState().save(0.5, '/invalid.json')).rejects.toThrow(
+      /Invalid project index/,
+    );
+    await expect(
+      useProjectStore.getState().changeSource(0.5, { kind: 'websocket', url: 'ws://other' }),
+    ).rejects.toThrow(/Invalid project index/);
     useProjectStore.getState().close(0);
     expect(useProjectStore.getState().projects).not.toBe(inserted);
     expect(useProjectStore.getState().projects).toEqual([]);
@@ -217,8 +236,11 @@ describe('ProjectStore', () => {
   it('reports an unavailable built-in source on the newly created project', async () => {
     useProjectStore.getState().new({ kind: 'inmemory', model_id: 'missing-project-source-test' });
     await vi.waitFor(() => {
-      expect(useProjectStore.getState().activeProject?.useScenarioStore.getState().diagnostics)
-        .toEqual(expect.arrayContaining([expect.objectContaining({ code: 'connection_setup_failed' })]));
+      expect(
+        useProjectStore.getState().activeProject?.useScenarioStore.getState().diagnostics,
+      ).toEqual(
+        expect.arrayContaining([expect.objectContaining({ code: 'connection_setup_failed' })]),
+      );
     });
   });
 
@@ -226,24 +248,33 @@ describe('ProjectStore', () => {
     const legacySnapshot = emptyScenario();
     const legacyRecording = createSingleSnapshot(legacySnapshot, { id: 'legacy-recording' });
     (getFileSystemState as any).mockReturnValue({
-      readFile: vi.fn()
-        .mockResolvedValueOnce({ content: JSON.stringify({
-          url: 'http://legacy.example',
-          mainView,
-          scenario: emptyScenario(),
-          snapshots: [legacySnapshot],
-        }) })
-        .mockResolvedValueOnce({ content: JSON.stringify({
-          url: 'http://legacy-empty.example',
-          mainView,
-          scenario: emptyScenario(),
-        }) })
-        .mockResolvedValueOnce({ content: uint8ArrayToArrayBuffer(encode({
-          url: 'http://legacy-recording.example',
-          mainView,
-          scenario: emptyScenario(),
-          snapshots: [legacyRecording],
-        })) }),
+      readFile: vi
+        .fn()
+        .mockResolvedValueOnce({
+          content: JSON.stringify({
+            url: 'http://legacy.example',
+            mainView,
+            scenario: emptyScenario(),
+            snapshots: [legacySnapshot],
+          }),
+        })
+        .mockResolvedValueOnce({
+          content: JSON.stringify({
+            url: 'http://legacy-empty.example',
+            mainView,
+            scenario: emptyScenario(),
+          }),
+        })
+        .mockResolvedValueOnce({
+          content: uint8ArrayToArrayBuffer(
+            encode({
+              url: 'http://legacy-recording.example',
+              mainView,
+              scenario: emptyScenario(),
+              snapshots: [legacyRecording],
+            }),
+          ),
+        }),
     });
 
     await useProjectStore.getState().open('/legacy.json');
@@ -256,11 +287,16 @@ describe('ProjectStore', () => {
     });
 
     await useProjectStore.getState().open('/legacy-without-snapshots.json');
-    expect(useProjectStore.getState().projects[1].useScenarioStore.getState().snapshots).toEqual([]);
+    expect(useProjectStore.getState().projects[1].useScenarioStore.getState().snapshots).toEqual(
+      [],
+    );
 
     await useProjectStore.getState().open('/legacy-recording.msgpack');
-    expect(useProjectStore.getState().projects[2].useScenarioStore.getState().snapshots)
-      .toMatchObject([{ metadata: { id: 'legacy-recording' }, initial: { scenario: legacySnapshot } }]);
+    expect(
+      useProjectStore.getState().projects[2].useScenarioStore.getState().snapshots,
+    ).toMatchObject([
+      { metadata: { id: 'legacy-recording' }, initial: { scenario: legacySnapshot } },
+    ]);
   });
 
   it('honors the v1 and v2 project migration promise and normalizes both to v3', () => {
@@ -307,34 +343,47 @@ describe('ProjectStore', () => {
       scenario: emptyScenario(),
       snapshots: [recording],
     });
-    expect(versionOneWebSocket.source).toEqual({ kind: 'websocket', url: 'ws://legacy-v1.example' });
+    expect(versionOneWebSocket.source).toEqual({
+      kind: 'websocket',
+      url: 'ws://legacy-v1.example',
+    });
   });
 
   it('migrates genuine v0.2 scenario and recording semantics before snapshot validation', () => {
     const legacyScenario = {
       ...emptyScenario(),
       actions: [{ id: 'step', label: 'Step', allowRuntimeChange: true }],
-      parameters: [{
-        id: 'density', label: 'Density', type: 'number', value: 2, min: 0, max: 10, step: 1,
-        allowRuntimeChange: true,
-      }],
+      parameters: [
+        {
+          id: 'density',
+          label: 'Density',
+          type: 'number',
+          value: 2,
+          min: 0,
+          max: 10,
+          step: 1,
+          allowRuntimeChange: true,
+        },
+      ],
     };
     const legacyRecording = {
       version: 1,
       metadata: { id: 'v02-recording', createdAt: 1, endedAt: 2 },
       initial: { frame: 0, timestamp: 1, scenario: legacyScenario },
       keyframes: [],
-      frames: [{
-        index: 1,
-        timestamp: 2,
-        messages: [
-          { type: 'action_end', payload: { id: 'step', tick_id: 'tick-1', continue: false } },
-          { type: 'error', payload: { error: 'The old model failed.' } },
-        ],
-        controls: [{ type: 'action_start', payload: { id: 'step', tick_id: 'tick-1' } }],
-        action: { id: 'step', tick_id: 'tick-1', continue: false },
-        kind: 'action',
-      }],
+      frames: [
+        {
+          index: 1,
+          timestamp: 2,
+          messages: [
+            { type: 'action_end', payload: { id: 'step', tick_id: 'tick-1', continue: false } },
+            { type: 'error', payload: { error: 'The old model failed.' } },
+          ],
+          controls: [{ type: 'action_start', payload: { id: 'step', tick_id: 'tick-1' } }],
+          action: { id: 'step', tick_id: 'tick-1', continue: false },
+          kind: 'action',
+        },
+      ],
       layerCodecs: {},
       byteLength: 0,
       truncated: false,
@@ -355,9 +404,14 @@ describe('ProjectStore', () => {
     expect(migrated.scenario.parameters[0]).toMatchObject({ allow_runtime_change: true });
     expect(snapshot.metadata.protocol_version).toBe('0.3');
     expect(snapshot.metadata.legacy_create_replacement).toBe(true);
-    expect(frame.controls).toEqual([{ type: 'action_invoke', payload: { id: 'step', request_id: 'tick-1' } }]);
+    expect(frame.controls).toEqual([
+      { type: 'action_invoke', payload: { id: 'step', request_id: 'tick-1' } },
+    ]);
     expect(frame.messages).toEqual([
-      { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
+      {
+        type: 'action_result',
+        payload: { id: 'step', request_id: 'tick-1', should_continue: false },
+      },
       { type: 'error', payload: { code: 'legacy_error', message: 'The old model failed.' } },
     ]);
     expect(frame.action).toEqual({ id: 'step', request_id: 'tick-1', should_continue: false });
@@ -374,9 +428,10 @@ describe('ProjectStore', () => {
       version: 2,
       url: 'ws://legacy-v02-archive.example',
     });
-    expect(migratedArchive.snapshots[0]?.frames[0]?.messages[0]).toEqual(
-      { type: 'action_result', payload: { id: 'step', request_id: 'tick-1', should_continue: false } },
-    );
+    expect(migratedArchive.snapshots[0]?.frames[0]?.messages[0]).toEqual({
+      type: 'action_result',
+      payload: { id: 'step', request_id: 'tick-1', should_continue: false },
+    });
     expect(migratedArchive.snapshots[0]?.metadata.legacy_create_replacement).toBe(true);
   });
 
@@ -390,18 +445,24 @@ describe('ProjectStore', () => {
       snapshots: [recording],
     });
 
-    expect(() => parseProjectFileContent({
-      ...archive,
-      source: { kind: 'websocket', url: 'http://invalid.example' },
-    })).toThrow(/ws:\/\//);
-    expect(() => parseProjectFileContent({
-      ...archive,
-      source: { kind: 'websocket', url: '' },
-    })).toThrow(/ws:\/\//);
-    expect(() => parseProjectFileContent({
-      ...archive,
-      source: { kind: 'snapshot', snapshot_id: 'missing-recording' },
-    })).toThrow(/does not exist/);
+    expect(() =>
+      parseProjectFileContent({
+        ...archive,
+        source: { kind: 'websocket', url: 'http://invalid.example' },
+      }),
+    ).toThrow(/ws:\/\//);
+    expect(() =>
+      parseProjectFileContent({
+        ...archive,
+        source: { kind: 'websocket', url: '' },
+      }),
+    ).toThrow(/ws:\/\//);
+    expect(() =>
+      parseProjectFileContent({
+        ...archive,
+        source: { kind: 'snapshot', snapshot_id: 'missing-recording' },
+      }),
+    ).toThrow(/does not exist/);
 
     const recovered = recoverProjectFileContent({
       version: 1,
@@ -410,8 +471,13 @@ describe('ProjectStore', () => {
       scenario: emptyScenario(),
       snapshots: [recording],
     });
-    expect(recovered?.content.source).toEqual({ kind: 'snapshot', snapshot_id: 'available-recording' });
-    expect(recovered?.warnings).toContain('The first recovered snapshot was opened as the offline project source.');
+    expect(recovered?.content.source).toEqual({
+      kind: 'snapshot',
+      snapshot_id: 'available-recording',
+    });
+    expect(recovered?.warnings).toContain(
+      'The first recovered snapshot was opened as the offline project source.',
+    );
   });
 
   it('serializes and deserializes snapshot recordings in MessagePack project files', async () => {
@@ -432,52 +498,70 @@ describe('ProjectStore', () => {
 
     await useProjectStore.getState().save(0, 'recording.msgpack');
     expect(savedContent).toBeInstanceOf(ArrayBuffer);
-    const decoded = decode(new Uint8Array(savedContent as ArrayBuffer)) as { snapshots: Array<{ metadata: Record<string, unknown> }> };
+    const decoded = decode(new Uint8Array(savedContent as ArrayBuffer)) as {
+      snapshots: Array<{ metadata: Record<string, unknown> }>;
+    };
     expect(decoded.snapshots[0].metadata).not.toHaveProperty('label');
 
     await useProjectStore.getState().open('recording.msgpack', 1);
-    expect(useProjectStore.getState().projects[1].useScenarioStore.getState().snapshots)
-      .toMatchObject([{ metadata: { id: 'recording-round-trip' }, initial: { scenario: emptyScenario() } }]);
+    expect(
+      useProjectStore.getState().projects[1].useScenarioStore.getState().snapshots,
+    ).toMatchObject([
+      { metadata: { id: 'recording-round-trip' }, initial: { scenario: emptyScenario() } },
+    ]);
   });
 
   it('recovers a damaged recording from its initial state and reports warnings', async () => {
     const initialScenario = emptyScenario();
     (getFileSystemState as any).mockReturnValue({
-      readFile: vi.fn().mockResolvedValue({ content: JSON.stringify({
-        version: 1,
-        url: 'http://recover.example',
-        mainView,
-        scenario: initialScenario,
-        snapshots: [{
+      readFile: vi.fn().mockResolvedValue({
+        content: JSON.stringify({
           version: 1,
-          metadata: { id: 'damaged-recording', createdAt: 42 },
-          initial: { frame: 0, timestamp: 42, scenario: initialScenario },
-          keyframes: 'damaged',
-          frames: [],
-          layerCodecs: {},
-          byteLength: 0,
-          truncated: false,
-        }],
-      }) }),
+          url: 'http://recover.example',
+          mainView,
+          scenario: initialScenario,
+          snapshots: [
+            {
+              version: 1,
+              metadata: { id: 'damaged-recording', createdAt: 42 },
+              initial: { frame: 0, timestamp: 42, scenario: initialScenario },
+              keyframes: 'damaged',
+              frames: [],
+              layerCodecs: {},
+              byteLength: 0,
+              truncated: false,
+            },
+          ],
+        }),
+      }),
     });
 
     const result = await useProjectStore.getState().open('/damaged-project.json');
 
     expect(result.recovered).toBe(true);
-    expect(result.warnings).toContain('Snapshot 1 was recovered from its initial state; its timeline was discarded.');
-    expect(useProjectStore.getState().projects[0].useScenarioStore.getState().snapshots)
-      .toMatchObject([{ metadata: { id: 'damaged-recording' }, initial: { scenario: initialScenario }, frames: [] }]);
+    expect(result.warnings).toContain(
+      'Snapshot 1 was recovered from its initial state; its timeline was discarded.',
+    );
+    expect(
+      useProjectStore.getState().projects[0].useScenarioStore.getState().snapshots,
+    ).toMatchObject([
+      { metadata: { id: 'damaged-recording' }, initial: { scenario: initialScenario }, frames: [] },
+    ]);
   });
 
   it('rejects unsupported project versions and malformed current project files before loading them', async () => {
     (getFileSystemState as any).mockReturnValue({
-      readFile: vi.fn()
-          .mockResolvedValueOnce({ content: JSON.stringify({ version: 4 }) })
-        .mockResolvedValueOnce({ content: JSON.stringify({ version: 1, url: 'http://broken.example' }) }),
+      readFile: vi
+        .fn()
+        .mockResolvedValueOnce({ content: JSON.stringify({ version: 4 }) })
+        .mockResolvedValueOnce({
+          content: JSON.stringify({ version: 1, url: 'http://broken.example' }),
+        }),
     });
 
-    await expect(useProjectStore.getState().open('/future.json'))
-      .rejects.toThrow('Unsupported project file version: 4.');
+    await expect(useProjectStore.getState().open('/future.json')).rejects.toThrow(
+      'Unsupported project file version: 4.',
+    );
     await expect(useProjectStore.getState().open('/malformed.json')).rejects.toThrow();
     expect(useProjectStore.getState().projects).toHaveLength(0);
   });
@@ -505,22 +589,33 @@ describe('ProjectStore', () => {
 
     // Manually setup environment and trajectory layer
     scenario.apply({ type: 'env_create', payload: { id: 'env1', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'env1', layer_id: 'agent-layer', layer_type: 'agent' } });
     scenario.apply({
-      type: 'env_layer_create', payload: {
+      type: 'env_layer_create',
+      payload: { env_id: 'env1', layer_id: 'agent-layer', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: {
         env_id: 'env1',
         layer_id: 'trail-layer',
         layer_type: 'trajectory',
-        dependency_layer_ids: { agent: 'agent-layer' }
-      }
+        dependency_layer_ids: { agent: 'agent-layer' },
+      },
     });
 
     // Add some trajectory points
-    scenario.apply({ type: 'item_create', payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 0, y: 0 }] } });
-    scenario.apply({ type: 'item_update', payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 1, y: 1 }] } });
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 0, y: 0 }] },
+    });
+    scenario.apply({
+      type: 'item_update',
+      payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 1, y: 1 }] },
+    });
 
     // Verify trajectory has points
-    const trajectoryStorage = scenario.getEnvironment('env1')!.layers.get('trail-layer')!.storage as any;
+    const trajectoryStorage = scenario.getEnvironment('env1')!.layers.get('trail-layer')!
+      .storage as any;
     expect(trajectoryStorage.dump().trajectories[0].points).toHaveLength(2);
 
     // 2. Save the project
@@ -531,7 +626,8 @@ describe('ProjectStore', () => {
 
     const openedProject = useProjectStore.getState().projects[1];
     const openedScenario = openedProject.useScenarioStore.getState().scenario;
-    const openedStorage = openedScenario.getEnvironment('env1')!.layers.get('trail-layer')!.storage as any;
+    const openedStorage = openedScenario.getEnvironment('env1')!.layers.get('trail-layer')!
+      .storage as any;
 
     // Verify trajectory points are preserved
     const dumped = openedStorage.dump();
@@ -559,19 +655,29 @@ describe('ProjectStore', () => {
     const scenario = useProjectStore.getState().activeProject!.useScenarioStore.getState().scenario;
 
     scenario.apply({ type: 'env_create', payload: { id: 'env1', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'env1', layer_id: 'agent-layer', layer_type: 'agent' } });
     scenario.apply({
-      type: 'env_layer_create', payload: {
+      type: 'env_layer_create',
+      payload: { env_id: 'env1', layer_id: 'agent-layer', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: {
         env_id: 'env1',
         layer_id: 'trail-layer',
         layer_type: 'trajectory',
         dependency_layer_ids: { agent: 'agent-layer' },
-        metadata: { length: 0 } // Unbounded
-      }
+        metadata: { length: 0 }, // Unbounded
+      },
     });
 
-    scenario.apply({ type: 'item_create', payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 0, y: 0 }] } });
-    scenario.apply({ type: 'item_update', payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 1, y: 1 }] } });
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 0, y: 0 }] },
+    });
+    scenario.apply({
+      type: 'item_update',
+      payload: { env_id: 'env1', layer_id: 'agent-layer', items: [{ id: 'agent1', x: 1, y: 1 }] },
+    });
 
     const storage = scenario.getEnvironment('env1')!.layers.get('trail-layer')!.storage as any;
     expect(storage.getEntry('agent1').limit).toBe(0);
@@ -580,8 +686,11 @@ describe('ProjectStore', () => {
     await useProjectStore.getState().save(0, 'my-project.json');
     await useProjectStore.getState().open('my-project.json', 1);
 
-    const openedScenario = useProjectStore.getState().projects[1].useScenarioStore.getState().scenario;
-    const openedStorage = openedScenario.getEnvironment('env1')!.layers.get('trail-layer')!.storage as any;
+    const openedScenario = useProjectStore
+      .getState()
+      .projects[1].useScenarioStore.getState().scenario;
+    const openedStorage = openedScenario.getEnvironment('env1')!.layers.get('trail-layer')!
+      .storage as any;
 
     const dumped = openedStorage.dump();
     expect(dumped.config.length).toBe(0);
@@ -605,7 +714,9 @@ describe('ProjectStore', () => {
     useProjectStore.getState().new({ kind: 'websocket', url: 'ws://assets.example' });
     const project = useProjectStore.getState().activeProject!;
     project.useScenarioStore.getState().load(scenario);
-    project.useScenarioStore.setState({ snapshots: [createSingleSnapshot(scenario, { id: 'asset-recording' })] });
+    project.useScenarioStore.setState({
+      snapshots: [createSingleSnapshot(scenario, { id: 'asset-recording' })],
+    });
 
     await useProjectStore.getState().save(0, '/allowed/assets.json');
 
@@ -634,23 +745,32 @@ describe('ProjectStore', () => {
     expect(project.snapshotPlayback).toBeDefined();
 
     await useProjectStore.getState().save(0, '/offline-source.json');
-    expect(JSON.parse(mockWriteFile.mock.calls[0][1]).source).toEqual({ kind: 'snapshot', snapshot_id: 'offline-source' });
+    expect(JSON.parse(mockWriteFile.mock.calls[0][1]).source).toEqual({
+      kind: 'snapshot',
+      snapshot_id: 'offline-source',
+    });
   });
 
   it('rejects invalid snapshot frame positions before creating a project', () => {
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'invalid-frame' });
     const before = useProjectStore.getState().projects;
-    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, Number.NaN))
-      .toThrow(/safe integer/);
-    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 0.5))
-      .toThrow(/safe integer/);
+    expect(() =>
+      useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, Number.NaN),
+    ).toThrow(/safe integer/);
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 0.5)).toThrow(
+      /safe integer/,
+    );
     expect(useProjectStore.getState().projects).toBe(before);
   });
 
   it('rebases an offline project to the last recorded frame at or before a requested gap', () => {
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'sparse-frames' });
     snapshot.frames = [1, 5].map((index) => ({
-      index, timestamp: index * 10, messages: [], controls: [], kind: 'action' as const,
+      index,
+      timestamp: index * 10,
+      messages: [],
+      controls: [],
+      kind: 'action' as const,
     }));
 
     useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 3);
@@ -665,10 +785,12 @@ describe('ProjectStore', () => {
     useProjectStore.getState().openOfflineSnapshot(snapshot);
     const project = useProjectStore.getState().activeProject!;
 
-    expect(() => project.useScenarioStore.getState().removeSnapshot('protected-source'))
-      .toThrow(/active project source/);
-    expect(() => project.useScenarioStore.getState().clearSnapshots())
-      .toThrow(/active project source/);
+    expect(() => project.useScenarioStore.getState().removeSnapshot('protected-source')).toThrow(
+      /active project source/,
+    );
+    expect(() => project.useScenarioStore.getState().clearSnapshots()).toThrow(
+      /active project source/,
+    );
     expect(project.useScenarioStore.getState().snapshots).toHaveLength(1);
     expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'protected-source' });
   });
@@ -679,8 +801,9 @@ describe('ProjectStore', () => {
     const project = useProjectStore.getState().activeProject!;
     const originalPlayback = project.snapshotPlayback;
 
-    await expect(useProjectStore.getState().changeSource(0, { kind: 'snapshot', snapshot_id: 'missing' }))
-      .rejects.toThrow(/was not found/);
+    await expect(
+      useProjectStore.getState().changeSource(0, { kind: 'snapshot', snapshot_id: 'missing' }),
+    ).rejects.toThrow(/was not found/);
 
     expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'stable-source' });
     expect(project.snapshotPlayback).toBe(originalPlayback);
@@ -691,8 +814,11 @@ describe('ProjectStore', () => {
     useProjectStore.getState().new({ kind: 'websocket', url: 'ws://stable.example' });
     const project = useProjectStore.getState().activeProject!;
 
-    await expect(useProjectStore.getState().changeSource(0, { kind: 'websocket', url: 'http://invalid.example' } as any))
-      .rejects.toThrow(/ws:\/\//);
+    await expect(
+      useProjectStore
+        .getState()
+        .changeSource(0, { kind: 'websocket', url: 'http://invalid.example' } as any),
+    ).rejects.toThrow(/ws:\/\//);
 
     expect(project.source).toEqual({ kind: 'websocket', url: 'ws://stable.example' });
   });

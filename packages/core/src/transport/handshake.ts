@@ -61,18 +61,26 @@ export async function connectWithHandshake(
       const error = (detail: TransportEventMap['error']): void => {
         finish(detail instanceof Error ? detail : new Error(String(detail)));
       };
-      const timeout = setTimeout(() => finish(new Error('The simulator did not send simulator_info during handshake.')), timeoutMs);
+      const timeout = setTimeout(
+        () => finish(new Error('The simulator did not send simulator_info during handshake.')),
+        timeoutMs,
+      );
       (timeout as ReturnType<typeof setTimeout> & { unref?: () => void }).unref?.();
-      settle = () => { if (connected && mode !== null) finish(); };
+      settle = () => {
+        if (connected && mode !== null) finish();
+      };
       signal?.addEventListener('abort', abort, { once: true });
       transport.on('close', close);
       transport.on('error', error);
       if (signal?.aborted) return abort();
       try {
-        void transport.connect(signal).then(() => {
-          connected = true;
-          settle?.();
-        }, (reason: unknown) => finish(reason instanceof Error ? reason : new Error(String(reason))));
+        void transport.connect(signal).then(
+          () => {
+            connected = true;
+            settle?.();
+          },
+          (reason: unknown) => finish(reason instanceof Error ? reason : new Error(String(reason))),
+        );
       } catch (reason) {
         finish(reason instanceof Error ? reason : new Error(String(reason)));
       }

@@ -91,11 +91,7 @@ export class TaskQueue {
     return this.enqueueAt(key, options, true);
   }
 
-  private enqueueAt(
-    key: string,
-    options: { continuous?: boolean },
-    front: boolean,
-  ): string {
+  private enqueueAt(key: string, options: { continuous?: boolean }, front: boolean): string {
     const continuous = options.continuous ?? false;
 
     if (continuous) {
@@ -187,10 +183,7 @@ export class TaskQueue {
 
   markTaskApplied(taskId: string): boolean {
     const task = this.taskById.get(taskId);
-    if (
-      task === undefined ||
-      (task.stage !== 'completed' && task.stage !== 'applied')
-    ) {
+    if (task === undefined || (task.stage !== 'completed' && task.stage !== 'applied')) {
       return false;
     }
 
@@ -214,19 +207,14 @@ export class TaskQueue {
     onAdvanceNext: () => void,
   ): boolean {
     const task = this.taskById.get(taskId);
-    if (
-      task === undefined ||
-      (task.stage !== 'completed' && task.stage !== 'applied')
-    ) {
+    if (task === undefined || (task.stage !== 'completed' && task.stage !== 'applied')) {
       return false;
     }
 
     task.renderedAt = this.now();
 
     const shouldContinue =
-      task.continuous &&
-      this.continuousKeys.has(task.key) &&
-      task.continueRequested !== false;
+      task.continuous && this.continuousKeys.has(task.key) && task.continueRequested !== false;
     const nextKey = task.key;
 
     this.taskById.delete(taskId);
@@ -289,11 +277,7 @@ export class TaskQueue {
    */
   cancelPendingDispatch(taskId: string): boolean {
     const task = this.taskById.get(taskId);
-    if (
-      task === undefined ||
-      task.stage !== 'dispatched' ||
-      this.activeTask?.id !== taskId
-    ) {
+    if (task === undefined || task.stage !== 'dispatched' || this.activeTask?.id !== taskId) {
       return false;
     }
 

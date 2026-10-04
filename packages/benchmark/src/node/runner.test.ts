@@ -47,46 +47,103 @@ function completeNodeArtifact(): BenchmarkArtifact {
     profile,
     harness: { package: '@tensnap/benchmark', version: '0.3.0', gitSha: 'fixture' },
     implementation: { gitSha: 'fixture', dirty: false, lockfileSha256: 'fixture' },
-    environment: { os: 'test', release: 'test', arch: 'test', cpu: [], memoryBytes: 0, node: 'test', v8: 'test', pnpmUserAgent: null },
-    runs: [{
-      id: 'fixture|node|-|-',
-      profileWorkloadId: 'fixture',
-      suite: 'node',
-      workload: { id: 'fixture', version: 1, kind: 'node', category: 'core', module: 'fixture.ts', config: {}, configHash: 'fixture' },
-      execution: { warmupActions: 0, measuredActions: 1, repetitions: 1, processIsolated: true, primaryMetric: 'cycle' },
-      samples: [{
-        index: 0,
-        block: 0,
-        timingsMs: [2],
-        metrics: {},
-        messageCounts: {},
-        wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
-        correctness: { valid: true, actionCount: 1, stateHash: 'same', expectedStateHash: 'same' },
-        process: { isolated: true, wallMs: 3, userCpuMs: 1, systemCpuMs: 0.5, maxRssBytes: null },
-      }],
-      summary: {
-        cycle: { count: 1, meanMs: 2, medianMs: 2, p95Ms: 2, madMs: 0, bootstrapMedianCi95Ms: [2, 2] },
-        replicateMediansMs: [2],
-        metrics: {},
-        stages: {},
-        wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
-        messageCounts: {},
+    environment: {
+      os: 'test',
+      release: 'test',
+      arch: 'test',
+      cpu: [],
+      memoryBytes: 0,
+      node: 'test',
+      v8: 'test',
+      pnpmUserAgent: null,
+    },
+    runs: [
+      {
+        id: 'fixture|node|-|-',
+        profileWorkloadId: 'fixture',
+        suite: 'node',
+        workload: {
+          id: 'fixture',
+          version: 1,
+          kind: 'node',
+          category: 'core',
+          module: 'fixture.ts',
+          config: {},
+          configHash: 'fixture',
+        },
+        execution: {
+          warmupActions: 0,
+          measuredActions: 1,
+          repetitions: 1,
+          processIsolated: true,
+          primaryMetric: 'cycle',
+        },
+        samples: [
+          {
+            index: 0,
+            block: 0,
+            timingsMs: [2],
+            metrics: {},
+            messageCounts: {},
+            wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
+            correctness: {
+              valid: true,
+              actionCount: 1,
+              stateHash: 'same',
+              expectedStateHash: 'same',
+            },
+            process: {
+              isolated: true,
+              wallMs: 3,
+              userCpuMs: 1,
+              systemCpuMs: 0.5,
+              maxRssBytes: null,
+            },
+          },
+        ],
+        summary: {
+          cycle: {
+            count: 1,
+            meanMs: 2,
+            medianMs: 2,
+            p95Ms: 2,
+            madMs: 0,
+            bootstrapMedianCi95Ms: [2, 2],
+          },
+          replicateMediansMs: [2],
+          metrics: {},
+          stages: {},
+          wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
+          messageCounts: {},
+        },
       },
-    }],
+    ],
     comparisons: [],
-    integrity: { profileSha256: sha256(profile), expectedRunIds: ['fixture|node|-|-'], samplesSha256: null },
+    integrity: {
+      profileSha256: sha256(profile),
+      expectedRunIds: ['fixture|node|-|-'],
+      samplesSha256: null,
+    },
   };
 }
 
 describe('benchmark artifact schema v2', () => {
   it('waits for three identical screenshots before accepting a visual checkpoint', async () => {
-    const frames = [Buffer.from('loading-1'), Buffer.from('loading-2'), Buffer.from('ready'), Buffer.from('ready'), Buffer.from('ready')];
+    const frames = [
+      Buffer.from('loading-1'),
+      Buffer.from('loading-2'),
+      Buffer.from('ready'),
+      Buffer.from('ready'),
+      Buffer.from('ready'),
+    ];
     const page = {
       screenshot: vi.fn(async () => frames.shift() ?? Buffer.from('ready')),
       waitForTimeout: vi.fn(async () => undefined),
     };
 
-    await expect(captureStableExternalBrowserScreenshot(page as never, 1_000, 1)).resolves.toEqual(Buffer.from('ready'));
+    await expect(captureStableExternalBrowserScreenshot(page as never, 1_000, 1)).resolves.toEqual(
+      Buffer.from('ready'),
+    );
     expect(page.screenshot).toHaveBeenCalledTimes(5);
     expect(page.waitForTimeout).toHaveBeenCalledTimes(4);
   });
@@ -106,10 +163,16 @@ describe('benchmark artifact schema v2', () => {
       checkpoints: { final: hash },
       inlinePngBase64: { final: png.toString('base64') },
     });
-    expect(() => externalResultSample({
-      ...result,
-      visual: { ...result.visual, checkpoints: { final: '0'.repeat(64) } },
-    }, 0, process)).toThrow(/hash mismatch/);
+    expect(() =>
+      externalResultSample(
+        {
+          ...result,
+          visual: { ...result.visual, checkpoints: { final: '0'.repeat(64) } },
+        },
+        0,
+        process,
+      ),
+    ).toThrow(/hash mismatch/);
   });
 
   it('accepts browser and local-node workloads without pretending they are protocol runs', () => {
@@ -131,33 +194,91 @@ describe('benchmark artifact schema v2', () => {
       profile,
       harness: { package: '@tensnap/benchmark', version: '0.3.0', gitSha: null },
       implementation: { gitSha: null, dirty: false, lockfileSha256: null },
-      environment: { os: 'test', release: 'test', arch: 'test', cpu: [], memoryBytes: 0, node: 'test', v8: 'test', pnpmUserAgent: null },
-      runs: [{
-        id: 'fixture|browser|-|-',
-        suite: 'browser',
-        workload: { id: 'comparison.fixture', version: 1, kind: 'browser', category: 'comparison', module: 'fixture.ts', config: {}, configHash: 'fixture' },
-        execution: { warmupActions: 0, measuredActions: 1, repetitions: 1, processIsolated: false, primaryMetric: 'cycle', browser: { name: 'chromium', version: 'test', viewport: { width: 1280, height: 800, deviceScaleFactor: 1 }, headless: true } },
-        samples: [{
-          index: 0,
-          block: 0,
-          timingsMs: [1],
-          metrics: { browserMutationMs: [0.5] },
-          messageCounts: {},
-          wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
-          correctness: { valid: true, actionCount: 1, stateHash: 'same', expectedStateHash: 'same' },
-          process: { isolated: false, wallMs: 1, userCpuMs: 0, systemCpuMs: 0, maxRssBytes: 0 },
-        }],
-        summary: {
-          cycle: { count: 1, meanMs: 1, medianMs: 1, p95Ms: 1, madMs: 0, bootstrapMedianCi95Ms: [1, 1] },
-          replicateMediansMs: [1],
-          metrics: { browserMutationMs: { count: 1, meanMs: 0.5, medianMs: 0.5, p95Ms: 0.5, madMs: 0, bootstrapMedianCi95Ms: [0.5, 0.5] } },
-          stages: {},
-          wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
-          messageCounts: {},
+      environment: {
+        os: 'test',
+        release: 'test',
+        arch: 'test',
+        cpu: [],
+        memoryBytes: 0,
+        node: 'test',
+        v8: 'test',
+        pnpmUserAgent: null,
+      },
+      runs: [
+        {
+          id: 'fixture|browser|-|-',
+          suite: 'browser',
+          workload: {
+            id: 'comparison.fixture',
+            version: 1,
+            kind: 'browser',
+            category: 'comparison',
+            module: 'fixture.ts',
+            config: {},
+            configHash: 'fixture',
+          },
+          execution: {
+            warmupActions: 0,
+            measuredActions: 1,
+            repetitions: 1,
+            processIsolated: false,
+            primaryMetric: 'cycle',
+            browser: {
+              name: 'chromium',
+              version: 'test',
+              viewport: { width: 1280, height: 800, deviceScaleFactor: 1 },
+              headless: true,
+            },
+          },
+          samples: [
+            {
+              index: 0,
+              block: 0,
+              timingsMs: [1],
+              metrics: { browserMutationMs: [0.5] },
+              messageCounts: {},
+              wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
+              correctness: {
+                valid: true,
+                actionCount: 1,
+                stateHash: 'same',
+                expectedStateHash: 'same',
+              },
+              process: { isolated: false, wallMs: 1, userCpuMs: 0, systemCpuMs: 0, maxRssBytes: 0 },
+            },
+          ],
+          summary: {
+            cycle: {
+              count: 1,
+              meanMs: 1,
+              medianMs: 1,
+              p95Ms: 1,
+              madMs: 0,
+              bootstrapMedianCi95Ms: [1, 1],
+            },
+            replicateMediansMs: [1],
+            metrics: {
+              browserMutationMs: {
+                count: 1,
+                meanMs: 0.5,
+                medianMs: 0.5,
+                p95Ms: 0.5,
+                madMs: 0,
+                bootstrapMedianCi95Ms: [0.5, 0.5],
+              },
+            },
+            stages: {},
+            wireBytes: { rendererToSimulator: 0, simulatorToRenderer: 0 },
+            messageCounts: {},
+          },
         },
-      }],
+      ],
       comparisons: [],
-      integrity: { profileSha256: sha256(profile), expectedRunIds: ['fixture|browser|-|-'], samplesSha256: null },
+      integrity: {
+        profileSha256: sha256(profile),
+        expectedRunIds: ['fixture|browser|-|-'],
+        samplesSha256: null,
+      },
     };
     expect(() => verifyArtifact(artifact)).not.toThrow();
 
@@ -169,18 +290,20 @@ describe('benchmark artifact schema v2', () => {
 
     const withComparisons = renderReport({
       ...artifact,
-      comparisons: [{
-        id: 'fixture:browser:-:-',
-        metric: 'cycle',
-        suite: 'browser',
-        baseline: 'baseline',
-        treatment: 'treatment',
-        pairs: 1,
-        medianRatio: 1,
-        bootstrapMedianRatioCi95: [1, 1],
-        medianDifferenceMs: 0,
-        bootstrapMedianDifferenceCi95Ms: [0, 0],
-      }],
+      comparisons: [
+        {
+          id: 'fixture:browser:-:-',
+          metric: 'cycle',
+          suite: 'browser',
+          baseline: 'baseline',
+          treatment: 'treatment',
+          pairs: 1,
+          medianRatio: 1,
+          bootstrapMedianRatioCi95: [1, 1],
+          medianDifferenceMs: 0,
+          bootstrapMedianDifferenceCi95Ms: [0, 0],
+        },
+      ],
     });
     expect(withComparisons).toContain('| 0 / 0 |\n\n## Paired comparisons');
     expect(withComparisons).toContain('| 0.000 (0.000–0.000) |\n\nRaw measurements');
@@ -200,35 +323,56 @@ describe('benchmark artifact schema v2', () => {
         { id: 'baseline', module: '../fixture.ts', primaryMetric: 'customMs' },
         { id: 'treatment', module: '../fixture.ts', primaryMetric: 'customMs' },
       ],
-      comparisons: [{ id: 'custom-comparison', metric: 'customMs', baseline: 'baseline', treatments: ['treatment'] }],
+      comparisons: [
+        {
+          id: 'custom-comparison',
+          metric: 'customMs',
+          baseline: 'baseline',
+          treatments: ['treatment'],
+        },
+      ],
     });
     const run = (id: string, value: number): BenchmarkArtifact['runs'][number] => ({
       ...fixture.runs[0]!,
       id: `${id}|node|-|-`,
       profileWorkloadId: id,
       execution: { ...fixture.runs[0]!.execution, primaryMetric: 'customMs' },
-      samples: fixture.runs[0]!.samples.map((sample) => ({ ...sample, metrics: { customMs: [value] } })),
+      samples: fixture.runs[0]!.samples.map((sample) => ({
+        ...sample,
+        metrics: { customMs: [value] },
+      })),
       summary: {
         ...fixture.runs[0]!.summary,
-        metrics: { customMs: { count: 1, meanMs: value, medianMs: value, p95Ms: value, madMs: 0, bootstrapMedianCi95Ms: [value, value] } },
+        metrics: {
+          customMs: {
+            count: 1,
+            meanMs: value,
+            medianMs: value,
+            p95Ms: value,
+            madMs: 0,
+            bootstrapMedianCi95Ms: [value, value],
+          },
+        },
       },
     });
     const artifact: BenchmarkArtifact = {
       ...fixture,
       profile,
       runs: [run('baseline', 2), run('treatment', 1)],
-      comparisons: [{
-        id: 'custom-comparison:customMs:node:-:-',
-        metric: 'customMs',
-        suite: 'node',
-        baseline: 'baseline',
-        treatment: 'treatment',
-        pairs: 1,
-        medianRatio: 0.5,
-        bootstrapMedianRatioCi95: [0.5, 0.5],
-        medianDifferenceMs: -1,
-        bootstrapMedianDifferenceCi95Ms: [-1, -1],
-      }],
+      comparisons: [
+        {
+          id: 'custom-comparison:customMs:node:-:-',
+          metric: 'customMs',
+          suite: 'node',
+          baseline: 'baseline',
+          treatment: 'treatment',
+          pairs: 1,
+          medianRatio: 0.5,
+          bootstrapMedianRatioCi95: [0.5, 0.5],
+          medianDifferenceMs: -1,
+          bootstrapMedianDifferenceCi95Ms: [-1, -1],
+        },
+      ],
       integrity: {
         profileSha256: sha256(profile),
         expectedRunIds: ['baseline|node|-|-', 'treatment|node|-|-'],
@@ -236,10 +380,12 @@ describe('benchmark artifact schema v2', () => {
       },
     };
     expect(() => verifyArtifact(artifact)).not.toThrow();
-    expect(() => verifyArtifact({
-      ...artifact,
-      comparisons: artifact.comparisons.map((comparison) => ({ ...comparison, medianRatio: 9 })),
-    })).toThrow(/Paired comparisons/);
+    expect(() =>
+      verifyArtifact({
+        ...artifact,
+        comparisons: artifact.comparisons.map((comparison) => ({ ...comparison, medianRatio: 9 })),
+      }),
+    ).toThrow(/Paired comparisons/);
   });
 
   it('round-trips append-only journals and rejects duplicate shard samples', async () => {
@@ -273,14 +419,18 @@ describe('benchmark artifact schema v2', () => {
       const journal = await readBenchmarkJournal(file);
       expect(journal.samples).toEqual([record]);
       expect(mergeBenchmarkJournalSamples([journal])).toEqual([record]);
-      expect(() => mergeBenchmarkJournalSamples([journal, journal])).toThrow(/Duplicate benchmark sample/);
-      expect(() => assertJournalCompatible(header, {
-        ...header,
-        artifactContext: {
-          ...header.artifactContext,
-          environment: { ...header.artifactContext.environment, node: 'different' },
-        },
-      })).toThrow(/execution environment/);
+      expect(() => mergeBenchmarkJournalSamples([journal, journal])).toThrow(
+        /Duplicate benchmark sample/,
+      );
+      expect(() =>
+        assertJournalCompatible(header, {
+          ...header,
+          artifactContext: {
+            ...header.artifactContext,
+            environment: { ...header.artifactContext.environment, node: 'different' },
+          },
+        }),
+      ).toThrow(/execution environment/);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
@@ -293,7 +443,9 @@ describe('benchmark artifact schema v2', () => {
       await writeArtifact(output, completeNodeArtifact());
       await expect(assertArtifactOutputAvailable(output)).rejects.toThrow(/immutable/);
       await expect(verifyArtifactFiles(output)).resolves.toBeUndefined();
-      const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8')) as BenchmarkArtifact;
+      const manifest = JSON.parse(
+        await readFile(path.join(output, 'manifest.json'), 'utf8'),
+      ) as BenchmarkArtifact;
       expect(Object.keys(manifest.integrity.filesSha256 ?? {}).sort()).toEqual([
         'analysis/comparisons.csv',
         'analysis/figure-data.json',

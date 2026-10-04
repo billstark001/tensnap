@@ -152,16 +152,16 @@ interface TextBox extends BaseWidget {
 /**
  * 所有组件类型的联合类型
  */
-type Widget = 
-  | GraphicsWindow 
-  | Button 
-  | Slider 
-  | Switch 
-  | Chooser 
-  | InputBox 
-  | Monitor 
-  | Plot 
-  | Output 
+type Widget =
+  | GraphicsWindow
+  | Button
+  | Slider
+  | Switch
+  | Chooser
+  | InputBox
+  | Monitor
+  | Plot
+  | Output
   | TextBox;
 
 /**
@@ -218,12 +218,15 @@ function extractVersion(content: string): string {
  */
 function parseWidgets(widgetSection: string): Widget[] {
   const widgets: Widget[] = [];
-  const lines = widgetSection.split('\n').map(line => line.trim()).filter(line => line);
-  
+  const lines = widgetSection
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line);
+
   let i = 0;
   while (i < lines.length) {
     const widgetType = lines[i];
-    
+
     try {
       const result = parseWidget(widgetType, lines, i);
       if (result) {
@@ -245,9 +248,9 @@ function parseWidgets(widgetSection: string): Widget[] {
  * 解析单个组件
  */
 function parseWidget(
-  widgetType: string, 
-  lines: string[], 
-  startIndex: number
+  widgetType: string,
+  lines: string[],
+  startIndex: number,
 ): { widget: Widget; nextIndex: number } | null {
   switch (widgetType) {
     case 'GRAPHICS-WINDOW':
@@ -278,7 +281,10 @@ function parseWidget(
 /**
  * 解析图形窗口
  */
-function parseGraphicsWindow(lines: string[], start: number): { widget: GraphicsWindow; nextIndex: number } {
+function parseGraphicsWindow(
+  lines: string[],
+  start: number,
+): { widget: GraphicsWindow; nextIndex: number } {
   const widget: GraphicsWindow = {
     type: 'GRAPHICS-WINDOW',
     left: parseInt(lines[start + 1]),
@@ -293,7 +299,7 @@ function parseGraphicsWindow(lines: string[], start: number): { widget: Graphics
     maxY: parseInt(lines[start + 12]),
     shapesVisible: lines[start + 13] === '1',
     tickCounterVisible: lines[start + 14] === '1',
-    frameRate: parseFloat(lines[start + 15])
+    frameRate: parseFloat(lines[start + 15]),
   };
   return { widget, nextIndex: start + 16 };
 }
@@ -312,13 +318,13 @@ function parseButton(lines: string[], start: number): { widget: Button; nextInde
     code: lines[start + 6],
     forever: lines[start + 7] === 'T',
     buttonType: lines[start + 8] as any,
-    disableUntilTicksStart: lines[start + 10] === '1'
+    disableUntilTicksStart: lines[start + 10] === '1',
   };
-  
+
   if (lines[start + 9] && lines[start + 9] !== 'NIL') {
     widget.actionKey = lines[start + 9];
   }
-  
+
   return { widget, nextIndex: start + 11 };
 }
 
@@ -338,13 +344,13 @@ function parseSlider(lines: string[], start: number): { widget: Slider; nextInde
     max: parseFloat(lines[start + 8]),
     defaultValue: parseFloat(lines[start + 9]),
     step: parseFloat(lines[start + 10]),
-    horizontal: lines[start + 12] === 'HORIZONTAL'
+    horizontal: lines[start + 12] === 'HORIZONTAL',
   };
-  
+
   if (lines[start + 11] && lines[start + 11] !== 'NIL') {
     widget.units = lines[start + 11];
   }
-  
+
   return { widget, nextIndex: start + 13 };
 }
 
@@ -360,9 +366,9 @@ function parseSwitch(lines: string[], start: number): { widget: Switch; nextInde
     bottom: parseInt(lines[start + 4]),
     display: lines[start + 5],
     variable: lines[start + 6],
-    defaultValue: lines[start + 7] === '0'
+    defaultValue: lines[start + 7] === '0',
   };
-  
+
   return { widget, nextIndex: start + 9 };
 }
 
@@ -379,9 +385,9 @@ function parseChooser(lines: string[], start: number): { widget: Chooser; nextIn
     display: lines[start + 5],
     variable: lines[start + 6],
     choices: parseChoices(lines[start + 7]),
-    defaultIndex: parseInt(lines[start + 8])
+    defaultIndex: parseInt(lines[start + 8]),
   };
-  
+
   return { widget, nextIndex: start + 9 };
 }
 
@@ -392,7 +398,7 @@ function parseChoices(choiceString: string): string[] {
   // 移除开头和结尾的引号以及括号
   const cleaned = choiceString.replace(/^["']|["']$/g, '').trim();
   // 分割选项
-  return cleaned.split(/\s+/).filter(c => c);
+  return cleaned.split(/\s+/).filter((c) => c);
 }
 
 /**
@@ -408,9 +414,9 @@ function parseInputBox(lines: string[], start: number): { widget: InputBox; next
     variable: lines[start + 5],
     defaultValue: parseInputValue(lines[start + 6]),
     inputType: lines[start + 8] as any,
-    multiline: lines[start + 7] === '1'
+    multiline: lines[start + 7] === '1',
   };
-  
+
   return { widget, nextIndex: start + 9 };
 }
 
@@ -435,9 +441,9 @@ function parseMonitor(lines: string[], start: number): { widget: Monitor; nextIn
     display: lines[start + 5],
     reporter: lines[start + 6],
     precision: parseInt(lines[start + 7]),
-    fontSize: parseInt(lines[start + 9])
+    fontSize: parseInt(lines[start + 9]),
   };
-  
+
   return { widget, nextIndex: start + 10 };
 }
 
@@ -446,7 +452,7 @@ function parseMonitor(lines: string[], start: number): { widget: Monitor; nextIn
  */
 function parsePlot(lines: string[], start: number): { widget: Plot; nextIndex: number } {
   let index = start;
-  
+
   const widget: Plot = {
     type: 'PLOT',
     left: parseInt(lines[++index]),
@@ -464,14 +470,14 @@ function parsePlot(lines: string[], start: number): { widget: Plot; nextIndex: n
     legendOn: lines[++index] === 'true',
     setupCode: lines[++index] || '',
     updateCode: lines[++index] || '',
-    pens: []
+    pens: [],
   };
 
   // 解析绘图笔
   index++;
   const penCount = parseInt(lines[index] || '0');
   index++;
-  
+
   for (let i = 0; i < penCount; i++) {
     const pen: PlotPen = {
       display: lines[index++] || '',
@@ -480,11 +486,11 @@ function parsePlot(lines: string[], start: number): { widget: Plot; nextIndex: n
       color: parseInt(lines[index++] || '0'),
       inLegend: lines[index++] === 'true',
       setupCode: lines[index++] || '',
-      updateCode: lines[index++] || ''
+      updateCode: lines[index++] || '',
     };
     widget.pens.push(pen);
   }
-  
+
   return { widget, nextIndex: index };
 }
 
@@ -498,9 +504,9 @@ function parseOutput(lines: string[], start: number): { widget: Output; nextInde
     top: parseInt(lines[start + 2]),
     right: parseInt(lines[start + 3]),
     bottom: parseInt(lines[start + 4]),
-    fontSize: parseInt(lines[start + 5])
+    fontSize: parseInt(lines[start + 5]),
   };
-  
+
   return { widget, nextIndex: start + 6 };
 }
 
@@ -517,8 +523,8 @@ function parseTextBox(lines: string[], start: number): { widget: TextBox; nextIn
     display: lines[start + 5],
     fontSize: parseInt(lines[start + 6]),
     color: parseFloat(lines[start + 7]),
-    transparent: lines[start + 8] === '1'
+    transparent: lines[start + 8] === '1',
   };
-  
+
   return { widget, nextIndex: start + 9 };
 }

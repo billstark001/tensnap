@@ -19,11 +19,13 @@ export const ProjectPanel = () => {
     void Promise.all([
       getSettingsPersistence().get(RIGHT_PANEL_KEY),
       getSettingsPersistence().get(BOTTOM_PANEL_KEY),
-    ]).then(([rightPanel, bottomPanel]) => {
-      if (rightPanel != null) setRightPanelVisible(rightPanel === 'true');
-      if (bottomPanel != null) setBottomPanelVisible(bottomPanel === 'true');
-      setPanelStateLoaded(true);
-    }).catch(() => setPanelStateLoaded(true));
+    ])
+      .then(([rightPanel, bottomPanel]) => {
+        if (rightPanel != null) setRightPanelVisible(rightPanel === 'true');
+        if (bottomPanel != null) setBottomPanelVisible(bottomPanel === 'true');
+        setPanelStateLoaded(true);
+      })
+      .catch(() => setPanelStateLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -36,56 +38,60 @@ export const ProjectPanel = () => {
     void getSettingsPersistence().set(BOTTOM_PANEL_KEY, String(bottomPanelVisible));
   }, [bottomPanelVisible, panelStateLoaded]);
 
-  const mainContent = <div className={styles.panelWrapper}>
-    <MainViewRenderer />
-  </div>;
+  const mainContent = (
+    <div className={styles.panelWrapper}>
+      <MainViewRenderer />
+    </div>
+  );
 
-  const rightPanelContent = <div
-    className={styles.panelWrapper}
-    style={{ display: rightPanelVisible ? 'flex' : 'none' }}
-  >
-    { rightPanelVisible ? <RightPanel /> : null }
-  </div>;
+  const rightPanelContent = (
+    <div className={styles.panelWrapper} style={{ display: rightPanelVisible ? 'flex' : 'none' }}>
+      {rightPanelVisible ? <RightPanel /> : null}
+    </div>
+  );
 
-  const terminalContent = <div
-    className={styles.panelWrapper}
-    style={{ display: bottomPanelVisible ? 'flex' : 'none' }}
-  >
-    { bottomPanelVisible ? <ProjectTerminal /> : null }
-  </div>;
+  const terminalContent = (
+    <div className={styles.panelWrapper} style={{ display: bottomPanelVisible ? 'flex' : 'none' }}>
+      {bottomPanelVisible ? <ProjectTerminal /> : null}
+    </div>
+  );
 
   const horizontalSizes = rightPanelVisible ? [70, 30] : [100, 0];
 
-  const horizontalSplit = <Split
-    direction="horizontal"
-    sizes={horizontalSizes}
-    minSize={[0, 0]}
-    gutterSize={rightPanelVisible ? 4 : 0}
-    className="split-horizontal"
-  >
-    {mainContent}
-    {rightPanelContent}
-  </Split>;
+  const horizontalSplit = (
+    <Split
+      direction="horizontal"
+      sizes={horizontalSizes}
+      minSize={[0, 0]}
+      gutterSize={rightPanelVisible ? 4 : 0}
+      className="split-horizontal"
+    >
+      {mainContent}
+      {rightPanelContent}
+    </Split>
+  );
 
   const verticalSizes = bottomPanelVisible ? [75, 25] : [100, 0];
 
-  const verticalSplit = <Split
-    direction="vertical"
-    sizes={verticalSizes}
-    minSize={[0, 0]}
-    gutterSize={bottomPanelVisible ? 4 : 0}
-    className="split-vertical"
-  >
-    {horizontalSplit}
-    {terminalContent}
-  </Split>;
+  const verticalSplit = (
+    <Split
+      direction="vertical"
+      sizes={verticalSizes}
+      minSize={[0, 0]}
+      gutterSize={bottomPanelVisible ? 4 : 0}
+      className="split-vertical"
+    >
+      {horizontalSplit}
+      {terminalContent}
+    </Split>
+  );
 
   const toggleRightPanel = useCallback(() => {
-    setRightPanelVisible(prev => !prev);
+    setRightPanelVisible((prev) => !prev);
   }, []);
 
   const toggleBottomPanel = useCallback(() => {
-    setBottomPanelVisible(prev => !prev);
+    setBottomPanelVisible((prev) => !prev);
   }, []);
 
   return (
@@ -96,9 +102,7 @@ export const ProjectPanel = () => {
         rightPanelVisible={rightPanelVisible}
         bottomPanelVisible={bottomPanelVisible}
       />
-      <div className={styles.mainContent}>
-        {verticalSplit}
-      </div>
+      <div className={styles.mainContent}>{verticalSplit}</div>
     </main>
   );
 };

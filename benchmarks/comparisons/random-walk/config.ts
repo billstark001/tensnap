@@ -19,13 +19,20 @@ export const rendererComparisonDefaults: RendererComparisonConfig = {
 };
 
 function integer(value: unknown, name: string, minimum: number, maximum?: number): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || (maximum !== undefined && value > maximum)) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < minimum ||
+    (maximum !== undefined && value > maximum)
+  ) {
     throw new Error(`${name} must be an integer in [${minimum}, ${maximum ?? '∞'}].`);
   }
   return value;
 }
 
-export function resolveRendererComparisonConfig(overrides: Partial<RendererComparisonConfig> = {}): RendererComparisonConfig {
+export function resolveRendererComparisonConfig(
+  overrides: Partial<RendererComparisonConfig> = {},
+): RendererComparisonConfig {
   const config = { ...rendererComparisonDefaults, ...overrides };
   const agentCount = integer(config.agentCount, 'agentCount', 1, 10_000);
   return {
@@ -35,8 +42,18 @@ export function resolveRendererComparisonConfig(overrides: Partial<RendererCompa
     width: integer(config.width, 'width', 1),
     height: integer(config.height, 'height', 1),
     traceFrames: integer(config.traceFrames, 'traceFrames', 1, 10_000),
-    worldSize: typeof config.worldSize === 'number' && Number.isFinite(config.worldSize) && config.worldSize > 0 ? config.worldSize : rendererComparisonDefaults.worldSize,
-    stepSize: typeof config.stepSize === 'number' && Number.isFinite(config.stepSize) && config.stepSize >= 0 ? config.stepSize : rendererComparisonDefaults.stepSize,
+    worldSize:
+      typeof config.worldSize === 'number' &&
+      Number.isFinite(config.worldSize) &&
+      config.worldSize > 0
+        ? config.worldSize
+        : rendererComparisonDefaults.worldSize,
+    stepSize:
+      typeof config.stepSize === 'number' &&
+      Number.isFinite(config.stepSize) &&
+      config.stepSize >= 0
+        ? config.stepSize
+        : rendererComparisonDefaults.stepSize,
     seed: integer(config.seed, 'seed', 0, 0xffff_ffff),
   };
 }

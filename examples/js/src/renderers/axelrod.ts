@@ -1,8 +1,4 @@
-import {
-  enumField,
-  modelBuilder,
-  numberField,
-} from '@tensnap/js/bindings';
+import { enumField, modelBuilder, numberField } from '@tensnap/js/bindings';
 import {
   AxelrodConfig,
   AxelrodMetrics,
@@ -47,32 +43,61 @@ function randomize(runtime: AxelrodRuntime): void {
 }
 
 function restoreAxelrodCheckpoint(runtime: AxelrodRuntime, data: unknown): void {
-  if (typeof data !== 'object' || data === null) throw new Error('Axelrod checkpoint must be an object.');
+  if (typeof data !== 'object' || data === null)
+    throw new Error('Axelrod checkpoint must be an object.');
   const record = data as Record<string, unknown>;
   const config = record.config as AxelrodConfig;
   const state = record.state as AxelrodState;
-  if (!config || !state || !Array.isArray(state.agents)
-    || !Number.isSafeInteger(record.stepCount) || (record.stepCount as number) < 0
-    || !Number.isSafeInteger(record.rngState) || (record.rngState as number) < 0
-    || (record.rngState as number) > 0xffffffff
-    || !Number.isSafeInteger(state.totalUpdates) || state.totalUpdates < 0
-    || !Number.isSafeInteger(config.width) || !Number.isSafeInteger(config.height)
-    || !Number.isSafeInteger(config.numFeatures) || !Number.isSafeInteger(config.numTraits)
-    || config.width <= 0 || config.height <= 0 || config.numFeatures <= 0 || config.numTraits <= 0
-    || state.agents.length !== config.height
-    || state.agents.some((row, y) => !Array.isArray(row) || row.length !== config.width
-      || row.some((agent, x) => agent.row !== y || agent.col !== x
-        || !Array.isArray(agent.features) || agent.features.length !== config.numFeatures
-        || agent.features.some((feature) => !Number.isInteger(feature) || feature < 0 || feature >= config.numTraits)))) {
+  if (
+    !config ||
+    !state ||
+    !Array.isArray(state.agents) ||
+    !Number.isSafeInteger(record.stepCount) ||
+    (record.stepCount as number) < 0 ||
+    !Number.isSafeInteger(record.rngState) ||
+    (record.rngState as number) < 0 ||
+    (record.rngState as number) > 0xffffffff ||
+    !Number.isSafeInteger(state.totalUpdates) ||
+    state.totalUpdates < 0 ||
+    !Number.isSafeInteger(config.width) ||
+    !Number.isSafeInteger(config.height) ||
+    !Number.isSafeInteger(config.numFeatures) ||
+    !Number.isSafeInteger(config.numTraits) ||
+    config.width <= 0 ||
+    config.height <= 0 ||
+    config.numFeatures <= 0 ||
+    config.numTraits <= 0 ||
+    state.agents.length !== config.height ||
+    state.agents.some(
+      (row, y) =>
+        !Array.isArray(row) ||
+        row.length !== config.width ||
+        row.some(
+          (agent, x) =>
+            agent.row !== y ||
+            agent.col !== x ||
+            !Array.isArray(agent.features) ||
+            agent.features.length !== config.numFeatures ||
+            agent.features.some(
+              (feature) => !Number.isInteger(feature) || feature < 0 || feature >= config.numTraits,
+            ),
+        ),
+    )
+  ) {
     throw new Error('Axelrod checkpoint has invalid dimensions, cultural traits, or RNG state.');
   }
   runtime.config = { ...config };
   runtime.state = {
     config: runtime.config,
     totalUpdates: state.totalUpdates,
-    agents: state.agents.map((row) => row.map((agent) => ({
-      id: agent.id, row: agent.row, col: agent.col, features: [...agent.features],
-    }))),
+    agents: state.agents.map((row) =>
+      row.map((agent) => ({
+        id: agent.id,
+        row: agent.row,
+        col: agent.col,
+        features: [...agent.features],
+      })),
+    ),
   };
   runtime.stepCount = record.stepCount as number;
   runtime.rng.state = record.rngState as number;
@@ -88,21 +113,30 @@ function cultureColor(runtime: AxelrodRuntime, agent: Agent): string {
   return `rgb(${r}, ${g}, ${b})`;
 }
 
-function parseCultureRecord(item: Record<string, unknown>): { row: number; col: number; agent: Agent } {
+function parseCultureRecord(item: Record<string, unknown>): {
+  row: number;
+  col: number;
+  agent: Agent;
+} {
   const id = item.id;
   const matched = typeof id === 'string' ? /^cell:(0|[1-9]\d*):(0|[1-9]\d*)$/.exec(id) : null;
   const row = matched ? Number(matched[1]) : NaN;
   const col = matched ? Number(matched[2]) : NaN;
   const data = item.data;
-  const agent = typeof data === 'object' && data !== null
-    ? (data as Record<string, unknown>).value
-    : undefined;
+  const agent =
+    typeof data === 'object' && data !== null ? (data as Record<string, unknown>).value : undefined;
   const record = agent as Record<string, unknown> | undefined;
   const features = record?.features;
-  if (!Number.isSafeInteger(row) || !Number.isSafeInteger(col)
-    || !record || record.row !== row || record.col !== col
-    || !Number.isSafeInteger(record.id) || !Array.isArray(features)
-    || features.some((feature) => typeof feature !== 'number' || !Number.isInteger(feature))) {
+  if (
+    !Number.isSafeInteger(row) ||
+    !Number.isSafeInteger(col) ||
+    !record ||
+    record.row !== row ||
+    record.col !== col ||
+    !Number.isSafeInteger(record.id) ||
+    !Array.isArray(features) ||
+    features.some((feature) => typeof feature !== 'number' || !Number.isInteger(feature))
+  ) {
     throw new Error('Restored culture agents require canonical matrix IDs and data.value agents.');
   }
   return { row, col, agent: record as unknown as Agent };
@@ -112,10 +146,19 @@ function restoreCultureMetadata(runtime: AxelrodRuntime, metadata: Record<string
   const width = metadata.width;
   const height = metadata.height;
   const totalUpdates = metadata.total_updates;
-  if (typeof width !== 'number' || typeof height !== 'number'
-    || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0
-    || (totalUpdates !== undefined && (typeof totalUpdates !== 'number' || !Number.isInteger(totalUpdates) || totalUpdates < 0))) {
-    throw new Error('Restored culture metadata requires positive integer width/height and optional non-negative total_updates.');
+  if (
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    (totalUpdates !== undefined &&
+      (typeof totalUpdates !== 'number' || !Number.isInteger(totalUpdates) || totalUpdates < 0))
+  ) {
+    throw new Error(
+      'Restored culture metadata requires positive integer width/height and optional non-negative total_updates.',
+    );
   }
   runtime.config.width = width;
   runtime.config.height = height;
@@ -123,13 +166,23 @@ function restoreCultureMetadata(runtime: AxelrodRuntime, metadata: Record<string
   runtime.state.totalUpdates = totalUpdates ?? 0;
 }
 
-function validateCultureRestore(runtime: AxelrodRuntime, layer: { metadata?: Record<string, unknown>; items?: Array<Record<string, unknown>> }): void {
+function validateCultureRestore(
+  runtime: AxelrodRuntime,
+  layer: { metadata?: Record<string, unknown>; items?: Array<Record<string, unknown>> },
+): void {
   const width = layer.metadata?.width ?? runtime.config.width;
   const height = layer.metadata?.height ?? runtime.config.height;
   const totalUpdates = layer.metadata?.total_updates;
-  if (typeof width !== 'number' || typeof height !== 'number' || !Number.isInteger(width) || !Number.isInteger(height)
-    || width <= 0 || height <= 0
-    || (totalUpdates !== undefined && (!Number.isSafeInteger(totalUpdates) || (totalUpdates as number) < 0))) {
+  if (
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    (totalUpdates !== undefined &&
+      (!Number.isSafeInteger(totalUpdates) || (totalUpdates as number) < 0))
+  ) {
     throw new Error('Restored culture metadata requires integer width and height.');
   }
   const items = layer.items ?? [];
@@ -139,14 +192,24 @@ function validateCultureRestore(runtime: AxelrodRuntime, layer: { metadata?: Rec
   const occupied = new Set<string>();
   for (const item of items) {
     const { row, col, agent } = parseCultureRecord(item);
-    if (row < 0 || row >= height || col < 0 || col >= width
-      || item.x !== col || item.y !== height - 1 - row || agent.id !== row * width + col
-      || agent.features.length !== runtime.config.numFeatures
-      || agent.features.some((feature) => feature < 0 || feature >= runtime.config.numTraits)) {
-      throw new Error('Restored culture agent is outside the configured grid or has the wrong feature count.');
+    if (
+      row < 0 ||
+      row >= height ||
+      col < 0 ||
+      col >= width ||
+      item.x !== col ||
+      item.y !== height - 1 - row ||
+      agent.id !== row * width + col ||
+      agent.features.length !== runtime.config.numFeatures ||
+      agent.features.some((feature) => feature < 0 || feature >= runtime.config.numTraits)
+    ) {
+      throw new Error(
+        'Restored culture agent is outside the configured grid or has the wrong feature count.',
+      );
     }
     const key = `${row}:${col}`;
-    if (occupied.has(key)) throw new Error('Restored culture agents must occupy unique grid cells.');
+    if (occupied.has(key))
+      throw new Error('Restored culture agents must occupy unique grid cells.');
     occupied.add(key);
   }
 }
@@ -155,87 +218,101 @@ function restoreCultureMatrix(runtime: AxelrodRuntime, values: Agent[][]): void 
   runtime.state = {
     config: runtime.config,
     totalUpdates: runtime.state.totalUpdates,
-    agents: values.map((row, y) => row.map((agent, x) => ({
-      id: y * runtime.config.width + x,
-      row: y,
-      col: x,
-      features: [...agent.features],
-    }))),
+    agents: values.map((row, y) =>
+      row.map((agent, x) => ({
+        id: y * runtime.config.width + x,
+        row: y,
+        col: x,
+        features: [...agent.features],
+      })),
+    ),
   };
 }
 
-const builder = modelBuilder({
-  id: 'axelrod',
-  name: 'Axelrod Cultural Dissemination',
-  description: 'Local interaction drives convergence and global polarization of cultural traits.',
-  stateSchemaVersion: '2',
-}, {
-  defaults: DEFAULT_AXELROD_CONFIG,
-  create(config): AxelrodRuntime {
-    const rng = { state: Math.floor(Math.random() * 4294967296) };
-    const state = initializeAxelrod(config, () => nextRandom(rng));
-    return {
-      config: { ...config },
-      state,
-      stepCount: 0,
-      lastMetrics: computeAxelrodMetrics(state),
-      rng,
-    };
+const builder = modelBuilder(
+  {
+    id: 'axelrod',
+    name: 'Axelrod Cultural Dissemination',
+    description: 'Local interaction drives convergence and global polarization of cultural traits.',
+    stateSchemaVersion: '2',
   },
-  init(runtime) {
-    randomize(runtime);
-  },
-  step(runtime) {
-    const updatesPerTick = Math.max(1, Math.floor(runtime.config.updatesPerTick ?? 1));
-    for (let i = 0; i < updatesPerTick; i++) {
-      stepAxelrod(runtime.state, () => nextRandom(runtime.rng));
-    }
-    runtime.stepCount += 1;
-    runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
-    return true;
-  },
-  reset(runtime) {
-    randomize(runtime);
-  },
-  time(runtime) {
-    return runtime.stepCount;
-  },
-  getConfig(runtime) {
-    return runtime.config;
-  },
-  checkpoint: {
-    capture(runtime) {
+  {
+    defaults: DEFAULT_AXELROD_CONFIG,
+    create(config): AxelrodRuntime {
+      const rng = { state: Math.floor(Math.random() * 4294967296) };
+      const state = initializeAxelrod(config, () => nextRandom(rng));
       return {
-        config: { ...runtime.config },
-        state: {
-          totalUpdates: runtime.state.totalUpdates,
-          agents: runtime.state.agents.map((row) => row.map((agent) => ({
-            id: agent.id, row: agent.row, col: agent.col, features: [...agent.features],
-          }))),
-        },
-        stepCount: runtime.stepCount,
-        rngState: runtime.rng.state,
+        config: { ...config },
+        state,
+        stepCount: 0,
+        lastMetrics: computeAxelrodMetrics(state),
+        rng,
       };
     },
-    restore(runtime, data) {
-      restoreAxelrodCheckpoint(runtime, data);
+    init(runtime) {
+      randomize(runtime);
     },
-  },
-  sceneRestore: {
-    mode: 'compose',
-    beforeApply(runtime, payload) {
-      if (payload.envs?.some((environment) => environment.layers.some((layer) => layer.layer_id === CULTURE_LAYER))) {
-        runtime.state = initializeAxelrod(runtime.config, () => 0);
+    step(runtime) {
+      const updatesPerTick = Math.max(1, Math.floor(runtime.config.updatesPerTick ?? 1));
+      for (let i = 0; i < updatesPerTick; i++) {
+        stepAxelrod(runtime.state, () => nextRandom(runtime.rng));
       }
-    },
-    restoreTime(runtime, time) {
-      runtime.stepCount = time;
-    },
-    afterApply(runtime) {
+      runtime.stepCount += 1;
       runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
+      return true;
+    },
+    reset(runtime) {
+      randomize(runtime);
+    },
+    time(runtime) {
+      return runtime.stepCount;
+    },
+    getConfig(runtime) {
+      return runtime.config;
+    },
+    checkpoint: {
+      capture(runtime) {
+        return {
+          config: { ...runtime.config },
+          state: {
+            totalUpdates: runtime.state.totalUpdates,
+            agents: runtime.state.agents.map((row) =>
+              row.map((agent) => ({
+                id: agent.id,
+                row: agent.row,
+                col: agent.col,
+                features: [...agent.features],
+              })),
+            ),
+          },
+          stepCount: runtime.stepCount,
+          rngState: runtime.rng.state,
+        };
+      },
+      restore(runtime, data) {
+        restoreAxelrodCheckpoint(runtime, data);
+      },
+    },
+    sceneRestore: {
+      mode: 'compose',
+      beforeApply(runtime, payload) {
+        if (
+          payload.envs?.some((environment) =>
+            environment.layers.some((layer) => layer.layer_id === CULTURE_LAYER),
+          )
+        ) {
+          runtime.state = initializeAxelrod(runtime.config, () => 0);
+        }
+      },
+      restoreTime(runtime, time) {
+        runtime.stepCount = time;
+      },
+      afterApply(runtime) {
+        runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
+      },
     },
   },
-});
+);
 
 builder.paramsFromConfig<AxelrodConfig>({
   get: (runtime) => runtime.config,
@@ -261,37 +338,63 @@ builder.paramsFromConfig<AxelrodConfig>({
   },
 });
 
-builder.env('main')
-  .matrixAgentLayer(CULTURE_LAYER, {
-    metadata: (runtime) => ({
-      total_updates: runtime.state.totalUpdates,
-    }),
-    source: (runtime) => runtime.state.agents,
-    fields: {
-      heading: 0,
-      data: (_runtime, _row, _col, agent) => ({ features: [...agent.features] }),
-    },
-    color: (runtime, _row, _col, agent) => cultureColor(runtime, agent),
-    icon: 'square',
-    size: 0.92,
-    validate: validateCultureRestore,
-    restoreMetadata: restoreCultureMetadata,
-    replace: restoreCultureMatrix,
-  });
+builder.env('main').matrixAgentLayer(CULTURE_LAYER, {
+  metadata: (runtime) => ({
+    total_updates: runtime.state.totalUpdates,
+  }),
+  source: (runtime) => runtime.state.agents,
+  fields: {
+    heading: 0,
+    data: (_runtime, _row, _col, agent) => ({ features: [...agent.features] }),
+  },
+  color: (runtime, _row, _col, agent) => cultureColor(runtime, agent),
+  icon: 'square',
+  size: 0.92,
+  validate: validateCultureRestore,
+  restoreMetadata: restoreCultureMetadata,
+  replace: restoreCultureMatrix,
+});
 
 builder
   .chartGroup('culture_metrics', {
     label: 'Culture Metrics',
     series: [
-      { id: 'cultures', label: 'Culture Count', color: '#5f3dc4', get: (runtime) => runtime.lastMetrics.cultures },
-      { id: 'regions', label: 'Cultural Regions', color: '#e67700', get: (runtime) => runtime.lastMetrics.regions },
-      { id: 'active_edges', label: 'Active Boundaries', color: '#c92a2a', get: (runtime) => runtime.lastMetrics.activeEdges },
-      { id: 'mean_similarity', label: 'Mean Neighbor Similarity', color: '#1971c2', get: (runtime) => Number(runtime.lastMetrics.meanSimilarity.toFixed(4)) },
+      {
+        id: 'cultures',
+        label: 'Culture Count',
+        color: '#5f3dc4',
+        get: (runtime) => runtime.lastMetrics.cultures,
+      },
+      {
+        id: 'regions',
+        label: 'Cultural Regions',
+        color: '#e67700',
+        get: (runtime) => runtime.lastMetrics.regions,
+      },
+      {
+        id: 'active_edges',
+        label: 'Active Boundaries',
+        color: '#c92a2a',
+        get: (runtime) => runtime.lastMetrics.activeEdges,
+      },
+      {
+        id: 'mean_similarity',
+        label: 'Mean Neighbor Similarity',
+        color: '#1971c2',
+        get: (runtime) => Number(runtime.lastMetrics.meanSimilarity.toFixed(4)),
+      },
     ],
   })
   .chartGroup('dynamics', {
     label: 'Dynamics',
-    series: [{ id: 'updates', label: 'Successful Updates', color: '#087f5b', get: (runtime) => runtime.state.totalUpdates }],
+    series: [
+      {
+        id: 'updates',
+        label: 'Successful Updates',
+        color: '#087f5b',
+        get: (runtime) => runtime.state.totalUpdates,
+      },
+    ],
   })
   .monitor('summary', {
     label: 'Culture Summary',

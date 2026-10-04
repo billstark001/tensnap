@@ -50,11 +50,12 @@ export function getBaseName(path: string): string {
 }
 
 export function calculateChecksum(content: ArrayBuffer | Uint8Array | string): string {
-  const bytes = typeof content === 'string'
-    ? new TextEncoder().encode(content)
-    : content instanceof Uint8Array
-      ? content
-      : new Uint8Array(content);
+  const bytes =
+    typeof content === 'string'
+      ? new TextEncoder().encode(content)
+      : content instanceof Uint8Array
+        ? content
+        : new Uint8Array(content);
 
   let hash = 0x811c9dc5;
   for (const byte of bytes) {

@@ -18,18 +18,13 @@ export const ResizeHandles: React.FC<ResizeHandlesProps> = ({
 
   return (
     <>
-      {!horizontalOnly && <div
-        className={styles.resizeHandle.se}
-        onMouseDown={(e) => handleMouseDown(e, 'se')}
-      />}
-      <div
-        className={styles.resizeHandle.e}
-        onMouseDown={(e) => handleMouseDown(e, 'e')}
-      />
-      {!horizontalOnly && <div
-        className={styles.resizeHandle.s}
-        onMouseDown={(e) => handleMouseDown(e, 's')}
-      />}
+      {!horizontalOnly && (
+        <div className={styles.resizeHandle.se} onMouseDown={(e) => handleMouseDown(e, 'se')} />
+      )}
+      <div className={styles.resizeHandle.e} onMouseDown={(e) => handleMouseDown(e, 'e')} />
+      {!horizontalOnly && (
+        <div className={styles.resizeHandle.s} onMouseDown={(e) => handleMouseDown(e, 's')} />
+      )}
     </>
   );
 };

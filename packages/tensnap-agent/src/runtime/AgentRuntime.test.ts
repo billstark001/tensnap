@@ -10,7 +10,9 @@ import { resolveRuntimeContextPaths } from './context';
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
-  await Promise.all(temporaryRoots.splice(0).map((path) => rm(path, { force: true, recursive: true })));
+  await Promise.all(
+    temporaryRoots.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+  );
 });
 
 describe('AgentRuntime checkpointing', () => {
@@ -49,19 +51,23 @@ describe('AgentRuntime checkpointing', () => {
     await runtime.initialize();
 
     const renderer = (runtime as unknown as { renderer: EventTarget }).renderer;
-    renderer.dispatchEvent(new CustomEvent('transport:validation-warning', {
-      detail: {
-        level: 'warning',
-        direction: 'simulator-to-renderer',
-        message: 'invalid monitor payload',
-        issues: [],
-      },
-    }));
+    renderer.dispatchEvent(
+      new CustomEvent('transport:validation-warning', {
+        detail: {
+          level: 'warning',
+          direction: 'simulator-to-renderer',
+          message: 'invalid monitor payload',
+          issues: [],
+        },
+      }),
+    );
 
     await vi.waitFor(async () => {
       expect(await readFile(context.logFile, 'utf8')).toContain('Protocol validation warning.');
     });
-    expect(events).toContainEqual(expect.objectContaining({ type: 'transport.validation-warning' }));
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: 'transport.validation-warning' }),
+    );
     await runtime.stop();
   });
 
@@ -71,10 +77,16 @@ describe('AgentRuntime checkpointing', () => {
     const writes: unknown[] = [];
     const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
       checkpointIntervalMs: 1_000,
-      checkpointWriter: async (_context, snapshot) => { writes.push(snapshot); },
+      checkpointWriter: async (_context, snapshot) => {
+        writes.push(snapshot);
+      },
     });
     await runtime.initialize();
-    const renderer = (runtime as unknown as { renderer: { scenario: { dump: () => unknown }; handleIncoming: (message: unknown) => void } }).renderer;
+    const renderer = (
+      runtime as unknown as {
+        renderer: { scenario: { dump: () => unknown }; handleIncoming: (message: unknown) => void };
+      }
+    ).renderer;
     renderer.handleIncoming({
       type: 'simulator_info',
       payload: {
@@ -106,38 +118,54 @@ describe('AgentRuntime checkpointing', () => {
     const server = new WebSocketServer({ port: 0 });
     await new Promise<void>((resolve) => server.once('listening', () => resolve()));
     const address = server.address();
-    if (!address || typeof address === 'string') throw new Error('Expected a TCP WebSocket test address.');
+    if (!address || typeof address === 'string')
+      throw new Error('Expected a TCP WebSocket test address.');
     let stateSyncReceived = false;
     server.on('connection', (socket) => {
       setTimeout(() => {
-        socket.send(encodeProtocolMessage({
-          type: 'simulator_info',
-          payload: {
-            protocol_version: '0.3',
-            binding: { name: 'test-binding', version: '0.3.0' },
-            model: { id: 'test-model' },
-            instance_id: 'test-instance',
-            capabilities: [],
-          },
-        }, 'json'));
+        socket.send(
+          encodeProtocolMessage(
+            {
+              type: 'simulator_info',
+              payload: {
+                protocol_version: '0.3',
+                binding: { name: 'test-binding', version: '0.3.0' },
+                model: { id: 'test-model' },
+                instance_id: 'test-instance',
+                capabilities: [],
+              },
+            },
+            'json',
+          ),
+        );
       }, 0);
       socket.on('message', (raw) => {
         const message = decodeProtocolMessage(raw.toString());
         if (message.type !== 'state_sync') return;
         stateSyncReceived = true;
-        socket.send(encodeProtocolMessage({
-          type: 'state_sync_begin',
-          payload: {
-            request_id: message.payload.request_id,
-            model_id: 'test-model',
-            instance_id: 'test-instance',
-            mode: 'replace',
-          },
-        }, 'json'));
-        socket.send(encodeProtocolMessage({
-          type: 'state_sync_end',
-          payload: { request_id: message.payload.request_id, state_revision: '1' },
-        }, 'json'));
+        socket.send(
+          encodeProtocolMessage(
+            {
+              type: 'state_sync_begin',
+              payload: {
+                request_id: message.payload.request_id,
+                model_id: 'test-model',
+                instance_id: 'test-instance',
+                mode: 'replace',
+              },
+            },
+            'json',
+          ),
+        );
+        socket.send(
+          encodeProtocolMessage(
+            {
+              type: 'state_sync_end',
+              payload: { request_id: message.payload.request_id, state_revision: '1' },
+            },
+            'json',
+          ),
+        );
       });
     });
 
@@ -150,7 +178,9 @@ describe('AgentRuntime checkpointing', () => {
       expect(runtime.getStatus().phase).toBe('ready');
     } finally {
       await runtime.stop();
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     }
   });
 });
@@ -162,29 +192,69 @@ describe('AgentRuntime action lifecycle', () => {
     const server = new WebSocketServer({ port: 0 });
     await new Promise<void>((resolve) => server.once('listening', resolve));
     const address = server.address();
-    if (!address || typeof address === 'string') throw new Error('Expected a TCP WebSocket test address.');
+    if (!address || typeof address === 'string')
+      throw new Error('Expected a TCP WebSocket test address.');
     const requestIds: string[] = [];
     server.on('connection', (socket) => {
-      socket.send(encodeProtocolMessage({
-        type: 'simulator_info',
-        payload: { protocol_version: '0.3', binding: { name: 'test-binding', version: '0.3.0' },
-          model: { id: 'test-model' }, instance_id: 'test-instance', capabilities: [] },
-      }, 'json'));
+      socket.send(
+        encodeProtocolMessage(
+          {
+            type: 'simulator_info',
+            payload: {
+              protocol_version: '0.3',
+              binding: { name: 'test-binding', version: '0.3.0' },
+              model: { id: 'test-model' },
+              instance_id: 'test-instance',
+              capabilities: [],
+            },
+          },
+          'json',
+        ),
+      );
       socket.on('message', (raw) => {
         const message = decodeProtocolMessage(raw.toString());
         if (message.type === 'state_sync') {
-          socket.send(encodeProtocolMessage({ type: 'state_sync_begin', payload: {
-            request_id: message.payload.request_id, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace',
-          } }, 'json'));
-          socket.send(encodeProtocolMessage({ type: 'state_sync_end', payload: {
-            request_id: message.payload.request_id, state_revision: '1',
-          } }, 'json'));
+          socket.send(
+            encodeProtocolMessage(
+              {
+                type: 'state_sync_begin',
+                payload: {
+                  request_id: message.payload.request_id,
+                  model_id: 'test-model',
+                  instance_id: 'test-instance',
+                  mode: 'replace',
+                },
+              },
+              'json',
+            ),
+          );
+          socket.send(
+            encodeProtocolMessage(
+              {
+                type: 'state_sync_end',
+                payload: {
+                  request_id: message.payload.request_id,
+                  state_revision: '1',
+                },
+              },
+              'json',
+            ),
+          );
         }
         if (message.type === 'action_invoke') {
           requestIds.push(message.payload.request_id);
-          socket.send(encodeProtocolMessage({ type: 'action_result', payload: {
-            id: message.payload.id, request_id: message.payload.request_id,
-          } }, 'json'));
+          socket.send(
+            encodeProtocolMessage(
+              {
+                type: 'action_result',
+                payload: {
+                  id: message.payload.id,
+                  request_id: message.payload.request_id,
+                },
+              },
+              'json',
+            ),
+          );
         }
       });
     });
@@ -201,7 +271,9 @@ describe('AgentRuntime action lifecycle', () => {
       expect(requestIds[1]).not.toBe(requestIds[0]);
     } finally {
       await runtime.stop();
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     }
   });
 
@@ -211,43 +283,91 @@ describe('AgentRuntime action lifecycle', () => {
     const server = new WebSocketServer({ port: 0 });
     await new Promise<void>((resolve) => server.once('listening', resolve));
     const address = server.address();
-    if (!address || typeof address === 'string') throw new Error('Expected a TCP WebSocket test address.');
+    if (!address || typeof address === 'string')
+      throw new Error('Expected a TCP WebSocket test address.');
     const requestIds: string[] = [];
     server.on('connection', (socket) => {
-      socket.send(encodeProtocolMessage({ type: 'simulator_info', payload: {
-        protocol_version: '0.3', binding: { name: 'test-binding', version: '0.3.0' },
-        model: { id: 'test-model' }, instance_id: 'test-instance', capabilities: [],
-      } }, 'json'));
+      socket.send(
+        encodeProtocolMessage(
+          {
+            type: 'simulator_info',
+            payload: {
+              protocol_version: '0.3',
+              binding: { name: 'test-binding', version: '0.3.0' },
+              model: { id: 'test-model' },
+              instance_id: 'test-instance',
+              capabilities: [],
+            },
+          },
+          'json',
+        ),
+      );
       socket.on('message', (raw) => {
         const message = decodeProtocolMessage(raw.toString());
         if (message.type === 'state_sync') {
-          socket.send(encodeProtocolMessage({ type: 'state_sync_begin', payload: {
-            request_id: message.payload.request_id, model_id: 'test-model', instance_id: 'test-instance', mode: 'replace',
-          } }, 'json'));
-          socket.send(encodeProtocolMessage({ type: 'state_sync_end', payload: {
-            request_id: message.payload.request_id, state_revision: '1',
-          } }, 'json'));
+          socket.send(
+            encodeProtocolMessage(
+              {
+                type: 'state_sync_begin',
+                payload: {
+                  request_id: message.payload.request_id,
+                  model_id: 'test-model',
+                  instance_id: 'test-instance',
+                  mode: 'replace',
+                },
+              },
+              'json',
+            ),
+          );
+          socket.send(
+            encodeProtocolMessage(
+              {
+                type: 'state_sync_end',
+                payload: {
+                  request_id: message.payload.request_id,
+                  state_revision: '1',
+                },
+              },
+              'json',
+            ),
+          );
         }
         if (message.type === 'action_invoke') {
           requestIds.push(message.payload.request_id);
-          socket.send(encodeProtocolMessage({ type: 'action_result', payload: {
-            id: message.payload.id, request_id: message.payload.request_id,
-          } }, 'json'));
+          socket.send(
+            encodeProtocolMessage(
+              {
+                type: 'action_result',
+                payload: {
+                  id: message.payload.id,
+                  request_id: message.payload.request_id,
+                },
+              },
+              'json',
+            ),
+          );
         }
       });
     });
 
     let releasePainter = () => {};
-    const painterGate = new Promise<void>((resolve) => { releasePainter = resolve; });
+    const painterGate = new Promise<void>((resolve) => {
+      releasePainter = resolve;
+    });
     const painterStarted = vi.fn();
     const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
-      encoding: 'json', render: { trigger: 'action-result' }, checkpointWriter: async () => {},
+      encoding: 'json',
+      render: { trigger: 'action-result' },
+      checkpointWriter: async () => {},
     });
-    runtime.registerPainter({ id: 'slow', async render() {
-      painterStarted();
-      await painterGate;
-      return [];
-    } });
+    runtime.registerPainter({
+      id: 'slow',
+      async render() {
+        painterStarted();
+        await painterGate;
+        return [];
+      },
+    });
     await runtime.initialize();
     try {
       await runtime.connect({ simulatorUrl: `ws://127.0.0.1:${address.port}`, encoding: 'json' });
@@ -261,7 +381,9 @@ describe('AgentRuntime action lifecycle', () => {
     } finally {
       releasePainter();
       await runtime.stop();
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     }
   });
 });
@@ -293,8 +415,9 @@ describe('AgentRuntime rendering', () => {
       join(rootDir, 'scene-environment.png'),
       join(rootDir, 'scene-chart.png'),
     ]);
-    await expect(runtime.requestRender({ envId: 'main', chartId: 'population' }))
-      .rejects.toThrow(/either an environment or a chart/);
+    await expect(runtime.requestRender({ envId: 'main', chartId: 'population' })).rejects.toThrow(
+      /either an environment or a chart/,
+    );
     await runtime.stop();
   });
 });

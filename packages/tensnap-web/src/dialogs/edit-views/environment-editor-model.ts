@@ -50,8 +50,14 @@ const groupEntries = (
   return result;
 };
 
-const groupLayerDependencies = (dependencyLayerIds: Record<string, string>): EnvironmentLayerGroup[] => {
-  const entries = Object.entries(dependencyLayerIds).map(([key, value]) => ({ key, value, editable: false }));
+const groupLayerDependencies = (
+  dependencyLayerIds: Record<string, string>,
+): EnvironmentLayerGroup[] => {
+  const entries = Object.entries(dependencyLayerIds).map(([key, value]) => ({
+    key,
+    value,
+    editable: false,
+  }));
   return entries.length > 0 ? [{ title: 'Dependencies', entries }] : [];
 };
 
@@ -65,18 +71,38 @@ export const groupEnvironmentLayerMetadata = (
         { title: 'Geometry', keys: ['width', 'height', 'coord_offset'] },
       ]);
     case 'trajectory':
-      return groupEntries(metadata, [
-        { title: 'Trajectory', keys: ['length', 'width', 'color'] },
-      ]);
+      return groupEntries(metadata, [{ title: 'Trajectory', keys: ['length', 'width', 'color'] }]);
     case 'grid':
       return groupEntries(metadata, [
         { title: 'Scene Bounds', keys: ['width', 'height'] },
-        { title: 'Grid Geometry', keys: ['x_origin', 'x_unit', 'x_interval', 'x_ratio', 'y_origin', 'y_unit', 'y_interval', 'y_ratio'] },
+        {
+          title: 'Grid Geometry',
+          keys: [
+            'x_origin',
+            'x_unit',
+            'x_interval',
+            'x_ratio',
+            'y_origin',
+            'y_unit',
+            'y_interval',
+            'y_ratio',
+          ],
+        },
         { title: 'Grid Style', keys: ['stroke_color'] },
       ]);
     case 'edge':
       return groupEntries(metadata, [
-        { title: 'Layout', keys: ['link_distance', 'charge_strength', 'centering_strength', 'collision_radius', 'max_component_distance', 'component_spacing'] },
+        {
+          title: 'Layout',
+          keys: [
+            'link_distance',
+            'charge_strength',
+            'centering_strength',
+            'collision_radius',
+            'max_component_distance',
+            'component_spacing',
+          ],
+        },
       ]);
     case 'background':
       return groupEntries(metadata, [

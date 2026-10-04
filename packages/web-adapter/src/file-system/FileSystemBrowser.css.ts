@@ -9,7 +9,7 @@ export const browserContainer = style({
   border: `1px solid ${vars.color.border}`,
   borderRadius: vars.radius.md,
   overflow: 'hidden',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -26,7 +26,7 @@ export const browserHeader = style({
   backgroundColor: vars.color.background,
   borderBottom: `1px solid ${vars.color.border}`,
   minHeight: '48px',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkSecondary,
@@ -41,7 +41,7 @@ export const breadcrumbs = style({
   gap: '4px',
   fontSize: vars.fontSize.sm,
   color: vars.color.textTertiary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextSecondary,
@@ -52,7 +52,7 @@ export const breadcrumbs = style({
 export const breadcrumbSeparator = style({
   margin: '0 4px',
   color: vars.color.textSecondary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextTertiary,
@@ -65,36 +65,39 @@ export const breadcrumbItem = style({
   padding: '4px 8px',
   borderRadius: vars.radius.sm,
   transition: 'background-color 0.2s',
-  
+
   selectors: {
     '&:hover': {
-      backgroundColor: vars.color.verySubtleBackground
+      backgroundColor: vars.color.verySubtleBackground,
     },
     'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.darkVerySubtleBackground
-    }
-  }
+      backgroundColor: vars.color.darkVerySubtleBackground,
+    },
+  },
 });
 
-export const breadcrumbCurrent = style([breadcrumbItem, {
-  fontWeight: '500',
-  color: vars.color.textPrimary,
-  cursor: 'default',
-  
-  selectors: {
-    '&:hover': {
-      backgroundColor: 'transparent'
+export const breadcrumbCurrent = style([
+  breadcrumbItem,
+  {
+    fontWeight: '500',
+    color: vars.color.textPrimary,
+    cursor: 'default',
+
+    selectors: {
+      '&:hover': {
+        backgroundColor: 'transparent',
+      },
+      'body[data-theme="dark"] &': {
+        color: vars.color.darkTextPrimary,
+      },
     },
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkTextPrimary
-    }
-  }
-}]);
+  },
+]);
 
 export const actionButtons = style({
   display: 'flex',
   gap: '8px',
-  alignItems: 'center'
+  alignItems: 'center',
 });
 
 export const actionButton = style({
@@ -109,73 +112,76 @@ export const actionButton = style({
   display: 'flex',
   alignItems: 'center',
   gap: '6px',
-  
+
   selectors: {
     '&:hover': {
       backgroundColor: vars.color.inputHoverBackground,
-      borderColor: vars.color.subtleBorder
+      borderColor: vars.color.subtleBorder,
     },
-    
+
     '&:disabled': {
       cursor: 'not-allowed',
-      opacity: 0.5
+      opacity: 0.5,
     },
-    
+
     '&:disabled:hover': {
       backgroundColor: vars.color.inputBackground,
-      borderColor: vars.color.inputBorder
+      borderColor: vars.color.inputBorder,
     },
-    
+
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkInputBackground,
       borderColor: vars.color.darkInputBorder,
-      color: vars.color.darkTextPrimary
+      color: vars.color.darkTextPrimary,
     },
-    
+
     'body[data-theme="dark"] &:hover': {
       backgroundColor: vars.color.darkInputHoverBackground,
-      borderColor: vars.color.darkSubtleBorder
+      borderColor: vars.color.darkSubtleBorder,
     },
-    
+
     'body[data-theme="dark"] &:disabled:hover': {
       backgroundColor: vars.color.darkInputBackground,
-      borderColor: vars.color.darkInputBorder
-    }
-  }
+      borderColor: vars.color.darkInputBorder,
+    },
+  },
 });
 
-export const primaryButton = style([actionButton, {
-  backgroundColor: vars.color.primary,
-  color: vars.color.background,
-  borderColor: vars.color.primary,
-  
-  selectors: {
-    '&:hover': {
-      backgroundColor: vars.color.primaryHover
+export const primaryButton = style([
+  actionButton,
+  {
+    backgroundColor: vars.color.primary,
+    color: vars.color.background,
+    borderColor: vars.color.primary,
+
+    selectors: {
+      '&:hover': {
+        backgroundColor: vars.color.primaryHover,
+      },
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.primary,
+        color: vars.color.darkForeground,
+        borderColor: vars.color.primary,
+      },
+      'body[data-theme="dark"] &:hover': {
+        backgroundColor: vars.color.primaryHover,
+      },
     },
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.primary,
-      color: vars.color.darkForeground,
-      borderColor: vars.color.primary
-    },
-    'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.primaryHover
-    }
-  }
-}]);
+  },
+]);
 
 export const browserContent = style({
   flex: 1,
   display: 'flex',
   height: 'max-content',
   flexDirection: 'column',
-  overflow: 'hidden'
+  overflow: 'hidden',
 });
 
 export const contentList = style({
   flex: 1,
   overflowY: 'auto',
-  padding: '8px'
+  padding: '8px',
 });
 
 export const listItem = style({
@@ -187,45 +193,48 @@ export const listItem = style({
   cursor: 'pointer',
   transition: 'background-color 0.2s',
   border: '1px solid transparent',
-  
+
   selectors: {
     '&:hover': {
-      backgroundColor: vars.color.cardHoverBackground
+      backgroundColor: vars.color.cardHoverBackground,
     },
     'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.darkCardHoverBackground
-    }
-  }
+      backgroundColor: vars.color.darkCardHoverBackground,
+    },
+  },
 });
 
-export const listItemSelected = style([listItem, {
-  backgroundColor: vars.color.cardHoverBackground,
-  borderColor: vars.color.primary,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkCardHoverBackground,
-      borderColor: vars.color.primary
-    }
-  }
-}]);
+export const listItemSelected = style([
+  listItem,
+  {
+    backgroundColor: vars.color.cardHoverBackground,
+    borderColor: vars.color.primary,
+
+    selectors: {
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.darkCardHoverBackground,
+        borderColor: vars.color.primary,
+      },
+    },
+  },
+]);
 
 export const itemIcon = style({
   width: '20px',
   height: '20px',
   flexShrink: 0,
   color: vars.color.textTertiary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
-    }
-  }
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const itemContent = style({
   flex: 1,
-  minWidth: 0
+  minWidth: 0,
 });
 
 export const itemName = style({
@@ -235,24 +244,24 @@ export const itemName = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextPrimary
-    }
-  }
+      color: vars.color.darkTextPrimary,
+    },
+  },
 });
 
 export const itemDetails = style({
   fontSize: vars.fontSize.xs,
   color: vars.color.textTertiary,
   marginTop: '2px',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
-    }
-  }
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const itemActions = style({
@@ -260,12 +269,12 @@ export const itemActions = style({
   gap: '4px',
   opacity: 0,
   transition: 'opacity 0.2s',
-  
+
   selectors: {
     [`${listItem}:hover &`]: {
-      opacity: 1
-    }
-  }
+      opacity: 1,
+    },
+  },
 });
 
 export const itemActionButton = style({
@@ -276,20 +285,20 @@ export const itemActionButton = style({
   color: vars.color.textTertiary,
   cursor: 'pointer',
   transition: 'all 0.2s',
-  
+
   selectors: {
     '&:hover': {
       backgroundColor: vars.color.verySubtleBackground,
-      color: vars.color.textPrimary
+      color: vars.color.textPrimary,
     },
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
+      color: vars.color.darkTextTertiary,
     },
     'body[data-theme="dark"] &:hover': {
       backgroundColor: vars.color.darkVerySubtleBackground,
-      color: vars.color.darkTextPrimary
-    }
-  }
+      color: vars.color.darkTextPrimary,
+    },
+  },
 });
 
 export const loadingState = style({
@@ -299,12 +308,12 @@ export const loadingState = style({
   padding: '32px',
   color: vars.color.textTertiary,
   fontSize: vars.fontSize.sm,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
-    }
-  }
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const errorState = style({
@@ -315,7 +324,7 @@ export const errorState = style({
   padding: '32px',
   color: vars.color.danger,
   fontSize: vars.fontSize.sm,
-  textAlign: 'center'
+  textAlign: 'center',
 });
 
 export const uploadArea = style({
@@ -327,59 +336,62 @@ export const uploadArea = style({
   backgroundColor: vars.color.subtleBackground,
   transition: 'all 0.2s',
   cursor: 'pointer',
-  
+
   selectors: {
     '&:hover': {
       borderColor: vars.color.primary,
-      backgroundColor: vars.color.cardHoverBackground
+      backgroundColor: vars.color.cardHoverBackground,
     },
     'body[data-theme="dark"] &': {
       borderColor: vars.color.darkInputBorder,
-      backgroundColor: vars.color.darkSubtleBackground
+      backgroundColor: vars.color.darkSubtleBackground,
     },
     'body[data-theme="dark"] &:hover': {
       borderColor: vars.color.primary,
-      backgroundColor: vars.color.darkCardHoverBackground
-    }
-  }
+      backgroundColor: vars.color.darkCardHoverBackground,
+    },
+  },
 });
 
-export const uploadAreaActive = style([uploadArea, {
-  borderColor: vars.color.primary,
-  backgroundColor: vars.color.cardHoverBackground,
-  
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkCardHoverBackground
-    }
-  }
-}]);
+export const uploadAreaActive = style([
+  uploadArea,
+  {
+    borderColor: vars.color.primary,
+    backgroundColor: vars.color.cardHoverBackground,
+
+    selectors: {
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.darkCardHoverBackground,
+      },
+    },
+  },
+]);
 
 export const uploadText = style({
   fontSize: vars.fontSize.sm,
   color: vars.color.textTertiary,
   marginBottom: '8px',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextTertiary
-    }
-  }
+      color: vars.color.darkTextTertiary,
+    },
+  },
 });
 
 export const uploadHint = style({
   fontSize: vars.fontSize.xs,
   color: vars.color.textSecondary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextSecondary
-    }
-  }
+      color: vars.color.darkTextSecondary,
+    },
+  },
 });
 
 export const hiddenFileInput = style({
-  display: 'none'
+  display: 'none',
 });
 
 // Dropdown menu styles
@@ -391,18 +403,21 @@ export const dropdownContent = style({
   padding: '4px',
   minWidth: '150px',
   zIndex: 1000,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkSecondary,
-      borderColor: vars.color.darkInputBorder
-    }
-  }
+      borderColor: vars.color.darkInputBorder,
+    },
+  },
 });
 
-export const dropdownContentSmall = style([dropdownContent, {
-  minWidth: '120px'
-}]);
+export const dropdownContentSmall = style([
+  dropdownContent,
+  {
+    minWidth: '120px',
+  },
+]);
 
 export const dropdownItem = style({
   padding: '12px',
@@ -410,35 +425,38 @@ export const dropdownItem = style({
   cursor: 'pointer',
   borderRadius: vars.radius.sm,
   transition: 'background-color 0.2s',
-  
+
   selectors: {
     '&:hover': {
-      backgroundColor: vars.color.inputHoverBackground
+      backgroundColor: vars.color.inputHoverBackground,
     },
     'body[data-theme="dark"] &': {
-      color: vars.color.darkTextPrimary
+      color: vars.color.darkTextPrimary,
     },
     'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.darkInputHoverBackground
-    }
-  }
+      backgroundColor: vars.color.darkInputHoverBackground,
+    },
+  },
 });
 
-export const dropdownItemDanger = style([dropdownItem, {
-  color: vars.color.danger,
-  
-  selectors: {
-    '&:hover': {
-      backgroundColor: vars.color.cardHoverBackground
+export const dropdownItemDanger = style([
+  dropdownItem,
+  {
+    color: vars.color.danger,
+
+    selectors: {
+      '&:hover': {
+        backgroundColor: vars.color.cardHoverBackground,
+      },
+      'body[data-theme="dark"] &': {
+        color: vars.color.danger,
+      },
+      'body[data-theme="dark"] &:hover': {
+        backgroundColor: vars.color.darkCardHoverBackground,
+      },
     },
-    'body[data-theme="dark"] &': {
-      color: vars.color.danger
-    },
-    'body[data-theme="dark"] &:hover': {
-      backgroundColor: vars.color.darkCardHoverBackground
-    }
-  }
-}]);
+  },
+]);
 
 // File picker selection bar styles
 export const selectionBar = style({
@@ -454,7 +472,7 @@ export const selectionBarLabel = style({
   color: vars.color.textSecondary,
   fontWeight: '500',
   flexShrink: 0,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextSecondary,
@@ -473,7 +491,7 @@ export const selectionBarInput = style({
   fontSize: vars.fontSize.sm,
   outline: 'none',
   transition: 'all 0.2s',
-  
+
   selectors: {
     '&:focus': {
       borderColor: vars.color.primary,

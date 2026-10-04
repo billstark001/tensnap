@@ -150,9 +150,7 @@ describe('Environment2DView', () => {
       layers: new Map(),
     } as any;
 
-    const { rerender } = render(
-      <Environment2DView environment={environment} updateTrigger={0} />,
-    );
+    const { rerender } = render(<Environment2DView environment={environment} updateTrigger={0} />);
 
     await waitFor(() => {
       expect(testHarness.controllerInstances).toHaveLength(1);
@@ -189,9 +187,7 @@ describe('Environment2DView', () => {
 
   it('invokes controller resetView when clicking reset button', async () => {
     render(
-      <Environment2DView
-        environment={{ id: 'env-reset', type: '2d', layers: new Map() } as any}
-      />,
+      <Environment2DView environment={{ id: 'env-reset', type: '2d', layers: new Map() } as any} />,
     );
 
     await waitFor(() => {
@@ -208,9 +204,7 @@ describe('Environment2DView', () => {
     testHarness.toastError = firstToast;
 
     const { rerender } = render(
-      <Environment2DView
-        environment={{ id: 'env-error', type: '2d', layers: new Map() } as any}
-      />,
+      <Environment2DView environment={{ id: 'env-error', type: '2d', layers: new Map() } as any} />,
     );
 
     await waitFor(() => {
@@ -227,9 +221,7 @@ describe('Environment2DView', () => {
     testHarness.toastError = secondToast;
 
     rerender(
-      <Environment2DView
-        environment={{ id: 'env-error', type: '2d', layers: new Map() } as any}
-      />,
+      <Environment2DView environment={{ id: 'env-error', type: '2d', layers: new Map() } as any} />,
     );
 
     onRenderError?.('Environment render failed', 'second-error');
@@ -237,7 +229,9 @@ describe('Environment2DView', () => {
   });
 
   it('resolveAssetUrl uses the latest scenario store reference', async () => {
-    const firstGetUrl = vi.fn<(assetId: string) => string | undefined>().mockReturnValue('first-url');
+    const firstGetUrl = vi
+      .fn<(assetId: string) => string | undefined>()
+      .mockReturnValue('first-url');
     testHarness.scenario = {
       assets: {
         getUrl: firstGetUrl,
@@ -258,7 +252,9 @@ describe('Environment2DView', () => {
     expect(resolveAssetUrl).toBeTypeOf('function');
     expect(resolveAssetUrl?.('asset-1')).toBe('first-url');
 
-    const secondGetUrl = vi.fn<(assetId: string) => string | undefined>().mockReturnValue('second-url');
+    const secondGetUrl = vi
+      .fn<(assetId: string) => string | undefined>()
+      .mockReturnValue('second-url');
     testHarness.scenario = {
       assets: {
         getUrl: secondGetUrl,
@@ -297,12 +293,15 @@ describe('Environment2DView', () => {
     });
 
     await waitFor(() => {
-      const latestProps = testHarness.agentDialogPropsCalls[testHarness.agentDialogPropsCalls.length - 1];
+      const latestProps =
+        testHarness.agentDialogPropsCalls[testHarness.agentDialogPropsCalls.length - 1];
       expect(latestProps?.agent).toEqual(selectedAgent);
       expect(latestProps?.agentType).toBe('2d');
     });
 
-    const latestProps = testHarness.agentDialogPropsCalls[testHarness.agentDialogPropsCalls.length - 1] as {
+    const latestProps = testHarness.agentDialogPropsCalls[
+      testHarness.agentDialogPropsCalls.length - 1
+    ] as {
       onClose?: () => void;
     };
     act(() => {
@@ -310,7 +309,8 @@ describe('Environment2DView', () => {
     });
 
     await waitFor(() => {
-      const afterCloseProps = testHarness.agentDialogPropsCalls[testHarness.agentDialogPropsCalls.length - 1];
+      const afterCloseProps =
+        testHarness.agentDialogPropsCalls[testHarness.agentDialogPropsCalls.length - 1];
       expect(afterCloseProps?.agent).toBeNull();
     });
   });

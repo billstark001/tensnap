@@ -38,7 +38,19 @@ export interface ManualRunSpec {
 
 export type RunRequest = BoundedRunSpec | ManualRunSpec;
 
-export type RunStopReason = 'condition' | 'condition-error' | 'max-steps' | 'wall-time' | 'action-timeout' | 'action-error' | 'render-error' | 'validation-error' | 'simulator' | 'paused' | 'stopped' | 'disconnected';
+export type RunStopReason =
+  | 'condition'
+  | 'condition-error'
+  | 'max-steps'
+  | 'wall-time'
+  | 'action-timeout'
+  | 'action-error'
+  | 'render-error'
+  | 'validation-error'
+  | 'simulator'
+  | 'paused'
+  | 'stopped'
+  | 'disconnected';
 
 export interface RunStatus {
   id: string;
@@ -79,7 +91,11 @@ export interface RunControllerOptions {
   /** Fired after the matching action has passed the host render barrier. */
   onActionRendered?: (payload: Pick<ActionResultPayload, 'id' | 'request_id'>) => void;
   /** Observability hook for host rendering failures; errors are never left unhandled. */
-  onRenderBarrierError?: (error: unknown, task: RuntimeTaskSnapshot, payload: ActionResultPayload) => void;
+  onRenderBarrierError?: (
+    error: unknown,
+    task: RuntimeTaskSnapshot,
+    payload: ActionResultPayload,
+  ) => void;
   maxStepsPolicy?: number;
   idFactory?: () => string;
   onStateChange?: (status: RunStatus | null) => void;
@@ -98,8 +114,8 @@ const cloneStatus = (status: RunStatus): RunStatus => {
   // structured-clone machinery for every status read and every completed tick.
   // Complex condition/recording payloads keep the stronger deep-copy boundary.
   if (
-    status.spec.record
-    || (typeof status.conditionValue === 'object' && status.conditionValue !== null)
+    status.spec.record ||
+    (typeof status.conditionValue === 'object' && status.conditionValue !== null)
   ) {
     return structuredClone(status);
   }
@@ -117,9 +133,14 @@ function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
     throw new Error('BoundedRunSpec.maxSteps must be a positive integer.');
   }
   if (spec.mode === 'bounded' && spec.maxSteps > maxStepsPolicy) {
-    throw new Error(`BoundedRunSpec.maxSteps exceeds the configured policy limit (${maxStepsPolicy}).`);
+    throw new Error(
+      `BoundedRunSpec.maxSteps exceeds the configured policy limit (${maxStepsPolicy}).`,
+    );
   }
-  if (spec.maxWallTimeMs !== undefined && (!Number.isFinite(spec.maxWallTimeMs) || spec.maxWallTimeMs <= 0)) {
+  if (
+    spec.maxWallTimeMs !== undefined &&
+    (!Number.isFinite(spec.maxWallTimeMs) || spec.maxWallTimeMs <= 0)
+  ) {
     throw new Error('RunRequest.maxWallTimeMs must be a positive finite number when specified.');
   }
   return structuredClone(spec);
@@ -143,7 +164,10 @@ export class RunController {
   private actionTimeoutDeadlineAt: number | null = null;
   private actionTimeoutTaskId: string | null = null;
   private actionTimeoutMs: number;
-  private readonly invocationByTaskId = new Map<string, Pick<ActionInvokePayload, 'target' | 'kwargs'>>();
+  private readonly invocationByTaskId = new Map<
+    string,
+    Pick<ActionInvokePayload, 'target' | 'kwargs'>
+  >();
 
   constructor(private readonly options: RunControllerOptions) {
     this.scheduler = options.scheduler ?? nativeScheduler;
@@ -153,7 +177,10 @@ export class RunController {
     }
     this.idFactory = options.idFactory ?? (() => crypto.randomUUID());
     this.actionTimeoutMs = this.normalizeActionTimeout(options.actionTimeoutMs ?? 5_000);
-    this.runtime = new PipelineRuntime({ now: () => this.scheduler.now(), idFactory: this.idFactory });
+    this.runtime = new PipelineRuntime({
+      now: () => this.scheduler.now(),
+      idFactory: this.idFactory,
+    });
   }
 
   get status(): RunStatus | null {
@@ -183,7 +210,10 @@ export class RunController {
     return this.runtime.requestStateSync(requestId);
   }
 
-  recordStateSyncBoundary(phase: 'begin' | 'end', payload: StateSyncBeginPayload | StateSyncEndPayload): boolean {
+  recordStateSyncBoundary(
+    phase: 'begin' | 'end',
+    payload: StateSyncBeginPayload | StateSyncEndPayload,
+  ): boolean {
     const accepted = this.runtime.recordStateSyncBoundary(phase, payload);
     if (accepted && phase === 'end') this.flushCommands();
     return accepted;
@@ -205,7 +235,8 @@ export class RunController {
       this.finish('stopped');
     }
     const taskId = this.runtime.enqueue(actionId, { continuous });
-    if (invocation.target !== undefined || invocation.kwargs !== undefined) this.invocationByTaskId.set(taskId, invocation);
+    if (invocation.target !== undefined || invocation.kwargs !== undefined)
+      this.invocationByTaskId.set(taskId, invocation);
     this.flushCommands();
     return taskId;
   }
@@ -243,9 +274,10 @@ export class RunController {
 
   start(spec: RunRequest): RunStatus {
     const normalized = validateRunSpec(spec, this.maxStepsPolicy);
-    const condition = normalized.mode === 'bounded' && normalized.stopWhen !== undefined
-      ? compileRunCondition(normalized.stopWhen)
-      : null;
+    const condition =
+      normalized.mode === 'bounded' && normalized.stopWhen !== undefined
+        ? compileRunCondition(normalized.stopWhen)
+        : null;
     // Reject a new run before changing the existing one. A caller can retry
     // once the current tick has passed its render barrier.
     if (this.runtime.peekActiveTaskRef()) {
@@ -274,7 +306,10 @@ export class RunController {
     }
 
     if (normalized.maxWallTimeMs !== undefined) {
-      this.deadlineHandle = this.scheduler.setTimeout(() => this.finish('wall-time'), normalized.maxWallTimeMs);
+      this.deadlineHandle = this.scheduler.setTimeout(
+        () => this.finish('wall-time'),
+        normalized.maxWallTimeMs,
+      );
     }
 
     this.discardInvocations(this.runtime.cancel());
@@ -305,7 +340,12 @@ export class RunController {
 
     this.releaseActionTimeout(task);
 
-    if (!this.runtime.completeTask(task.id, { should_continue: payload.should_continue, timings: payload.timings })) {
+    if (
+      !this.runtime.completeTask(task.id, {
+        should_continue: payload.should_continue,
+        timings: payload.timings,
+      })
+    ) {
       return false;
     }
     if (task.key === 'reset') this.options.scenario.endResetLifecycle();
@@ -334,7 +374,8 @@ export class RunController {
 
     const renderBarrier = this.options.renderBarrier;
     if (renderBarrier) {
-      void Promise.resolve().then(() => renderBarrier.wait(task, payload))
+      void Promise.resolve()
+        .then(() => renderBarrier.wait(task, payload))
         .catch((error: unknown) => this.handleRenderBarrierError(error, task, payload))
         .then(() => this.markActionRendered(payload));
     }
@@ -364,7 +405,9 @@ export class RunController {
   private evaluateCondition(): boolean {
     if (!this.activeRun || this.activeRun.spec.mode !== 'bounded' || !this.condition) return false;
     try {
-      const value = this.condition.evaluate(createRunConditionScope(this.options.scenario, this.activeRun.completedSteps));
+      const value = this.condition.evaluate(
+        createRunConditionScope(this.options.scenario, this.activeRun.completedSteps),
+      );
       this.activeRun.conditionValue = structuredClone(value);
       return value === true;
     } catch (error) {
@@ -383,7 +426,11 @@ export class RunController {
     }
     this.clearActionTimeout();
     this.discardInvocations(this.runtime.cancel(run.spec.actionId));
-    if (reason !== 'disconnected' && reason !== 'validation-error' && this.canInvokeStopHook(run.spec.actionId)) {
+    if (
+      reason !== 'disconnected' &&
+      reason !== 'validation-error' &&
+      this.canInvokeStopHook(run.spec.actionId)
+    ) {
       this.runtime.enqueueFront('stop');
     }
     run.state = reason === 'paused' ? 'paused' : 'stopped';
@@ -396,10 +443,14 @@ export class RunController {
     this.flushCommands();
   }
 
-  private matchActiveTask(payload: Pick<ActionResultPayload, 'id' | 'request_id'>): RuntimeTaskSnapshot | null {
+  private matchActiveTask(
+    payload: Pick<ActionResultPayload, 'id' | 'request_id'>,
+  ): RuntimeTaskSnapshot | null {
     const activeTask = this.runtime.peekActiveTaskRef();
     if (!activeTask) return null;
-    return activeTask.id === payload.request_id && activeTask.key === payload.id ? activeTask : null;
+    return activeTask.id === payload.request_id && activeTask.key === payload.id
+      ? activeTask
+      : null;
   }
 
   private flushCommands(): void {
@@ -411,11 +462,12 @@ export class RunController {
       const isReset = command.task.key === 'reset';
       if (isReset) this.options.scenario.beginResetLifecycle();
       try {
-        this.options.send(this.options.scenario.createActionInvokeMessage(
-          command.task.key,
-          command.task.id,
-          { continuous: command.task.continuous, ...invocation },
-        ));
+        this.options.send(
+          this.options.scenario.createActionInvokeMessage(command.task.key, command.task.id, {
+            continuous: command.task.continuous,
+            ...invocation,
+          }),
+        );
       } catch (error) {
         if (isReset) this.options.scenario.endResetLifecycle();
         // The dispatch never reached the simulator. Release the task instead
@@ -444,8 +496,12 @@ export class RunController {
     // During a continuous run, the previous deadline is always no later than
     // the next action's deadline. Reuse that timer and check the current task
     // when it fires instead of installing and cancelling one timer per tick.
-    if (this.actionTimeoutHandle !== null && this.actionTimeoutScheduledAt !== null
-      && this.actionTimeoutScheduledAt <= deadline) return;
+    if (
+      this.actionTimeoutHandle !== null &&
+      this.actionTimeoutScheduledAt !== null &&
+      this.actionTimeoutScheduledAt <= deadline
+    )
+      return;
     if (this.actionTimeoutHandle !== null) this.scheduler.clearTimeout(this.actionTimeoutHandle);
     const now = this.scheduler.now();
     const delay = Math.max(1, deadline - now);
@@ -514,12 +570,18 @@ export class RunController {
   private canInvokeStopHook(runActionId: string): boolean {
     if (runActionId === 'stop' || this.runtime.hasContinuousKey('stop')) return false;
     const stopAction = this.options.scenario.getAction('stop');
-    return stopAction !== undefined
-      && (stopAction.scope === undefined || stopAction.scope === 'model')
-      && !stopAction.kwargs?.some((argument) => argument.required === true);
+    return (
+      stopAction !== undefined &&
+      (stopAction.scope === undefined || stopAction.scope === 'model') &&
+      !stopAction.kwargs?.some((argument) => argument.required === true)
+    );
   }
 
-  private handleRenderBarrierError(error: unknown, task: RuntimeTaskSnapshot, payload: ActionResultPayload): void {
+  private handleRenderBarrierError(
+    error: unknown,
+    task: RuntimeTaskSnapshot,
+    payload: ActionResultPayload,
+  ): void {
     try {
       this.options.onRenderBarrierError?.(error, task, payload);
     } catch {

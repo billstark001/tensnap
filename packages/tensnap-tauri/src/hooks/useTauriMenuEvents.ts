@@ -7,16 +7,11 @@ import { setNativeMenuLocale } from '../adapters/common';
 const DOCUMENTATION_URL = 'https://github.com/billstark001/tensnap/tree/main/docs';
 
 export const useTauriMenuEvents = () => {
-  const {
-    onNewFile,
-    onFileOpen,
-    onFileSave,
-    onFileSaveAs,
-  } = useFileOperations();
+  const { onNewFile, onFileOpen, onFileSave, onFileSaveAs } = useFileOperations();
 
-  const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
-  const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
-  const locale = useSettingsStore(x => x.locale);
+  const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
+  const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
+  const locale = useSettingsStore((x) => x.locale);
 
   useEffect(() => {
     void setNativeMenuLocale(locale).catch((error) => {
@@ -51,24 +46,21 @@ export const useTauriMenuEvents = () => {
     unlistenPromises.push(listen('menu:settings', () => setSettingsDialogOpen(true)));
 
     // Help menu events
-    unlistenPromises.push(listen('menu:documentation', () => {
-      window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer');
-    }));
-    unlistenPromises.push(listen('menu:keyboard-shortcuts', () => console.log('Keyboard Shortcuts')));
+    unlistenPromises.push(
+      listen('menu:documentation', () => {
+        window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer');
+      }),
+    );
+    unlistenPromises.push(
+      listen('menu:keyboard-shortcuts', () => console.log('Keyboard Shortcuts')),
+    );
     unlistenPromises.push(listen('menu:about', () => setAboutDialogOpen(true)));
 
     // Cleanup
     return () => {
-      Promise.all(unlistenPromises).then(unlisteners => {
-        unlisteners.forEach(unlisten => unlisten());
+      Promise.all(unlistenPromises).then((unlisteners) => {
+        unlisteners.forEach((unlisten) => unlisten());
       });
     };
-  }, [
-    onNewFile,
-    onFileOpen,
-    onFileSave,
-    onFileSaveAs,
-    setSettingsDialogOpen,
-    setAboutDialogOpen,
-  ]);
+  }, [onNewFile, onFileOpen, onFileSave, onFileSaveAs, setSettingsDialogOpen, setAboutDialogOpen]);
 };

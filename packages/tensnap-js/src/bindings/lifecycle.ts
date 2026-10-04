@@ -2,9 +2,7 @@ import type { Action } from '@tensnap/protocol';
 import { defineActions } from './define';
 import type { LifecycleActionLabels } from './types';
 
-export function defineLifecycleActions(
-  labels: LifecycleActionLabels = {},
-): readonly Action[] {
+export function defineLifecycleActions(labels: LifecycleActionLabels = {}): readonly Action[] {
   return defineActions(
     {
       id: 'start',

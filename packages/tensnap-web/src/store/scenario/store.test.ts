@@ -80,17 +80,21 @@ describe('scenario store updates preserve assets', () => {
     announce(state);
 
     state.session.handleIncoming({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
-    state.setMainView(createDefaultRootLayout([{
-      id: 'custom-button',
-      type: 'button',
-      left: 10,
-      top: 10,
-      width: 120,
-      height: 40,
-      expanded: true,
-      disabled: false,
-      data: { id: 'custom', text: 'Custom' },
-    }]));
+    state.setMainView(
+      createDefaultRootLayout([
+        {
+          id: 'custom-button',
+          type: 'button',
+          left: 10,
+          top: 10,
+          width: 120,
+          height: 40,
+          expanded: true,
+          disabled: false,
+          data: { id: 'custom', text: 'Custom' },
+        },
+      ]),
+    );
 
     state.prepareStateSync('sync-2', { autoLayoutOnComplete: true });
     state.handleStateSyncBoundary('end', { request_id: 'sync-2', state_revision: '1' });
@@ -108,7 +112,10 @@ describe('scenario store updates preserve assets', () => {
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(0);
 
-    state.session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: 'start-1' } });
+    state.session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'start', request_id: 'start-1' },
+    });
     await Promise.resolve();
     expect(useStore.getState().currentTime).toBe(1);
 
@@ -144,7 +151,10 @@ describe('scenario store updates preserve assets', () => {
     const useStore = createScenarioStore();
     const state = useStore.getState();
     announce(state);
-    state.session.handleIncoming({ type: 'env_create', payload: { id: 'uniform', type: 'uniform' } });
+    state.session.handleIncoming({
+      type: 'env_create',
+      payload: { id: 'uniform', type: 'uniform' },
+    });
     state.session.handleIncoming({
       type: 'env_layer_create',
       payload: { env_id: 'uniform', layer_id: 'agents', layer_type: 'agent' },
@@ -199,7 +209,10 @@ describe('scenario store updates preserve assets', () => {
     expect(useStore.getState().actionRevision).toBe(initial.action + 1);
     expect(useStore.getState().chartRevision).toBe(initial.chart);
 
-    state.session.handleIncoming({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
+    state.session.handleIncoming({
+      type: 'chart_create',
+      payload: { id: 'population', label: 'Population' },
+    });
     await Promise.resolve();
     expect(useStore.getState().chartRevision).toBe(initial.chart + 1);
     expect(useStore.getState().logRevision).toBe(initial.log);
@@ -209,7 +222,10 @@ describe('scenario store updates preserve assets', () => {
     expect(useStore.getState().logRevision).toBe(initial.log + 1);
     expect(useStore.getState().runRevision).toBe(initial.run);
 
-    state.session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: 'step-1' } });
+    state.session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: 'step-1' },
+    });
     await Promise.resolve();
     expect(useStore.getState().runRevision).toBe(initial.run + 1);
     expect(useStore.getState().actionRevision).toBe(initial.action + 1);
@@ -221,11 +237,17 @@ describe('scenario store updates preserve assets', () => {
     announce(state);
     const revision = state.monitorRevision;
 
-    state.session.handleIncoming({ type: 'monitor_create', payload: { id: 'health', label: 'Health' } });
+    state.session.handleIncoming({
+      type: 'monitor_create',
+      payload: { id: 'health', label: 'Health' },
+    });
     await Promise.resolve();
     expect(useStore.getState().monitorRevision).toBe(revision + 1);
 
-    state.session.handleIncoming({ type: 'monitor_update', payload: { id: 'health', value: { ready: true }, revision: 1 } });
+    state.session.handleIncoming({
+      type: 'monitor_update',
+      payload: { id: 'health', value: { ready: true }, revision: 1 },
+    });
     await Promise.resolve();
     expect(useStore.getState().monitorRevision).toBe(revision + 1);
 
@@ -238,10 +260,19 @@ describe('scenario store updates preserve assets', () => {
     const history = createHistoryStore();
     const useStore = createScenarioStore(history);
     const original = structuredClone(useStore.getState().mainView);
-    const edited = createDefaultRootLayout([{
-      id: 'view-1', type: 'button', left: 1, top: 2, width: 120, height: 40,
-      expanded: true, disabled: false, data: { id: 'step', text: 'Step' },
-    }]);
+    const edited = createDefaultRootLayout([
+      {
+        id: 'view-1',
+        type: 'button',
+        left: 1,
+        top: 2,
+        width: 120,
+        height: 40,
+        expanded: true,
+        disabled: false,
+        data: { id: 'step', text: 'Step' },
+      },
+    ]);
 
     useStore.getState().setMainView(edited);
     expect(history.getState().past.map((command) => command.scope)).toEqual(['view-config']);
@@ -261,10 +292,20 @@ describe('scenario store updates preserve assets', () => {
     const store = useStore.getState();
 
     store.appendDiagnostic({
-      timestamp: 1_000, severity: 'error', domain: 'transport', source: 'test', code: 'repeated', message: 'Repeated failure',
+      timestamp: 1_000,
+      severity: 'error',
+      domain: 'transport',
+      source: 'test',
+      code: 'repeated',
+      message: 'Repeated failure',
     });
     store.appendDiagnostic({
-      timestamp: 2_000, severity: 'error', domain: 'transport', source: 'test', code: 'repeated', message: 'Repeated failure',
+      timestamp: 2_000,
+      severity: 'error',
+      domain: 'transport',
+      source: 'test',
+      code: 'repeated',
+      message: 'Repeated failure',
     });
 
     expect(useStore.getState().diagnostics).toEqual([

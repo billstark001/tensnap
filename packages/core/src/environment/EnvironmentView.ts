@@ -54,7 +54,6 @@ function toggleListeners(enable: boolean, entries: ListenerEntry[]): void {
 // #endregion
 
 export class EnvironmentView extends BaseEnvironmentView {
-
   // #region Fields
 
   readonly container: HTMLElement;
@@ -94,7 +93,8 @@ export class EnvironmentView extends BaseEnvironmentView {
       width: surfaceSize.width,
       height: surfaceSize.height,
       type: options.type ?? 'design',
-      pixelRatio: options.pixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1),
+      pixelRatio:
+        options.pixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1),
     };
     const leafer = options.createLeafer?.(leaferConfig) ?? new Leafer(leaferConfig);
 
@@ -151,7 +151,9 @@ export class EnvironmentView extends BaseEnvironmentView {
 
   // #region Interaction — getters / setters
 
-  get enablePan(): boolean { return this._enablePan; }
+  get enablePan(): boolean {
+    return this._enablePan;
+  }
   set enablePan(value: boolean) {
     if (this._enablePan === value) return;
     this._enablePan = value;
@@ -159,14 +161,18 @@ export class EnvironmentView extends BaseEnvironmentView {
     this._syncTouchListeners(); // single-finger pan shares touch events
   }
 
-  get enableWheelZoom(): boolean { return this._enableWheelZoom; }
+  get enableWheelZoom(): boolean {
+    return this._enableWheelZoom;
+  }
   set enableWheelZoom(value: boolean) {
     if (this._enableWheelZoom === value) return;
     this._enableWheelZoom = value;
     this._syncWheelListener();
   }
 
-  get enableTouchZoom(): boolean { return this._enableTouchZoom; }
+  get enableTouchZoom(): boolean {
+    return this._enableTouchZoom;
+  }
   set enableTouchZoom(value: boolean) {
     if (this._enableTouchZoom === value) return;
     this._enableTouchZoom = value;
@@ -193,9 +199,8 @@ export class EnvironmentView extends BaseEnvironmentView {
     }
 
     // 'contain' | 'cover': uniform scale with centred letterbox
-    const scale = this._fitMode === 'cover'
-      ? Math.max(cW / vW, cH / vH)
-      : Math.min(cW / vW, cH / vH);
+    const scale =
+      this._fitMode === 'cover' ? Math.max(cW / vW, cH / vH) : Math.min(cW / vW, cH / vH);
     const renderW = vW * scale;
     const renderH = vH * scale;
     const offsetX = (cW - renderW) / 2;
@@ -215,12 +220,7 @@ export class EnvironmentView extends BaseEnvironmentView {
   private _applyZoom(px: number, py: number, factor: number): void {
     const { x: vx, y: vy, width: vW, height: vH } = this._viewport;
     const { x: sx, y: sy } = this._canvasToScene(px, py);
-    this.setViewport(
-      sx - (sx - vx) / factor,
-      sy - (sy - vy) / factor,
-      vW / factor,
-      vH / factor,
-    );
+    this.setViewport(sx - (sx - vx) / factor, sy - (sy - vy) / factor, vW / factor, vH / factor);
   }
 
   // #endregion
@@ -326,7 +326,12 @@ export class EnvironmentView extends BaseEnvironmentView {
     const want = this._enableWheelZoom;
     if (want === this._wheelActive) return;
     toggleListeners(want, [
-      { target: this.container, type: 'wheel', handler: this._handlers.wheel, opts: { passive: false } },
+      {
+        target: this.container,
+        type: 'wheel',
+        handler: this._handlers.wheel,
+        opts: { passive: false },
+      },
     ]);
     this._wheelActive = want;
   }
@@ -336,12 +341,25 @@ export class EnvironmentView extends BaseEnvironmentView {
     const want = this._enableTouchZoom || this._enablePan;
     if (want === this._touchActive) return;
     toggleListeners(want, [
-      { target: this.container, type: 'touchstart', handler: this._handlers.touchstart, opts: { passive: false } },
-      { target: this.container, type: 'touchmove', handler: this._handlers.touchmove, opts: { passive: false } },
+      {
+        target: this.container,
+        type: 'touchstart',
+        handler: this._handlers.touchstart,
+        opts: { passive: false },
+      },
+      {
+        target: this.container,
+        type: 'touchmove',
+        handler: this._handlers.touchmove,
+        opts: { passive: false },
+      },
       { target: this.container, type: 'touchend', handler: this._handlers.touchend },
     ]);
     this._touchActive = want;
-    if (!want) { this._isDragging = false; this._lastTouchDist = 0; }
+    if (!want) {
+      this._isDragging = false;
+      this._lastTouchDist = 0;
+    }
   }
 
   // #endregion

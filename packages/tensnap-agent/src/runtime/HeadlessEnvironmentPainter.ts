@@ -2,11 +2,7 @@ import './leafer-runtime';
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
-import {
-  resolveImageSize,
-  resolveViewport,
-  type Viewport,
-} from '@tensnap/core/environment';
+import { resolveImageSize, resolveViewport, type Viewport } from '@tensnap/core/environment';
 import { layerRegistry, type LayerCreateContext } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentView } from '@tensnap/core/environment/headless';
 import {
@@ -17,7 +13,12 @@ import {
   type ScenarioEnvironmentSnapshot,
 } from '@tensnap/core/scenario';
 import type { RenderFormat } from '../types';
-import { normalizeRenderBackgroundColor, type RenderArtifact, type RenderRequest, type ScenePainter } from './painter';
+import {
+  normalizeRenderBackgroundColor,
+  type RenderArtifact,
+  type RenderRequest,
+  type ScenePainter,
+} from './painter';
 import { buildImageOutputPath, imageMimeType } from './image-output';
 import {
   resolveAssetUrls,
@@ -51,7 +52,9 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
   async render(request: RenderRequest): Promise<RenderArtifact[] | void> {
     if (request.options.chartId) return [];
     const targetEnvironments = request.options.envId
-      ? request.snapshot.environments.filter((environment) => environment.id === request.options.envId)
+      ? request.snapshot.environments.filter(
+          (environment) => environment.id === request.options.envId,
+        )
       : request.snapshot.environments;
 
     const artifacts: RenderArtifact[] = [];
@@ -77,10 +80,16 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     appendEnvSuffix: boolean,
   ): Promise<RenderArtifact> {
     const viewport = resolveViewport(environment, request.options.viewport);
-    const imageSize = resolveImageSize(viewport, environment, request.options.width, request.options.height, {
-      defaultWidth: this.options.defaultWidth,
-      defaultHeight: this.options.defaultHeight,
-    });
+    const imageSize = resolveImageSize(
+      viewport,
+      environment,
+      request.options.width,
+      request.options.height,
+      {
+        defaultWidth: this.options.defaultWidth,
+        defaultHeight: this.options.defaultHeight,
+      },
+    );
     const format = request.options.format ?? this.options.defaultFormat ?? 'png';
     const mime = imageMimeType(format);
     const plan = createRenderPlanFromSnapshot(snapshotEnvironment);
@@ -94,7 +103,15 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     });
 
     try {
-      await this.attachPlanLayers(envView, plan, snapshotEnvironment, environment, viewport, request, assetUrlById);
+      await this.attachPlanLayers(
+        envView,
+        plan,
+        snapshotEnvironment,
+        environment,
+        viewport,
+        request,
+        assetUrlById,
+      );
 
       if (!request.options.viewport) {
         envView.fitToScene({ padding: plan.fitPadding });
@@ -104,10 +121,14 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
       await envView.waitViewReady();
       envView.renderFrame(true);
 
-      const quality = typeof request.options.quality === 'number' ? request.options.quality : undefined;
+      const quality =
+        typeof request.options.quality === 'number' ? request.options.quality : undefined;
       const exportResult = await (envView.leafer as unknown as ExportableLeafer).export(format, {
         quality,
-        fill: normalizeRenderBackgroundColor(request.options.backgroundColor, this.options.backgroundColor ?? '#000000'),
+        fill: normalizeRenderBackgroundColor(
+          request.options.backgroundColor,
+          this.options.backgroundColor ?? '#000000',
+        ),
         screenshot: true,
       });
 

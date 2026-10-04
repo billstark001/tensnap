@@ -5,10 +5,7 @@
  * most recent arguments at the end of a burst.
  */
 
-export function throttle<T extends (...args: any[]) => void>(
-  fn: T,
-  delayMs: number
-): T {
+export function throttle<T extends (...args: any[]) => void>(fn: T, delayMs: number): T {
   let lastCall = -Infinity;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let pending: { context: unknown; args: Parameters<T> } | null = null;

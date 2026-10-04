@@ -12,22 +12,38 @@ async function main(): Promise<void> {
     sent.push((event as CustomEvent<{ message: { type: string } }>).detail.message.type);
   });
   try {
-    await client.connect(new NodeWebSocketTransport(`ws://127.0.0.1:${rawPort}`,
-      encoding as 'json' | 'msgpack', { clientMessages: 'error', serverMessages: 'error' }), false);
+    await client.connect(
+      new NodeWebSocketTransport(`ws://127.0.0.1:${rawPort}`, encoding as 'json' | 'msgpack', {
+        clientMessages: 'error',
+        serverMessages: 'error',
+      }),
+      false,
+    );
     const info = client.renderer.simulatorInfo;
     assert.ok(info);
     assert.ok(!info.capabilities.includes('scene.restore.checkpoint'));
     await client.sync('renderer-no-capability-sync');
     const statePath = binding === 'js' ? `${basePath}.1` : basePath;
     const before = readFileSync(statePath, 'utf8');
-    await assert.rejects(client.renderer.captureScene(), /does not support checkpoint scene capture/);
-    await assert.rejects(client.renderer.restoreScene({ checkpoint: { encoding: 'application/octet-stream', data: 'AA==' } }),
-      /does not support checkpoint scene restore/);
+    await assert.rejects(
+      client.renderer.captureScene(),
+      /does not support checkpoint scene capture/,
+    );
+    await assert.rejects(
+      client.renderer.restoreScene({
+        checkpoint: { encoding: 'application/octet-stream', data: 'AA==' },
+      }),
+      /does not support checkpoint scene restore/,
+    );
     assert.equal(readFileSync(statePath, 'utf8'), before);
     assert.ok(!sent.includes('scene_capture'));
     assert.ok(!sent.includes('scene_restore'));
-    process.stdout.write(JSON.stringify({ capability_guarded_before_send: true, host_unchanged: true }));
-  } finally { client.disconnect(); }
+    process.stdout.write(
+      JSON.stringify({ capability_guarded_before_send: true, host_unchanged: true }),
+    );
+  } finally {
+    client.disconnect();
+  }
 }
 
 main().catch((error) => {

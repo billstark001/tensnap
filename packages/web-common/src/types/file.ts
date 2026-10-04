@@ -19,10 +19,11 @@ export interface FileContent {
   checksum: string;
 }
 
-export interface DirectoryMetadata extends BaseMetadata {
-}
+export interface DirectoryMetadata extends BaseMetadata {}
 
-export type DirectoryEntry = ({ type: 'file' } & FileMetadata) | ({ type: 'directory' } & DirectoryMetadata);
+export type DirectoryEntry =
+  | ({ type: 'file' } & FileMetadata)
+  | ({ type: 'directory' } & DirectoryMetadata);
 
 export interface FileSystemStats {
   totalFiles: number;
@@ -34,7 +35,13 @@ export interface FileSystemStats {
 }
 
 export interface FileSystemError extends Error {
-  code: 'NOT_FOUND' | 'PERMISSION_DENIED' | 'QUOTA_EXCEEDED' | 'INVALID_OPERATION' | 'STORAGE_ERROR' | 'PATH_EXISTS';
+  code:
+    | 'NOT_FOUND'
+    | 'PERMISSION_DENIED'
+    | 'QUOTA_EXCEEDED'
+    | 'INVALID_OPERATION'
+    | 'STORAGE_ERROR'
+    | 'PATH_EXISTS';
   path?: string;
   operation?: string;
 }
@@ -59,14 +66,18 @@ export abstract class FileSystemAdapter {
   abstract cleanup(): Promise<void>;
 
   // Essential file operations
-  abstract writeFile(path: string, content: ArrayBuffer | string, metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>): Promise<FileContent>;
+  abstract writeFile(
+    path: string,
+    content: ArrayBuffer | string,
+    metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
+  ): Promise<FileContent>;
   abstract readFile(path: string): Promise<FileContent | null>;
   abstract deleteFile(path: string): Promise<void>;
 
   // Essential directory operations
   abstract createDirectory(path: string, allowExist?: boolean): Promise<DirectoryMetadata>;
   abstract deleteDirectory(path: string, recursive?: boolean): Promise<void>;
-  
+
   // Unified list operation - lists all entries (files and directories) in a path
   abstract list(path: string): Promise<DirectoryEntry[]>;
 

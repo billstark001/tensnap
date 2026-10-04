@@ -53,8 +53,13 @@ describe('TaskQueue – basic enqueue / dispatch', () => {
     let advanceCalled = false;
     q.markTaskRendered(
       id1,
-      () => { reEnqueueCalled = true; },
-      () => { advanceCalled = true; q.maybeDispatchNext(); },
+      () => {
+        reEnqueueCalled = true;
+      },
+      () => {
+        advanceCalled = true;
+        q.maybeDispatchNext();
+      },
     );
     expect(advanceCalled).toBe(true);
     expect(reEnqueueCalled).toBe(false);
@@ -129,7 +134,13 @@ describe('TaskQueue – cancel', () => {
     expect(newId).not.toBe(oldId);
     q.completeTask(oldId, { should_continue: true });
     q.markTaskApplied(oldId);
-    q.markTaskRendered(oldId, (key) => { q.enqueue(key, { continuous: true }); }, () => {});
+    q.markTaskRendered(
+      oldId,
+      (key) => {
+        q.enqueue(key, { continuous: true });
+      },
+      () => {},
+    );
 
     expect(q.enqueue('run', { continuous: true })).toBe(newId);
     expect(q.queueLength).toBe(1);

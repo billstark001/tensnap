@@ -111,9 +111,14 @@ describe('layer registry view helpers', () => {
       },
     });
 
-    expect(findSceneBounds([
-      { layerType: 'grid', metadata: {} },
-      { layerType: 'agent', metadata: { width: 7, height: 9 } },
-    ], registry)).toEqual({ width: 7, height: 9 });
+    expect(
+      findSceneBounds(
+        [
+          { layerType: 'grid', metadata: {} },
+          { layerType: 'agent', metadata: { width: 7, height: 9 } },
+        ],
+        registry,
+      ),
+    ).toEqual({ width: 7, height: 9 });
   });
 });

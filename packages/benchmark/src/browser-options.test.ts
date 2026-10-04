@@ -19,10 +19,14 @@ describe('browser benchmark run options', () => {
   });
 
   it('rejects invalid scheduling settings', () => {
-    expect(() => resolveBrowserBenchmarkRunOptions('setTimeout' as never)).toThrow('browserOptions must be an object');
-    expect(() => resolveBrowserBenchmarkRunOptions({ renderTriggerMode: 'invalid' as never })).toThrow(
-      'browserOptions.renderTriggerMode',
+    expect(() => resolveBrowserBenchmarkRunOptions('setTimeout' as never)).toThrow(
+      'browserOptions must be an object',
     );
-    expect(() => resolveBrowserBenchmarkRunOptions({ maxTps: -1 })).toThrow('browserOptions.maxTps');
+    expect(() =>
+      resolveBrowserBenchmarkRunOptions({ renderTriggerMode: 'invalid' as never }),
+    ).toThrow('browserOptions.renderTriggerMode');
+    expect(() => resolveBrowserBenchmarkRunOptions({ maxTps: -1 })).toThrow(
+      'browserOptions.maxTps',
+    );
   });
 });

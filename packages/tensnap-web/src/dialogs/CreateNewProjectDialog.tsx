@@ -9,25 +9,25 @@ import { listBuiltinModels } from '@/transport';
 import type { ProjectSource } from '@tensnap/core/snapshot';
 import * as styles from './CreateNewProjectDialog.css';
 
-
 const FakeModelCard: React.FC<{
   model: { id: string; name: string; description: string; protocolVersion?: string };
-  onSelect: (model: { id: string; name: string; description: string; protocolVersion?: string }) => void;
+  onSelect: (model: {
+    id: string;
+    name: string;
+    description: string;
+    protocolVersion?: string;
+  }) => void;
 }> = ({ model, onSelect }) => (
-  <div
-    onClick={() => onSelect(model)}
-    className={styles.fakeModelCardContainer}
-  >
-    <h3 className={styles.fakeModelTitle}>
-      {model.name}
-    </h3>
-    <p className={styles.fakeModelDescription}>
-      {model.description}
-    </p>
-    {model.protocolVersion && <small><Trans>Protocol {model.protocolVersion}</Trans></small>}
+  <div onClick={() => onSelect(model)} className={styles.fakeModelCardContainer}>
+    <h3 className={styles.fakeModelTitle}>{model.name}</h3>
+    <p className={styles.fakeModelDescription}>{model.description}</p>
+    {model.protocolVersion && (
+      <small>
+        <Trans>Protocol {model.protocolVersion}</Trans>
+      </small>
+    )}
   </div>
 );
-
 
 export interface CreateNewDialogProps extends DialogOpenProps {
   onCreateItem: (source: ProjectSource) => void;
@@ -36,7 +36,7 @@ export interface CreateNewDialogProps extends DialogOpenProps {
 export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
   open: isOpen,
   onOpenChange,
-  onCreateItem
+  onCreateItem,
 }) => {
   const { _ } = useLingui();
   const [newItemName, setNewItemName] = useState('ws://localhost:8765');
@@ -52,21 +52,28 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
     }
   }, [newItemName, onCreateItem, onOpenChange]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCreateItem();
-    }
-  }, [handleCreateItem]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleCreateItem();
+      }
+    },
+    [handleCreateItem],
+  );
 
   const fakeModels = useMemo(() => listBuiltinModels(), []);
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange} size='lg'>
-      <Dialog.Title><Trans>Create New Project</Trans></Dialog.Title>
+    <Dialog.Root open={isOpen} onOpenChange={onOpenChange} size="lg">
+      <Dialog.Title>
+        <Trans>Create New Project</Trans>
+      </Dialog.Title>
       <Dialog.Description></Dialog.Description>
       <Dialog.Body>
         <Form.FieldSet>
-          <Form.Label><Trans>Backend URL</Trans></Form.Label>
+          <Form.Label>
+            <Trans>Backend URL</Trans>
+          </Form.Label>
           <Form.Input
             type="text"
             value={newItemName}
@@ -78,34 +85,32 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
 
         <Dialog.Separator />
 
-        {fakeModels.length > 0 && <div
-          className={styles.fakeModelSection}
-        >
-          <h4 className={styles.fakeModelSectionTitle}>
-            <Trans>Or select a built-in model that runs in the browser:</Trans>
-          </h4>
-          {fakeModels.map((model) => (
-            <FakeModelCard
-              key={model.id}
-              model={model}
-              onSelect={() => {
-                onCreateItem({ kind: 'inmemory', model_id: model.id });
-                onOpenChange?.(false);
-              }}
-            />
-          ))}
-        </div>}
+        {fakeModels.length > 0 && (
+          <div className={styles.fakeModelSection}>
+            <h4 className={styles.fakeModelSectionTitle}>
+              <Trans>Or select a built-in model that runs in the browser:</Trans>
+            </h4>
+            {fakeModels.map((model) => (
+              <FakeModelCard
+                key={model.id}
+                model={model}
+                onSelect={() => {
+                  onCreateItem({ kind: 'inmemory', model_id: model.id });
+                  onOpenChange?.(false);
+                }}
+              />
+            ))}
+          </div>
+        )}
       </Dialog.Body>
 
       <Dialog.Footer>
         <Dialog.Close asChild>
-          <Dialog.Button><Trans>Cancel</Trans></Dialog.Button>
+          <Dialog.Button>
+            <Trans>Cancel</Trans>
+          </Dialog.Button>
         </Dialog.Close>
-        <Dialog.Button
-          variant="primary"
-          onClick={handleCreateItem}
-          disabled={!newItemName.trim()}
-        >
+        <Dialog.Button variant="primary" onClick={handleCreateItem} disabled={!newItemName.trim()}>
           <Trans>Create</Trans>
         </Dialog.Button>
       </Dialog.Footer>

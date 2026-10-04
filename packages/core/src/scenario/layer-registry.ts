@@ -29,12 +29,16 @@ import {
   EdgeStorage,
   GridEnvStorage,
 } from '../environment/storages';
-import type { AgentRenderState, AgentStorageSnapshot, BackgroundData, EdgeStorageSnapshot, GridEnvData, TrajectoryStorageSnapshot } from '../environment/storages';
+import type {
+  AgentRenderState,
+  AgentStorageSnapshot,
+  BackgroundData,
+  EdgeStorageSnapshot,
+  GridEnvData,
+  TrajectoryStorageSnapshot,
+} from '../environment/storages';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
-import {
-  getAssetIdFromIcon,
-  isBackgroundAssetReference,
-} from '../environment/types';
+import { getAssetIdFromIcon, isBackgroundAssetReference } from '../environment/types';
 import type { ScenarioEnvironmentState, ScenarioLayerSnapshot, ScenarioLayerState } from './types';
 import type { RenderLayerPlan } from './render-plan';
 
@@ -55,7 +59,10 @@ export interface LayerControllerContext {
   isReset: boolean;
   /** Report malformed canonical payloads to the hosting diagnostic channel. */
   reportWarning(message: string): void;
-  requireStorage<TStorage>(ctor: new (...args: any[]) => TStorage, expectedLayerType: string): TStorage;
+  requireStorage<TStorage>(
+    ctor: new (...args: any[]) => TStorage,
+    expectedLayerType: string,
+  ): TStorage;
 }
 
 type DeleteItems = ItemDeletePayload['items'];
@@ -72,9 +79,7 @@ export interface LayerDependencyDeleteChange {
   items: DeleteItems;
 }
 
-export type LayerDependencyChange =
-  | LayerDependencyUpsertChange
-  | LayerDependencyDeleteChange;
+export type LayerDependencyChange = LayerDependencyUpsertChange | LayerDependencyDeleteChange;
 
 // #region Controller types
 export interface ItemLayerController<
@@ -112,8 +117,14 @@ export interface LayerViewDefinition {
 
 // #region Renderer types
 /** The five role names built into the default registry. */
-export const BUILTIN_RENDERER_ROLES = ['background', 'grid', 'edge', 'trajectory', 'agent'] as const;
-export type BuiltinLayerRendererRole = typeof BUILTIN_RENDERER_ROLES[number];
+export const BUILTIN_RENDERER_ROLES = [
+  'background',
+  'grid',
+  'edge',
+  'trajectory',
+  'agent',
+] as const;
+export type BuiltinLayerRendererRole = (typeof BUILTIN_RENDERER_ROLES)[number];
 
 export interface SnapshotAgentLayerData {
   coordOffset: GridCoordOffset;
@@ -166,7 +177,11 @@ export interface CreatedLayerEntry {
   key: string;
   role: string;
   layerId: string;
-  layer: { destroy(): void; setZIndex?(z: number): void; setSceneBounds?(bounds: LayerSceneBounds): void };
+  layer: {
+    destroy(): void;
+    setZIndex?(z: number): void;
+    setSceneBounds?(bounds: LayerSceneBounds): void;
+  };
   storage?: AgentStorage;
 }
 
@@ -199,7 +214,9 @@ export interface LayerRendererDefinition {
   getBackgroundSource?(metadata: Record<string, unknown>): unknown;
   getSnapshotGridData?(layer: ScenarioLayerSnapshot): GridEnvData | undefined;
   getSnapshotAgentLayer?(layer: ScenarioLayerSnapshot): SnapshotAgentLayerData | undefined;
-  getSnapshotTrajectoryLayer?(layer: ScenarioLayerSnapshot): SnapshotTrajectoryLayerData | undefined;
+  getSnapshotTrajectoryLayer?(
+    layer: ScenarioLayerSnapshot,
+  ): SnapshotTrajectoryLayerData | undefined;
   getSnapshotEdges?(layer: ScenarioLayerSnapshot): GraphEdge[];
   getSnapshotBackground?(layer: ScenarioLayerSnapshot): BackgroundData | null | undefined;
 
@@ -207,10 +224,7 @@ export interface LayerRendererDefinition {
    * Factory method to create a visual layer from a RenderLayerPlan.
    * When absent, layer creation falls back to host-specific handling.
    */
-  createLayer?(
-    plan: RenderLayerPlan,
-    context: LayerCreateContext,
-  ): CreatedLayerEntry | null;
+  createLayer?(plan: RenderLayerPlan, context: LayerCreateContext): CreatedLayerEntry | null;
 
   /** Declares inter-role dependencies for topological plan ordering. */
   dependencies?: LayerDependencyRule[];
@@ -259,25 +273,34 @@ export class LayerRegistryClass {
     return [...this.defs.values()];
   }
 
-  validateMetadata<T = unknown>(layerType: string, data: Record<string, unknown>): LayerValidationResult<T> {
+  validateMetadata<T = unknown>(
+    layerType: string,
+    data: Record<string, unknown>,
+  ): LayerValidationResult<T> {
     const schema = this.defs.get(layerType)?.metadataSchema;
     if (!schema) return { success: true, data: data as T };
     const result = schema.safeParse(data);
-    return result.success ? { success: true, data: result.data as T } : { success: false, error: result.error };
+    return result.success
+      ? { success: true, data: result.data as T }
+      : { success: false, error: result.error };
   }
 
   validateItem<T = unknown>(layerType: string, item: unknown): LayerValidationResult<T> {
     const schema = this.defs.get(layerType)?.itemSchema;
     if (!schema) return { success: true, data: item as T };
     const result = schema.safeParse(item);
-    return result.success ? { success: true, data: result.data as T } : { success: false, error: result.error };
+    return result.success
+      ? { success: true, data: result.data as T }
+      : { success: false, error: result.error };
   }
 
   validateItemDiff<T = unknown>(layerType: string, diff: unknown): LayerValidationResult<T> {
     const schema = this.defs.get(layerType)?.itemDiffSchema;
     if (!schema) return { success: true, data: diff as T };
     const result = schema.safeParse(diff);
-    return result.success ? { success: true, data: result.data as T } : { success: false, error: result.error };
+    return result.success
+      ? { success: true, data: result.data as T }
+      : { success: false, error: result.error };
   }
 
   /**
@@ -357,9 +380,16 @@ function getLayerPriorityEntries<TLayer extends LayerMetadataCarrier>(
       ...entry,
       priority: entry.definition ? getPriority(entry.definition) : undefined,
     }))
-    .filter((entry): entry is { layer: TLayer; definition: LayerTypeDefinition; priority: number; index: number } => (
-      entry.definition !== undefined && entry.priority !== undefined
-    ))
+    .filter(
+      (
+        entry,
+      ): entry is {
+        layer: TLayer;
+        definition: LayerTypeDefinition;
+        priority: number;
+        index: number;
+      } => entry.definition !== undefined && entry.priority !== undefined,
+    )
     .sort((left, right) => left.priority - right.priority || left.index - right.index);
 }
 
@@ -420,7 +450,10 @@ function isPrimitiveDeleteItems(items: DeleteItems): items is AgentId[] {
   return items.length > 0 && (typeof items[0] === 'string' || typeof items[0] === 'number');
 }
 
-function getAgentIds(items: DeleteItems, reportWarning: (message: string) => void): AgentId[] | null {
+function getAgentIds(
+  items: DeleteItems,
+  reportWarning: (message: string) => void,
+): AgentId[] | null {
   if (items.length === 0) {
     return [];
   }
@@ -450,7 +483,10 @@ function getAgentIds(items: DeleteItems, reportWarning: (message: string) => voi
   return ids;
 }
 
-function getEdgePairs(items: DeleteItems, reportWarning: (message: string) => void): Array<{ source: AgentId; target: AgentId }> | null {
+function getEdgePairs(
+  items: DeleteItems,
+  reportWarning: (message: string) => void,
+): Array<{ source: AgentId; target: AgentId }> | null {
   if (items.length === 0) {
     return [];
   }
@@ -476,31 +512,37 @@ type TrajectoryItemDiff = z.infer<typeof TrajectoryItemDiffSchema>;
 
 // #region Built-in renderer helpers
 function isAgentStorageSnapshot(value: unknown): value is AgentStorageSnapshot {
-  return typeof value === 'object' && value !== null && Array.isArray((value as { agents?: unknown[] }).agents);
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as { agents?: unknown[] }).agents)
+  );
 }
 
 function isEdgeStorageSnapshot(value: unknown): value is EdgeStorageSnapshot {
-  return typeof value === 'object' && value !== null && Array.isArray((value as { edges?: unknown[] }).edges);
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as { edges?: unknown[] }).edges)
+  );
 }
 
 function isTrajectoryStorageSnapshot(value: unknown): value is TrajectoryStorageSnapshot {
   return (
-    typeof value === 'object'
-    && value !== null
-    && Array.isArray((value as { configs?: unknown[] }).configs)
-    && Array.isArray((value as { trajectories?: unknown[] }).trajectories)
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as { configs?: unknown[] }).configs) &&
+    Array.isArray((value as { trajectories?: unknown[] }).trajectories)
   );
 }
 
 function isBackgroundData(value: unknown): value is BackgroundData {
   return (
-    value === null
-    || (
-      typeof value === 'object'
-      && value !== null
-      && 'kind' in value
-      && (value as { kind?: unknown }).kind !== undefined
-    )
+    value === null ||
+    (typeof value === 'object' &&
+      value !== null &&
+      'kind' in value &&
+      (value as { kind?: unknown }).kind !== undefined)
   );
 }
 
@@ -523,13 +565,18 @@ function getSnapshotAgentLayer(layer: ScenarioLayerSnapshot): SnapshotAgentLayer
   };
 }
 
-function getSnapshotTrajectoryLayer(layer: ScenarioLayerSnapshot): SnapshotTrajectoryLayerData | undefined {
+function getSnapshotTrajectoryLayer(
+  layer: ScenarioLayerSnapshot,
+): SnapshotTrajectoryLayerData | undefined {
   if (!isTrajectoryStorageSnapshot(layer.storageSnapshot)) {
     return undefined;
   }
 
   return {
-    agentLayerId: typeof layer.dependencyLayerIds?.agent === 'string' ? layer.dependencyLayerIds.agent : undefined,
+    agentLayerId:
+      typeof layer.dependencyLayerIds?.agent === 'string'
+        ? layer.dependencyLayerIds.agent
+        : undefined,
     coordOffset: getCoordOffset(layer.metadata),
     config: { ...layer.storageSnapshot.config },
     configs: new Map(layer.storageSnapshot.configs.map((config) => [config.id, { ...config }])),
@@ -543,7 +590,7 @@ function getSnapshotTrajectoryLayer(layer: ScenarioLayerSnapshot): SnapshotTraje
 function getSnapshotEdges(layer: ScenarioLayerSnapshot): GraphEdge[] {
   const metadata = (layer.metadata ?? {}) as Record<string, unknown>;
   const edgesFromStorage = isEdgeStorageSnapshot(layer.storageSnapshot)
-    ? layer.storageSnapshot.edges.map((edge) => ({ ...edge })) as GraphEdge[]
+    ? (layer.storageSnapshot.edges.map((edge) => ({ ...edge })) as GraphEdge[])
     : [];
   const edgesFromMetadata = Array.isArray((metadata as { edges?: unknown[] }).edges)
     ? (metadata as { edges: GraphEdge[] }).edges.map((edge) => ({ ...edge }))
@@ -640,15 +687,19 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
   applyMetadata: (context) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     storage.setConfig({
-      length: typeof context.layer.metadata.length === 'number' ? context.layer.metadata.length : undefined,
-      width: typeof context.layer.metadata.width === 'number' ? context.layer.metadata.width : undefined,
-      color: typeof context.layer.metadata.color === 'string' ? context.layer.metadata.color : undefined,
+      length:
+        typeof context.layer.metadata.length === 'number'
+          ? context.layer.metadata.length
+          : undefined,
+      width:
+        typeof context.layer.metadata.width === 'number' ? context.layer.metadata.width : undefined,
+      color:
+        typeof context.layer.metadata.color === 'string' ? context.layer.metadata.color : undefined,
     });
 
     const agentLayerId = context.layer.dependencyLayerIds.agent;
-    const sourceLayer = typeof agentLayerId === 'string'
-      ? context.environment.layers.get(agentLayerId)
-      : undefined;
+    const sourceLayer =
+      typeof agentLayerId === 'string' ? context.environment.layers.get(agentLayerId) : undefined;
     if (!(sourceLayer?.storage instanceof AgentStorage)) {
       return;
     }
@@ -713,7 +764,10 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
       }
       return;
     }
-    if ((change.kind !== 'create' && change.kind !== 'update') || !(change.sourceLayer.storage instanceof AgentStorage)) {
+    if (
+      (change.kind !== 'create' && change.kind !== 'update') ||
+      !(change.sourceLayer.storage instanceof AgentStorage)
+    ) {
       return;
     }
 
@@ -749,13 +803,15 @@ const backgroundLayerController: ItemLayerController = {
     const storage = context.requireStorage(BackgroundStorage, 'background');
     const interpolation = getInterpolation(metadataInterpolation);
     if (
-      typeof background === 'string'
-      || background instanceof Uint8Array
-      || background === undefined
-      || background === null
+      typeof background === 'string' ||
+      background instanceof Uint8Array ||
+      background === undefined ||
+      background === null
     ) {
       void storage.setBackground(background ?? undefined, interpolation).catch((error: unknown) => {
-        context.reportWarning(`Failed to load background: ${error instanceof Error ? error.message : String(error)}`);
+        context.reportWarning(
+          `Failed to load background: ${error instanceof Error ? error.message : String(error)}`,
+        );
       });
       return;
     }
@@ -771,10 +827,9 @@ const backgroundLayerController: ItemLayerController = {
     const interpolation = getInterpolation(
       background.interpolation ?? context.layer.metadata.interpolation,
     );
-    context.requireStorage(BackgroundStorage, 'background').setBackgroundUrl(
-      context.assets.getUrl(assetId),
-      interpolation,
-    );
+    context
+      .requireStorage(BackgroundStorage, 'background')
+      .setBackgroundUrl(context.assets.getUrl(assetId), interpolation);
   },
   dispose: (context) => {
     context.requireStorage(BackgroundStorage, 'background').destroy();
@@ -783,7 +838,13 @@ const backgroundLayerController: ItemLayerController = {
 // #endregion
 
 // #region Built-in createLayer factories
-import { AgentLayer, BackgroundLayer, EdgeLayer, GridLayer, TrajectoryLayer } from '../environment/layers';
+import {
+  AgentLayer,
+  BackgroundLayer,
+  EdgeLayer,
+  GridLayer,
+  TrajectoryLayer,
+} from '../environment/layers';
 import type {
   AgentLayerPlan,
   BackgroundLayerPlan,
@@ -880,9 +941,10 @@ function createAgentLayerFromPlan(
     coordOffset: plan.coordOffset,
     sceneBounds: plan.sceneBounds,
     resolveAssetUrl: context.resolveAssetUrl as ((assetId: string) => string | null) | undefined,
-    highlightedAgentId: context.highlightedAgent?.layerId === plan.layerId
-      ? context.highlightedAgent.agentId
-      : undefined,
+    highlightedAgentId:
+      context.highlightedAgent?.layerId === plan.layerId
+        ? context.highlightedAgent.agentId
+        : undefined,
     onAgentClick: context.onAgentClick,
     onAgentDoubleClick: context.onAgentDoubleClick,
   });
@@ -925,7 +987,7 @@ registerLayerType({
   renderer: {
     role: 'agent',
     renderOrderPriority: 4,
-    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getZIndex: (metadata) => (typeof metadata.z_index === 'number' ? metadata.z_index : undefined),
     getCoordOffset,
     getUsesGraphInteraction,
     getOriginMode,
@@ -963,7 +1025,7 @@ registerLayerType({
   renderer: {
     role: 'edge',
     renderOrderPriority: 2,
-    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getZIndex: (metadata) => (typeof metadata.z_index === 'number' ? metadata.z_index : undefined),
     getGraphConfig: (metadata) => metadata as GraphEnvConfig,
     getSnapshotEdges,
     getFitPadding: () => 0.05,
@@ -993,7 +1055,7 @@ registerLayerType({
   renderer: {
     role: 'trajectory',
     renderOrderPriority: 3,
-    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getZIndex: (metadata) => (typeof metadata.z_index === 'number' ? metadata.z_index : undefined),
     getCoordOffset,
     getSnapshotTrajectoryLayer,
     createLayer: (plan, _context) => {
@@ -1012,9 +1074,13 @@ registerLayerType({
   fromSnapshot: (layer) => {
     const storage = new GridEnvStorage();
     const merged: Record<string, unknown> = {
-      ...(typeof layer.metadata === 'object' && layer.metadata !== null ? layer.metadata as Record<string, unknown> : {}),
-      ...(typeof layer.storageSnapshot === 'object' && layer.storageSnapshot !== null && !Array.isArray(layer.storageSnapshot)
-        ? layer.storageSnapshot as Record<string, unknown>
+      ...(typeof layer.metadata === 'object' && layer.metadata !== null
+        ? (layer.metadata as Record<string, unknown>)
+        : {}),
+      ...(typeof layer.storageSnapshot === 'object' &&
+      layer.storageSnapshot !== null &&
+      !Array.isArray(layer.storageSnapshot)
+        ? (layer.storageSnapshot as Record<string, unknown>)
         : {}),
     };
     storage.setData(structuredClone(merged));
@@ -1029,7 +1095,7 @@ registerLayerType({
   renderer: {
     role: 'grid',
     renderOrderPriority: 1,
-    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getZIndex: (metadata) => (typeof metadata.z_index === 'number' ? metadata.z_index : undefined),
     getSnapshotGridData,
     createLayer: (plan, _context) => {
       if (plan.role !== 'grid') return null;
@@ -1045,14 +1111,16 @@ registerLayerType({
   storageFactory: (_metadata) => new BackgroundStorage(),
   fromSnapshot: (layer) => {
     const storage = new BackgroundStorage();
-    storage.setData(isBackgroundData(layer.storageSnapshot) ? structuredClone(layer.storageSnapshot) : null);
+    storage.setData(
+      isBackgroundData(layer.storageSnapshot) ? structuredClone(layer.storageSnapshot) : null,
+    );
     return storage;
   },
   controller: backgroundLayerController,
   renderer: {
     role: 'background',
     renderOrderPriority: 0,
-    getZIndex: (metadata) => typeof metadata.z_index === 'number' ? metadata.z_index : undefined,
+    getZIndex: (metadata) => (typeof metadata.z_index === 'number' ? metadata.z_index : undefined),
     getBackgroundSource,
     getSnapshotBackground,
     createLayer: (plan, context) => {

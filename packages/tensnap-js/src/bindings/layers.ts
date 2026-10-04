@@ -8,7 +8,11 @@ import type {
 } from './types';
 import { cloneItems } from './utils';
 import { agentLayerOptions, mapAgentLayerOptions, matrixAgentLayerOptions } from './agent-layers';
-import type { AgentLayerOptions, MapAgentLayerOptions, MatrixAgentLayerOptions } from './agent-layers';
+import type {
+  AgentLayerOptions,
+  MapAgentLayerOptions,
+  MatrixAgentLayerOptions,
+} from './agent-layers';
 
 export class EnvironmentBuilder<TConfig extends object, TModel> {
   constructor(
@@ -16,10 +20,7 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
     private readonly environment: EnvironmentBinding<TModel>,
   ) {}
 
-  layer<TItem extends object = ItemRecord>(
-    id: string,
-    options: LayerOptions<TModel, TItem>,
-  ): this {
+  layer<TItem extends object = ItemRecord>(id: string, options: LayerOptions<TModel, TItem>): this {
     this.environment.layers.push({ id, ...options });
     return this;
   }
@@ -41,7 +42,10 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
 
   gridLayer(
     id: string,
-    options: Omit<LayerOptions<TModel>, 'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'> = {},
+    options: Omit<
+      LayerOptions<TModel>,
+      'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'
+    > = {},
   ): this {
     return this.layer(id, { ...options, type: 'grid' });
   }
@@ -91,7 +95,10 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
 
   backgroundLayer(
     id: string,
-    options: Omit<LayerOptions<TModel>, 'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'> = {},
+    options: Omit<
+      LayerOptions<TModel>,
+      'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'
+    > = {},
   ): this {
     return this.layer(id, { ...options, type: 'background' });
   }

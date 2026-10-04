@@ -60,7 +60,9 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             type="number"
             min={1}
             value={view.width}
-            onChange={(e) => onChange('width', Math.max(1, parseFiniteNumberInput(e.target.value, view.width)))}
+            onChange={(e) =>
+              onChange('width', Math.max(1, parseFiniteNumberInput(e.target.value, view.width)))
+            }
           />
         </Form.Field>
 
@@ -70,32 +72,38 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
             type="number"
             min={1}
             value={view.height}
-            onChange={(e) => onChange('height', Math.max(1, parseFiniteNumberInput(e.target.value, view.height)))}
+            onChange={(e) =>
+              onChange('height', Math.max(1, parseFiniteNumberInput(e.target.value, view.height)))
+            }
           />
         </Form.Field>
       </Form.FieldGroup>
 
       <Form.FieldSet>
-        {view.type === 'container' && <Form.Label htmlFor="view-expanded" className={styles.checkboxLabel}>
-          <input
-            id="view-expanded"
-            type="checkbox"
-            checked={view.expanded}
-            onChange={(e) => onChange('expanded', e.target.checked)}
-            className={styles.checkboxInput}
-          />
-          <Trans>Expanded</Trans>
-        </Form.Label>}
-        {view.type !== 'container' && <Form.Label htmlFor="view-disabled" className={styles.checkboxLabel}>
-          <input
-            id="view-disabled"
-            type="checkbox"
-            checked={view.disabled || false}
-            onChange={(e) => onChange('disabled', e.target.checked)}
-            className={styles.checkboxInput}
-          />
-          <Trans>Disabled</Trans>
-        </Form.Label>}
+        {view.type === 'container' && (
+          <Form.Label htmlFor="view-expanded" className={styles.checkboxLabel}>
+            <input
+              id="view-expanded"
+              type="checkbox"
+              checked={view.expanded}
+              onChange={(e) => onChange('expanded', e.target.checked)}
+              className={styles.checkboxInput}
+            />
+            <Trans>Expanded</Trans>
+          </Form.Label>
+        )}
+        {view.type !== 'container' && (
+          <Form.Label htmlFor="view-disabled" className={styles.checkboxLabel}>
+            <input
+              id="view-disabled"
+              type="checkbox"
+              checked={view.disabled || false}
+              onChange={(e) => onChange('disabled', e.target.checked)}
+              className={styles.checkboxInput}
+            />
+            <Trans>Disabled</Trans>
+          </Form.Label>
+        )}
       </Form.FieldSet>
     </>
   );

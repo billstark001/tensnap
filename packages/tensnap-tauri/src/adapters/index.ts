@@ -1,6 +1,6 @@
 /**
  * Tauri Adapters
- * 
+ *
  * This module exports file system adapters and pickers for Tauri applications.
  */
 

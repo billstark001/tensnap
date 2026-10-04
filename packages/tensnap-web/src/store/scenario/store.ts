@@ -17,7 +17,12 @@ import {
 import type { DiagnosticEvent } from '@tensnap/core';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type { RendererSessionActionMetricsDetail } from '@tensnap/core/runtime';
-import { createSingleSnapshot, type RecordingOptions, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
+import {
+  createSingleSnapshot,
+  type RecordingOptions,
+  type Snapshot,
+  type SnapshotModelIdentity,
+} from '@tensnap/core/snapshot';
 import { ProtocolValueSchema } from '@tensnap/protocol';
 import type {
   Action,
@@ -70,32 +75,40 @@ const upsertEditableEnvironment = (snapshot: ScenarioSnapshot, draft: EditableEn
   snapshot.environments.push({
     id: nextId,
     type: draft.type,
-    layers: draft.type === '2d'
-      ? [{
-        id: `${nextId}-grid`,
-        layerType: 'grid',
-        metadata: { width: draft.width ?? 10, height: draft.height ?? 10 },
-        dependencyLayerIds: {},
-        storageSnapshot: {},
-      }, {
-        id: `${nextId}-agents`,
-        layerType: 'agent',
-        metadata: {},
-        dependencyLayerIds: {},
-        storageSnapshot: { agents: [], trajectories: [] },
-      }]
-      : [{
-        id: `${nextId}-agents`,
-        layerType: 'agent',
-        metadata: {},
-        dependencyLayerIds: {},
-        storageSnapshot: { agents: [], trajectories: [] },
-      }],
+    layers:
+      draft.type === '2d'
+        ? [
+            {
+              id: `${nextId}-grid`,
+              layerType: 'grid',
+              metadata: { width: draft.width ?? 10, height: draft.height ?? 10 },
+              dependencyLayerIds: {},
+              storageSnapshot: {},
+            },
+            {
+              id: `${nextId}-agents`,
+              layerType: 'agent',
+              metadata: {},
+              dependencyLayerIds: {},
+              storageSnapshot: { agents: [], trajectories: [] },
+            },
+          ]
+        : [
+            {
+              id: `${nextId}-agents`,
+              layerType: 'agent',
+              metadata: {},
+              dependencyLayerIds: {},
+              storageSnapshot: { agents: [], trajectories: [] },
+            },
+          ],
   });
 };
 
 const getEnvironmentMetadata = (env: ScenarioEnvironmentState) => {
-  const gridLayer = [...env.layers.values()].find((layer) => layer.storage instanceof GridEnvStorage);
+  const gridLayer = [...env.layers.values()].find(
+    (layer) => layer.storage instanceof GridEnvStorage,
+  );
   const gridData = gridLayer?.metadata as Record<string, unknown> | undefined;
   return {
     id: env.id,
@@ -124,10 +137,9 @@ const diagnosticBytes = (diagnostic: ProjectDiagnostic): number => {
   }
 };
 
-const diagnosticKey = (diagnostic: Omit<DiagnosticEvent, 'timestamp'>): string => (
-  diagnostic.dedupeKey
-    ?? `${diagnostic.severity}:${diagnostic.domain}:${diagnostic.source}:${diagnostic.code ?? ''}:${diagnostic.message}`
-);
+const diagnosticKey = (diagnostic: Omit<DiagnosticEvent, 'timestamp'>): string =>
+  diagnostic.dedupeKey ??
+  `${diagnostic.severity}:${diagnostic.domain}:${diagnostic.source}:${diagnostic.code ?? ''}:${diagnostic.message}`;
 
 type TimeCorrectionState = {
   minimumRuntimeTime: number;
@@ -170,16 +182,15 @@ const getCurrentTime = (scenario: Scenario, correction: TimeCorrectionState): nu
 
 const defaultMainView = createDefaultRootLayout();
 
-const isDefaultMainViewLayout = (view: ContainerView) => (
-  view.id === defaultMainView.id
-  && view.type === defaultMainView.type
-  && view.left === defaultMainView.left
-  && view.top === defaultMainView.top
-  && view.width === defaultMainView.width
-  && view.height === defaultMainView.height
-  && view.views.length === 0
-  && view.data?.title === defaultMainView.data.title
-);
+const isDefaultMainViewLayout = (view: ContainerView) =>
+  view.id === defaultMainView.id &&
+  view.type === defaultMainView.type &&
+  view.left === defaultMainView.left &&
+  view.top === defaultMainView.top &&
+  view.width === defaultMainView.width &&
+  view.height === defaultMainView.height &&
+  view.views.length === 0 &&
+  view.data?.title === defaultMainView.data.title;
 
 const hasMeaningfulMainViewContent = (view: AnyView): boolean => {
   if (view.type !== 'container') {
@@ -188,9 +199,8 @@ const hasMeaningfulMainViewContent = (view: AnyView): boolean => {
   return view.views.some((child) => hasMeaningfulMainViewContent(child));
 };
 
-const isMainViewAutoLayoutCandidate = (view: ContainerView): boolean => (
-  isDefaultMainViewLayout(view) || !hasMeaningfulMainViewContent(view)
-);
+const isMainViewAutoLayoutCandidate = (view: ContainerView): boolean =>
+  isDefaultMainViewLayout(view) || !hasMeaningfulMainViewContent(view);
 
 const matchesActiveStateSync = (activeRequestId: string | null, requestId?: string) => {
   if (!activeRequestId) return false;
@@ -255,15 +265,16 @@ const subscribeSession = (
   };
 
   const schedule = (updates: Partial<typeof pending>) => {
-    const hasUpdates = updates.timeChanged
-      || updates.runChanged
-      || updates.actionChanged
-      || updates.environmentChanged
-      || updates.parameterChanged
-      || updates.chartChanged
-      || updates.monitorChanged
-      || updates.assetChanged
-      || updates.logChanged;
+    const hasUpdates =
+      updates.timeChanged ||
+      updates.runChanged ||
+      updates.actionChanged ||
+      updates.environmentChanged ||
+      updates.parameterChanged ||
+      updates.chartChanged ||
+      updates.monitorChanged ||
+      updates.assetChanged ||
+      updates.logChanged;
     if (!hasUpdates) return;
     if (updates.timeChanged) pending.timeChanged = true;
     if (updates.runChanged) pending.runChanged = true;
@@ -313,7 +324,11 @@ const subscribeSession = (
           flags.timeChanged = true;
           break;
         case 'action_result':
-          syncTimeCorrectionFromAction(scenario, timeCorrection, message.payload as ActionResultPayload);
+          syncTimeCorrectionFromAction(
+            scenario,
+            timeCorrection,
+            message.payload as ActionResultPayload,
+          );
           flags.timeChanged = true;
           flags.runChanged = true;
           break;
@@ -390,15 +405,20 @@ const createSnapshot = (
   snapshot: ScenarioSnapshot,
   draft?: SnapshotDraft,
   modelIdentity?: SnapshotModelIdentity | null,
-): Snapshot => createSingleSnapshot(snapshot, {
-  id: draft?.id,
-  label: draft?.label,
-  timestamp: draft?.timestamp,
-  modelIdentity: draft?.modelIdentity ?? modelIdentity ?? undefined,
-  checkpoint: draft?.checkpoint,
-});
+): Snapshot =>
+  createSingleSnapshot(snapshot, {
+    id: draft?.id,
+    label: draft?.label,
+    timestamp: draft?.timestamp,
+    modelIdentity: draft?.modelIdentity ?? modelIdentity ?? undefined,
+    checkpoint: draft?.checkpoint,
+  });
 
-const appendSnapshot = (snapshots: Snapshot[], snapshot: Snapshot, maxSnapshots: number): Snapshot[] => {
+const appendSnapshot = (
+  snapshots: Snapshot[],
+  snapshot: Snapshot,
+  maxSnapshots: number,
+): Snapshot[] => {
   const next = [...snapshots, snapshot];
   if (maxSnapshots !== -1 && next.length > maxSnapshots) {
     next.splice(0, next.length - maxSnapshots);
@@ -533,52 +553,62 @@ export const createScenarioStore = (
 
       setConnected: (connected) => set({ connected }),
 
-      appendDiagnostic: (input) => set((state) => {
-        const timestamp = input.timestamp ?? Date.now();
-        const dedupeKey = diagnosticKey(input);
-        const last = state.diagnostics[state.diagnostics.length - 1];
-        if (last && last.dedupeKey === dedupeKey && timestamp - last.lastTimestamp <= 5_000) {
-          const diagnostics = [...state.diagnostics];
-          diagnostics[diagnostics.length - 1] = {
-            ...last,
-            count: last.count + 1,
+      appendDiagnostic: (input) =>
+        set((state) => {
+          const timestamp = input.timestamp ?? Date.now();
+          const dedupeKey = diagnosticKey(input);
+          const last = state.diagnostics[state.diagnostics.length - 1];
+          if (last && last.dedupeKey === dedupeKey && timestamp - last.lastTimestamp <= 5_000) {
+            const diagnostics = [...state.diagnostics];
+            diagnostics[diagnostics.length - 1] = {
+              ...last,
+              count: last.count + 1,
+              lastTimestamp: timestamp,
+            };
+            return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
+          }
+
+          const next: ProjectDiagnostic = {
+            ...input,
+            id: `diagnostic-${++diagnosticIdCounter}`,
+            timestamp,
             lastTimestamp: timestamp,
+            count: 1,
+            dedupeKey,
           };
+          const diagnostics = [...state.diagnostics, next];
+          let byteLength = diagnostics.reduce(
+            (total, diagnostic) => total + diagnosticBytes(diagnostic),
+            0,
+          );
+          while (diagnostics.length > MAX_DIAGNOSTICS || byteLength > MAX_DIAGNOSTIC_BYTES) {
+            const removed = diagnostics.shift();
+            if (!removed) break;
+            byteLength -= diagnosticBytes(removed);
+          }
           return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
-        }
+        }),
 
-        const next: ProjectDiagnostic = {
-          ...input,
-          id: `diagnostic-${++diagnosticIdCounter}`,
-          timestamp,
-          lastTimestamp: timestamp,
-          count: 1,
-          dedupeKey,
-        };
-        const diagnostics = [...state.diagnostics, next];
-        let byteLength = diagnostics.reduce((total, diagnostic) => total + diagnosticBytes(diagnostic), 0);
-        while (diagnostics.length > MAX_DIAGNOSTICS || byteLength > MAX_DIAGNOSTIC_BYTES) {
-          const removed = diagnostics.shift();
-          if (!removed) break;
-          byteLength -= diagnosticBytes(removed);
-        }
-        return { diagnostics, diagnosticRevision: state.diagnosticRevision + 1 };
-      }),
+      clearDiagnostics: () =>
+        set((state) => ({
+          diagnostics: [],
+          diagnosticRevision: state.diagnosticRevision + 1,
+        })),
 
-      clearDiagnostics: () => set((state) => ({
-        diagnostics: [],
-        diagnosticRevision: state.diagnosticRevision + 1,
-      })),
+      prepareStateSync: (requestId, options) =>
+        set({
+          stateSync: {
+            requestId,
+            phase: 'requested',
+            autoLayoutOnComplete:
+              options?.autoLayoutOnComplete ?? get().isMainViewAutoLayoutCandidate(),
+          },
+        }),
 
-      prepareStateSync: (requestId, options) => set({
-        stateSync: {
-          requestId,
-          phase: 'requested',
-          autoLayoutOnComplete: options?.autoLayoutOnComplete ?? get().isMainViewAutoLayoutCandidate(),
-        },
-      }),
-
-      handleStateSyncBoundary: (phase: 'begin' | 'end', payload: StateSyncBeginPayload | StateSyncEndPayload) => {
+      handleStateSyncBoundary: (
+        phase: 'begin' | 'end',
+        payload: StateSyncBeginPayload | StateSyncEndPayload,
+      ) => {
         const activeStateSync = get().stateSync;
         if (!matchesActiveStateSync(activeStateSync.requestId, payload.request_id)) {
           return;
@@ -596,7 +626,8 @@ export const createScenarioStore = (
           return;
         }
 
-        const shouldAutoLayout = activeStateSync.autoLayoutOnComplete && get().isMainViewAutoLayoutCandidate();
+        const shouldAutoLayout =
+          activeStateSync.autoLayoutOnComplete && get().isMainViewAutoLayoutCandidate();
         set({ stateSync: createIdleStateSyncStatus() });
         if (shouldAutoLayout) {
           get().updateMainViewLayout({ recordHistory: false });
@@ -652,8 +683,14 @@ export const createScenarioStore = (
           diagnostics: [],
           currentTime: getCurrentTime(scenario, timeCorrection),
           stateSync: createIdleStateSyncStatus(),
-          environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
-          parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
+          environmentUpdateTrigger: {
+            ...state.environmentUpdateTrigger,
+            value: state.environmentUpdateTrigger.value + 1,
+          },
+          parameterUpdateTrigger: {
+            ...state.parameterUpdateTrigger,
+            value: state.parameterUpdateTrigger.value + 1,
+          },
         }));
       },
 
@@ -675,24 +712,38 @@ export const createScenarioStore = (
           runRevision: state.runRevision + 1,
           assetRevision: state.assetRevision + 1,
           diagnostics: [],
-          environmentUpdateTrigger: { ...state.environmentUpdateTrigger, value: state.environmentUpdateTrigger.value + 1 },
-          parameterUpdateTrigger: { ...state.parameterUpdateTrigger, value: state.parameterUpdateTrigger.value + 1 },
+          environmentUpdateTrigger: {
+            ...state.environmentUpdateTrigger,
+            value: state.environmentUpdateTrigger.value + 1,
+          },
+          parameterUpdateTrigger: {
+            ...state.parameterUpdateTrigger,
+            value: state.parameterUpdateTrigger.value + 1,
+          },
         }));
         historyStore?.getState().clear();
       },
       setData: (payload, options) => {
         mutateSnapshot(scenario, (snapshot) => {
           if (payload.removedActionIds?.length) {
-            snapshot.actions = snapshot.actions.filter((action) => !payload.removedActionIds?.includes(action.id));
+            snapshot.actions = snapshot.actions.filter(
+              (action) => !payload.removedActionIds?.includes(action.id),
+            );
           }
           if (payload.removedParameterIds?.length) {
-            snapshot.parameters = snapshot.parameters.filter((parameter) => !payload.removedParameterIds?.includes(parameter.id));
+            snapshot.parameters = snapshot.parameters.filter(
+              (parameter) => !payload.removedParameterIds?.includes(parameter.id),
+            );
           }
           if (payload.removedEnvironmentIds?.length) {
-            snapshot.environments = snapshot.environments.filter((environment) => !payload.removedEnvironmentIds?.includes(environment.id));
+            snapshot.environments = snapshot.environments.filter(
+              (environment) => !payload.removedEnvironmentIds?.includes(environment.id),
+            );
           }
           if (payload.removedChartIds?.length) {
-            snapshot.charts = snapshot.charts.filter((chart) => !payload.removedChartIds?.includes(chart.id));
+            snapshot.charts = snapshot.charts.filter(
+              (chart) => !payload.removedChartIds?.includes(chart.id),
+            );
           }
 
           for (const parameter of payload.parameters ?? []) {
@@ -710,7 +761,9 @@ export const createScenarioStore = (
             const nextChart = {
               id: chart.id,
               label: chart.label,
-              metadataDict: Object.fromEntries((chart.data_list ?? []).map((item) => [item.id, item])),
+              metadataDict: Object.fromEntries(
+                (chart.data_list ?? []).map((item) => [item.id, item]),
+              ),
               data: index >= 0 ? snapshot.charts[index].data : [],
             };
             if (index >= 0) snapshot.charts[index] = nextChart;
@@ -815,7 +868,12 @@ export const createScenarioStore = (
         const layerDrafts = Array.isArray((props as any).layers) ? (props as any).layers : null;
         if (layerDrafts) {
           for (const layerDraft of layerDrafts) {
-            if (!layerDraft || typeof layerDraft.id !== 'string' || !layerDraft.metadata || typeof layerDraft.metadata !== 'object') {
+            if (
+              !layerDraft ||
+              typeof layerDraft.id !== 'string' ||
+              !layerDraft.metadata ||
+              typeof layerDraft.metadata !== 'object'
+            ) {
               continue;
             }
             const layer = environment.layers.get(layerDraft.id);
@@ -842,7 +900,11 @@ export const createScenarioStore = (
 
           for (const [key, value] of entries) {
             if (dimensionKeys.has(key)) {
-              if (layer.layerType === 'grid' || (typeof layer.metadata?.width === 'number' && typeof layer.metadata?.height === 'number')) {
+              if (
+                layer.layerType === 'grid' ||
+                (typeof layer.metadata?.width === 'number' &&
+                  typeof layer.metadata?.height === 'number')
+              ) {
                 data[key] = ProtocolValueSchema.parse(structuredClone(value));
               }
               continue;
@@ -897,7 +959,9 @@ export const createScenarioStore = (
         const nextMetadataDict = props.metadataDict;
         if (nextMetadataDict && typeof nextMetadataDict === 'object') {
           const currentMetaIds = new Set(Object.keys(chart.metadataDict));
-          const updatedMetadataDict = structuredClone(nextMetadataDict) as typeof chart.metadataDict;
+          const updatedMetadataDict = structuredClone(
+            nextMetadataDict,
+          ) as typeof chart.metadataDict;
 
           for (const metaId of currentMetaIds) {
             if (!(metaId in updatedMetadataDict)) {
@@ -920,7 +984,7 @@ export const createScenarioStore = (
 
       renameChartGroup: (id, newId) => {
         if (id === newId) return true;
-        if (!scenario.charts.renameGroup(id, newId, () => { })) return false;
+        if (!scenario.charts.renameGroup(id, newId, () => {})) return false;
         bumpScenarioState({ chartChanged: true });
         return true;
       },
@@ -948,15 +1012,22 @@ export const createScenarioStore = (
 
       captureSnapshot: async (draft) => {
         const info = session.simulatorInfo;
-        if (!Array.isArray(info?.capabilities) || !info.capabilities.includes('scene.restore.checkpoint')) {
+        if (
+          !Array.isArray(info?.capabilities) ||
+          !info.capabilities.includes('scene.restore.checkpoint')
+        ) {
           get().addSnapshot(draft);
           return;
         }
         const result = await session.captureScene();
         const modelIdentity = {
           model_id: result.model_id,
-          ...(result.state_schema_version === undefined ? {} : { state_schema_version: result.state_schema_version }),
-          ...(session.modelIdentity?.instance_id === undefined ? {} : { instance_id: session.modelIdentity.instance_id }),
+          ...(result.state_schema_version === undefined
+            ? {}
+            : { state_schema_version: result.state_schema_version }),
+          ...(session.modelIdentity?.instance_id === undefined
+            ? {}
+            : { instance_id: session.modelIdentity.instance_id }),
         };
         const snapshot = createSnapshot(scenario.dump(), {
           ...draft,
@@ -964,7 +1035,9 @@ export const createScenarioStore = (
           checkpoint: {
             ...structuredClone(result.checkpoint),
             model_id: result.model_id,
-            ...(result.state_schema_version === undefined ? {} : { state_schema_version: result.state_schema_version }),
+            ...(result.state_schema_version === undefined
+              ? {}
+              : { state_schema_version: result.state_schema_version }),
           },
         });
         const before = get().snapshots;
@@ -990,15 +1063,17 @@ export const createScenarioStore = (
 
       renameSnapshot: (id, label) => {
         const before = get().snapshots;
-        const after = before.map((snapshot) => snapshot.metadata.id === id
-          ? {
-            ...snapshot,
-            metadata: {
-              ...snapshot.metadata,
-              label: label.trim() || undefined,
-            },
-          }
-          : snapshot);
+        const after = before.map((snapshot) =>
+          snapshot.metadata.id === id
+            ? {
+                ...snapshot,
+                metadata: {
+                  ...snapshot.metadata,
+                  label: label.trim() || undefined,
+                },
+              }
+            : snapshot,
+        );
         set({ snapshots: after });
         recordSnapshotChange('Rename snapshot', before, after);
       },
@@ -1110,9 +1185,7 @@ export const createScenarioStore = (
   return useStore;
 };
 
-export const {
-  Provider: ScenarioStoreProvider,
-  useStore: useScenarioStore,
-} = createStoreContext<ScenarioStore>();
+export const { Provider: ScenarioStoreProvider, useStore: useScenarioStore } =
+  createStoreContext<ScenarioStore>();
 
 export * from './types';

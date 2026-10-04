@@ -8,7 +8,10 @@ export default defineConfig({
       { find: /^@tensnap\/core$/, replacement: path.resolve(__dirname, '../core/src/index.ts') },
       { find: /^@tensnap\/core\/(.*)$/, replacement: path.resolve(__dirname, '../core/src/$1') },
       { find: /^@tensnap\/web$/, replacement: path.resolve(__dirname, '../tensnap-web/index.ts') },
-      { find: /^@tensnap\/web\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
+      {
+        find: /^@tensnap\/web\/(.*)$/,
+        replacement: path.resolve(__dirname, '../tensnap-web/src/$1'),
+      },
     ],
   },
   test: {

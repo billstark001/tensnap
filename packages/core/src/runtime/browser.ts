@@ -7,9 +7,7 @@
  * hosts) should NOT import this entry; use `@tensnap/core/runtime` instead.
  */
 
-export {
-  BrowserRunRenderBarrier,
-} from './BrowserRunRenderBarrier';
+export { BrowserRunRenderBarrier } from './BrowserRunRenderBarrier';
 
 export type {
   BrowserRunRenderOptions,

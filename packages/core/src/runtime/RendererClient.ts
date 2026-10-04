@@ -1,7 +1,14 @@
 import type {
-  ActionResultPayload, ErrorPayload, SimulatorToRendererMessage, StateSyncEndPayload,
+  ActionResultPayload,
+  ErrorPayload,
+  SimulatorToRendererMessage,
+  StateSyncEndPayload,
 } from '@tensnap/protocol';
-import { connectWithHandshake, type ISimulatorTransport, type TransportHandshake } from '../transport';
+import {
+  connectWithHandshake,
+  type ISimulatorTransport,
+  type TransportHandshake,
+} from '../transport';
 import { RendererSession, type RendererSessionOptions } from './RendererSession';
 
 export interface RendererClientOptions extends RendererSessionOptions {
@@ -22,17 +29,23 @@ export class RendererClient {
   /** The authoritative projected state and protocol transaction manager. */
   readonly renderer: RendererSession;
   private activeTransport: ISimulatorTransport | null = null;
-  private pendingReplacement: { transport: ISimulatorTransport; controller: AbortController; destroyed: boolean } | null = null;
+  private pendingReplacement: {
+    transport: ISimulatorTransport;
+    controller: AbortController;
+    destroyed: boolean;
+  } | null = null;
   private readonly pendingAborters = new Set<() => void>();
   private connectionGeneration = 0;
 
   /** Without a host render callback, requests complete their render barrier immediately. */
   constructor(options: RendererClientOptions = {}) {
     const { session, ...sessionOptions } = options;
-    this.renderer = session ?? new RendererSession({
-      ...sessionOptions,
-      run: { renderBarrier: { wait: () => {} }, ...sessionOptions.run },
-    });
+    this.renderer =
+      session ??
+      new RendererSession({
+        ...sessionOptions,
+        run: { renderBarrier: { wait: () => {} }, ...sessionOptions.run },
+      });
   }
 
   /** Destroy any previous transport, await its handshake, then optionally start an initial sync without awaiting its end. */
@@ -50,8 +63,12 @@ export class RendererClient {
   }
 
   /** Keep the active transport until a candidate passes its handshake, then swap and replay in wire order. */
-  async replaceTransport(transport: ISimulatorTransport, options: ReplaceTransportOptions = {}): Promise<void> {
-    if (transport === this.activeTransport) throw new Error('The replacement transport is already active.');
+  async replaceTransport(
+    transport: ISimulatorTransport,
+    options: ReplaceTransportOptions = {},
+  ): Promise<void> {
+    if (transport === this.activeTransport)
+      throw new Error('The replacement transport is already active.');
     const generation = ++this.connectionGeneration;
     this.cancelPendingReplacement();
     const controller = new AbortController();
@@ -69,7 +86,8 @@ export class RendererClient {
     try {
       const handshake = await connectWithHandshake(transport, controller.signal);
       assertCurrent();
-      if (this.pendingReplacement !== pending) throw new Error('The replacement connection was cancelled.');
+      if (this.pendingReplacement !== pending)
+        throw new Error('The replacement connection was cancelled.');
       this.pendingReplacement = null;
       let bufferedMessages: SimulatorToRendererMessage[];
       try {
@@ -93,7 +111,8 @@ export class RendererClient {
       if (options.requestInitialSync ?? true) this.renderer.requestStateSync();
     } catch (error) {
       if (this.pendingReplacement === pending) this.pendingReplacement = null;
-      if (this.activeTransport === transport && generation === this.connectionGeneration) this.releaseActiveTransport();
+      if (this.activeTransport === transport && generation === this.connectionGeneration)
+        this.releaseActiveTransport();
       else if (!pending.destroyed && !installed) transport.destroy();
       throw error;
     } finally {
@@ -138,7 +157,11 @@ export class RendererClient {
     const { messages } = await this.collectRequest(
       () => this.renderer.requestStateSync(requestId),
       (message, id) => {
-        if (message.type === 'state_sync_end' && (message.payload as StateSyncEndPayload).request_id === id) return { value: undefined };
+        if (
+          message.type === 'state_sync_end' &&
+          (message.payload as StateSyncEndPayload).request_id === id
+        )
+          return { value: undefined };
         if (message.type === 'error' && (message.payload as ErrorPayload).request_id === id) {
           const payload = message.payload as ErrorPayload;
           return { error: new Error(`${payload.code}: ${payload.message}`) };
@@ -158,7 +181,10 @@ export class RendererClient {
   }
 
   /** Send one action and wait for its result and the host's render barrier. */
-  async invokeAction(id: string, timeoutMs = 10_000): Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }> {
+  async invokeAction(
+    id: string,
+    timeoutMs = 10_000,
+  ): Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }> {
     const renderedIds = new Set<string>();
     let wakeRendered: (() => void) | null = null;
     const onRendered = (event: Event): void => {
@@ -169,10 +195,12 @@ export class RendererClient {
     try {
       const completed = await this.collectRequest(
         () => this.requestAction(id),
-        (message, requestId) => message.type === 'action_result' &&
+        (message, requestId) =>
+          message.type === 'action_result' &&
           (message.payload as ActionResultPayload).request_id === requestId &&
           (message.payload as ActionResultPayload).id === id
-          ? { value: message.payload as ActionResultPayload } : null,
+            ? { value: message.payload as ActionResultPayload }
+            : null,
         timeoutMs,
         `action ${id}`,
       );
@@ -219,14 +247,20 @@ export class RendererClient {
 
   private async collectRequest<T>(
     start: () => string,
-    match: (message: SimulatorToRendererMessage, requestId: string) => { value: T } | { error: Error } | null,
+    match: (
+      message: SimulatorToRendererMessage,
+      requestId: string,
+    ) => { value: T } | { error: Error } | null,
     timeoutMs: number,
     label: string,
   ): Promise<{ value: T; messages: SimulatorToRendererMessage[] }> {
     const messages: SimulatorToRendererMessage[] = [];
     const protocolErrors: ErrorPayload[] = [];
     return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => { cleanup(); reject(new Error(`Timed out waiting for ${label}.`)); }, timeoutMs);
+      const timeoutId = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timed out waiting for ${label}.`));
+      }, timeoutMs);
       let settled = false;
       // In-memory transports may emit the entire response before start() returns its request ID.
       let requestId: string | null = null;
@@ -239,11 +273,15 @@ export class RendererClient {
         else resolve({ value: decision.value, messages });
       };
       const onMessage = (event: Event): void => {
-        const message = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail.message;
+        const message = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail
+          .message;
         messages.push(message);
         decide(message);
       };
-      const onDisconnect = (): void => { cleanup(); reject(new Error(`Disconnected before ${label} completed.`)); };
+      const onDisconnect = (): void => {
+        cleanup();
+        reject(new Error(`Disconnected before ${label} completed.`));
+      };
       const onError = (event: Event): void => {
         cleanup();
         const detail = (event as CustomEvent<unknown>).detail;

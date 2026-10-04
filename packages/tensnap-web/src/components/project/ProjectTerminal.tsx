@@ -25,9 +25,13 @@ export function ProjectTerminal() {
   const [follow, setFollow] = useState(true);
   const terminalRef = useRef<HTMLDivElement>(null);
 
-  const visibleDiagnostics = useMemo(() => (
-    filter === 'all' ? diagnostics : diagnostics.filter((diagnostic) => diagnostic.severity === filter)
-  ), [diagnostics, filter]);
+  const visibleDiagnostics = useMemo(
+    () =>
+      filter === 'all'
+        ? diagnostics
+        : diagnostics.filter((diagnostic) => diagnostic.severity === filter),
+    [diagnostics, filter],
+  );
 
   useEffect(() => {
     if (follow && terminalRef.current) {
@@ -39,10 +43,15 @@ export function ProjectTerminal() {
     <section className={styles.projectContainer} aria-label="Diagnostics">
       <header className={styles.terminalToolbar}>
         <strong>Diagnostics</strong>
-        <span className={styles.terminalCount}>{visibleDiagnostics.length}/{diagnostics.length}</span>
+        <span className={styles.terminalCount}>
+          {visibleDiagnostics.length}/{diagnostics.length}
+        </span>
         <label className={styles.terminalControl}>
           Level
-          <select value={filter} onChange={(event) => setFilter(event.target.value as DiagnosticFilter)}>
+          <select
+            value={filter}
+            onChange={(event) => setFilter(event.target.value as DiagnosticFilter)}
+          >
             <option value="all">All</option>
             <option value="critical">Critical</option>
             <option value="error">Error</option>
@@ -52,10 +61,19 @@ export function ProjectTerminal() {
           </select>
         </label>
         <label className={styles.terminalControl}>
-          <input type="checkbox" checked={follow} onChange={(event) => setFollow(event.target.checked)} />
+          <input
+            type="checkbox"
+            checked={follow}
+            onChange={(event) => setFollow(event.target.checked)}
+          />
           Follow
         </label>
-        <button type="button" className={styles.clearButton} onClick={clearDiagnostics} disabled={diagnostics.length === 0}>
+        <button
+          type="button"
+          className={styles.clearButton}
+          onClick={clearDiagnostics}
+          disabled={diagnostics.length === 0}
+        >
           Clear
         </button>
       </header>
@@ -63,9 +81,11 @@ export function ProjectTerminal() {
         {visibleDiagnostics.map((diagnostic) => (
           <article key={diagnostic.id} className={getDiagnosticClassName(diagnostic.severity)}>
             <div>
-              [{new Date(diagnostic.timestamp).toLocaleTimeString()} / {diagnostic.severity.toUpperCase()}]
-              [{diagnostic.source}{diagnostic.code ? `/${diagnostic.code}` : ''}{diagnostic.target ? `/${diagnostic.target}` : ''}]
-              {' '}{diagnostic.message}{diagnostic.count > 1 ? ` ×${diagnostic.count}` : ''}
+              [{new Date(diagnostic.timestamp).toLocaleTimeString()} /{' '}
+              {diagnostic.severity.toUpperCase()}] [{diagnostic.source}
+              {diagnostic.code ? `/${diagnostic.code}` : ''}
+              {diagnostic.target ? `/${diagnostic.target}` : ''}] {diagnostic.message}
+              {diagnostic.count > 1 ? ` ×${diagnostic.count}` : ''}
             </div>
             {diagnostic.details === undefined ? null : (
               <details className={styles.terminalDetails}>
@@ -75,7 +95,9 @@ export function ProjectTerminal() {
             )}
           </article>
         ))}
-        {visibleDiagnostics.length === 0 ? <p className={styles.emptyTerminal}>No diagnostics.</p> : null}
+        {visibleDiagnostics.length === 0 ? (
+          <p className={styles.emptyTerminal}>No diagnostics.</p>
+        ) : null}
       </div>
     </section>
   );

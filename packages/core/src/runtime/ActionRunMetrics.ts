@@ -1,4 +1,8 @@
-import type { ActionInvokePayload, ActionResultPayload, TickTimingBreakdown } from '@tensnap/protocol';
+import type {
+  ActionInvokePayload,
+  ActionResultPayload,
+  TickTimingBreakdown,
+} from '@tensnap/protocol';
 
 const METRIC_WINDOW_MS = 1_000;
 const METRIC_EMIT_INTERVAL_MS = 250;
@@ -92,9 +96,10 @@ export class ActionRunMetrics {
 
     const firstCompletedAt = this.runtimeSamples[this.runtimeHead].completedAt;
     const lastCompletedAt = this.runtimeSamples[this.runtimeSamples.length - 1].completedAt;
-    const tps = runtimeSampleCount > 1
-      ? ((runtimeSampleCount - 1) * 1_000) / Math.max(1, lastCompletedAt - firstCompletedAt)
-      : 1_000 / Math.max(1, mspt);
+    const tps =
+      runtimeSampleCount > 1
+        ? ((runtimeSampleCount - 1) * 1_000) / Math.max(1, lastCompletedAt - firstCompletedAt)
+        : 1_000 / Math.max(1, mspt);
 
     return {
       runtime: { tps, mspt },

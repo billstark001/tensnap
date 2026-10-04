@@ -34,11 +34,13 @@ export function chartGroupBinding<TConfig extends object, TModel>(
         id,
         label: options.label ?? titleFromId(id),
         color: options.color,
-        data_list: options.series.map((series) => withDefined({
-          id: series.id,
-          label: series.label ?? titleFromId(series.id),
-          color: series.color,
-        })),
+        data_list: options.series.map((series) =>
+          withDefined({
+            id: series.id,
+            label: series.label ?? titleFromId(series.id),
+            color: series.color,
+          }),
+        ),
       }) as ChartGroupMetadata;
     },
     values(model, config) {

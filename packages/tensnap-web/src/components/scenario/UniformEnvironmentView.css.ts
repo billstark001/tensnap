@@ -13,7 +13,7 @@ export const container = style({
   backgroundColor: vars.color.cardBackground,
   borderRadius: '8px',
   border: `1px solid ${vars.color.cardBorder}`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkCardBackground,
@@ -29,7 +29,7 @@ export const header = style({
   marginBottom: '16px',
   padding: '8px 0',
   borderBottom: `1px solid ${vars.color.inputBorder}`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderBottomColor: vars.color.darkInputBorder,
@@ -41,7 +41,7 @@ export const title = style({
   fontSize: '18px',
   fontWeight: '600',
   color: vars.color.textPrimary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextPrimary,
@@ -53,7 +53,7 @@ export const agentCount = style({
   fontSize: '14px',
   color: vars.color.textTertiary,
   fontWeight: '400',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextTertiary,
@@ -94,7 +94,7 @@ export const agentCard = style({
   ':active': {
     transform: 'translateY(0)',
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkInputBackground,
@@ -131,7 +131,7 @@ export const agentId = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextPrimary,
@@ -145,7 +145,7 @@ export const agentMeta = style({
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextTertiary,
@@ -166,7 +166,7 @@ export const searchBox = style({
     borderColor: vars.color.primary,
     boxShadow: `0 0 0 1px ${vars.color.primary}`,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkInputBackground,
@@ -188,7 +188,7 @@ export const clearButton = style({
   ':hover': {
     backgroundColor: vars.color.inputHoverBackground,
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkInputBackground,

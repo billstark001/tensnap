@@ -28,8 +28,12 @@ describe('BaseLayer canvas scene coverage', () => {
     const layer = new CoverageProbeLayer();
     layer.attachToHost(createHost(8, 4));
 
-    expect(layer.getCoverage({ x: 0, y: 0, width: 4, height: 4 }, 'contain'))
-      .toEqual({ x: -2, y: 0, width: 8, height: 4 });
+    expect(layer.getCoverage({ x: 0, y: 0, width: 4, height: 4 }, 'contain')).toEqual({
+      x: -2,
+      y: 0,
+      width: 8,
+      height: 4,
+    });
 
     layer.destroy();
   });
@@ -38,8 +42,12 @@ describe('BaseLayer canvas scene coverage', () => {
     const layer = new CoverageProbeLayer();
     layer.attachToHost(createHost(8, 4));
 
-    expect(layer.getCoverage({ x: 1, y: 2, width: 4, height: 4 }, 'stretch'))
-      .toEqual({ x: 1, y: 2, width: 4, height: 4 });
+    expect(layer.getCoverage({ x: 1, y: 2, width: 4, height: 4 }, 'stretch')).toEqual({
+      x: 1,
+      y: 2,
+      width: 4,
+      height: 4,
+    });
 
     layer.destroy();
   });

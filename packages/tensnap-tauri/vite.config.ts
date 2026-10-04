@@ -28,14 +28,12 @@ export default defineConfig({
     strictPort: true,
     watch: {
       // Tell vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      ignored: ['**/src-tauri/**'],
     },
   },
 
   resolve: {
-    alias: [
-      { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') },
-    ],
+    alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') }],
   },
 
   build: {
@@ -54,5 +52,4 @@ export default defineConfig({
       },
     },
   },
-
 });

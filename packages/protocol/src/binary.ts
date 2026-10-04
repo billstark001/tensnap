@@ -38,10 +38,7 @@ export function encodeBytesAsBase64(bytes: Uint8Array): string {
 }
 
 /** Encode bytes as the JSON wire representation for a binary protocol field. */
-export function encodeBytesAsDataUrl(
-  bytes: Uint8Array,
-  mime = 'application/octet-stream',
-): string {
+export function encodeBytesAsDataUrl(bytes: Uint8Array, mime = 'application/octet-stream'): string {
   return `data:${mime};base64,${encodeBytesAsBase64(bytes)}`;
 }
 

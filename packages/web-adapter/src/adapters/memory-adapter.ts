@@ -6,7 +6,7 @@ import {
   type DirectoryEntry,
   type FileSystemStats,
   type FileSystemError as FileSystemErrorType,
-  FileSystemAdapter
+  FileSystemAdapter,
 } from '@tensnap/web-common/types/file';
 
 class FileSystemError extends Error {
@@ -18,7 +18,7 @@ class FileSystemError extends Error {
     message: string,
     code: FileSystemErrorType['code'],
     path?: string,
-    operation?: string
+    operation?: string,
   ) {
     super(message);
     this.name = 'FileSystemError';
@@ -68,7 +68,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       path: '/',
       parentPath: '',
       createdAt: new Date(),
-      modifiedAt: new Date()
+      modifiedAt: new Date(),
     };
 
     this.directories.set('/', rootDir);
@@ -85,7 +85,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async writeFile(
     path: string,
     content: ArrayBuffer | string,
-    metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>
+    metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
   ): Promise<FileContent> {
     if (!PathUtils.validatePath(path)) {
       throw new FileSystemError('Invalid file path', 'INVALID_OPERATION', path);
@@ -96,7 +96,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     const fileName = normalizedPath.split('/').pop() || '';
 
     // Ensure parent directory exists
-    if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
+    if (parentPath && parentPath !== '/' && !(await this.directoryExists(parentPath))) {
       await this.ensureDirectoryChain(parentPath);
     }
 
@@ -116,13 +116,13 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       createdAt: existingFile?.metadata.createdAt || now,
       modifiedAt: now,
       tags: metadata?.tags,
-      description: metadata?.description
+      description: metadata?.description,
     };
 
     const file: FileContent = {
       metadata: fileMetadata,
       content,
-      checksum
+      checksum,
     };
 
     this.files.set(normalizedPath, file);
@@ -161,12 +161,16 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       if (allowExist) {
         return this.directories.get(normalizedPath)!;
       }
-      throw new FileSystemError(`Directory already exists at ${normalizedPath}`, 'PATH_EXISTS', path);
+      throw new FileSystemError(
+        `Directory already exists at ${normalizedPath}`,
+        'PATH_EXISTS',
+        path,
+      );
     }
 
     // Ensure parent directory exists
     const parentPath = PathUtils.getParentPath(normalizedPath);
-    if (parentPath && parentPath !== '/' && !await this.directoryExists(parentPath)) {
+    if (parentPath && parentPath !== '/' && !(await this.directoryExists(parentPath))) {
       await this.ensureDirectoryChain(parentPath);
     }
 
@@ -178,7 +182,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       path: normalizedPath,
       parentPath,
       createdAt: now,
-      modifiedAt: now
+      modifiedAt: now,
     };
 
     this.directories.set(normalizedPath, directory);
@@ -222,16 +226,16 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     const normalizedPath = PathUtils.normalizePath(path);
 
     const files = Array.from(this.files.values())
-      .filter(file => file.metadata.parentPath === normalizedPath)
-      .map(file => file.metadata);
+      .filter((file) => file.metadata.parentPath === normalizedPath)
+      .map((file) => file.metadata);
 
     const directories = Array.from(this.directories.values())
-      .filter(dir => dir.parentPath === normalizedPath)
-      .filter(dir => dir.path !== '/'); // Exclude root
+      .filter((dir) => dir.parentPath === normalizedPath)
+      .filter((dir) => dir.path !== '/'); // Exclude root
 
     const entries: DirectoryEntry[] = [
-      ...directories.map(dir => ({ type: 'directory' as const, ...dir })),
-      ...files.map(file => ({ type: 'file' as const, ...file })),
+      ...directories.map((dir) => ({ type: 'directory' as const, ...dir })),
+      ...files.map((file) => ({ type: 'file' as const, ...file })),
     ];
 
     return entries;
@@ -248,9 +252,8 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
     const directories = Array.from(this.directories.values());
 
     const totalSize = files.reduce((sum, file) => {
-      const size = typeof file.content === 'string'
-        ? new Blob([file.content]).size
-        : file.content.byteLength;
+      const size =
+        typeof file.content === 'string' ? new Blob([file.content]).size : file.content.byteLength;
       return sum + size;
     }, 0);
 
@@ -259,8 +262,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       totalDirectories: directories.length - 1, // Exclude root
       totalSize,
       storageQuota: undefined, // Memory has no quota
-      storageUsed: totalSize
+      storageUsed: totalSize,
     };
   }
-
 }

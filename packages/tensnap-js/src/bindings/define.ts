@@ -1,9 +1,4 @@
-import type {
-  Action,
-  ChartGroupMetadata,
-  MonitorMetadata,
-  Parameter,
-} from '@tensnap/protocol';
+import type { Action, ChartGroupMetadata, MonitorMetadata, Parameter } from '@tensnap/protocol';
 import type {
   ScenarioDefinition,
   ScenarioEnvironmentDefinition,
@@ -22,9 +17,15 @@ export function defineEnvironment<TEnvironment extends ScenarioEnvironmentDefini
   const layers = environment.layers?.map((layer) => defineLayer(layer));
   return {
     ...environment,
-    layers: layers && orderLayers(environment.id, layers,
-      (layer) => layer.layerId, (layer) => layer.layerType,
-      (layer) => layer.dependencyLayerIds),
+    layers:
+      layers &&
+      orderLayers(
+        environment.id,
+        layers,
+        (layer) => layer.layerId,
+        (layer) => layer.layerType,
+        (layer) => layer.dependencyLayerIds,
+      ),
   };
 }
 

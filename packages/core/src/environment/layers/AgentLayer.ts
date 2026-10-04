@@ -49,7 +49,7 @@ const DEFAULT_AGENT_COLOR = '#69b3a2';
 const INSPECTION_HIGHLIGHT_COLOR = '#facc15';
 const INSPECTION_HIGHLIGHT_INNER_RADIUS = 0.82;
 const INSPECTION_HIGHLIGHT_Z_INDEX = 1_000;
-const NOOP = () => { };
+const NOOP = () => {};
 
 /**
  * Baseline graph-mode config.
@@ -132,10 +132,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   // #region Constructor
 
-  constructor(
-    agentStorage: AgentStorage,
-    config: AgentLayerConfig = {},
-  ) {
+  constructor(agentStorage: AgentStorage, config: AgentLayerConfig = {}) {
     super();
 
     this._cfg = {
@@ -164,7 +161,6 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     this.registerStorage(agentStorage, (data, delta) => this._onAgentData(data, delta));
     this._onAgentData(agentStorage.getData());
-
   }
 
   // #endregion
@@ -187,7 +183,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
         maxY: y + height,
       };
     } else {
-      this._cfg.sceneBounds = { ...bounds as SceneBounds };
+      this._cfg.sceneBounds = { ...(bounds as SceneBounds) };
     }
   }
 
@@ -198,8 +194,10 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   private _boundsFromAgents(): SceneBounds | null {
     if (!this._cachedAgents.size) return null;
 
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      maxX = -Infinity;
+    let minY = Infinity,
+      maxY = -Infinity;
 
     for (const { x = 0, y = 0, size } of this._cachedAgents.values()) {
       const h = resolveAgentSize(size) / 2;
@@ -282,7 +280,10 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   }
 
   /** Avoid entering Leafer's attribute setter when a projected item did not move. */
-  private _setGroupTransform(group: Group, coords: { x: number; y: number; rotation: number }): void {
+  private _setGroupTransform(
+    group: Group,
+    coords: { x: number; y: number; rotation: number },
+  ): void {
     if (group.x === coords.x && group.y === coords.y && group.rotation === coords.rotation) return;
     group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
   }
@@ -307,7 +308,16 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     this._bindEvents(shape, group, agent.id);
     this._agentsGroup.add(group);
-    this._agentShapes.set(agent.id, { group, shape, highlight, label, icon, assetUrl, size: coords.size, color });
+    this._agentShapes.set(agent.id, {
+      group,
+      shape,
+      highlight,
+      label,
+      icon,
+      assetUrl,
+      size: coords.size,
+      color,
+    });
   }
 
   /** Merged shape-appearance + position update (the two are always applied together). */
@@ -399,10 +409,10 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     const fill = assetUrl
       ? {
-        type: 'image',
-        mode: 'cover',
-        url: assetUrl,
-      }
+          type: 'image',
+          mode: 'cover',
+          url: assetUrl,
+        }
       : color;
 
     const Shape = SHAPE_CLASSES.square;

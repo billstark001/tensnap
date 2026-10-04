@@ -1,5 +1,14 @@
-import type { ISimulatorTransport, TransportConnectionState, TransportEventHandler, TransportEventMap } from '../transport';
-import { ProtocolValidationError, type ProtocolEncoding, type RendererToSimulatorMessage } from '@tensnap/protocol';
+import type {
+  ISimulatorTransport,
+  TransportConnectionState,
+  TransportEventHandler,
+  TransportEventMap,
+} from '../transport';
+import {
+  ProtocolValidationError,
+  type ProtocolEncoding,
+  type RendererToSimulatorMessage,
+} from '@tensnap/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RendererSession } from './RendererSession';
 import { compileRunCondition, createRunConditionScope } from './ScenarioConditionScope';
@@ -14,8 +23,14 @@ function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTranspor
     connect: async () => {},
     disconnect: () => {},
     destroy: () => {},
-    on: <K extends keyof TransportEventMap>(_type: K, _handler: TransportEventHandler<TransportEventMap[K]>) => {},
-    off: <K extends keyof TransportEventMap>(_type: K, _handler?: TransportEventHandler<TransportEventMap[K]>) => {},
+    on: <K extends keyof TransportEventMap>(
+      _type: K,
+      _handler: TransportEventHandler<TransportEventMap[K]>,
+    ) => {},
+    off: <K extends keyof TransportEventMap>(
+      _type: K,
+      _handler?: TransportEventHandler<TransportEventMap[K]>,
+    ) => {},
     send: (message) => sent.push(message),
   };
 }
@@ -44,8 +59,7 @@ describe('RunController', () => {
 
   it('rejects requests without an explicit run mode', () => {
     const session = new RendererSession();
-    expect(() => session.run.start({ actionId: 'step', maxSteps: 2 } as never))
-      .toThrow(/mode/);
+    expect(() => session.run.start({ actionId: 'step', maxSteps: 2 } as never)).toThrow(/mode/);
   });
 
   it('leaves an active run intact when a replacement request is invalid or premature', () => {
@@ -55,10 +69,12 @@ describe('RunController', () => {
     announce(session);
     const original = session.run.start({ mode: 'manual', actionId: 'step' });
 
-    expect(() => session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 0 }))
-      .toThrow(/positive integer/);
-    expect(() => session.run.start({ mode: 'manual', actionId: 'step' }))
-      .toThrow(/current action tick/);
+    expect(() => session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 0 })).toThrow(
+      /positive integer/,
+    );
+    expect(() => session.run.start({ mode: 'manual', actionId: 'step' })).toThrow(
+      /current action tick/,
+    );
     expect(session.run.status).toMatchObject({ id: original.id, state: 'running' });
     expect(session.run.status?.stopReason).toBeUndefined();
     expect(sent).toHaveLength(1);
@@ -75,7 +91,9 @@ describe('RunController', () => {
     const requestId = tickId(sent[0]!);
 
     expect(session.run.observeActionResult({ id: 'step' } as never)).toBe(false);
-    expect(session.run.observeActionResult({ id: 'step', request_id: 'other' } as never)).toBe(false);
+    expect(session.run.observeActionResult({ id: 'step', request_id: 'other' } as never)).toBe(
+      false,
+    );
     expect(session.run.observeActionResult({ id: 'other', request_id: requestId })).toBe(false);
     expect(session.run.observeActionResult({ id: 'step', request_id: requestId })).toBe(true);
   });
@@ -88,7 +106,10 @@ describe('RunController', () => {
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
-    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: first, should_continue: true },
+    });
 
     expect(sent).toHaveLength(1);
     expect(session.run.status).toMatchObject({ state: 'running', completedSteps: 1 });
@@ -97,7 +118,10 @@ describe('RunController', () => {
     expect(sent).toHaveLength(2);
 
     const second = tickId(sent[1]!);
-    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: second, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: second, should_continue: true },
+    });
     session.run.markActionRendered({ id: 'step', request_id: second });
 
     expect(sent).toHaveLength(2);
@@ -117,8 +141,9 @@ describe('RunController', () => {
     session.attachTransport(transport);
     announce(session);
 
-    expect(() => session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 10 }))
-      .toThrow(ProtocolValidationError);
+    expect(() => session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 10 })).toThrow(
+      ProtocolValidationError,
+    );
     expect(session.run.status).toMatchObject({
       state: 'stopped',
       stopReason: 'validation-error',
@@ -132,18 +157,18 @@ describe('RunController', () => {
     const transport: ISimulatorTransport = {
       ...createTransport(sent),
       on: (type, handler) => handlers.set(type, handler),
-      off: (type) => { handlers.delete(type); },
+      off: (type) => {
+        handlers.delete(type);
+      },
     };
     const session = new RendererSession();
     session.attachTransport(transport);
     announce(session);
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 10 });
 
-    handlers.get('error')?.(new ProtocolValidationError(
-      'simulator-to-renderer',
-      'invalid action result',
-      [],
-    ));
+    handlers.get('error')?.(
+      new ProtocolValidationError('simulator-to-renderer', 'invalid action result', []),
+    );
 
     expect(session.run.status).toMatchObject({
       state: 'stopped',
@@ -163,7 +188,10 @@ describe('RunController', () => {
     expect(onStatus).toHaveBeenCalledTimes(1);
 
     const first = tickId(sent[0]!);
-    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: first, should_continue: true },
+    });
     expect(onStatus).toHaveBeenCalledTimes(1);
 
     session.run.markActionRendered({ id: 'step', request_id: first });
@@ -185,9 +213,20 @@ describe('RunController', () => {
     });
 
     session.run.pause();
-    expect(session.run.status).toMatchObject({ state: 'running', pauseRequested: true, inFlight: true });
-    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: first, should_continue: true } });
-    expect(session.run.status).toMatchObject({ state: 'paused', stopReason: 'paused', completedSteps: 1 });
+    expect(session.run.status).toMatchObject({
+      state: 'running',
+      pauseRequested: true,
+      inFlight: true,
+    });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'start', request_id: first, should_continue: true },
+    });
+    expect(session.run.status).toMatchObject({
+      state: 'paused',
+      stopReason: 'paused',
+      completedSteps: 1,
+    });
     session.run.markActionRendered({ id: 'start', request_id: first });
     expect(sent).toHaveLength(1);
   });
@@ -203,10 +242,16 @@ describe('RunController', () => {
     session.run.requestStep('step');
     expect(sent).toHaveLength(1);
 
-    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: first, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'start', request_id: first, should_continue: true },
+    });
     session.run.markActionRendered({ id: 'start', request_id: first });
     expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ type: 'action_invoke', payload: { id: 'step', continuous: false } });
+    expect(sent[1]).toMatchObject({
+      type: 'action_invoke',
+      payload: { id: 'step', continuous: false },
+    });
   });
 
   it('does not start a second continuous generation before the prior tick renders', () => {
@@ -217,10 +262,15 @@ describe('RunController', () => {
     session.run.start({ mode: 'manual', actionId: 'start' });
     const first = tickId(sent[0]!);
     session.run.pause();
-    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: first, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'start', request_id: first, should_continue: true },
+    });
 
     expect(session.run.status).toMatchObject({ state: 'paused', inFlight: true });
-    expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).toThrow(/current action tick/);
+    expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).toThrow(
+      /current action tick/,
+    );
     session.run.markActionRendered({ id: 'start', request_id: first });
     expect(session.run.status).toMatchObject({ state: 'paused', inFlight: false });
     expect(() => session.run.start({ mode: 'manual', actionId: 'start' })).not.toThrow();
@@ -233,10 +283,18 @@ describe('RunController', () => {
     session.attachTransport(createTransport(sent));
     announce(session);
 
-    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 9, stopWhen: 'steps >= 1 && metadata.population === 3' });
+    session.run.start({
+      mode: 'bounded',
+      actionId: 'step',
+      maxSteps: 9,
+      stopWhen: 'steps >= 1 && metadata.population === 3',
+    });
     const first = tickId(sent[0]!);
     session.handleIncoming({ type: 'metadata_update', payload: { population: 3 } });
-    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: first, should_continue: true },
+    });
 
     expect(session.run.status).toMatchObject({
       state: 'stopped',
@@ -257,9 +315,15 @@ describe('RunController', () => {
     session.run.requestAction('step');
 
     expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'stopped' });
-    session.handleIncoming({ type: 'action_result', payload: { id: 'start', request_id: pendingRunAction, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'start', request_id: pendingRunAction, should_continue: true },
+    });
     session.run.markActionRendered({ id: 'start', request_id: pendingRunAction });
-    expect(sent[sent.length - 1]).toMatchObject({ type: 'action_invoke', payload: { id: 'step', continuous: false } });
+    expect(sent[sent.length - 1]).toMatchObject({
+      type: 'action_invoke',
+      payload: { id: 'step', continuous: false },
+    });
   });
 
   it('invokes a declared stop hook after the current action renders', () => {
@@ -274,11 +338,17 @@ describe('RunController', () => {
     session.run.stop();
     expect(sent).toHaveLength(1);
 
-    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: stepId, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: stepId, should_continue: true },
+    });
     session.run.markActionRendered({ id: 'step', request_id: stepId });
 
     expect(sent).toHaveLength(2);
-    expect(sent[1]).toMatchObject({ type: 'action_invoke', payload: { id: 'stop', continuous: false } });
+    expect(sent[1]).toMatchObject({
+      type: 'action_invoke',
+      payload: { id: 'stop', continuous: false },
+    });
     const stopId = tickId(sent[1]!);
     session.handleIncoming({ type: 'action_result', payload: { id: 'stop', request_id: stopId } });
     session.run.markActionRendered({ id: 'stop', request_id: stopId });
@@ -297,7 +367,9 @@ describe('RunController', () => {
       payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2, y: 4 }] },
     });
 
-    const condition = compileRunCondition('agentCount("main", "agents") === 1 && agent("main", "agents", "a").x === 2');
+    const condition = compileRunCondition(
+      'agentCount("main", "agents") === 1 && agent("main", "agents", "a").x === 2',
+    );
     expect(condition.evaluate(createRunConditionScope(session.scenario, 7))).toBe(true);
     expect(() => compileRunCondition('metadata.toString()')).toThrow(/Only agent/);
     expect(() => compileRunCondition('metadata.count = 1')).toThrow(/Assignment/);
@@ -305,7 +377,9 @@ describe('RunController', () => {
   });
 
   it('keeps callable permissions intact after a nested evaluation', () => {
-    const condition = compileRunCondition('agentCount("e", "l") === 1 && agentCount("e", "l") === 1');
+    const condition = compileRunCondition(
+      'agentCount("e", "l") === 1 && agentCount("e", "l") === 1',
+    );
     const base = createRunConditionScope(new RendererSession().scenario, 0);
     const nested = { ...base, agentCount: () => 1 };
     let calls = 0;
@@ -324,9 +398,18 @@ describe('RunController', () => {
 
   it('reuses read-only condition views until their source revisions change', () => {
     const session = new RendererSession();
-    session.scenario.apply({ type: 'param_create', payload: { id: 'speed', type: 'number', label: 'Speed', value: 2 } });
-    session.scenario.apply({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
-    session.scenario.apply({ type: 'chart_update', payload: { updates: [{ id: 'population', time: 1, value: 10 }] } });
+    session.scenario.apply({
+      type: 'param_create',
+      payload: { id: 'speed', type: 'number', label: 'Speed', value: 2 },
+    });
+    session.scenario.apply({
+      type: 'chart_create',
+      payload: { id: 'population', label: 'Population' },
+    });
+    session.scenario.apply({
+      type: 'chart_update',
+      payload: { updates: [{ id: 'population', time: 1, value: 10 }] },
+    });
     const getData = vi.spyOn(session.scenario.charts, 'getData');
 
     const first = createRunConditionScope(session.scenario, 1);
@@ -338,7 +421,10 @@ describe('RunController', () => {
     expect(getData).not.toHaveBeenCalled();
 
     session.scenario.apply({ type: 'metadata_update', payload: { phase: 'next' } });
-    session.scenario.apply({ type: 'chart_update', payload: { updates: [{ id: 'population', time: 2, value: 11 }] } });
+    session.scenario.apply({
+      type: 'chart_update',
+      payload: { updates: [{ id: 'population', time: 2, value: 11 }] },
+    });
     const updated = createRunConditionScope(session.scenario, 3);
     expect(updated.metadata).not.toBe(first.metadata);
     expect(updated.parameters).toBe(first.parameters);
@@ -363,12 +449,18 @@ describe('RunController', () => {
   it('reuses a watchdog during rapid ticks while preserving each tick deadline', async () => {
     vi.useFakeTimers();
     const sent: RendererToSimulatorMessage[] = [];
-    const setWatchdog = vi.fn((callback: () => void, delayMs: number) => setTimeout(callback, delayMs));
-    const clearWatchdog = vi.fn((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
-    const session = new RendererSession({ run: {
-      actionTimeoutMs: 100,
-      scheduler: { now: () => Date.now(), setTimeout: setWatchdog, clearTimeout: clearWatchdog },
-    } });
+    const setWatchdog = vi.fn((callback: () => void, delayMs: number) =>
+      setTimeout(callback, delayMs),
+    );
+    const clearWatchdog = vi.fn((handle: unknown) =>
+      clearTimeout(handle as ReturnType<typeof setTimeout>),
+    );
+    const session = new RendererSession({
+      run: {
+        actionTimeoutMs: 100,
+        scheduler: { now: () => Date.now(), setTimeout: setWatchdog, clearTimeout: clearWatchdog },
+      },
+    });
     session.attachTransport(createTransport(sent));
     announce(session);
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 4 });
@@ -376,9 +468,14 @@ describe('RunController', () => {
     for (let index = 0; index < 3; index += 1) {
       await vi.advanceTimersByTimeAsync(5);
       const requestId = tickId(sent[index]!);
-      session.handleIncoming({ type: 'action_result', payload: {
-        id: 'step', request_id: requestId, should_continue: true,
-      } });
+      session.handleIncoming({
+        type: 'action_result',
+        payload: {
+          id: 'step',
+          request_id: requestId,
+          should_continue: true,
+        },
+      });
       session.run.markActionRendered({ id: 'step', request_id: requestId });
     }
 
@@ -412,7 +509,12 @@ describe('RunController', () => {
 
   it.each([
     ['rejects', () => Promise.reject(new Error('canvas lost'))],
-    ['throws', () => { throw new Error('canvas lost'); }],
+    [
+      'throws',
+      () => {
+        throw new Error('canvas lost');
+      },
+    ],
   ])('records a render barrier that %s and stops the affected run', async (_mode, wait) => {
     const sent: RendererToSimulatorMessage[] = [];
     const onRenderBarrierError = vi.fn();
@@ -427,9 +529,16 @@ describe('RunController', () => {
 
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
-    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: first, should_continue: true },
+    });
     await vi.waitFor(() => {
-      expect(onRenderBarrierError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ id: first }), expect.anything());
+      expect(onRenderBarrierError).toHaveBeenCalledWith(
+        expect.any(Error),
+        expect.objectContaining({ id: first }),
+        expect.anything(),
+      );
     });
     expect(session.run.status).toMatchObject({
       state: 'stopped',

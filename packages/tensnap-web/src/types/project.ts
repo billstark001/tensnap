@@ -9,7 +9,12 @@ import {
   type SnapshotArchive,
   type SnapshotModelIdentity,
 } from '@tensnap/core/snapshot';
-import { encodeBytesAsDataUrl, encodeMessagePack, PROTOCOL_VERSION, ProtocolCodec } from '@tensnap/protocol';
+import {
+  encodeBytesAsDataUrl,
+  encodeMessagePack,
+  PROTOCOL_VERSION,
+  ProtocolCodec,
+} from '@tensnap/protocol';
 import { encodeSnapshotArchivesInWorker } from '@/workers/snapshot-archive';
 import {
   ActionResultPayloadSchema,
@@ -24,7 +29,7 @@ import {
   SimulatorToRendererMessageSchema,
 } from '@tensnap/protocol';
 import { z } from 'zod';
-import type { ContainerView } from "./ui";
+import type { ContainerView } from './ui';
 import { createDefaultRootLayout } from '@/utils/view/create-view';
 import type { ProjectSource } from '@tensnap/core/snapshot';
 
@@ -78,10 +83,14 @@ const ScenarioSnapshotSchema = z.object({
   parameters: z.array(ParameterSchema),
   environments: z.array(ScenarioEnvironmentSnapshotSchema),
   charts: z.array(ChartGroupSnapshotSchema),
-  monitors: z.array(MonitorMetadataSchema.extend({
-    value: ProtocolValueSchema.optional(),
-    revision: z.union([z.string(), z.number()]).optional(),
-  })).default([]),
+  monitors: z
+    .array(
+      MonitorMetadataSchema.extend({
+        value: ProtocolValueSchema.optional(),
+        revision: z.union([z.string(), z.number()]).optional(),
+      }),
+    )
+    .default([]),
   logs: z.array(LogSnapshotSchema),
   assets: z.array(AssetSnapshotSchema),
 });
@@ -110,8 +119,16 @@ const SnapshotMetadataSchema = z.object({
   createdAt: z.number(),
   // MessagePack serializes explicit `undefined` object properties as null.
   // Accept existing files and normalize them back to the optional shape.
-  endedAt: z.number().nullable().optional().transform((value) => value ?? undefined),
-  label: z.string().nullable().optional().transform((value) => value ?? undefined),
+  endedAt: z
+    .number()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? undefined),
+  label: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((value) => value ?? undefined),
   protocol_version: z.literal(PROTOCOL_VERSION).optional(),
   legacy_create_replacement: z.boolean().optional(),
   model_identity: SnapshotModelIdentitySchema.optional(),
@@ -123,14 +140,18 @@ const SnapshotSchema = z.object({
   metadata: SnapshotMetadataSchema,
   initial: SnapshotKeyframeSchema,
   keyframes: z.array(SnapshotKeyframeSchema),
-  frames: z.array(z.object({
-    index: z.number().int().positive(),
-    timestamp: z.number(),
-    messages: z.array(SimulatorToRendererMessageSchema),
-    controls: z.array(RendererToSimulatorMessageSchema),
-    action: ActionResultPayloadSchema.nullable().optional().transform((value) => value ?? undefined),
-    kind: z.enum(['action', 'control', 'sync']),
-  })),
+  frames: z.array(
+    z.object({
+      index: z.number().int().positive(),
+      timestamp: z.number(),
+      messages: z.array(SimulatorToRendererMessageSchema),
+      controls: z.array(RendererToSimulatorMessageSchema),
+      action: ActionResultPayloadSchema.nullable()
+        .optional()
+        .transform((value) => value ?? undefined),
+      kind: z.enum(['action', 'control', 'sync']),
+    }),
+  ),
   layerCodecs: z.record(z.string(), z.enum(['delta', 'keyframe', 'adaptive', 'derived'])),
   byteLength: z.number().nonnegative(),
   truncated: z.boolean(),
@@ -140,14 +161,18 @@ const SnapshotArchiveSchema = z.object({
   version: z.literal(1),
   metadata: SnapshotMetadataSchema,
   layerCodecs: z.record(z.string(), z.enum(['delta', 'keyframe', 'adaptive', 'derived'])),
-  segments: z.array(z.object({
-    firstFrame: z.number().int().nonnegative(),
-    lastFrame: z.number().int().nonnegative(),
-    encoding: z.literal('msgpack'),
-    compression: z.enum(['none', 'rle']),
-    data: z.union([z.string(), z.instanceof(Uint8Array)]),
-    byteLength: z.number().nonnegative(),
-  })).min(1),
+  segments: z
+    .array(
+      z.object({
+        firstFrame: z.number().int().nonnegative(),
+        lastFrame: z.number().int().nonnegative(),
+        encoding: z.literal('msgpack'),
+        compression: z.enum(['none', 'rle']),
+        data: z.union([z.string(), z.instanceof(Uint8Array)]),
+        byteLength: z.number().nonnegative(),
+      }),
+    )
+    .min(1),
   byteLength: z.number().nonnegative(),
   truncated: z.boolean(),
 });
@@ -162,30 +187,32 @@ const BaseViewSchema = z.object({
   disabled: z.boolean(),
 });
 
-const AnyViewSchema: z.ZodType = z.lazy(() => z.union([
-  BaseViewSchema.extend({
-    type: z.literal('button'),
-    data: z.object({
-      id: z.string(),
-      text: z.string(),
-      continuous: z.boolean().optional(),
+const AnyViewSchema: z.ZodType = z.lazy(() =>
+  z.union([
+    BaseViewSchema.extend({
+      type: z.literal('button'),
+      data: z.object({
+        id: z.string(),
+        text: z.string(),
+        continuous: z.boolean().optional(),
+      }),
     }),
-  }),
-  BaseViewSchema.extend({
-    type: z.enum(['environment', 'parameter', 'chart', 'monitor']),
-    data: z.object({
-      id: z.string(),
-      title: z.string().optional(),
-      type: z.string().optional(),
-      renderHint: z.enum(['auto', 'tree', 'table', 'text']).optional(),
+    BaseViewSchema.extend({
+      type: z.enum(['environment', 'parameter', 'chart', 'monitor']),
+      data: z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        type: z.string().optional(),
+        renderHint: z.enum(['auto', 'tree', 'table', 'text']).optional(),
+      }),
     }),
-  }),
-  BaseViewSchema.extend({
-    type: z.literal('container'),
-    data: z.object({ title: z.string() }),
-    views: z.array(AnyViewSchema),
-  }),
-]));
+    BaseViewSchema.extend({
+      type: z.literal('container'),
+      data: z.object({ title: z.string() }),
+      views: z.array(AnyViewSchema),
+    }),
+  ]),
+);
 
 const ProjectAssetBlobSchema = z.object({
   mime: z.string(),
@@ -202,7 +229,12 @@ const isWebSocketUrl = (value: string): boolean => {
 };
 
 export const ProjectSourceSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('websocket'), url: z.string().refine(isWebSocketUrl, 'Expected a non-empty ws:// or wss:// URL.') }).strict(),
+  z
+    .object({
+      kind: z.literal('websocket'),
+      url: z.string().refine(isWebSocketUrl, 'Expected a non-empty ws:// or wss:// URL.'),
+    })
+    .strict(),
   z.object({ kind: z.literal('inmemory'), model_id: z.string().min(1) }).strict(),
   z.object({ kind: z.literal('snapshot'), snapshot_id: z.string().min(1) }).strict(),
 ]);
@@ -268,11 +300,10 @@ export interface ProjectRecovery {
   warnings: string[];
 }
 
-const asRecord = (value: unknown): Record<string, unknown> | null => (
+const asRecord = (value: unknown): Record<string, unknown> | null =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null
-);
+    ? (value as Record<string, unknown>)
+    : null;
 
 /**
  * Normalize a persisted v0.2 Scenario dump before current schemas see it.
@@ -283,37 +314,38 @@ function migrateScenarioSnapshot(value: unknown): ScenarioSnapshot {
   const source = asRecord(value);
   if (!source) throw new Error('Scenario snapshot must be an object.');
   const codec = new ProtocolCodec({ mode: 'legacy' });
-  const normalizeDefinition = (type: 'action_create' | 'param_create', payload: unknown): unknown => (
-    codec.decode(encodeMessagePack({ type, payload })).payload
-  );
+  const normalizeDefinition = (type: 'action_create' | 'param_create', payload: unknown): unknown =>
+    codec.decode(encodeMessagePack({ type, payload })).payload;
   const charts = Array.isArray(source.charts)
     ? source.charts.map((entry) => {
-      const group = asRecord(entry);
-      const metadataDict = group && asRecord(group.metadataDict);
-      if (!group || !metadataDict) return entry;
-      return {
-        ...group,
-        metadataDict: Object.fromEntries(Object.entries(metadataDict).map(([id, metadata]) => {
-          const record = asRecord(metadata);
-          if (!record) return [id, metadata];
-          // `dataList` belongs to a v0.2 chart-create envelope. A persisted
-          // ChartGroup already stores the flattened metadata dictionary.
-          const canonical = { ...record };
-          delete canonical.dataList;
-          delete canonical.data_list;
-          return [id, canonical];
-        })),
-      };
-    })
+        const group = asRecord(entry);
+        const metadataDict = group && asRecord(group.metadataDict);
+        if (!group || !metadataDict) return entry;
+        return {
+          ...group,
+          metadataDict: Object.fromEntries(
+            Object.entries(metadataDict).map(([id, metadata]) => {
+              const record = asRecord(metadata);
+              if (!record) return [id, metadata];
+              // `dataList` belongs to a v0.2 chart-create envelope. A persisted
+              // ChartGroup already stores the flattened metadata dictionary.
+              const canonical = { ...record };
+              delete canonical.dataList;
+              delete canonical.data_list;
+              return [id, canonical];
+            }),
+          ),
+        };
+      })
     : source.charts;
   const assets = Array.isArray(source.assets)
     ? source.assets.map((entry) => {
-      const asset = asRecord(entry);
-      if (!asset || asset.data !== null) return entry;
-      const withoutNullData = { ...asset };
-      delete withoutNullData.data;
-      return withoutNullData;
-    })
+        const asset = asRecord(entry);
+        if (!asset || asset.data !== null) return entry;
+        const withoutNullData = { ...asset };
+        delete withoutNullData.data;
+        return withoutNullData;
+      })
     : source.assets;
   const migrated = {
     ...source,
@@ -362,9 +394,14 @@ function migrateRecordingSnapshot(value: unknown): Snapshot {
     if (!record || !Array.isArray(record.messages) || !Array.isArray(record.controls)) {
       throw new Error('Recording snapshot frame is malformed.');
     }
-    const action = record.action === undefined || record.action === null
-      ? record.action
-      : (migrateRecordedMessage({ type: 'action_end', payload: record.action }, codec) as { payload: unknown }).payload;
+    const action =
+      record.action === undefined || record.action === null
+        ? record.action
+        : (
+            migrateRecordedMessage({ type: 'action_end', payload: record.action }, codec) as {
+              payload: unknown;
+            }
+          ).payload;
     return {
       ...record,
       messages: record.messages.map((message) => migrateRecordedMessage(message, codec)),
@@ -401,11 +438,18 @@ function recoverArray<T>(
     if (parsed.success) result.push(parsed.data);
     else discarded += 1;
   }
-  if (discarded > 0) warnings.push(`${discarded} invalid ${label} entr${discarded === 1 ? 'y was' : 'ies were'} skipped.`);
+  if (discarded > 0)
+    warnings.push(
+      `${discarded} invalid ${label} entr${discarded === 1 ? 'y was' : 'ies were'} skipped.`,
+    );
   return result;
 }
 
-function recoverScenarioSnapshot(value: unknown, warnings: string[], label: string): ScenarioSnapshot | null {
+function recoverScenarioSnapshot(
+  value: unknown,
+  warnings: string[],
+  label: string,
+): ScenarioSnapshot | null {
   try {
     return migrateScenarioSnapshot(value);
   } catch {
@@ -420,20 +464,34 @@ function recoverScenarioSnapshot(value: unknown, warnings: string[], label: stri
     metadata: metadata.success ? metadata.data : {},
     actions: recoverArray(source.actions, ActionSchema, `${label} actions`, warnings),
     parameters: recoverArray(source.parameters, ParameterSchema, `${label} parameters`, warnings),
-    environments: recoverArray(source.environments, ScenarioEnvironmentSnapshotSchema, `${label} environments`, warnings),
+    environments: recoverArray(
+      source.environments,
+      ScenarioEnvironmentSnapshotSchema,
+      `${label} environments`,
+      warnings,
+    ),
     charts: recoverArray(source.charts, ChartGroupSnapshotSchema, `${label} charts`, warnings),
-    monitors: recoverArray(source.monitors, MonitorMetadataSchema.extend({
-      value: ProtocolValueSchema.optional(),
-      revision: z.union([z.string(), z.number()]).optional(),
-    }), `${label} monitors`, warnings),
+    monitors: recoverArray(
+      source.monitors,
+      MonitorMetadataSchema.extend({
+        value: ProtocolValueSchema.optional(),
+        revision: z.union([z.string(), z.number()]).optional(),
+      }),
+      `${label} monitors`,
+      warnings,
+    ),
     logs: recoverArray(source.logs, LogSnapshotSchema, `${label} logs`, warnings),
     assets: recoverArray(source.assets, AssetSnapshotSchema, `${label} assets`, warnings),
   };
   const parsed = ScenarioSnapshotSchema.safeParse(recovered);
-  return parsed.success ? parsed.data as ScenarioSnapshot : null;
+  return parsed.success ? (parsed.data as ScenarioSnapshot) : null;
 }
 
-function recoverRecordingSnapshot(value: unknown, warnings: string[], index: number): Snapshot | null {
+function recoverRecordingSnapshot(
+  value: unknown,
+  warnings: string[],
+  index: number,
+): Snapshot | null {
   try {
     const migrated = migrateRecordingSnapshot(value);
     warnings.push(`Snapshot ${index + 1} was migrated to the current replay format.`);
@@ -449,7 +507,9 @@ function recoverRecordingSnapshot(value: unknown, warnings: string[], index: num
     return null;
   }
   const metadata = asRecord(source?.metadata);
-  warnings.push(`Snapshot ${index + 1} was recovered from its initial state; its timeline was discarded.`);
+  warnings.push(
+    `Snapshot ${index + 1} was recovered from its initial state; its timeline was discarded.`,
+  );
   return createSingleSnapshot(initial.data.scenario as ScenarioSnapshot, {
     id: typeof metadata?.id === 'string' ? metadata.id : undefined,
     label: typeof metadata?.label === 'string' ? metadata.label : undefined,
@@ -477,7 +537,10 @@ function storeAsset(
   table[hash] = { mime, data: typeof data === 'string' ? data : data.slice() };
 }
 
-function extractScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTable): ScenarioSnapshot {
+function extractScenarioAssets(
+  snapshot: ScenarioSnapshot,
+  table: ProjectAssetTable,
+): ScenarioSnapshot {
   const next = structuredClone(snapshot);
   next.assets = next.assets.map((asset) => {
     if (asset.data !== undefined) storeAsset(table, asset.meta.hash, asset.meta.mime, asset.data);
@@ -486,7 +549,10 @@ function extractScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTa
   return next;
 }
 
-function hydrateScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTable): ScenarioSnapshot {
+function hydrateScenarioAssets(
+  snapshot: ScenarioSnapshot,
+  table: ProjectAssetTable,
+): ScenarioSnapshot {
   const next = structuredClone(snapshot);
   next.assets = next.assets.map((asset) => ({
     ...asset,
@@ -498,7 +564,8 @@ function hydrateScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTa
 function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
   next.initial.scenario = extractScenarioAssets(next.initial.scenario, table);
-  for (const keyframe of next.keyframes) keyframe.scenario = extractScenarioAssets(keyframe.scenario, table);
+  for (const keyframe of next.keyframes)
+    keyframe.scenario = extractScenarioAssets(keyframe.scenario, table);
   for (const frame of next.frames) {
     for (const message of frame.messages) {
       if (message.type !== 'asset_data') continue;
@@ -514,7 +581,8 @@ function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Sn
 function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
   next.initial.scenario = hydrateScenarioAssets(next.initial.scenario, table);
-  for (const keyframe of next.keyframes) keyframe.scenario = hydrateScenarioAssets(keyframe.scenario, table);
+  for (const keyframe of next.keyframes)
+    keyframe.scenario = hydrateScenarioAssets(keyframe.scenario, table);
   for (const frame of next.frames) {
     for (const message of frame.messages) {
       if (message.type !== 'asset_data') continue;
@@ -529,7 +597,10 @@ function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Sn
  * Build the project persistence shape. Snapshot segments and every resolved
  * asset are written once, with snapshots referencing the shared hash table.
  */
-export function archiveProjectFileContent(content: ProjectFileContent, jsonSafe = false): ProjectFileArchive {
+export function archiveProjectFileContent(
+  content: ProjectFileContent,
+  jsonSafe = false,
+): ProjectFileArchive {
   const assetTable: ProjectAssetTable = {};
   const snapshots = content.snapshots.map((snapshot) => {
     const archive = encodeSnapshotArchive(extractSnapshotAssets(snapshot, assetTable));
@@ -537,15 +608,25 @@ export function archiveProjectFileContent(content: ProjectFileContent, jsonSafe 
   });
   const scenario = extractScenarioAssets(content.scenario, assetTable);
   const normalizedAssetTable = jsonSafe
-    ? Object.fromEntries(Object.entries(assetTable).map(([hash, blob]) => [hash, {
-      ...blob,
-      data: typeof blob.data === 'string' ? blob.data : encodeBytesAsDataUrl(blob.data, blob.mime),
-    }]))
+    ? Object.fromEntries(
+        Object.entries(assetTable).map(([hash, blob]) => [
+          hash,
+          {
+            ...blob,
+            data:
+              typeof blob.data === 'string'
+                ? blob.data
+                : encodeBytesAsDataUrl(blob.data, blob.mime),
+          },
+        ]),
+      )
     : assetTable;
   return {
     version: PROJECT_FILE_VERSION,
     source: structuredClone(content.source),
-    ...(content.model_identity === undefined ? {} : { model_identity: structuredClone(content.model_identity) }),
+    ...(content.model_identity === undefined
+      ? {}
+      : { model_identity: structuredClone(content.model_identity) }),
     mainView: structuredClone(content.mainView),
     scenario,
     snapshots,
@@ -565,15 +646,25 @@ export async function archiveProjectFileContentInWorker(
   );
   const scenario = extractScenarioAssets(content.scenario, assetTable);
   const normalizedAssetTable = jsonSafe
-    ? Object.fromEntries(Object.entries(assetTable).map(([hash, blob]) => [hash, {
-      ...blob,
-      data: typeof blob.data === 'string' ? blob.data : encodeBytesAsDataUrl(blob.data, blob.mime),
-    }]))
+    ? Object.fromEntries(
+        Object.entries(assetTable).map(([hash, blob]) => [
+          hash,
+          {
+            ...blob,
+            data:
+              typeof blob.data === 'string'
+                ? blob.data
+                : encodeBytesAsDataUrl(blob.data, blob.mime),
+          },
+        ]),
+      )
     : assetTable;
   return {
     version: PROJECT_FILE_VERSION,
     source: structuredClone(content.source),
-    ...(content.model_identity === undefined ? {} : { model_identity: structuredClone(content.model_identity) }),
+    ...(content.model_identity === undefined
+      ? {}
+      : { model_identity: structuredClone(content.model_identity) }),
     mainView: structuredClone(content.mainView),
     scenario,
     snapshots,
@@ -630,7 +721,14 @@ function sourceFromLegacyUrl(url: string): ProjectSource {
 
 export function recoverProjectFileContent(value: unknown): ProjectRecovery | null {
   const source = asRecord(value);
-  if (!source || (Object.prototype.hasOwnProperty.call(source, 'version') && source.version !== 1 && source.version !== 2 && source.version !== PROJECT_FILE_VERSION)) return null;
+  if (
+    !source ||
+    (Object.prototype.hasOwnProperty.call(source, 'version') &&
+      source.version !== 1 &&
+      source.version !== 2 &&
+      source.version !== PROJECT_FILE_VERSION)
+  )
+    return null;
 
   const warnings = ['Project validation failed. Valid data was recovered where possible.'];
   let sourceValue: ProjectSource | null = null;
@@ -647,18 +745,21 @@ export function recoverProjectFileContent(value: unknown): ProjectRecovery | nul
     warnings.push('The project connection URL was missing or invalid.');
   }
   const modelIdentity = SnapshotModelIdentitySchema.safeParse(source.model_identity);
-  if (source.model_identity !== undefined && !modelIdentity.success) warnings.push('The stored simulator identity was invalid and was discarded.');
+  if (source.model_identity !== undefined && !modelIdentity.success)
+    warnings.push('The stored simulator identity was invalid and was discarded.');
   const scenario = recoverScenarioSnapshot(source.scenario, warnings, 'The main scenario');
   if (!scenario) return null;
 
   const parsedView = AnyViewSchema.safeParse(source.mainView);
   const mainView = parsedView.success
-    ? parsedView.data as ContainerView
+    ? (parsedView.data as ContainerView)
     : createDefaultRootLayout();
-  if (!parsedView.success) warnings.push('The view layout was invalid and was reset to the default layout.');
+  if (!parsedView.success)
+    warnings.push('The view layout was invalid and was reset to the default layout.');
 
   const sourceSnapshots = Array.isArray(source.snapshots) ? source.snapshots : [];
-  if (!Array.isArray(source.snapshots)) warnings.push('Snapshots were missing or malformed and were reset.');
+  if (!Array.isArray(source.snapshots))
+    warnings.push('Snapshots were missing or malformed and were reset.');
   const snapshots = sourceSnapshots.flatMap((snapshot, index) => {
     const recovered = recoverRecordingSnapshot(snapshot, warnings, index);
     return recovered ? [recovered] : [];

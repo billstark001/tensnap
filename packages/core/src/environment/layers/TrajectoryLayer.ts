@@ -37,10 +37,7 @@ export class TrajectoryLayer extends BaseLayer {
   private readonly _cfg: TrajectoryLayerConfig;
   private readonly _lines = new Map<AgentId, TrajectoryLineCacheEntry>();
 
-  constructor(
-    storage: TrajectoryStorage,
-    config: TrajectoryLayerConfig = {},
-  ) {
+  constructor(storage: TrajectoryStorage, config: TrajectoryLayerConfig = {}) {
     super();
     this._cfg = {
       coordOffset: 'int',
@@ -139,11 +136,7 @@ export class TrajectoryLayer extends BaseLayer {
    * splitting change earlier geometry, so those intentionally fall back to a
    * local full rebuild of this trajectory.
    */
-  private _appendTail(
-    id: AgentId,
-    entry: TrajectoryEntry,
-    append: TrajectoryAppendDelta,
-  ): boolean {
+  private _appendTail(id: AgentId, entry: TrajectoryEntry, append: TrajectoryAppendDelta): boolean {
     if (this._cfg.worldBounds) return false;
     const cached = this._lines.get(id);
     if (!cached) return false;
@@ -228,11 +221,12 @@ export class TrajectoryLayer extends BaseLayer {
     for (const ring of entry.segments) {
       const points = ring.toArray();
       if (firstPointColor === undefined) {
-        firstPointColor = points.find((point) => (
-          typeof point.color === 'string' && point.color.length > 0
-        ))?.color;
+        firstPointColor = points.find(
+          (point) => typeof point.color === 'string' && point.color.length > 0,
+        )?.color;
       }
-      for (const segment of splitTrajectoryPoints(points, this._cfg.worldBounds)) segments.push(segment);
+      for (const segment of splitTrajectoryPoints(points, this._cfg.worldBounds))
+        segments.push(segment);
     }
     return { segments, firstPointColor };
   }

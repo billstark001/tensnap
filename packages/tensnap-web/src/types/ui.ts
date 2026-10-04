@@ -1,4 +1,4 @@
-import { JsonSerializable } from "./utils";
+import { JsonSerializable } from './utils';
 
 export type BaseView<TType extends string, TData extends JsonSerializable> = {
   id: string;
@@ -9,11 +9,7 @@ export type BaseView<TType extends string, TData extends JsonSerializable> = {
   height: number;
   expanded: boolean;
   disabled: boolean;
-} & (
-    [TData] extends [null | undefined | never]
-    ? { data?: TData; }
-    : { data: TData; }
-  );
+} & ([TData] extends [null | undefined | never] ? { data?: TData } : { data: TData });
 
 export type ButtonView = BaseView<
   'button',
@@ -21,7 +17,8 @@ export type ButtonView = BaseView<
     id: string;
     text: string;
     continuous?: boolean;
-  }>;
+  }
+>;
 
 export type AnchoredView = BaseView<
   'environment' | 'parameter' | 'chart' | 'monitor',
@@ -31,7 +28,8 @@ export type AnchoredView = BaseView<
     type?: string;
     /** Local display override; the simulator-owned monitor metadata remains immutable. */
     renderHint?: 'auto' | 'tree' | 'table' | 'text';
-  }>;
+  }
+>;
 
 export type ContainerView = BaseView<
   'container',

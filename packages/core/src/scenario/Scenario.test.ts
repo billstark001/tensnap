@@ -16,27 +16,41 @@ function setupEnvAndAgentLayer(s: Scenario, envId = 'env1', layerId = 'layer1') 
   s.apply(msg('env_layer_create', { env_id: envId, layer_id: layerId, layer_type: 'agent' }));
 }
 
-function setupEnvAndEdgeLayer(s: Scenario, envId = 'env1', edgeLayerId = 'items', agentLayerId = 'agents') {
+function setupEnvAndEdgeLayer(
+  s: Scenario,
+  envId = 'env1',
+  edgeLayerId = 'items',
+  agentLayerId = 'agents',
+) {
   s.apply(msg('env_create', { id: envId, type: '2d' }));
   s.apply(msg('env_layer_create', { env_id: envId, layer_id: agentLayerId, layer_type: 'agent' }));
-  s.apply(msg('env_layer_create', {
-    env_id: envId,
-    layer_id: edgeLayerId,
-    layer_type: 'edge',
-    dependency_layer_ids: { agent: agentLayerId },
-  }));
+  s.apply(
+    msg('env_layer_create', {
+      env_id: envId,
+      layer_id: edgeLayerId,
+      layer_type: 'edge',
+      dependency_layer_ids: { agent: agentLayerId },
+    }),
+  );
 }
 
-function setupEnvAndTrajectoryLayer(s: Scenario, envId = 'env1', agentLayerId = 'items', trajectoryLayerId = 'trails') {
+function setupEnvAndTrajectoryLayer(
+  s: Scenario,
+  envId = 'env1',
+  agentLayerId = 'items',
+  trajectoryLayerId = 'trails',
+) {
   s.apply(msg('env_create', { id: envId, type: '2d' }));
   s.apply(msg('env_layer_create', { env_id: envId, layer_id: agentLayerId, layer_type: 'agent' }));
-  s.apply(msg('env_layer_create', {
-    env_id: envId,
-    layer_id: trajectoryLayerId,
-    layer_type: 'trajectory',
-    dependency_layer_ids: { agent: agentLayerId },
-    metadata: { length: 3, color: '#f00' },
-  }));
+  s.apply(
+    msg('env_layer_create', {
+      env_id: envId,
+      layer_id: trajectoryLayerId,
+      layer_type: 'trajectory',
+      dependency_layer_ids: { agent: agentLayerId },
+      metadata: { length: 3, color: '#f00' },
+    }),
+  );
 }
 
 // ── Environment / Layer lifecycle ─────────────────────────────────────────────
@@ -51,11 +65,17 @@ describe('Scenario – environment and layer lifecycle', () => {
   it('env_create rejects an existing environment until it is deleted', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'stale' }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'stale' }],
+      }),
+    );
 
-    expect(() => s.apply(msg('env_create', { id: 'env1', type: 'uniform' }))).toThrow(/env_create already exists/);
+    expect(() => s.apply(msg('env_create', { id: 'env1', type: 'uniform' }))).toThrow(
+      /env_create already exists/,
+    );
     expect(s.environments.get('env1')!.layers.has('layer1')).toBe(true);
     s.apply(msg('env_delete', { id: 'env1' }));
     s.apply(msg('env_create', { id: 'env1', type: 'uniform' }));
@@ -70,7 +90,9 @@ describe('Scenario – environment and layer lifecycle', () => {
     setupEnvAndAgentLayer(s);
     const environment = s.environments.get('env1')!;
 
-    expect(() => s.apply(msg('env_create', { id: 'env1', type: 'uniform' }))).toThrow(/env_create already exists/);
+    expect(() => s.apply(msg('env_create', { id: 'env1', type: 'uniform' }))).toThrow(
+      /env_create already exists/,
+    );
 
     expect(s.environments.get('env1')).toBe(environment);
     expect(environment.type).toBe('2d');
@@ -115,23 +137,34 @@ describe('Scenario – environment and layer lifecycle', () => {
     const originalLayer = env.layers.get('layer1')!;
     const originalStorage = originalLayer.storage as AgentStorage;
 
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: [{ id: 'a1', x: 1, y: 2 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1', x: 1, y: 2 }],
+      }),
+    );
 
-    expect(() => s.apply(msg('env_layer_create', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      layer_type: 'agent',
-      metadata: { coord_offset: 'float' },
-    }))).toThrow(/env_layer_create already exists/);
+    expect(() =>
+      s.apply(
+        msg('env_layer_create', {
+          env_id: 'env1',
+          layer_id: 'layer1',
+          layer_type: 'agent',
+          metadata: { coord_offset: 'float' },
+        }),
+      ),
+    ).toThrow(/env_layer_create already exists/);
     expect(env.layers.get('layer1')).toBe(originalLayer);
     s.apply(msg('env_layer_delete', { env_id: 'env1', layer_id: 'layer1' }));
-    s.apply(msg('env_layer_create', {
-      env_id: 'env1', layer_id: 'layer1', layer_type: 'agent', metadata: { coord_offset: 'float' },
-    }));
+    s.apply(
+      msg('env_layer_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        layer_type: 'agent',
+        metadata: { coord_offset: 'float' },
+      }),
+    );
 
     const refreshedLayer = env.layers.get('layer1')!;
     expect(refreshedLayer).not.toBe(originalLayer);
@@ -139,14 +172,19 @@ describe('Scenario – environment and layer lifecycle', () => {
     expect(refreshedLayer.metadata).toEqual({ coord_offset: 'float' });
     expect((refreshedLayer.storage as AgentStorage).getAgentCount()).toBe(0);
 
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: [{ id: 'a2', x: 3, y: 4 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a2', x: 3, y: 4 }],
+      }),
+    );
 
     expect((refreshedLayer.storage as AgentStorage).getData().agents.has('a1')).toBe(false);
-    expect((refreshedLayer.storage as AgentStorage).getData().agents.get('a2')).toMatchObject({ x: 3, y: 4 });
+    expect((refreshedLayer.storage as AgentStorage).getData().agents.get('a2')).toMatchObject({
+      x: 3,
+      y: 4,
+    });
   });
 
   it('env_layer_update reuses storage', () => {
@@ -155,9 +193,13 @@ describe('Scenario – environment and layer lifecycle', () => {
     const layer = s.environments.get('env1')!.layers.get('layer1')!;
     const storage = layer.storage;
 
-    s.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'layer1', metadata: { coord_offset: 'float' },
-    }));
+    s.apply(
+      msg('env_layer_update', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        metadata: { coord_offset: 'float' },
+      }),
+    );
 
     expect(s.environments.get('env1')!.layers.get('layer1')).toBe(layer);
     expect(layer.storage).toBe(storage);
@@ -168,14 +210,25 @@ describe('Scenario – environment and layer lifecycle', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
 
-    expect(() => s.apply(msg('env_layer_create', {
-      env_id: 'env1', layer_id: 'items', layer_type: 'agent',
-    }))).toThrow(/env_layer_create already exists/);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }],
-    }));
+    expect(() =>
+      s.apply(
+        msg('env_layer_create', {
+          env_id: 'env1',
+          layer_id: 'items',
+          layer_type: 'agent',
+        }),
+      ),
+    ).toThrow(/env_layer_create already exists/);
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ id: 'a1', x: 1, y: 2 }],
+      }),
+    );
 
-    const trajectories = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
+    const trajectories = s.environments.get('env1')!.layers.get('trails')!
+      .storage as TrajectoryStorage;
     expect(trajectories.dump().trajectories[0]?.points).toEqual([
       { x: 1, y: 2, time: 0, color: '#f00' },
     ]);
@@ -185,11 +238,13 @@ describe('Scenario – environment and layer lifecycle', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
 
-    s.apply(msg('env_layer_update', {
-      env_id: 'env1',
-      layer_id: 'trails',
-      metadata: { dependency_layer_ids: { agent: 'other-items' }, length: 5 },
-    } as any));
+    s.apply(
+      msg('env_layer_update', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        metadata: { dependency_layer_ids: { agent: 'other-items' }, length: 5 },
+      } as any),
+    );
 
     const layer = s.environments.get('env1')!.layers.get('trails')!;
     expect(layer.dependencyLayerIds).toEqual({ agent: 'items' });
@@ -218,10 +273,16 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_create populates AgentStorage', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1',
-      items: [{ id: 'a1', x: 10, y: 20 }, { id: 'a2', x: 30, y: 40 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [
+          { id: 'a1', x: 10, y: 20 },
+          { id: 'a2', x: 30, y: 40 },
+        ],
+      }),
+    );
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.size).toBe(2);
     expect(storage.getData().agents.get('a1')).toMatchObject({ x: 10, y: 20 });
@@ -230,8 +291,12 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_update changes agent fields', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 0 }] }));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 99 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 0 }] }),
+    );
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 99 }] }),
+    );
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.get('a1')?.x).toBe(99);
   });
@@ -239,19 +304,33 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_create rejects matching identities without removing unrelated items', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1',
-      items: [{ id: 'a1', x: 1, y: 2, color: '#f00' }, { id: 'a2', x: 3 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [
+          { id: 'a1', x: 1, y: 2, color: '#f00' },
+          { id: 'a2', x: 3 },
+        ],
+      }),
+    );
 
-    expect(() => s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }],
-    }))).toThrow(/item_create already exists/);
+    expect(() =>
+      s.apply(
+        msg('item_create', {
+          env_id: 'env1',
+          layer_id: 'layer1',
+          items: [{ id: 'a1', x: 10 }],
+        }),
+      ),
+    ).toThrow(/item_create already exists/);
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getAgent('a1')).toMatchObject({ id: 'a1', x: 1, y: 2 });
     s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'layer1', items: ['a1'] }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }] }),
+    );
     expect(storage.getAgent('a1')).toEqual({ id: 'a1', x: 10 });
     expect(storage.getAgent('a2')).toMatchObject({ id: 'a2', x: 3 });
   });
@@ -259,13 +338,21 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_update merges fields for an existing identity', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1, y: 2 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1', x: 1, y: 2 }],
+      }),
+    );
 
-    s.apply(msg('item_update', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 10 }],
-    }));
+    s.apply(
+      msg('item_update', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1', x: 10 }],
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getAgent('a1')).toMatchObject({ id: 'a1', x: 10, y: 2 });
@@ -274,7 +361,13 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_delete removes the agent', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1' }, { id: 'a2' }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1' }, { id: 'a2' }],
+      }),
+    );
     s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'layer1', items: ['a1'] }));
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.has('a1')).toBe(false);
@@ -293,11 +386,13 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_create populates an agent layer through the generic route', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: [{ id: 'a1', x: 10, y: 20 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1', x: 10, y: 20 }],
+      }),
+    );
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.get('a1')).toMatchObject({ x: 10, y: 20 });
   });
@@ -305,17 +400,21 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_delete accepts primitive keys for single-key layers', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: [{ id: 'a1' }, { id: 'a2' }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1' }, { id: 'a2' }],
+      }),
+    );
 
-    s.apply(msg('item_delete', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: ['a1'],
-    }));
+    s.apply(
+      msg('item_delete', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: ['a1'],
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.has('a1')).toBe(false);
@@ -326,33 +425,45 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
     const diagnostics: Array<{ message: string }> = [];
-    s.addEventListener('diagnostic', (event) => diagnostics.push((event as CustomEvent<{ message: string }>).detail));
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: [{ id: 'a1' }, { id: 'a2' }],
-    }));
+    s.addEventListener('diagnostic', (event) =>
+      diagnostics.push((event as CustomEvent<{ message: string }>).detail),
+    );
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1' }, { id: 'a2' }],
+      }),
+    );
 
-    s.apply(msg('item_delete', {
-      env_id: 'env1',
-      layer_id: 'layer1',
-      items: ['a1', { id: 'a2' }],
-    } as { env_id: string; layer_id: string; items: Array<string | { id: string }> }));
+    s.apply(
+      msg('item_delete', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: ['a1', { id: 'a2' }],
+      } as { env_id: string; layer_id: string; items: Array<string | { id: string }> }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getData().agents.has('a1')).toBe(true);
     expect(storage.getData().agents.has('a2')).toBe(true);
-    expect(diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ message: expect.stringContaining('cannot mix') }),
-    ]));
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('cannot mix') }),
+      ]),
+    );
   });
 
   it('agent updates append points into dependent trajectory layers', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     s.apply(msg('metadata_update', { time: 5 }));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }] }));
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }] }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
@@ -365,7 +476,9 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('agent creates seed initial points into dependent trajectory layers', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
@@ -375,11 +488,21 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('deleting then recreating an agent identity clears its previous trajectory', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 1 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 1 }] }),
+    );
 
     s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: ['a1'] }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 10, y: 10 }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ id: 'a1', x: 10, y: 10 }],
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     expect(storage.dump().trajectories[0]?.points).toEqual([
@@ -391,14 +514,18 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const s = new Scenario();
     s.apply(msg('env_create', { id: 'env1', type: '2d' }));
     s.apply(msg('env_layer_create', { env_id: 'env1', layer_id: 'items', layer_type: 'agent' }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
-    s.apply(msg('env_layer_create', {
-      env_id: 'env1',
-      layer_id: 'trails',
-      layer_type: 'trajectory',
-      dependency_layer_ids: { agent: 'items' },
-      metadata: { length: 3, color: '#f00' },
-    }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
+    s.apply(
+      msg('env_layer_create', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'items' },
+        metadata: { length: 3, color: '#f00' },
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
@@ -408,9 +535,13 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('generic item updates append points into dependent trajectory layers', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     s.apply(msg('metadata_update', { time: 5 }));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }] }));
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }] }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     const points = storage.dump().trajectories[0]?.points ?? [];
@@ -423,9 +554,19 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('agent deletes clear dependent trajectory items', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'trails', items: [{ id: 'a1', color: '#0f0' }] }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 1 }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        items: [{ id: 'a1', color: '#0f0' }],
+      }),
+    );
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 1 }] }),
+    );
     s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: ['a1'] }));
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
@@ -436,12 +577,24 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('retains a closed trajectory segment when an agent id is deleted and later reused', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'trails', metadata: { on_agent_delete: 'retain' },
-    }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('env_layer_update', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        metadata: { on_agent_delete: 'retain' },
+      }),
+    );
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: ['a1'] }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 10, y: 10 }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ id: 'a1', x: 10, y: 10 }],
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
     expect(storage.dump().trajectories).toEqual([
@@ -458,24 +611,38 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('preserves trajectories across reconnect-style state-sync replay without appending points', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     s.apply(msg('state_sync_begin', {}));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 5, y: 5 }] }));
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 5, y: 5 }] }),
+    );
     s.apply(msg('state_sync_end', {}));
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
-    expect(storage.dump().trajectories[0]?.points).toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
+    expect(storage.dump().trajectories[0]?.points).toEqual([
+      { x: 0, y: 0, time: 0, color: '#f00' },
+    ]);
   });
 
   it('clears trajectory points at state-sync begin when configured', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'trails', metadata: { on_state_sync: 'clear' },
-    }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('env_layer_update', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        metadata: { on_state_sync: 'clear' },
+      }),
+    );
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     s.apply(msg('state_sync_begin', {}));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 5, y: 5 }] }));
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 5, y: 5 }] }),
+    );
     s.apply(msg('state_sync_end', {}));
 
     const storage = s.environments.get('env1')!.layers.get('trails')!.storage as TrajectoryStorage;
@@ -485,7 +652,9 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('reconciles orphan trajectories once state-sync replay finishes', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     const agents = s.environments.get('env1')!.layers.get('items')!.storage as AgentStorage;
 
     s.apply(msg('state_sync_begin', {}));
@@ -499,24 +668,35 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('honours reset lifecycle defaults and preserves explicitly retained trajectory layers', () => {
     const clearScenario = new Scenario();
     setupEnvAndTrajectoryLayer(clearScenario);
-    clearScenario.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }));
+    clearScenario.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }] }),
+    );
     clearScenario.reset();
     expect(clearScenario.environments.size).toBe(0);
 
     const retainedScenario = new Scenario();
     setupEnvAndTrajectoryLayer(retainedScenario);
-    retainedScenario.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'trails', metadata: { on_reset: 'preserve' },
-    }));
-    retainedScenario.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }],
-    }));
+    retainedScenario.apply(
+      msg('env_layer_update', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        metadata: { on_reset: 'preserve' },
+      }),
+    );
+    retainedScenario.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ id: 'a1', x: 0, y: 0 }],
+      }),
+    );
     retainedScenario.reset();
 
     const retainedLayer = retainedScenario.getEnvironment('env1')?.layers.get('trails');
     expect(retainedLayer?.storage).toBeInstanceOf(TrajectoryStorage);
-    expect((retainedLayer?.storage as TrajectoryStorage).dump().trajectories[0]?.points)
-      .toEqual([{ x: 0, y: 0, time: 0, color: '#f00' }]);
+    expect((retainedLayer?.storage as TrajectoryStorage).dump().trajectories[0]?.points).toEqual([
+      { x: 0, y: 0, time: 0, color: '#f00' },
+    ]);
   });
 
   it('routes dependent layer reactions through registered layer controllers', () => {
@@ -531,7 +711,11 @@ describe('Scenario – item_create / item_update / item_delete', () => {
           if (change.kind !== 'update') {
             return;
           }
-          reactionSpy(change.kind, change.sourceLayer.id, change.items.map((item) => item.id));
+          reactionSpy(
+            change.kind,
+            change.sourceLayer.id,
+            change.items.map((item) => item.id),
+          );
         },
       },
     });
@@ -539,21 +723,29 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const s = new Scenario();
     s.apply(msg('env_create', { id: 'env1', type: '2d' }));
     s.apply(msg('env_layer_create', { env_id: 'env1', layer_id: 'items', layer_type: 'agent' }));
-    s.apply(msg('env_layer_create', {
-      env_id: 'env1',
-      layer_id: 'probe',
-      layer_type: 'test-probe',
-      dependency_layer_ids: { agent: 'items' },
-    }));
+    s.apply(
+      msg('env_layer_create', {
+        env_id: 'env1',
+        layer_id: 'probe',
+        layer_type: 'test-probe',
+        dependency_layer_ids: { agent: 'items' },
+      }),
+    );
 
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 0, y: 0 }],
-    }));
-    s.apply(msg('item_update', {
-      env_id: 'env1',
-      layer_id: 'items',
-      items: [{ id: 'a1', x: 1, y: 2 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ id: 'a1', x: 0, y: 0 }],
+      }),
+    );
+    s.apply(
+      msg('item_update', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ id: 'a1', x: 1, y: 2 }],
+      }),
+    );
 
     expect(reactionSpy).toHaveBeenCalledWith('update', 'items', ['a1']);
   });
@@ -565,10 +757,13 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_create populates EdgeStorage', () => {
     const s = new Scenario();
     setupEnvAndEdgeLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'items',
-      items: [{ source: 'a', target: 'b' }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ source: 'a', target: 'b' }],
+      }),
+    );
     const storage = s.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
     expect(storage.getEdgeCount()).toBe(1);
     expect(storage.findEdge('a', 'b')).toBeDefined();
@@ -577,8 +772,23 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_delete removes items by source/target pairs', () => {
     const s = new Scenario();
     setupEnvAndEdgeLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ source: 'a', target: 'b' }, { source: 'c', target: 'd' }] }));
-    s.apply(msg('item_delete', { env_id: 'env1', layer_id: 'items', items: [{ source: 'a', target: 'b' }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [
+          { source: 'a', target: 'b' },
+          { source: 'c', target: 'd' },
+        ],
+      }),
+    );
+    s.apply(
+      msg('item_delete', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ source: 'a', target: 'b' }],
+      }),
+    );
     const storage = s.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
     expect(storage.getEdgeCount()).toBe(1);
     expect(storage.findEdge('c', 'd')).toBeDefined();
@@ -587,11 +797,13 @@ describe('Scenario – item_create / item_update / item_delete', () => {
   it('item_create populates an edge layer through the generic route', () => {
     const s = new Scenario();
     setupEnvAndEdgeLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'items',
-      items: [{ source: 'a', target: 'b' }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ source: 'a', target: 'b' }],
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
     expect(storage.findEdge('a', 'b')).toBeDefined();
@@ -601,24 +813,32 @@ describe('Scenario – item_create / item_update / item_delete', () => {
     const s = new Scenario();
     setupEnvAndEdgeLayer(s);
     const diagnostics: Array<{ message: string }> = [];
-    s.addEventListener('diagnostic', (event) => diagnostics.push((event as CustomEvent<{ message: string }>).detail));
-    s.apply(msg('item_create', {
-      env_id: 'env1',
-      layer_id: 'items',
-      items: [{ source: 'a', target: 'b' }],
-    }));
+    s.addEventListener('diagnostic', (event) =>
+      diagnostics.push((event as CustomEvent<{ message: string }>).detail),
+    );
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ source: 'a', target: 'b' }],
+      }),
+    );
 
-    s.apply(msg('item_delete', {
-      env_id: 'env1',
-      layer_id: 'items',
-      items: ['a'],
-    }));
+    s.apply(
+      msg('item_delete', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: ['a'],
+      }),
+    );
 
     const storage = s.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
     expect(storage.findEdge('a', 'b')).toBeDefined();
-    expect(diagnostics).toEqual(expect.arrayContaining([
-      expect.objectContaining({ message: expect.stringContaining('object keys') }),
-    ]));
+    expect(diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('object keys') }),
+      ]),
+    );
   });
 });
 
@@ -631,8 +851,9 @@ describe('Scenario – chart_create', () => {
     s.apply(msg('chart_update', { updates: [{ id: 'population', value: 3 }] }));
     expect(s.charts.getGroup('population')?.data).toHaveLength(1);
 
-    expect(() => s.apply(msg('chart_create', { id: 'population', label: 'Reset population' })))
-      .toThrow(/chart_create already exists/);
+    expect(() =>
+      s.apply(msg('chart_create', { id: 'population', label: 'Reset population' })),
+    ).toThrow(/chart_create already exists/);
     expect(s.charts.getGroup('population')?.data).toHaveLength(1);
     s.apply(msg('chart_delete', { kind: 'group', id: 'population' }));
     s.apply(msg('chart_create', { id: 'population', label: 'Reset population' }));
@@ -646,8 +867,9 @@ describe('Scenario – chart_create', () => {
     s.apply(msg('chart_create', { id: 'population', label: 'Population' }));
     s.apply(msg('chart_update', { updates: [{ id: 'population', value: 3 }] }));
 
-    expect(() => s.apply(msg('chart_create', { id: 'population', label: 'Updated population' })))
-      .toThrow(/chart_create already exists/);
+    expect(() =>
+      s.apply(msg('chart_create', { id: 'population', label: 'Updated population' })),
+    ).toThrow(/chart_create already exists/);
 
     expect(s.charts.getGroup('population')?.label).toBe('Population');
     expect(s.charts.getGroup('population')?.data).toHaveLength(1);
@@ -658,8 +880,12 @@ describe('Scenario – protocol identity rules', () => {
   it('preserves v0.2 create replacement when legacy rules are selected', () => {
     const s = new Scenario({ mutationRules: 'legacy' });
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1 }] }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 2 }] }));
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1 }] }),
+    );
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 2 }] }),
+    );
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getAgent('a1')).toEqual({ id: 'a1', x: 2 });
     s.apply(msg('env_create', { id: 'env1', type: 'uniform' }));
@@ -673,10 +899,18 @@ describe('Scenario – protocol identity rules', () => {
     s.apply(msg('action_create', action));
     s.apply(msg('param_create', parameter));
 
-    expect(() => s.apply(msg('action_create', { ...action, label: 'Other' }))).toThrow(/action_create already exists/);
-    expect(() => s.apply(msg('action_update', { id: 'missing', label: 'Missing' }))).toThrow(/action_update does not exist/);
-    expect(() => s.apply(msg('param_create', { ...parameter, value: 2 }))).toThrow(/param_create already exists/);
-    expect(() => s.apply(msg('param_update', { ...parameter, id: 'missing' }))).toThrow(/param_update does not exist/);
+    expect(() => s.apply(msg('action_create', { ...action, label: 'Other' }))).toThrow(
+      /action_create already exists/,
+    );
+    expect(() => s.apply(msg('action_update', { id: 'missing', label: 'Missing' }))).toThrow(
+      /action_update does not exist/,
+    );
+    expect(() => s.apply(msg('param_create', { ...parameter, value: 2 }))).toThrow(
+      /param_create already exists/,
+    );
+    expect(() => s.apply(msg('param_update', { ...parameter, id: 'missing' }))).toThrow(
+      /param_update does not exist/,
+    );
     expect(s.actions.get('step')?.label).toBe('Step');
     expect(s.parameters.get('speed')?.value).toBe(1);
   });
@@ -684,59 +918,124 @@ describe('Scenario – protocol identity rules', () => {
   it('rejects missing layer updates and duplicate or missing item identities before mutating a batch', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    expect(() => s.apply(msg('env_layer_update', {
-      env_id: 'env1', layer_id: 'missing', metadata: {},
-    }))).toThrow(/env_layer_update does not exist/);
-    expect(() => s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1' }, { id: 'a1' }],
-    }))).toThrow(/item_create repeats an identity/);
+    expect(() =>
+      s.apply(
+        msg('env_layer_update', {
+          env_id: 'env1',
+          layer_id: 'missing',
+          metadata: {},
+        }),
+      ),
+    ).toThrow(/env_layer_update does not exist/);
+    expect(() =>
+      s.apply(
+        msg('item_create', {
+          env_id: 'env1',
+          layer_id: 'layer1',
+          items: [{ id: 'a1' }, { id: 'a1' }],
+        }),
+      ),
+    ).toThrow(/item_create repeats an identity/);
 
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getAgentCount()).toBe(0);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1 }] }));
-    expect(() => s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a2' }, { id: 'a1' }],
-    }))).toThrow(/item_create already exists/);
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 1 }] }),
+    );
+    expect(() =>
+      s.apply(
+        msg('item_create', {
+          env_id: 'env1',
+          layer_id: 'layer1',
+          items: [{ id: 'a2' }, { id: 'a1' }],
+        }),
+      ),
+    ).toThrow(/item_create already exists/);
     expect(storage.getAgent('a2')).toBeUndefined();
-    expect(() => s.apply(msg('item_update', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 2 }, { id: 'missing', x: 2 }],
-    }))).toThrow(/item_update does not exist/);
+    expect(() =>
+      s.apply(
+        msg('item_update', {
+          env_id: 'env1',
+          layer_id: 'layer1',
+          items: [
+            { id: 'a1', x: 2 },
+            { id: 'missing', x: 2 },
+          ],
+        }),
+      ),
+    ).toThrow(/item_update does not exist/);
     expect(storage.getAgent('a1')?.x).toBe(1);
   });
 
   it('keeps numeric and string agent identities distinct in one batch', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 1, x: 1 }, { id: '1', x: 2 }],
-    }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [
+          { id: 1, x: 1 },
+          { id: '1', x: 2 },
+        ],
+      }),
+    );
     const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
     expect(storage.getAgent(1)?.x).toBe(1);
     expect(storage.getAgent('1')?.x).toBe(2);
-    expect(() => s.apply(msg('item_update', {
-      env_id: 'env1', layer_id: 'layer1', items: [{ id: 1, x: 3 }, { id: 1, x: 4 }],
-    }))).toThrow(/item_update repeats an identity/);
+    expect(() =>
+      s.apply(
+        msg('item_update', {
+          env_id: 'env1',
+          layer_id: 'layer1',
+          items: [
+            { id: 1, x: 3 },
+            { id: 1, x: 4 },
+          ],
+        }),
+      ),
+    ).toThrow(/item_update repeats an identity/);
     expect(storage.getAgent(1)?.x).toBe(1);
   });
 
   it('validates composite edge keys before changing a mixed update batch', () => {
     const scenario = new Scenario();
     setupEnvAndEdgeLayer(scenario);
-    scenario.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'items', items: [{ source: 'a', target: 'b', width: 1 }],
-    }));
+    scenario.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ source: 'a', target: 'b', width: 1 }],
+      }),
+    );
     const storage = scenario.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
 
-    expect(() => scenario.apply(msg('item_update', {
-      env_id: 'env1', layer_id: 'items',
-      items: [{ source: 'a', target: 'b', width: 2 }, { source: 'b', target: 'a', width: 3 }],
-    }))).toThrow(/item_update does not exist/);
+    expect(() =>
+      scenario.apply(
+        msg('item_update', {
+          env_id: 'env1',
+          layer_id: 'items',
+          items: [
+            { source: 'a', target: 'b', width: 2 },
+            { source: 'b', target: 'a', width: 3 },
+          ],
+        }),
+      ),
+    ).toThrow(/item_update does not exist/);
     expect(storage.findEdge('a', 'b')?.width).toBe(1);
 
-    expect(() => scenario.apply(msg('item_create', {
-      env_id: 'env1', layer_id: 'items',
-      items: [{ source: 'b', target: 'a' }, { source: 'a', target: 'b' }],
-    }))).toThrow(/item_create already exists/);
+    expect(() =>
+      scenario.apply(
+        msg('item_create', {
+          env_id: 'env1',
+          layer_id: 'items',
+          items: [
+            { source: 'b', target: 'a' },
+            { source: 'a', target: 'b' },
+          ],
+        }),
+      ),
+    ).toThrow(/item_create already exists/);
     expect(storage.findEdge('b', 'a')).toBeUndefined();
   });
 });
@@ -746,7 +1045,17 @@ describe('Scenario – protocol identity rules', () => {
 describe('Scenario – param_create with sanitization', () => {
   it('stores parameter after param_create', () => {
     const s = new Scenario();
-    s.apply(msg('param_create', { id: 'p1', type: 'number', label: 'P1', value: 5, min: 0, max: 10, step: 1 }));
+    s.apply(
+      msg('param_create', {
+        id: 'p1',
+        type: 'number',
+        label: 'P1',
+        value: 5,
+        min: 0,
+        max: 10,
+        step: 1,
+      }),
+    );
     expect(s.parameters.has('p1')).toBe(true);
   });
 
@@ -763,7 +1072,15 @@ describe('Scenario – param_create with sanitization', () => {
 
   it('sanitizes enum parameter: resets value if not in options', () => {
     const s = new Scenario();
-    s.apply(msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'missing', options: ['a', 'b', 'c'] }));
+    s.apply(
+      msg('param_create', {
+        id: 'e1',
+        type: 'enum',
+        label: '',
+        value: 'missing',
+        options: ['a', 'b', 'c'],
+      }),
+    );
     const p = s.parameters.get('e1') as any;
     expect(p.options).toContain(p.value);
   });
@@ -785,7 +1102,9 @@ describe('Scenario – param_create with sanitization', () => {
 
   it('param_sync updates value and re-sanitizes enum', () => {
     const s = new Scenario();
-    s.apply(msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }));
+    s.apply(
+      msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }),
+    );
     // sync to a valid value
     s.apply(msg('param_sync', { id: 'e1', value: 'b' }));
     expect((s.parameters.get('e1') as any).value).toBe('b');
@@ -793,14 +1112,18 @@ describe('Scenario – param_create with sanitization', () => {
 
   it('param_sync with invalid enum value is reset to first option', () => {
     const s = new Scenario();
-    s.apply(msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }));
+    s.apply(
+      msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }),
+    );
     s.apply(msg('param_sync', { id: 'e1', value: 'invalid' }));
     expect((s.parameters.get('e1') as any).value).toBe('a');
   });
 
   it('rejects invalid optimistic parameter values without mutating local state', () => {
     const s = new Scenario();
-    s.apply(msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }));
+    s.apply(
+      msg('param_create', { id: 'e1', type: 'enum', label: '', value: 'a', options: ['a', 'b'] }),
+    );
 
     expect(() => s.applyOptimisticParameterChange('e1', 'missing')).toThrow('Invalid value');
     expect((s.parameters.get('e1') as any).value).toBe('a');
@@ -820,7 +1143,13 @@ describe('Scenario – dump / load', () => {
   it('dump/load round-trips environment and agent state', () => {
     const s = new Scenario();
     setupEnvAndAgentLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'layer1', items: [{ id: 'a1', x: 5, y: 10 }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'layer1',
+        items: [{ id: 'a1', x: 5, y: 10 }],
+      }),
+    );
 
     const snap = s.dump();
     const s2 = new Scenario();
@@ -834,7 +1163,13 @@ describe('Scenario – dump / load', () => {
   it('dump/load round-trips edge state', () => {
     const s = new Scenario();
     setupEnvAndEdgeLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ source: 'a', target: 'b' }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'items',
+        items: [{ source: 'a', target: 'b' }],
+      }),
+    );
 
     const snap = s.dump();
     const s2 = new Scenario();
@@ -849,9 +1184,19 @@ describe('Scenario – dump / load', () => {
   it('dump/load round-trips trajectory state', () => {
     const s = new Scenario();
     setupEnvAndTrajectoryLayer(s);
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'trails', items: [{ id: 'a1', color: '#0f0' }] }));
-    s.apply(msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }] }));
-    s.apply(msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 2, y: 3 }] }));
+    s.apply(
+      msg('item_create', {
+        env_id: 'env1',
+        layer_id: 'trails',
+        items: [{ id: 'a1', color: '#0f0' }],
+      }),
+    );
+    s.apply(
+      msg('item_create', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 1, y: 2 }] }),
+    );
+    s.apply(
+      msg('item_update', { env_id: 'env1', layer_id: 'items', items: [{ id: 'a1', x: 2, y: 3 }] }),
+    );
 
     const snap = s.dump();
     const s2 = new Scenario();
@@ -950,17 +1295,25 @@ describe('Scenario – background assets', () => {
   it('clears invalidated assets and ignores late old data', async () => {
     const scenario = new Scenario();
     scenario.apply(msg('env_create', { id: 'env', type: '2d' }));
-    scenario.apply(msg('env_layer_create', {
-      env_id: 'env', layer_id: 'background', layer_type: 'background',
-      metadata: { background: { asset_id: 'image' } },
-    }));
-    const storage = scenario.getEnvironment('env')!.layers.get('background')!.storage as BackgroundStorage;
-    const metadata = (hash: string) => msg('asset_metadata', { assets: [
-      { id: 'image', hash, mime: 'image/png', size: 3 },
-    ] });
-    const data = (hash: string) => msg('asset_data', {
-      id: 'image', hash, mime: 'image/png', data: new Uint8Array([1, 2, 3]),
-    });
+    scenario.apply(
+      msg('env_layer_create', {
+        env_id: 'env',
+        layer_id: 'background',
+        layer_type: 'background',
+        metadata: { background: { asset_id: 'image' } },
+      }),
+    );
+    const storage = scenario.getEnvironment('env')!.layers.get('background')!
+      .storage as BackgroundStorage;
+    const metadata = (hash: string) =>
+      msg('asset_metadata', { assets: [{ id: 'image', hash, mime: 'image/png', size: 3 }] });
+    const data = (hash: string) =>
+      msg('asset_data', {
+        id: 'image',
+        hash,
+        mime: 'image/png',
+        data: new Uint8Array([1, 2, 3]),
+      });
 
     scenario.apply(metadata('one'));
     scenario.apply(data('one'));
@@ -983,25 +1336,38 @@ describe('Scenario – background assets', () => {
   it('rebinds asset backgrounds after snapshot load and owns layer metadata', async () => {
     const source = new Scenario();
     source.apply(msg('env_create', { id: 'env', type: '2d' }));
-    source.apply(msg('env_layer_create', {
-      env_id: 'env', layer_id: 'background', layer_type: 'background',
-      metadata: { background: { asset_id: 'image' } },
-    }));
-    source.apply(msg('asset_metadata', { assets: [
-      { id: 'image', hash: 'one', mime: 'image/png', size: 3 },
-    ] }));
-    source.apply(msg('asset_data', {
-      id: 'image', hash: 'one', mime: 'image/png', data: new Uint8Array([1, 2, 3]),
-    }));
+    source.apply(
+      msg('env_layer_create', {
+        env_id: 'env',
+        layer_id: 'background',
+        layer_type: 'background',
+        metadata: { background: { asset_id: 'image' } },
+      }),
+    );
+    source.apply(
+      msg('asset_metadata', { assets: [{ id: 'image', hash: 'one', mime: 'image/png', size: 3 }] }),
+    );
+    source.apply(
+      msg('asset_data', {
+        id: 'image',
+        hash: 'one',
+        mime: 'image/png',
+        data: new Uint8Array([1, 2, 3]),
+      }),
+    );
     await Promise.resolve();
     const snapshot = source.dump();
     const restored = new Scenario();
     restored.load(snapshot);
     const layer = restored.getEnvironment('env')!.layers.get('background')!;
     const storage = layer.storage as BackgroundStorage;
-    expect(storage.getData()).toMatchObject({ kind: 'image', url: restored.assets.getUrl('image') });
+    expect(storage.getData()).toMatchObject({
+      kind: 'image',
+      url: restored.assets.getUrl('image'),
+    });
 
-    (snapshot.environments[0].layers[0].metadata.background as { asset_id: string }).asset_id = 'different';
+    (snapshot.environments[0].layers[0].metadata.background as { asset_id: string }).asset_id =
+      'different';
     expect(layer.metadata.background).toEqual({ asset_id: 'image' });
     source.reset();
     restored.reset();

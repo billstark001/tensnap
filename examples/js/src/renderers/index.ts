@@ -1,18 +1,10 @@
 import type { SimulatorSession } from '@tensnap/js/runtime';
 import type { ScenarioDefinition } from '@tensnap/js/scenario';
-import {
-  AXELROD_EXAMPLE,
-} from './axelrod';
-import {
-  SCHELLING_EXAMPLE,
-} from './schelling';
-import {
-  TORNBERG_EXAMPLE,
-} from './tornberg';
+import { AXELROD_EXAMPLE } from './axelrod';
+import { SCHELLING_EXAMPLE } from './schelling';
+import { TORNBERG_EXAMPLE } from './tornberg';
 import type { JsExampleMetadata } from './shared';
-import {
-  WOLF_SHEEP_EXAMPLE,
-} from './wolf-sheep';
+import { WOLF_SHEEP_EXAMPLE } from './wolf-sheep';
 
 export * from './axelrod';
 export * from './schelling';

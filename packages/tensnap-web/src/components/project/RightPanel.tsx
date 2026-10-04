@@ -44,9 +44,11 @@ export const RightPanel = () => {
   const filteredAssets = assets.filter((asset) => {
     if (!assetFilter.trim()) return true;
     const q = assetFilter.toLowerCase();
-    return asset.id.toLowerCase().includes(q)
-      || (asset.label?.toLowerCase().includes(q) ?? false)
-      || asset.mime.toLowerCase().includes(q);
+    return (
+      asset.id.toLowerCase().includes(q) ||
+      (asset.label?.toLowerCase().includes(q) ?? false) ||
+      asset.mime.toLowerCase().includes(q)
+    );
   });
 
   const handleTakeSnapshot = async () => {
@@ -56,7 +58,10 @@ export const RightPanel = () => {
       if (captureSnapshot) await captureSnapshot();
       else addSnapshot?.();
     } catch (error) {
-      toast.error('Unable to capture snapshot', error instanceof Error ? error.message : String(error));
+      toast.error(
+        'Unable to capture snapshot',
+        error instanceof Error ? error.message : String(error),
+      );
     } finally {
       setIsCapturingSnapshot(false);
     }
@@ -74,7 +79,10 @@ export const RightPanel = () => {
   const handleDeleteSnapshot = () => {
     if (selectedSnapshot) {
       if (selectedSnapshot.metadata.id === activeSnapshotSourceId) {
-        toast.warning('Recording is in use', 'This recording is the active project source and cannot be deleted.');
+        toast.warning(
+          'Recording is in use',
+          'This recording is the active project source and cannot be deleted.',
+        );
         return;
       }
       removeSnapshot?.(getSnapshotIdentity(selectedSnapshot).id);
@@ -97,7 +105,7 @@ export const RightPanel = () => {
 
   const truncateParameters = (snapshot: Snapshot, maxLength: number = 50) => {
     const paramStr = snapshot.initial.scenario.parameters
-      .map(p => `${p.label}: ${p.value}`)
+      .map((p) => `${p.label}: ${p.value}`)
       .join(', ');
 
     if (paramStr.length <= maxLength) {
@@ -122,7 +130,9 @@ export const RightPanel = () => {
         <div className={styles.snapshotHeader}>
           <span className={styles.snapshotId}>{asset.label || asset.id}</span>
           <div className={styles.assetHeaderActions}>
-            <span className={styles.snapshotTime}>{resolved ? <Trans>Ready</Trans> : <Trans>Pending</Trans>}</span>
+            <span className={styles.snapshotTime}>
+              {resolved ? <Trans>Ready</Trans> : <Trans>Pending</Trans>}
+            </span>
             <button
               type="button"
               className={styles.assetCopyButton}
@@ -149,19 +159,27 @@ export const RightPanel = () => {
         )}
         <div className={styles.snapshotInfo}>
           <div className={styles.snapshotInfoRow}>
-            <span className={styles.snapshotLabel}><Trans>ID:</Trans></span>
+            <span className={styles.snapshotLabel}>
+              <Trans>ID:</Trans>
+            </span>
             <span className={styles.snapshotValue}>{asset.id}</span>
           </div>
           <div className={styles.snapshotInfoRow}>
-            <span className={styles.snapshotLabel}><Trans>MIME:</Trans></span>
+            <span className={styles.snapshotLabel}>
+              <Trans>MIME:</Trans>
+            </span>
             <span className={styles.snapshotValue}>{asset.mime}</span>
           </div>
           <div className={styles.snapshotInfoRow}>
-            <span className={styles.snapshotLabel}><Trans>Size:</Trans></span>
+            <span className={styles.snapshotLabel}>
+              <Trans>Size:</Trans>
+            </span>
             <span className={styles.snapshotValue}>{formatSize(asset.size)}</span>
           </div>
           <div className={styles.snapshotInfoRow}>
-            <span className={styles.snapshotLabel}><Trans>Hash:</Trans></span>
+            <span className={styles.snapshotLabel}>
+              <Trans>Hash:</Trans>
+            </span>
             <span className={styles.snapshotValue}>{asset.hash.slice(0, 12)}...</span>
           </div>
         </div>
@@ -172,7 +190,9 @@ export const RightPanel = () => {
   return (
     <div className={styles.rightPanel}>
       <div className={styles.panelHeader}>
-        <h3><Trans>Inspector</Trans></h3>
+        <h3>
+          <Trans>Inspector</Trans>
+        </h3>
         <div className={styles.tabRow}>
           <button
             className={activeTab === 'snapshots' ? styles.tabButtonActive : styles.tabButton}
@@ -191,123 +211,130 @@ export const RightPanel = () => {
         </div>
 
         {activeTab === 'snapshots' && (
-        <div className={styles.headerButtons}>
-          <button
-            className={styles.headerButton}
-            onClick={() => isRecording ? stopRecording?.() : startRecording?.()}
-            title={isRecording ? 'Stop Recording' : 'Start Recording'}
-            aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
-            disabled={isSnapshotSource || isCapturingSnapshot}
-          >
-            {isRecording ? <Square size={16} /> : <Circle size={16} />}
-            <span>{isRecording ? <Trans>Stop recording</Trans> : <Trans>Start recording</Trans>}</span>
-          </button>
-          <button
-            className={styles.headerButton}
-            onClick={handleTakeSnapshot}
-            title="Take Snapshot"
-            aria-label="Take Snapshot"
-            disabled={isSnapshotSource || isCapturingSnapshot}
-          >
-            <Camera size={16} />
-            <span>{isCapturingSnapshot ? <Trans>Capturing…</Trans> : <Trans>Take Snapshot</Trans>}</span>
-          </button>
-          <button
-            className={styles.headerButton}
-            onClick={handleClearSnapshots}
-            title="Clear All Snapshots"
-            aria-label="Clear All Snapshots"
-            disabled={isSnapshotSource || !snapshots?.length}
-          >
-            <Trash2 size={16} />
-            <span><Trans>Clear All</Trans></span>
-          </button>
-        </div>
+          <div className={styles.headerButtons}>
+            <button
+              className={styles.headerButton}
+              onClick={() => (isRecording ? stopRecording?.() : startRecording?.())}
+              title={isRecording ? 'Stop Recording' : 'Start Recording'}
+              aria-label={isRecording ? 'Stop Recording' : 'Start Recording'}
+              disabled={isSnapshotSource || isCapturingSnapshot}
+            >
+              {isRecording ? <Square size={16} /> : <Circle size={16} />}
+              <span>
+                {isRecording ? <Trans>Stop recording</Trans> : <Trans>Start recording</Trans>}
+              </span>
+            </button>
+            <button
+              className={styles.headerButton}
+              onClick={handleTakeSnapshot}
+              title="Take Snapshot"
+              aria-label="Take Snapshot"
+              disabled={isSnapshotSource || isCapturingSnapshot}
+            >
+              <Camera size={16} />
+              <span>
+                {isCapturingSnapshot ? <Trans>Capturing…</Trans> : <Trans>Take Snapshot</Trans>}
+              </span>
+            </button>
+            <button
+              className={styles.headerButton}
+              onClick={handleClearSnapshots}
+              title="Clear All Snapshots"
+              aria-label="Clear All Snapshots"
+              disabled={isSnapshotSource || !snapshots?.length}
+            >
+              <Trash2 size={16} />
+              <span>
+                <Trans>Clear All</Trans>
+              </span>
+            </button>
+          </div>
         )}
       </div>
       <div className={styles.panelContent}>
-        {activeTab === 'snapshots' && (!snapshots?.length ? (
-          <EmptyState
-            compact
-            icon={<Camera size={48} />}
-            title={<Trans>No snapshots yet.</Trans>}
-            description={<Trans>Click "Take Snapshot" to create one.</Trans>}
-          />
-        ) : (
-          <div className={styles.snapshotList}>
-            {snapshots.map((snapshot) => {
-              const identity = getSnapshotIdentity(snapshot);
-              const displayName = snapshot.metadata.label?.trim() || identity.id;
-              return (
-              <div
-                key={identity.id}
-                className={styles.snapshotItem}
-                onClick={() => handleSnapshotClick(snapshot)}
-              >
-                <div className={styles.snapshotHeader}>
-                  <span className={styles.snapshotId}>{displayName}</span>
-                  <span className={styles.snapshotTime}>
-                    {formatTimestamp(identity.timestamp)}
-                  </span>
-                </div>
-                <div className={styles.snapshotInfo}>
-                  <div className={styles.snapshotInfoRow}>
-                    <span className={styles.snapshotLabel}>
-                      <Trans>Time Step:</Trans>
-                    </span>
-                    <span className={styles.snapshotValue}>{String(snapshot.initial.scenario.metadata.time ?? '-')}</span>
-                  </div>
-                  <div className={styles.snapshotInfoRow}>
-                    <span className={styles.snapshotLabel}>
-                      <Trans>Environments:</Trans>
-                    </span>
-                    <span className={styles.snapshotValue}>
-                      {snapshot.initial.scenario.environments.length}
-                    </span>
-                  </div>
-                  <div className={styles.snapshotInfoRow}>
-                    <span className={styles.snapshotLabel}>
-                      <Trans>Frames:</Trans>
-                    </span>
-                    <span className={styles.snapshotValue}>{snapshot.frames.length}</span>
-                  </div>
-                  <div className={styles.snapshotInfoRow}>
-                    <span className={styles.snapshotLabel}>
-                      <Trans>Parameters:</Trans>
-                    </span>
-                    <span className={styles.snapshotValue}>
-                      {truncateParameters(snapshot)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-        ))}
-
-        {activeTab === 'assets' && (!assets.length ? (
-          <EmptyState
-            compact
-            icon={<Image size={48} />}
-            title={<Trans>No assets registered.</Trans>}
-            description={<Trans>Assets sent by adapters will appear here.</Trans>}
-          />
-        ) : (
-          <>
-            <input
-              className={styles.assetFilterInput}
-              type="text"
-              value={assetFilter}
-              onChange={(e) => setAssetFilter(e.target.value)}
-              placeholder="Filter by id/label/mime"
+        {activeTab === 'snapshots' &&
+          (!snapshots?.length ? (
+            <EmptyState
+              compact
+              icon={<Camera size={48} />}
+              title={<Trans>No snapshots yet.</Trans>}
+              description={<Trans>Click "Take Snapshot" to create one.</Trans>}
             />
+          ) : (
             <div className={styles.snapshotList}>
-              {filteredAssets.map((asset) => renderAssetItem(asset))}
+              {snapshots.map((snapshot) => {
+                const identity = getSnapshotIdentity(snapshot);
+                const displayName = snapshot.metadata.label?.trim() || identity.id;
+                return (
+                  <div
+                    key={identity.id}
+                    className={styles.snapshotItem}
+                    onClick={() => handleSnapshotClick(snapshot)}
+                  >
+                    <div className={styles.snapshotHeader}>
+                      <span className={styles.snapshotId}>{displayName}</span>
+                      <span className={styles.snapshotTime}>
+                        {formatTimestamp(identity.timestamp)}
+                      </span>
+                    </div>
+                    <div className={styles.snapshotInfo}>
+                      <div className={styles.snapshotInfoRow}>
+                        <span className={styles.snapshotLabel}>
+                          <Trans>Time Step:</Trans>
+                        </span>
+                        <span className={styles.snapshotValue}>
+                          {String(snapshot.initial.scenario.metadata.time ?? '-')}
+                        </span>
+                      </div>
+                      <div className={styles.snapshotInfoRow}>
+                        <span className={styles.snapshotLabel}>
+                          <Trans>Environments:</Trans>
+                        </span>
+                        <span className={styles.snapshotValue}>
+                          {snapshot.initial.scenario.environments.length}
+                        </span>
+                      </div>
+                      <div className={styles.snapshotInfoRow}>
+                        <span className={styles.snapshotLabel}>
+                          <Trans>Frames:</Trans>
+                        </span>
+                        <span className={styles.snapshotValue}>{snapshot.frames.length}</span>
+                      </div>
+                      <div className={styles.snapshotInfoRow}>
+                        <span className={styles.snapshotLabel}>
+                          <Trans>Parameters:</Trans>
+                        </span>
+                        <span className={styles.snapshotValue}>{truncateParameters(snapshot)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </>
-        ))}
+          ))}
 
+        {activeTab === 'assets' &&
+          (!assets.length ? (
+            <EmptyState
+              compact
+              icon={<Image size={48} />}
+              title={<Trans>No assets registered.</Trans>}
+              description={<Trans>Assets sent by adapters will appear here.</Trans>}
+            />
+          ) : (
+            <>
+              <input
+                className={styles.assetFilterInput}
+                type="text"
+                value={assetFilter}
+                onChange={(e) => setAssetFilter(e.target.value)}
+                placeholder="Filter by id/label/mime"
+              />
+              <div className={styles.snapshotList}>
+                {filteredAssets.map((asset) => renderAssetItem(asset))}
+              </div>
+            </>
+          ))}
       </div>
 
       <SnapshotDetailDialog

@@ -12,24 +12,22 @@ export interface MenuBarProps {
   className?: string;
 }
 
-export const MenuBar: React.FC<MenuBarProps> = ({
-  className,
-}) => {
-  const {
-    canSaveFile,
-    onNewFile, onFileOpen,
-    onFileSave, onFileSaveAs,
-  } = useFileOperations();
+export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
+  const { canSaveFile, onNewFile, onFileOpen, onFileSave, onFileSaveAs } = useFileOperations();
 
-  const setSettingsDialogOpen = useSettingsStore(x => x.setSettingsDialogOpen);
-  const setAboutDialogOpen = useSettingsStore(x => x.setAboutDialogOpen);
+  const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
+  const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
   const history = useScenarioUndoRedoStore();
 
   useEffect(() => {
     if (!history) return;
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
-      if (target?.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')) return;
+      if (
+        target?.isContentEditable ||
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName ?? '')
+      )
+        return;
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = event.key.toLowerCase();
       if (key === 'z' && event.shiftKey) {
@@ -47,16 +45,15 @@ export const MenuBar: React.FC<MenuBarProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [history]);
 
-  const {
-    environment,
-    system,
-    isFullscreen,
-    onExit,
-    onToggleFullscreen,
-  } = useContext(MenuBarContext);
+  const { environment, system, isFullscreen, onExit, onToggleFullscreen } =
+    useContext(MenuBarContext);
 
   const handleDocumentation = () => {
-    window.open('https://github.com/billstark001/tensnap/tree/main/docs', '_blank', 'noopener,noreferrer');
+    window.open(
+      'https://github.com/billstark001/tensnap/tree/main/docs',
+      '_blank',
+      'noopener,noreferrer',
+    );
   };
 
   const handleExit = () => {
@@ -75,31 +72,27 @@ export const MenuBar: React.FC<MenuBarProps> = ({
 
   return (
     <>
-      <div className={clsx(
-        styles.menuBar,
-        environment === 'tauri' && system === 'mac' && !isFullscreen && 'mac',
-        className
-      )} data-tauri-drag-region>
+      <div
+        className={clsx(
+          styles.menuBar,
+          environment === 'tauri' && system === 'mac' && !isFullscreen && 'mac',
+          className,
+        )}
+        data-tauri-drag-region
+      >
         {/* File Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}><Trans>File</Trans></button>
+            <button className={styles.menuItem}>
+              <Trans>File</Trans>
+            </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className={styles.dropdownContent}
-              sideOffset={5}
-            >
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={onNewFile}
-              >
+            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+              <DropdownMenu.Item className={styles.dropdownItem} onClick={onNewFile}>
                 <Trans>New</Trans>
               </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={onFileOpen}
-              >
+              <DropdownMenu.Item className={styles.dropdownItem} onClick={onFileOpen}>
                 <Trans>Open File</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
@@ -132,24 +125,27 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         {/* Edit Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}><Trans>Edit</Trans></button>
+            <button className={styles.menuItem}>
+              <Trans>Edit</Trans>
+            </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className={styles.dropdownContent}
-              sideOffset={5}
-            >
+            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 disabled={!history?.canUndo()}
-                onSelect={() => { void history?.undo(); }}
+                onSelect={() => {
+                  void history?.undo();
+                }}
               >
                 <Trans>Undo</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 disabled={!history?.canRedo()}
-                onSelect={() => { void history?.redo(); }}
+                onSelect={() => {
+                  void history?.redo();
+                }}
               >
                 <Trans>Redo</Trans>
               </DropdownMenu.Item>
@@ -174,13 +170,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         {/* View Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}><Trans>View</Trans></button>
+            <button className={styles.menuItem}>
+              <Trans>View</Trans>
+            </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className={styles.dropdownContent}
-              sideOffset={5}
-            >
+            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
               <DropdownMenu.Item className={styles.dropdownItem}>
                 <Trans>Zoom In</Trans>
               </DropdownMenu.Item>
@@ -204,14 +199,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         {/* Tools Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}><Trans>Tools</Trans></button>
+            <button className={styles.menuItem}>
+              <Trans>Tools</Trans>
+            </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className={styles.dropdownContent}
-              sideOffset={5}
-            >
-
+            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
               <DropdownMenu.Item
                 className={styles.dropdownItem}
                 onClick={() => setSettingsDialogOpen(true)}
@@ -219,7 +212,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
                 <Trans>Settings</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Separator className={styles.dropdownSeparator} />
-
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
@@ -227,13 +219,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({
         {/* Help Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className={styles.menuItem}><Trans>Help</Trans></button>
+            <button className={styles.menuItem}>
+              <Trans>Help</Trans>
+            </button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className={styles.dropdownContent}
-              sideOffset={5}
-            >
+            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
               <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleDocumentation}>
                 <Trans>Documentation</Trans>
               </DropdownMenu.Item>
@@ -251,7 +242,6 @@ export const MenuBar: React.FC<MenuBarProps> = ({
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
       </div>
-
     </>
   );
 };

@@ -1,6 +1,5 @@
-import { vars } from "@tensnap/web-common/styles/global.css";
-import { style, globalStyle } from "@vanilla-extract/css";
-
+import { vars } from '@tensnap/web-common/styles/global.css';
+import { style, globalStyle } from '@vanilla-extract/css';
 
 export const projectContainer = style({
   width: '100%',
@@ -41,7 +40,7 @@ export const projectTerminal = style({
   background: vars.color.terminalBackground,
   color: vars.color.terminalForeground,
   overflow: 'auto',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       background: vars.color.darkTerminalBackground,
@@ -55,7 +54,7 @@ export const sidebar = style({
   borderRadius: vars.radius.md,
   padding: vars.space.md,
   height: 'fit-content',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkGridBackground,

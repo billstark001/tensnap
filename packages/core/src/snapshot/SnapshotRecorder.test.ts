@@ -1,28 +1,54 @@
 import { describe, expect, it } from 'vitest';
 import { Scenario } from '../scenario';
-import { applySnapshotFrame, createSingleSnapshot, SnapshotPlayer, SnapshotRecorder, materializeSnapshot } from './SnapshotRecorder';
-import { decodeSnapshotArchive, encodeSnapshotArchive, snapshotArchiveForJson } from './SnapshotArchive';
+import {
+  applySnapshotFrame,
+  createSingleSnapshot,
+  SnapshotPlayer,
+  SnapshotRecorder,
+  materializeSnapshot,
+} from './SnapshotRecorder';
+import {
+  decodeSnapshotArchive,
+  encodeSnapshotArchive,
+  snapshotArchiveForJson,
+} from './SnapshotArchive';
 
 describe('SnapshotRecorder', () => {
   it('keeps create replacement for replay frames marked as legacy', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     const snapshot = createSingleSnapshot(scenario.dump(), { legacyCreateReplacement: true });
     snapshot.frames = [1, 2].map((index) => ({
-      index, timestamp: index, kind: 'action' as const, controls: [],
-      messages: [{ type: 'item_create' as const, payload: {
-        env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: index }],
-      } }],
+      index,
+      timestamp: index,
+      kind: 'action' as const,
+      controls: [],
+      messages: [
+        {
+          type: 'item_create' as const,
+          payload: {
+            env_id: 'main',
+            layer_id: 'agents',
+            items: [{ id: 'a', x: index }],
+          },
+        },
+      ],
     }));
 
     const player = new SnapshotPlayer(snapshot);
     player.seek(2);
-    const agents = player.scenario.getEnvironment('main')!.layers.get('agents')!.storage as import('../environment').AgentStorage;
+    const agents = player.scenario.getEnvironment('main')!.layers.get('agents')!
+      .storage as import('../environment').AgentStorage;
     expect(agents.getAgent('a')?.x).toBe(2);
-    expect(materializeSnapshot(snapshot).environments[0]?.layers[0]?.storageSnapshot).toMatchObject({
-      agents: [expect.objectContaining({ id: 'a', x: 2 })],
-    });
+    expect(materializeSnapshot(snapshot).environments[0]?.layers[0]?.storageSnapshot).toMatchObject(
+      {
+        agents: [expect.objectContaining({ id: 'a', x: 2 })],
+      },
+    );
     snapshot.metadata.legacy_create_replacement = false;
     expect(() => new SnapshotPlayer(snapshot).seek(2)).toThrow(/item_create already exists/);
   });
@@ -30,77 +56,138 @@ describe('SnapshotRecorder', () => {
   it('replays coalesced atomic frames to the exact recorded Scenario state', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start({ keyframeEvery: 1 });
 
-    const create = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] } };
-    const update = { type: 'item_update' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2, y: 3 }] } };
+    const create = {
+      type: 'item_create' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 0, y: 0 }] },
+    };
+    const update = {
+      type: 'item_update' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2, y: 3 }] },
+    };
     scenario.apply(create);
     recorder.recordMessage(create);
     scenario.apply(update);
     recorder.recordMessage(update);
-    const actionEnd = { type: 'action_result' as const, payload: { id: 'step', request_id: 'one' } };
+    const actionEnd = {
+      type: 'action_result' as const,
+      payload: { id: 'step', request_id: 'one' },
+    };
     scenario.apply(actionEnd);
     recorder.recordMessage(actionEnd);
 
     const snapshot = recorder.stop()!;
     expect(snapshot.frames).toHaveLength(1);
-    expect(snapshot.frames[0].messages.filter((message) => message.type === 'item_create')).toEqual([
-      { type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2, y: 3 }] } },
-    ]);
+    expect(snapshot.frames[0].messages.filter((message) => message.type === 'item_create')).toEqual(
+      [
+        {
+          type: 'item_create',
+          payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2, y: 3 }] },
+        },
+      ],
+    );
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
 
   it('owns incoming messages before coalescing them', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
-    const create = { type: 'item_create' as const, payload: {
-      env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }],
-    } };
+    const create = {
+      type: 'item_create' as const,
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [{ id: 'a', x: 1 }],
+      },
+    };
     scenario.apply(create);
     recorder.recordMessage(create);
     create.payload.items[0].x = 99;
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
-    expect(snapshot.frames[0].messages).toContainEqual({ type: 'item_create', payload: {
-      env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }],
-    } });
+    expect(snapshot.frames[0].messages).toContainEqual({
+      type: 'item_create',
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [{ id: 'a', x: 1 }],
+      },
+    });
   });
 
   it('keeps numeric and string item ids separate while coalescing a frame', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
-    const create = { type: 'item_create' as const, payload: {
-      env_id: 'main', layer_id: 'agents', items: [{ id: 1, x: 1 }, { id: '1', x: 2 }],
-    } };
+    const create = {
+      type: 'item_create' as const,
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [
+          { id: 1, x: 1 },
+          { id: '1', x: 2 },
+        ],
+      },
+    };
     scenario.apply(create);
     recorder.recordMessage(create);
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
-    expect(snapshot.frames[0].messages).toContainEqual({ type: 'item_create', payload: {
-      env_id: 'main', layer_id: 'agents', items: [{ id: 1, x: 1 }, { id: '1', x: 2 }],
-    } });
+    expect(snapshot.frames[0].messages).toContainEqual({
+      type: 'item_create',
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [
+          { id: 1, x: 1 },
+          { id: '1', x: 2 },
+        ],
+      },
+    });
   });
 
   it('preserves delete then recreate of an existing item in one frame', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
-    scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 9 }] } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 9 }] },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
-    const remove = { type: 'item_delete' as const, payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } };
-    const recreate = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2 }] } };
+    const remove = {
+      type: 'item_delete' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: ['a'] },
+    };
+    const recreate = {
+      type: 'item_create' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2 }] },
+    };
     scenario.apply(remove);
     recorder.recordMessage(remove);
     scenario.apply(recreate);
@@ -108,21 +195,40 @@ describe('SnapshotRecorder', () => {
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
-    expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual(['item_delete', 'item_create', 'action_result']);
+    expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual([
+      'item_delete',
+      'item_create',
+      'action_result',
+    ]);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
 
   it('does not move a later recreate into an earlier create batch', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
-    scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }] } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }] },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
     const messages = [
-      { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'b', x: 2 }] } },
-      { type: 'item_delete' as const, payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } },
-      { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 3 }] } },
+      {
+        type: 'item_create' as const,
+        payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'b', x: 2 }] },
+      },
+      {
+        type: 'item_delete' as const,
+        payload: { env_id: 'main', layer_id: 'agents', items: ['a'] },
+      },
+      {
+        type: 'item_create' as const,
+        payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 3 }] },
+      },
     ];
     for (const message of messages) {
       scenario.apply(message);
@@ -132,7 +238,10 @@ describe('SnapshotRecorder', () => {
 
     const snapshot = recorder.stop()!;
     expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual([
-      'item_create', 'item_delete', 'item_create', 'action_result',
+      'item_create',
+      'item_delete',
+      'item_create',
+      'action_result',
     ]);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
@@ -140,15 +249,30 @@ describe('SnapshotRecorder', () => {
   it('does not merge item mutations across a layer replacement', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
-    scenario.apply({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }] } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1 }] },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
     const messages = [
-      { type: 'item_update' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2 }] } },
+      {
+        type: 'item_update' as const,
+        payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 2 }] },
+      },
       { type: 'env_layer_delete' as const, payload: { env_id: 'main', layer_id: 'agents' } },
-      { type: 'env_layer_create' as const, payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } },
-      { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 3 }] } },
+      {
+        type: 'env_layer_create' as const,
+        payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+      },
+      {
+        type: 'item_create' as const,
+        payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 3 }] },
+      },
     ];
     for (const message of messages) {
       scenario.apply(message);
@@ -158,29 +282,50 @@ describe('SnapshotRecorder', () => {
 
     const snapshot = recorder.stop()!;
     expect(snapshot.frames[0].messages.map((message) => message.type)).toEqual([
-      'item_update', 'env_layer_delete', 'env_layer_create', 'item_create', 'action_result',
+      'item_update',
+      'env_layer_delete',
+      'env_layer_create',
+      'item_create',
+      'action_result',
     ]);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
 
   it('replays varied create, update, and delete bursts exactly', () => {
     let randomState = 0x5eed;
-    const random = () => ((randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0) / 0x1_0000_0000);
+    const random = () =>
+      (randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0) / 0x1_0000_0000;
     for (let burst = 0; burst < 30; burst++) {
       const scenario = new Scenario();
       scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-      scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+      scenario.apply({
+        type: 'env_layer_create',
+        payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+      });
       const recorder = new SnapshotRecorder(scenario);
       recorder.start();
       const live = new Set<string | number>();
       for (let index = 0; index < 25; index++) {
         const id = random() < 0.5 ? 1 : '1';
-        const type = live.has(id) ? (random() < 0.45 ? 'item_delete' : 'item_update') : 'item_create';
-        const message = type === 'item_delete'
-          ? { type: 'item_delete' as const, payload: { env_id: 'main', layer_id: 'agents', items: [id] } }
-          : { type: type as 'item_create' | 'item_update', payload: {
-            env_id: 'main', layer_id: 'agents', items: [{ id, x: index }],
-          } };
+        const type = live.has(id)
+          ? random() < 0.45
+            ? 'item_delete'
+            : 'item_update'
+          : 'item_create';
+        const message =
+          type === 'item_delete'
+            ? {
+                type: 'item_delete' as const,
+                payload: { env_id: 'main', layer_id: 'agents', items: [id] },
+              }
+            : {
+                type: type as 'item_create' | 'item_update',
+                payload: {
+                  env_id: 'main',
+                  layer_id: 'agents',
+                  items: [{ id, x: index }],
+                },
+              };
         scenario.apply(message);
         recorder.recordMessage(message);
         if (type === 'item_delete') live.delete(id);
@@ -194,29 +339,48 @@ describe('SnapshotRecorder', () => {
   it('retains every source update needed by a dependent trajectory layer', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
-    scenario.apply({ type: 'env_layer_create', payload: {
-      env_id: 'main', layer_id: 'trails', layer_type: 'trajectory', dependency_layer_ids: { agent: 'agents' },
-    } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: {
+        env_id: 'main',
+        layer_id: 'trails',
+        layer_type: 'trajectory',
+        dependency_layer_ids: { agent: 'agents' },
+      },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
     for (let x = 1; x <= 3; x++) {
-      const message = { type: x === 1 ? 'item_create' as const : 'item_update' as const, payload: {
-        env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x, y: 0 }],
-      } };
+      const message = {
+        type: x === 1 ? ('item_create' as const) : ('item_update' as const),
+        payload: {
+          env_id: 'main',
+          layer_id: 'agents',
+          items: [{ id: 'a', x, y: 0 }],
+        },
+      };
       scenario.apply(message);
       recorder.recordMessage(message);
     }
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
     const snapshot = recorder.stop()!;
 
-    expect(snapshot.frames[0].messages.filter((message) => message.type.startsWith('item_'))).toHaveLength(3);
+    expect(
+      snapshot.frames[0].messages.filter((message) => message.type.startsWith('item_')),
+    ).toHaveLength(3);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
 
   it('records parameter requests and canonical simulator values in one control frame', () => {
     const scenario = new Scenario();
-    scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    scenario.apply({
+      type: 'param_create',
+      payload: { id: 'density', label: 'Density', type: 'number', value: 1 },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
     recorder.recordControl({ type: 'param_change', payload: { id: 'density', value: 2 } });
@@ -227,18 +391,26 @@ describe('SnapshotRecorder', () => {
     const snapshot = recorder.stop()!;
 
     expect(snapshot.frames).toHaveLength(1);
-    expect(snapshot.frames[0].controls).toEqual([{ type: 'param_change', payload: { id: 'density', value: 3 } }]);
+    expect(snapshot.frames[0].controls).toEqual([
+      { type: 'param_change', payload: { id: 'density', value: 3 } },
+    ]);
     expect(materializeSnapshot(snapshot).parameters[0].value).toBe(2.5);
   });
 
   it('replays an optimistic parameter control when the simulator did not need to correct it', () => {
     const scenario = new Scenario();
-    scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    scenario.apply({
+      type: 'param_create',
+      payload: { id: 'density', label: 'Density', type: 'number', value: 1 },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
     scenario.applyOptimisticParameterChange('density', 3);
     recorder.recordControl({ type: 'param_change', payload: { id: 'density', value: 3 } });
-    recorder.recordMessage({ type: 'action_result', payload: { id: 'step', request_id: 'step-1' } });
+    recorder.recordMessage({
+      type: 'action_result',
+      payload: { id: 'step', request_id: 'step-1' },
+    });
     const snapshot = recorder.stop()!;
 
     expect(materializeSnapshot(snapshot).parameters[0].value).toBe(3);
@@ -247,21 +419,28 @@ describe('SnapshotRecorder', () => {
 
   it('shares frame ordering with hosts that commit replay messages through their own path', () => {
     const scenario = new Scenario();
-    scenario.apply({ type: 'param_create', payload: { id: 'density', label: 'Density', type: 'number', value: 1 } });
+    scenario.apply({
+      type: 'param_create',
+      payload: { id: 'density', label: 'Density', type: 'number', value: 1 },
+    });
     const committed: string[] = [];
 
-    applySnapshotFrame(scenario, {
-      index: 1,
-      timestamp: 1,
-      kind: 'control',
-      controls: [{ type: 'param_change', payload: { id: 'density', value: 3 } }],
-      messages: [{ type: 'param_sync', payload: { id: 'density', value: 2.5 } }],
-    }, {
-      applyMessage: (message) => {
-        committed.push(message.type);
-        scenario.apply(message);
+    applySnapshotFrame(
+      scenario,
+      {
+        index: 1,
+        timestamp: 1,
+        kind: 'control',
+        controls: [{ type: 'param_change', payload: { id: 'density', value: 3 } }],
+        messages: [{ type: 'param_sync', payload: { id: 'density', value: 2.5 } }],
       },
-    });
+      {
+        applyMessage: (message) => {
+          committed.push(message.type);
+          scenario.apply(message);
+        },
+      },
+    );
 
     expect(committed).toEqual(['param_sync']);
     expect(scenario.getParameter('density')?.value).toBe(2.5);
@@ -270,16 +449,24 @@ describe('SnapshotRecorder', () => {
   it('uses requested keyframe codecs without retaining redundant item deltas', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start({ layerCodecs: { agents: 'keyframe' } });
-    const create = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 2 }] } };
+    const create = {
+      type: 'item_create' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 2 }] },
+    };
     scenario.apply(create);
     recorder.recordMessage(create);
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
-    expect(snapshot.frames[0].messages.some((message) => message.type === 'item_create')).toBe(false);
+    expect(snapshot.frames[0].messages.some((message) => message.type === 'item_create')).toBe(
+      false,
+    );
     expect(snapshot.keyframes[snapshot.keyframes.length - 1]?.frame).toBe(1);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });
@@ -289,7 +476,10 @@ describe('SnapshotRecorder', () => {
     scenario.apply({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start({ keyframeEvery: 1 });
-    const update = { type: 'chart_update' as const, payload: { updates: [{ id: 'population', time: 1, value: 42 }] } };
+    const update = {
+      type: 'chart_update' as const,
+      payload: { updates: [{ id: 'population', time: 1, value: 42 }] },
+    };
     scenario.apply(update);
     recorder.recordMessage(update);
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
@@ -297,7 +487,9 @@ describe('SnapshotRecorder', () => {
     const snapshot = recorder.stop()!;
     expect(snapshot.keyframes[0]?.scenario.charts).toEqual([]);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
-    expect(new SnapshotPlayer(snapshot).seek(1).charts.getGroup('population')?.data).toEqual([{ time: 1, population: 42 }]);
+    expect(new SnapshotPlayer(snapshot).seek(1).charts.getGroup('population')?.data).toEqual([
+      { time: 1, population: 42 },
+    ]);
   });
 
   it('keeps current-value monitor data out of keyframes and restores it on seek', () => {
@@ -307,7 +499,10 @@ describe('SnapshotRecorder', () => {
     const create = { type: 'monitor_create' as const, payload: { id: 'health', label: 'Health' } };
     scenario.apply(create);
     recorder.recordMessage(create);
-    const update = { type: 'monitor_update' as const, payload: { id: 'health', value: { ready: true }, revision: 1 } };
+    const update = {
+      type: 'monitor_update' as const,
+      payload: { id: 'health', value: { ready: true }, revision: 1 },
+    };
     scenario.apply(update);
     recorder.recordMessage(update);
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
@@ -356,7 +551,14 @@ describe('SnapshotRecorder', () => {
     expect(snapshot.keyframes.map((keyframe) => keyframe.frame)).toEqual([6]);
 
     const player = new SnapshotPlayer(snapshot);
-    for (const [frame, expectedTime] of [[6, 6], [5, 5], [99, 6], [4, 4], [5, 5], [-1, 4]] as const) {
+    for (const [frame, expectedTime] of [
+      [6, 6],
+      [5, 5],
+      [99, 6],
+      [4, 4],
+      [5, 5],
+      [-1, 4],
+    ] as const) {
       expect(player.seek(frame).metadata.time).toBe(expectedTime);
       expect(materializeSnapshot(snapshot, frame).metadata.time).toBe(expectedTime);
     }
@@ -373,7 +575,10 @@ describe('SnapshotRecorder', () => {
     const baseline = recorder.start().byteLength;
     recorder.stop();
     recorder.start({ maxBytes: baseline + 128, ringBuffer: true });
-    recorder.recordMessage({ type: 'metadata_update', payload: { description: 'y'.repeat(8_192) } });
+    recorder.recordMessage({
+      type: 'metadata_update',
+      payload: { description: 'y'.repeat(8_192) },
+    });
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
@@ -410,7 +615,10 @@ describe('SnapshotRecorder', () => {
     const recorder = new SnapshotRecorder(scenario);
     recorder.start({ keyframeEvery: 1 });
     for (let time = 1; time <= 3; time += 1) {
-      const update = { type: 'metadata_update' as const, payload: { time, repeated: 'x'.repeat(64) } };
+      const update = {
+        type: 'metadata_update' as const,
+        payload: { time, repeated: 'x'.repeat(64) },
+      };
       scenario.apply(update);
       recorder.recordMessage(update);
       recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
@@ -419,7 +627,9 @@ describe('SnapshotRecorder', () => {
 
     const archive = encodeSnapshotArchive(snapshot, 1);
     expect(archive.segments.length).toBeGreaterThan(1);
-    expect(archive.segments.every((segment) => segment.encoding === 'msgpack' && segment.byteLength > 0)).toBe(true);
+    expect(
+      archive.segments.every((segment) => segment.encoding === 'msgpack' && segment.byteLength > 0),
+    ).toBe(true);
     expect(archive.segments.every((segment) => segment.data instanceof Uint8Array)).toBe(true);
     expect(archive.byteLength).toBeLessThanOrEqual(snapshot.byteLength + 2_048);
     expect(materializeSnapshot(decodeSnapshotArchive(archive))).toEqual(scenario.dump());
@@ -454,7 +664,11 @@ describe('SnapshotRecorder', () => {
     const scenario = new Scenario();
     const recorder = new SnapshotRecorder(scenario);
     recorder.start({
-      modelIdentity: { model_id: 'checkpoint-model', state_schema_version: '2', instance_id: 'instance-1' },
+      modelIdentity: {
+        model_id: 'checkpoint-model',
+        state_schema_version: '2',
+        instance_id: 'instance-1',
+      },
       checkpoint: {
         model_id: 'checkpoint-model',
         state_schema_version: '2',
@@ -466,7 +680,11 @@ describe('SnapshotRecorder', () => {
 
     expect(typeof archive.metadata.checkpoint?.data).toBe('string');
     expect(decodeSnapshotArchive(archive).metadata).toMatchObject({
-      model_identity: { model_id: 'checkpoint-model', state_schema_version: '2', instance_id: 'instance-1' },
+      model_identity: {
+        model_id: 'checkpoint-model',
+        state_schema_version: '2',
+        instance_id: 'instance-1',
+      },
       checkpoint: {
         model_id: 'checkpoint-model',
         state_schema_version: '2',
@@ -479,7 +697,10 @@ describe('SnapshotRecorder', () => {
   it('allows a host to replace a layer delta policy with a real codec implementation', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
-    scenario.apply({ type: 'env_layer_create', payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
     const recorder = new SnapshotRecorder(scenario);
     recorder.start({
       layerCodecs: { agents: 'delta' },
@@ -487,13 +708,18 @@ describe('SnapshotRecorder', () => {
         delta: { id: 'delta', forceKeyframe: true, retainItemDelta: () => false },
       },
     });
-    const create = { type: 'item_create' as const, payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] } };
+    const create = {
+      type: 'item_create' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] },
+    };
     scenario.apply(create);
     recorder.recordMessage(create);
     recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
 
     const snapshot = recorder.stop()!;
-    expect(snapshot.frames[0]?.messages.some((message) => message.type === 'item_create')).toBe(false);
+    expect(snapshot.frames[0]?.messages.some((message) => message.type === 'item_create')).toBe(
+      false,
+    );
     expect(snapshot.keyframes[0]?.frame).toBe(1);
     expect(materializeSnapshot(snapshot)).toEqual(scenario.dump());
   });

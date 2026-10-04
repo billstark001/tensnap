@@ -20,20 +20,30 @@ export async function encodeSnapshotArchivesInWorker(
     });
   }
 
-  const worker = new Worker(new URL('./snapshot-archive.worker.ts', import.meta.url), { type: 'module' });
+  const worker = new Worker(new URL('./snapshot-archive.worker.ts', import.meta.url), {
+    type: 'module',
+  });
   try {
     return await new Promise<SnapshotArchive[]>((resolve, reject) => {
       const requestId = crypto.randomUUID();
-      worker.addEventListener('message', (event: MessageEvent<{
-        id: string;
-        archives?: SnapshotArchive[];
-        error?: string;
-      }>) => {
-        if (event.data.id !== requestId) return;
-        if (event.data.error) reject(new Error(event.data.error));
-        else resolve(event.data.archives ?? []);
-      }, { once: true });
-      worker.addEventListener('error', (event) => reject(event.error ?? new Error(event.message)), { once: true });
+      worker.addEventListener(
+        'message',
+        (
+          event: MessageEvent<{
+            id: string;
+            archives?: SnapshotArchive[];
+            error?: string;
+          }>,
+        ) => {
+          if (event.data.id !== requestId) return;
+          if (event.data.error) reject(new Error(event.data.error));
+          else resolve(event.data.archives ?? []);
+        },
+        { once: true },
+      );
+      worker.addEventListener('error', (event) => reject(event.error ?? new Error(event.message)), {
+        once: true,
+      });
       worker.postMessage({ id: requestId, snapshots, jsonSafe });
     });
   } finally {

@@ -18,13 +18,15 @@ export const FileItem: React.FC<FileItemProps> = ({
   isSelected,
   onItemClick,
   onItemDoubleClick,
-  onDelete
+  onDelete,
 }) => {
-  
-  const handleDeleteClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete(entry);
-  }, [entry, onDelete]);
+  const handleDeleteClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onDelete(entry);
+    },
+    [entry, onDelete],
+  );
 
   const handleItemClick = useCallback(() => {
     onItemClick(entry);
@@ -37,9 +39,10 @@ export const FileItem: React.FC<FileItemProps> = ({
   }, [entry, onItemDoubleClick]);
 
   // 格式化详情信息
-  const detailsText = entry.type === 'file' 
-    ? `${formatFileSize(entry.size)} • ${formatDate(entry.modifiedAt)}`
-    : `${t`Directory`} • ${formatDate(entry.modifiedAt)}`;
+  const detailsText =
+    entry.type === 'file'
+      ? `${formatFileSize(entry.size)} • ${formatDate(entry.modifiedAt)}`
+      : `${t`Directory`} • ${formatDate(entry.modifiedAt)}`;
 
   return (
     <div
@@ -47,19 +50,15 @@ export const FileItem: React.FC<FileItemProps> = ({
       onClick={handleItemClick}
       onDoubleClick={handleItemDoubleClick}
     >
-      <div className={styles.itemIcon}>
-        {entry.type === 'directory' ? '📁' : '📄'}
-      </div>
+      <div className={styles.itemIcon}>{entry.type === 'directory' ? '📁' : '📄'}</div>
       <div className={styles.itemContent}>
         <div className={styles.itemName}>{entry.name}</div>
-        <div className={styles.itemDetails}>
-          {detailsText}
-        </div>
+        <div className={styles.itemDetails}>{detailsText}</div>
       </div>
       <div className={styles.itemActions}>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button 
+            <button
               className={styles.itemActionButton}
               onClick={(e) => e.stopPropagation()}
               aria-label={t`Action menu`}
@@ -69,10 +68,7 @@ export const FileItem: React.FC<FileItemProps> = ({
           </DropdownMenu.Trigger>
           <DropdownMenu.Portal>
             <DropdownMenu.Content className={styles.dropdownContentSmall}>
-              <DropdownMenu.Item 
-                className={styles.dropdownItemDanger}
-                onClick={handleDeleteClick}
-              >
+              <DropdownMenu.Item className={styles.dropdownItemDanger} onClick={handleDeleteClick}>
                 {t`Delete`}
               </DropdownMenu.Item>
             </DropdownMenu.Content>

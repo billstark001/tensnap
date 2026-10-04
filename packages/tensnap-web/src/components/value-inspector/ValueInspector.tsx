@@ -47,10 +47,19 @@ function isInspectableRoot(value: unknown): value is ProtocolData {
 }
 
 function contentRowCount(content: ValueInspectorContent): number {
-  return content.kind === 'tree' ? content.entries.length : content.kind === 'table' ? content.rows.length : 0;
+  return content.kind === 'tree'
+    ? content.entries.length
+    : content.kind === 'table'
+      ? content.rows.length
+      : 0;
 }
 
-function visibleRange(offset: number, viewport: number, itemSize: number, total: number): [number, number] {
+function visibleRange(
+  offset: number,
+  viewport: number,
+  itemSize: number,
+  total: number,
+): [number, number] {
   if (total === 0) return [0, 0];
   const start = Math.max(0, Math.floor(offset / itemSize) - OVERSCAN);
   const end = Math.min(total, Math.ceil((offset + viewport) / itemSize) + OVERSCAN);
@@ -66,9 +75,19 @@ function VirtualizedTable({
   rows: readonly Readonly<Record<string, ProtocolData>>[];
   rowOffset: number;
 }) {
-  const [scroll, setScroll] = useState({ top: 0, left: 0, height: FALLBACK_VIEWPORT_HEIGHT, width: FALLBACK_VIEWPORT_WIDTH });
+  const [scroll, setScroll] = useState({
+    top: 0,
+    left: 0,
+    height: FALLBACK_VIEWPORT_HEIGHT,
+    width: FALLBACK_VIEWPORT_WIDTH,
+  });
   const [rowStart, rowEnd] = visibleRange(scroll.top, scroll.height, ROW_HEIGHT, rows.length);
-  const [columnStart, columnEnd] = visibleRange(scroll.left, scroll.width, COLUMN_WIDTH, columns.length);
+  const [columnStart, columnEnd] = visibleRange(
+    scroll.left,
+    scroll.width,
+    COLUMN_WIDTH,
+    columns.length,
+  );
   const visibleColumns = columns.slice(columnStart, columnEnd);
   const visibleRows = rows.slice(rowStart, rowEnd);
 
@@ -100,16 +119,39 @@ function VirtualizedTable({
         <div className={styles.virtualHeader} role="row">
           {visibleColumns.map((column, index) => {
             const columnIndex = columnStart + index;
-            return <div className={styles.virtualHeaderCell} role="columnheader" key={column} style={{ left: columnIndex * COLUMN_WIDTH, width: COLUMN_WIDTH }}>{column}</div>;
+            return (
+              <div
+                className={styles.virtualHeaderCell}
+                role="columnheader"
+                key={column}
+                style={{ left: columnIndex * COLUMN_WIDTH, width: COLUMN_WIDTH }}
+              >
+                {column}
+              </div>
+            );
           })}
         </div>
         {visibleRows.map((row, rowIndex) => {
           const absoluteRowIndex = rowStart + rowIndex;
           return (
-            <div className={styles.virtualRow} role="row" key={rowOffset + absoluteRowIndex} style={{ top: (absoluteRowIndex + 1) * ROW_HEIGHT }}>
+            <div
+              className={styles.virtualRow}
+              role="row"
+              key={rowOffset + absoluteRowIndex}
+              style={{ top: (absoluteRowIndex + 1) * ROW_HEIGHT }}
+            >
               {visibleColumns.map((column, columnIndex) => {
                 const absoluteColumnIndex = columnStart + columnIndex;
-                return <div className={styles.virtualCell} role="cell" key={column} style={{ left: absoluteColumnIndex * COLUMN_WIDTH, width: COLUMN_WIDTH }}>{valueInspectorText(row[column] ?? null, 512).text}</div>;
+                return (
+                  <div
+                    className={styles.virtualCell}
+                    role="cell"
+                    key={column}
+                    style={{ left: absoluteColumnIndex * COLUMN_WIDTH, width: COLUMN_WIDTH }}
+                  >
+                    {valueInspectorText(row[column] ?? null, 512).text}
+                  </div>
+                );
               })}
             </div>
           );
@@ -139,7 +181,10 @@ const InspectorContent = memo(function InspectorContent({
   onPage: (offset: number) => void;
 }) {
   const { _ } = useLingui();
-  const inspector = useMemo(() => isInspectableRoot(value) ? new Inspector(value) : null, [value]);
+  const inspector = useMemo(
+    () => (isInspectableRoot(value) ? new Inspector(value) : null),
+    [value],
+  );
   const content = useMemo(
     () => inspector?.inspect({ path, offset, limit: PAGE_SIZE, hint: renderHint }),
     [inspector, offset, path, renderHint],
@@ -147,17 +192,26 @@ const InspectorContent = memo(function InspectorContent({
 
   if (!inspector || !content) {
     const raw = valueInspectorText(value);
-    return <pre className={[styles.raw, compact && styles.compact, className].filter(Boolean).join(' ')}>{raw.text}</pre>;
+    return (
+      <pre className={[styles.raw, compact && styles.compact, className].filter(Boolean).join(' ')}>
+        {raw.text}
+      </pre>
+    );
   }
 
   const rowCount = contentRowCount(content);
   const showPagination = content.kind !== 'text' && (offset > 0 || content.hasMore);
 
   return (
-    <section className={[styles.root, compact && styles.compact, className].filter(Boolean).join(' ')} aria-label={_(msg`Structured value inspector`)}>
+    <section
+      className={[styles.root, compact && styles.compact, className].filter(Boolean).join(' ')}
+      aria-label={_(msg`Structured value inspector`)}
+    >
       {path.length > 0 && (
         <nav className={styles.breadcrumbs} aria-label={_(msg`Value path`)}>
-          <button type="button" className={styles.breadcrumb} onClick={() => onNavigate([])}>{_(msg`root`)}</button>
+          <button type="button" className={styles.breadcrumb} onClick={() => onNavigate([])}>
+            {_(msg`root`)}
+          </button>
           {path.map((segment, index) => (
             <button
               type="button"
@@ -177,23 +231,51 @@ const InspectorContent = memo(function InspectorContent({
             <div className={styles.treeRow} key={entry.key}>
               <span className={styles.treeKey}>{entry.key}</span>
               {entry.expandable ? (
-                <button type="button" className={styles.expandButton} onClick={() => onNavigate(entry.path)}>
-                  {entry.summary}<ChevronRight size={14} />
+                <button
+                  type="button"
+                  className={styles.expandButton}
+                  onClick={() => onNavigate(entry.path)}
+                >
+                  {entry.summary}
+                  <ChevronRight size={14} />
                 </button>
-              ) : <span className={styles.treeValue}>{entry.summary}</span>}
+              ) : (
+                <span className={styles.treeValue}>{entry.summary}</span>
+              )}
             </div>
           ))}
         </div>
       )}
-      {content.kind === 'table' && <VirtualizedTable columns={content.columns} rows={content.rows} rowOffset={offset} />}
+      {content.kind === 'table' && (
+        <VirtualizedTable columns={content.columns} rows={content.rows} rowOffset={offset} />
+      )}
       {showPagination && (
         <footer className={styles.pagination}>
-          <span>{rowCount === 0 ? 0 : offset + 1}–{offset + rowCount}{content.total === undefined ? ' / ?' : ` / ${content.total}`}</span>
-          <button type="button" aria-label={_(msg`Previous value rows`)} disabled={offset === 0} onClick={() => onPage(offset - PAGE_SIZE)}><ChevronLeft size={14} /></button>
-          <button type="button" aria-label={_(msg`Next value rows`)} disabled={!content.hasMore} onClick={() => onPage(offset + PAGE_SIZE)}><ChevronRight size={14} /></button>
+          <span>
+            {rowCount === 0 ? 0 : offset + 1}–{offset + rowCount}
+            {content.total === undefined ? ' / ?' : ` / ${content.total}`}
+          </span>
+          <button
+            type="button"
+            aria-label={_(msg`Previous value rows`)}
+            disabled={offset === 0}
+            onClick={() => onPage(offset - PAGE_SIZE)}
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <button
+            type="button"
+            aria-label={_(msg`Next value rows`)}
+            disabled={!content.hasMore}
+            onClick={() => onPage(offset + PAGE_SIZE)}
+          >
+            <ChevronRight size={14} />
+          </button>
         </footer>
       )}
-      {content.kind === 'text' && content.reason && <p className={styles.notice}>{content.reason}</p>}
+      {content.kind === 'text' && content.reason && (
+        <p className={styles.notice}>{content.reason}</p>
+      )}
     </section>
   );
 });
@@ -203,7 +285,12 @@ const InspectorContent = memo(function InspectorContent({
  * coalesced before the memoized renderer sees them, so a 60/120 Hz monitor
  * stream cannot rebuild its rows and cells more than once per animation frame.
  */
-export function ValueInspector({ value, renderHint = 'auto', compact = false, className }: ValueInspectorProps) {
+export function ValueInspector({
+  value,
+  renderHint = 'auto',
+  compact = false,
+  className,
+}: ValueInspectorProps) {
   const [state, setState] = useState<InspectorState>({ value, path: [], offset: 0 });
 
   useEffect(() => {
@@ -219,8 +306,14 @@ export function ValueInspector({ value, renderHint = 'auto', compact = false, cl
         const path = inspector.valueAt(previous.path) === undefined ? [] : previous.path;
         if (previous.offset === 0) return { value, path, offset: 0 };
 
-        const content = inspector.inspect({ path, offset: previous.offset, limit: PAGE_SIZE, hint: renderHint });
-        const offset = content.kind !== 'text' && contentRowCount(content) === 0 ? 0 : previous.offset;
+        const content = inspector.inspect({
+          path,
+          offset: previous.offset,
+          limit: PAGE_SIZE,
+          hint: renderHint,
+        });
+        const offset =
+          content.kind !== 'text' && contentRowCount(content) === 0 ? 0 : previous.offset;
         return { value, path, offset };
       });
     };
@@ -239,16 +332,18 @@ export function ValueInspector({ value, renderHint = 'auto', compact = false, cl
     setState((previous) => ({ ...previous, offset: Math.max(0, offset) }));
   }, []);
 
-  return <InspectorContent
-    value={state.value}
-    path={state.path}
-    offset={state.offset}
-    renderHint={renderHint}
-    compact={compact}
-    className={className}
-    onNavigate={navigate}
-    onPage={page}
-  />;
+  return (
+    <InspectorContent
+      value={state.value}
+      path={state.path}
+      offset={state.offset}
+      renderHint={renderHint}
+      compact={compact}
+      className={className}
+      onNavigate={navigate}
+      onPage={page}
+    />
+  );
 }
 
 export type { ValueInspectorHint, ProtocolData };

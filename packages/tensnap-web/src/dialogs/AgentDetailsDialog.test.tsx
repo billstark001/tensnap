@@ -12,7 +12,9 @@ const rendererHarness = vi.hoisted(() => {
   }> = [];
   return {
     instances,
-    reset: () => { instances.length = 0; },
+    reset: () => {
+      instances.length = 0;
+    },
   };
 });
 
@@ -20,8 +22,23 @@ vi.mock('@lingui/react', async () => {
   const actual = await vi.importActual<typeof import('@lingui/react')>('@lingui/react');
   return {
     ...actual,
-    Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
-    useLingui: () => ({ _: (descriptor: unknown) => typeof descriptor === 'string' ? descriptor : (descriptor as { message?: string; id?: string })?.message ?? (descriptor as { id?: string })?.id ?? '' }),
+    Trans: ({
+      children,
+      message,
+      id,
+    }: {
+      children?: React.ReactNode;
+      message?: string;
+      id?: string;
+    }) => <>{children ?? message ?? id}</>,
+    useLingui: () => ({
+      _: (descriptor: unknown) =>
+        typeof descriptor === 'string'
+          ? descriptor
+          : ((descriptor as { message?: string; id?: string })?.message ??
+            (descriptor as { id?: string })?.id ??
+            ''),
+    }),
   };
 });
 
@@ -42,24 +59,13 @@ import { Scenario } from '@tensnap/core';
 
 describe('AgentDetailsDialog', () => {
   it('omits the spatial-context notice for uniform agents', () => {
-    render(
-      <AgentDetailsDialog
-        agent={{ id: 'agent-1' }}
-        agentType="uniform"
-        onClose={vi.fn()}
-      />,
-    );
+    render(<AgentDetailsDialog agent={{ id: 'agent-1' }} agentType="uniform" onClose={vi.fn()} />);
 
     expect(screen.queryByText('No spatial context is available for this agent.')).toBeNull();
   });
 
   it('renders empty custom data inline instead of an empty code block', () => {
-    render(
-      <AgentDetailsDialog
-        agent={{ id: 'agent-1', data: {} }}
-        onClose={vi.fn()}
-      />,
-    );
+    render(<AgentDetailsDialog agent={{ id: 'agent-1', data: {} }} onClose={vi.fn()} />);
 
     expect(screen.getByText('Custom Data:')).toBeInTheDocument();
     expect(screen.getByText('None')).toBeInTheDocument();
@@ -141,7 +147,11 @@ describe('AgentDetailsDialog', () => {
         act(() => {
           scenario.apply({
             type: 'item_update',
-            payload: { env_id: 'world', layer_id: 'agents', items: [{ id: 'agent-1', x: step + 2, y: 2 }] },
+            payload: {
+              env_id: 'world',
+              layer_id: 'agents',
+              items: [{ id: 'agent-1', x: step + 2, y: 2 }],
+            },
           });
           vi.advanceTimersByTime(100);
         });

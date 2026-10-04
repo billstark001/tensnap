@@ -34,7 +34,11 @@ describe('JS example sessions', () => {
         type: 'simulator_info',
         payload: expect.objectContaining({
           protocol_version: '0.3',
-          binding: expect.objectContaining({ name: 'tensnap-js', version: bindingPackage.version, language: 'JavaScript' }),
+          binding: expect.objectContaining({
+            name: 'tensnap-js',
+            version: bindingPackage.version,
+            language: 'JavaScript',
+          }),
           model: expect.objectContaining({ id: definition.id }),
         }),
       });
@@ -51,10 +55,14 @@ describe('JS example sessions', () => {
       expect(messages.some((message) => message.type === 'env_create')).toBe(true);
       expect(messages.some((message) => message.type === 'item_create')).toBe(true);
       expect(messages.some((message) => message.type === 'state_sync_end')).toBe(true);
-      for (const message of messages) expect(AnyProtocolMessageSchema.safeParse(message).success).toBe(true);
+      for (const message of messages)
+        expect(AnyProtocolMessageSchema.safeParse(message).success).toBe(true);
 
       messages.length = 0;
-      await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'step-1' } });
+      await session.dispatch({
+        type: 'action_invoke',
+        payload: { id: 'step', request_id: 'step-1' },
+      });
 
       expect(messages.some((message) => message.type === 'metadata_update')).toBe(true);
       expect(messages).toContainEqual(
@@ -63,7 +71,8 @@ describe('JS example sessions', () => {
           payload: expect.objectContaining({ id: 'step' }),
         }),
       );
-      for (const message of messages) expect(AnyProtocolMessageSchema.safeParse(message).success).toBe(true);
+      for (const message of messages)
+        expect(AnyProtocolMessageSchema.safeParse(message).success).toBe(true);
 
       await session.close();
     });
@@ -119,9 +128,9 @@ describe('JS example sessions', () => {
   it('projects only mutable Schelling fields for changed agents', async () => {
     const values = [0.1, 0.6, 0.2, 0.7, 0.95];
     let randomIndex = 0;
-    const random = vi.spyOn(Math, 'random').mockImplementation(
-      () => values[randomIndex++ % values.length]!,
-    );
+    const random = vi
+      .spyOn(Math, 'random')
+      .mockImplementation(() => values[randomIndex++ % values.length]!);
     const messages: SimulatorToRendererMessage[] = [];
     const session = getJsExampleDefinition('schelling').createSession({
       gridWidth: 20,
@@ -143,12 +152,16 @@ describe('JS example sessions', () => {
         payload: { id: 'step', request_id: 'schelling-changing-step' },
       });
 
-      const updates = messages.flatMap((message) => message.type === 'item_update'
-        ? (message.payload as { items: Array<Record<string, ProtocolValue>> }).items
-        : []);
+      const updates = messages.flatMap((message) =>
+        message.type === 'item_update'
+          ? (message.payload as { items: Array<Record<string, ProtocolValue>> }).items
+          : [],
+      );
       expect(updates.length).toBeGreaterThan(0);
       for (const update of updates) {
-        expect(Object.keys(update).every((key) => ['id', 'x', 'y', 'size'].includes(key))).toBe(true);
+        expect(Object.keys(update).every((key) => ['id', 'x', 'y', 'size'].includes(key))).toBe(
+          true,
+        );
         expect(Object.keys(update).some((key) => key !== 'id')).toBe(true);
       }
     } finally {
@@ -198,13 +211,15 @@ describe('JS example sessions', () => {
     const items = (initialAgents?.payload as { items: Array<Record<string, ProtocolValue>> }).items;
     messages.length = 0;
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-schelling' } });
-    expect(messages).toContainEqual(expect.objectContaining({
-      type: 'scene_capture_result',
-      payload: expect.objectContaining({
-        request_id: 'capture-schelling',
-        checkpoint: expect.objectContaining({ encoding: 'application/msgpack' }),
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: 'scene_capture_result',
+        payload: expect.objectContaining({
+          request_id: 'capture-schelling',
+          checkpoint: expect.objectContaining({ encoding: 'application/msgpack' }),
+        }),
       }),
-    }));
+    );
 
     messages.length = 0;
     await session.dispatch({
@@ -214,25 +229,36 @@ describe('JS example sessions', () => {
         model_id: 'schelling',
         state_schema_version: '2',
         time: 12,
-        envs: [{
-          id: 'main',
-          type: '2d',
-          layers: [{
-            layer_id: 'agents',
-            layer_type: 'agent',
-            metadata: { width: 50, height: 50 },
-            items: items.slice(0, 2),
-          }, {
-            layer_id: 'grid',
-            layer_type: 'grid',
-            metadata: { width: 50, height: 50 },
-          }],
-        }],
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'agents',
+                layer_type: 'agent',
+                metadata: { width: 50, height: 50 },
+                items: items.slice(0, 2),
+              },
+              {
+                layer_id: 'grid',
+                layer_type: 'grid',
+                metadata: { width: 50, height: 50 },
+              },
+            ],
+          },
+        ],
       },
     });
 
-    expect(messages[0]).toEqual({ type: 'scene_restore_begin', payload: { request_id: 'restore-schelling' } });
-    expect(messages[messages.length - 1]).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-schelling', status: 'ok' } });
+    expect(messages[0]).toEqual({
+      type: 'scene_restore_begin',
+      payload: { request_id: 'restore-schelling' },
+    });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end',
+      payload: { request_id: 'restore-schelling', status: 'ok' },
+    });
     expect(messages).toContainEqual({ type: 'metadata_update', payload: { time: 12 } });
     expect(messages.some((message) => message.type.startsWith('chart_'))).toBe(false);
     expect(messages.some((message) => message.type === 'monitor_create')).toBe(false);
@@ -243,36 +269,69 @@ describe('JS example sessions', () => {
   it('continues Schelling exactly after a checkpoint and time restore', async () => {
     const messages: SimulatorToRendererMessage[] = [];
     const session = getJsExampleDefinition('schelling').createSession({
-      gridWidth: 10, gridHeight: 10, density: 0.8, balance: 0.5, similarityThreshold: 0.7, seed: 7,
+      gridWidth: 10,
+      gridHeight: 10,
+      density: 0.8,
+      balance: 0.5,
+      similarityThreshold: 0.7,
+      seed: 7,
     });
-    session.attach((message) => { messages.push(message); }, 'test-schelling-continuation');
+    session.attach((message) => {
+      messages.push(message);
+    }, 'test-schelling-continuation');
     try {
       await session.open('test-schelling-continuation');
-      await session.dispatch({ type: 'state_sync', payload: { ...emptyStateSync, model_id: 'schelling' } });
+      await session.dispatch({
+        type: 'state_sync',
+        payload: { ...emptyStateSync, model_id: 'schelling' },
+      });
       for (let index = 0; index < 3; index += 1) {
-        await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: `warmup-${index}` } });
+        await session.dispatch({
+          type: 'action_invoke',
+          payload: { id: 'step', request_id: `warmup-${index}` },
+        });
       }
       messages.length = 0;
-      await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-continuation' } });
+      await session.dispatch({
+        type: 'scene_capture',
+        payload: { request_id: 'capture-continuation' },
+      });
       const capture = messages.find((message) => message.type === 'scene_capture_result');
       expect(capture?.type).toBe('scene_capture_result');
-      if (capture?.type !== 'scene_capture_result') throw new Error('Schelling checkpoint was not captured.');
+      if (capture?.type !== 'scene_capture_result')
+        throw new Error('Schelling checkpoint was not captured.');
       messages.length = 0;
-      await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'advance' } });
-      const advanced = messages.filter((message) => message.type === 'item_update').map((message) => message.payload);
+      await session.dispatch({
+        type: 'action_invoke',
+        payload: { id: 'step', request_id: 'advance' },
+      });
+      const advanced = messages
+        .filter((message) => message.type === 'item_update')
+        .map((message) => message.payload);
       expect(advanced.length).toBeGreaterThan(0);
       messages.length = 0;
       await session.dispatch({
         type: 'scene_restore',
         payload: {
-          request_id: 'restore-continuation', model_id: 'schelling', state_schema_version: '2',
-          checkpoint: (capture.payload as SceneCaptureResultPayload).checkpoint, time: 3,
+          request_id: 'restore-continuation',
+          model_id: 'schelling',
+          state_schema_version: '2',
+          checkpoint: (capture.payload as SceneCaptureResultPayload).checkpoint,
+          time: 3,
         },
       });
-      expect(messages).toContainEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-continuation', status: 'ok' } });
+      expect(messages).toContainEqual({
+        type: 'scene_restore_end',
+        payload: { request_id: 'restore-continuation', status: 'ok' },
+      });
       messages.length = 0;
-      await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'replay' } });
-      const replayed = messages.filter((message) => message.type === 'item_update').map((message) => message.payload);
+      await session.dispatch({
+        type: 'action_invoke',
+        payload: { id: 'step', request_id: 'replay' },
+      });
+      const replayed = messages
+        .filter((message) => message.type === 'item_update')
+        .map((message) => message.payload);
       expect(replayed).toEqual(advanced);
     } finally {
       await session.close();
@@ -297,10 +356,14 @@ describe('JS example sessions', () => {
     });
     expect(initialAgents?.type).toBe('item_create');
     const items = (initialAgents?.payload as { items: Array<Record<string, ProtocolValue>> }).items;
-    expect(items[0]).toEqual(expect.objectContaining({
-      id: 'cell:0:0', x: 0, y: 39,
-      data: expect.objectContaining({ value: expect.objectContaining({ row: 0, col: 0 }) }),
-    }));
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        id: 'cell:0:0',
+        x: 0,
+        y: 39,
+        data: expect.objectContaining({ value: expect.objectContaining({ row: 0, col: 0 }) }),
+      }),
+    );
 
     messages.length = 0;
     await session.dispatch({
@@ -310,29 +373,39 @@ describe('JS example sessions', () => {
         model_id: 'axelrod',
         state_schema_version: '2',
         time: 4,
-        envs: [{
-          id: 'main',
-          type: '2d',
-          layers: [{
-            layer_id: 'culture',
-            layer_type: 'agent',
-            metadata: { width: 40, height: 40, coord_offset: 'int', total_updates: 17 },
-            items,
-          }],
-        }],
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'culture',
+                layer_type: 'agent',
+                metadata: { width: 40, height: 40, coord_offset: 'int', total_updates: 17 },
+                items,
+              },
+            ],
+          },
+        ],
       },
     });
 
-    expect(messages[messages.length - 1]).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-axelrod', status: 'ok' } });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end',
+      payload: { request_id: 'restore-axelrod', status: 'ok' },
+    });
     expect(messages).toContainEqual({ type: 'metadata_update', payload: { time: 4 } });
     expect(messages.some((message) => message.type.startsWith('chart_'))).toBe(false);
     expect(messages.some((message) => message.type === 'monitor_create')).toBe(false);
-    expect(messages).toContainEqual(expect.objectContaining({
-      type: 'monitor_update',
-      payload: expect.objectContaining({
-        id: 'summary', value: expect.objectContaining({ successful_updates: 17 }),
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        type: 'monitor_update',
+        payload: expect.objectContaining({
+          id: 'summary',
+          value: expect.objectContaining({ successful_updates: 17 }),
+        }),
       }),
-    }));
+    );
 
     const invalidItems = structuredClone(items);
     const firstValue = (invalidItems[0]!.data as { value: { features: number[] } }).value;
@@ -344,52 +417,93 @@ describe('JS example sessions', () => {
         request_id: 'restore-axelrod-invalid',
         model_id: 'axelrod',
         state_schema_version: '2',
-        envs: [{
-          id: 'main', type: '2d', layers: [{
-            layer_id: 'culture', layer_type: 'agent',
-            metadata: { width: 40, height: 40, coord_offset: 'int', total_updates: 17 },
-            items: invalidItems,
-          }],
-        }],
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'culture',
+                layer_type: 'agent',
+                metadata: { width: 40, height: 40, coord_offset: 'int', total_updates: 17 },
+                items: invalidItems,
+              },
+            ],
+          },
+        ],
       },
     });
-    expect(messages.at(-1)).toEqual(expect.objectContaining({
-      type: 'scene_restore_end',
-      payload: expect.objectContaining({ request_id: 'restore-axelrod-invalid', status: 'rejected' }),
-    }));
+    expect(messages.at(-1)).toEqual(
+      expect.objectContaining({
+        type: 'scene_restore_end',
+        payload: expect.objectContaining({
+          request_id: 'restore-axelrod-invalid',
+          status: 'rejected',
+        }),
+      }),
+    );
     await session.close();
   });
 
   it('resumes the same Axelrod updates after checkpoint restore', async () => {
     const messages: SimulatorToRendererMessage[] = [];
     const session = getJsExampleDefinition('axelrod').createSession({ width: 8, height: 8 });
-    session.attach((message) => { messages.push(message); }, 'test-axelrod-checkpoint');
+    session.attach((message) => {
+      messages.push(message);
+    }, 'test-axelrod-checkpoint');
     await session.open('test-axelrod-checkpoint');
-    await session.dispatch({ type: 'state_sync', payload: { ...emptyStateSync, model_id: 'axelrod' } });
+    await session.dispatch({
+      type: 'state_sync',
+      payload: { ...emptyStateSync, model_id: 'axelrod' },
+    });
     messages.length = 0;
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-axelrod' } });
     const captured = messages.find((message) => message.type === 'scene_capture_result');
     expect(captured?.type).toBe('scene_capture_result');
-    const checkpoint = (captured?.payload as { checkpoint: { encoding: 'application/msgpack'; data: Uint8Array } }).checkpoint;
+    const checkpoint = (
+      captured?.payload as { checkpoint: { encoding: 'application/msgpack'; data: Uint8Array } }
+    ).checkpoint;
 
     messages.length = 0;
-    await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'first-step' } });
-    const first = messages.filter((message) => ['env_layer_update', 'item_update', 'chart_update', 'metadata_update'].includes(message.type));
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'first-step' },
+    });
+    const first = messages.filter((message) =>
+      ['env_layer_update', 'item_update', 'chart_update', 'metadata_update'].includes(message.type),
+    );
     expect(first).toContainEqual({
       type: 'env_layer_update',
-      payload: expect.objectContaining({ env_id: 'main', layer_id: 'culture', metadata: expect.objectContaining({ total_updates: expect.any(Number) }) }),
+      payload: expect.objectContaining({
+        env_id: 'main',
+        layer_id: 'culture',
+        metadata: expect.objectContaining({ total_updates: expect.any(Number) }),
+      }),
     });
 
     messages.length = 0;
-    await session.dispatch({ type: 'scene_restore', payload: {
-      request_id: 'restore-axelrod-checkpoint', model_id: 'axelrod',
-      state_schema_version: '2', checkpoint: { ...checkpoint, data: new Uint8Array(checkpoint.data) },
-    } });
-    expect(messages.at(-1)).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-axelrod-checkpoint', status: 'ok' } });
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'restore-axelrod-checkpoint',
+        model_id: 'axelrod',
+        state_schema_version: '2',
+        checkpoint: { ...checkpoint, data: new Uint8Array(checkpoint.data) },
+      },
+    });
+    expect(messages.at(-1)).toEqual({
+      type: 'scene_restore_end',
+      payload: { request_id: 'restore-axelrod-checkpoint', status: 'ok' },
+    });
 
     messages.length = 0;
-    await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'second-step' } });
-    const second = messages.filter((message) => ['env_layer_update', 'item_update', 'chart_update', 'metadata_update'].includes(message.type));
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'second-step' },
+    });
+    const second = messages.filter((message) =>
+      ['env_layer_update', 'item_update', 'chart_update', 'metadata_update'].includes(message.type),
+    );
     expect(second).toEqual(first);
     await session.close();
   });

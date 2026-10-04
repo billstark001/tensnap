@@ -2,7 +2,10 @@ import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from '../types';
 import type { RenderTriggerMode } from '../types';
 
-export function normalizeRenderBackgroundColor(value: string | undefined, fallback = '#000000'): string {
+export function normalizeRenderBackgroundColor(
+  value: string | undefined,
+  fallback = '#000000',
+): string {
   return value?.trim() || fallback;
 }
 

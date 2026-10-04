@@ -73,11 +73,11 @@ export { BaseEnvironmentView } from './BaseEnvironmentView';
 export type { BaseEnvironmentViewOptions, FitToSceneOptions } from './BaseEnvironmentView';
 
 export type {
-	EnvironmentLayerHost,
-	EnvironmentSurfaceSize,
-	EnvironmentViewFitMode,
-	EnvironmentViewType,
-	IResizableLayer,
+  EnvironmentLayerHost,
+  EnvironmentSurfaceSize,
+  EnvironmentViewFitMode,
+  EnvironmentViewType,
+  IResizableLayer,
 } from './host';
 
 export * from './types';

@@ -63,26 +63,27 @@ export interface TrajectoryAppendDelta {
   startedSegment: boolean;
 }
 
-export type TrajectoryDelta = {
-  created: AgentId[];
-  updated: AgentId[];
-  appended: AgentId[];
-  /** Point-level append data for renderers that can update their tail chunk. */
-  appendDeltas?: TrajectoryAppendDelta[];
-  deleted: AgentId[];
-  replaced?: false;
-} | {
-  created?: undefined;
-  updated?: undefined;
-  appended?: undefined;
-  deleted?: undefined;
-  replaced: true;
-};
+export type TrajectoryDelta =
+  | {
+      created: AgentId[];
+      updated: AgentId[];
+      appended: AgentId[];
+      /** Point-level append data for renderers that can update their tail chunk. */
+      appendDeltas?: TrajectoryAppendDelta[];
+      deleted: AgentId[];
+      replaced?: false;
+    }
+  | {
+      created?: undefined;
+      updated?: undefined;
+      appended?: undefined;
+      deleted?: undefined;
+      replaced: true;
+    };
 
 // ── TrajectoryStorage ─────────────────────────────────────────────────────────
 
 export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, TrajectoryDelta> {
-
   constructor(defaultConfig?: Partial<GlobalTrajectoryConfig>) {
     const parsedConfig = resolveTrajectoryConfig(defaultConfig, DEFAULT_TRAJECTORY_CONFIG);
     super({
@@ -140,7 +141,12 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     const created = !this._data.configs.has(config.id);
     this._data.configs.set(config.id, { ...config });
     this.refreshEntries([config.id]);
-    this.notify({ created: created ? [config.id] : [], updated: created ? [] : [config.id], appended: [], deleted: [] });
+    this.notify({
+      created: created ? [config.id] : [],
+      updated: created ? [] : [config.id],
+      appended: [],
+      deleted: [],
+    });
   }
 
   upsertConfigs(configs: TrajectoryItem[]): void {
@@ -356,7 +362,10 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     return segment;
   }
 
-  private materializePoints(segment: RingBuffer<TrajectoryPoint>, defaultColor: string): TrajectoryPoint[] {
+  private materializePoints(
+    segment: RingBuffer<TrajectoryPoint>,
+    defaultColor: string,
+  ): TrajectoryPoint[] {
     return segment.toArray().map((point) => ({
       ...point,
       color: point.color || defaultColor,

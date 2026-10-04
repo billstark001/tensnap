@@ -25,22 +25,12 @@ export interface ViewMoveOptions extends ViewMutationOptions {
   targetContainerId?: string;
 }
 
-const notifyMutation = (
-  options: ViewMutationOptions,
-  fallbackView: AnyView,
-) => {
+const notifyMutation = (options: ViewMutationOptions, fallbackView: AnyView) => {
   options.onViewUpdate?.(options.notifyView ?? fallbackView);
 };
 
-export function commitViewMutation<T>(
-  options: ViewMutationOptions,
-  mutate: () => T,
-): T {
-  const {
-    rootView,
-    adjustRootPadding = true,
-    validate = false,
-  } = options;
+export function commitViewMutation<T>(options: ViewMutationOptions, mutate: () => T): T {
+  const { rootView, adjustRootPadding = true, validate = false } = options;
   const result = mutate();
 
   if (adjustRootPadding) {
@@ -60,18 +50,12 @@ export function updateViewInPlace(
   view: AnyView,
   updates: Partial<AnyView>,
 ): void {
-  commitViewMutation(
-    { ...options, notifyView: options.notifyView ?? view },
-    () => {
-      Object.assign(view, updates);
-    },
-  );
+  commitViewMutation({ ...options, notifyView: options.notifyView ?? view }, () => {
+    Object.assign(view, updates);
+  });
 }
 
-export function toggleViewExpandedInPlace(
-  options: ViewMutationOptions,
-  view: ContainerView,
-): void {
+export function toggleViewExpandedInPlace(options: ViewMutationOptions, view: ContainerView): void {
   commitViewMutation(options, () => {
     view.expanded = !view.expanded;
   });
@@ -119,20 +103,17 @@ export function deleteViewInPlace(
 }
 
 export function moveViewInPlace(options: ViewMoveOptions): void {
-  const {
-    rootView,
-    view,
-    left,
-    top,
-    sourceParentId,
-    targetContainerId,
-  } = options;
+  const { rootView, view, left, top, sourceParentId, targetContainerId } = options;
 
   if (view.id === rootView.id) {
     throw new Error('Cannot move the root view');
   }
 
-  if (targetContainerId && view.type === 'container' && isDescendantView(rootView, view.id, targetContainerId)) {
+  if (
+    targetContainerId &&
+    view.type === 'container' &&
+    isDescendantView(rootView, view.id, targetContainerId)
+  ) {
     throw new Error(`Cannot move container "${view.id}" into itself or one of its descendants`);
   }
 
@@ -141,31 +122,25 @@ export function moveViewInPlace(options: ViewMoveOptions): void {
     throw new Error(`Cannot find view "${view.id}" in the view tree`);
   }
 
-  const targetContainer = targetContainerId
-    ? findView(rootView, targetContainerId)
-    : undefined;
+  const targetContainer = targetContainerId ? findView(rootView, targetContainerId) : undefined;
 
   if (targetContainerId && targetContainer?.type !== 'container') {
     throw new Error(`Cannot find target container "${targetContainerId}"`);
   }
 
-  commitViewMutation(
-    { ...options, notifyView: rootView },
-    () => {
-      Object.assign(view, { left, top });
+  commitViewMutation({ ...options, notifyView: rootView }, () => {
+    Object.assign(view, { left, top });
 
-      if (targetContainerId && sourceParentId !== targetContainerId) {
-        sourceEntry.parent.views.splice(sourceEntry.index, 1);
-        (targetContainer as ContainerView).views.push(view);
-        return;
-      }
+    if (targetContainerId && sourceParentId !== targetContainerId) {
+      sourceEntry.parent.views.splice(sourceEntry.index, 1);
+      (targetContainer as ContainerView).views.push(view);
+      return;
+    }
 
-      if (!targetContainerId && sourceParentId) {
-        sourceEntry.parent.views.splice(sourceEntry.index, 1);
-        rootView.views.push(view);
-        return;
-      }
-
-    },
-  );
+    if (!targetContainerId && sourceParentId) {
+      sourceEntry.parent.views.splice(sourceEntry.index, 1);
+      rootView.views.push(view);
+      return;
+    }
+  });
 }

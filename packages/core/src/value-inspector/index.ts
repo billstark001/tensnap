@@ -76,7 +76,12 @@ function isExpandable(value: ProtocolData): boolean {
   return Array.isArray(value) || isRecord(value);
 }
 
-function clampInteger(value: number | undefined, fallback: number, minimum: number, maximum: number): number {
+function clampInteger(
+  value: number | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+): number {
   if (!Number.isFinite(value)) return fallback;
   return Math.min(maximum, Math.max(minimum, Math.floor(value!)));
 }
@@ -84,9 +89,19 @@ function clampInteger(value: number | undefined, fallback: number, minimum: numb
 function normalizeLimits(limits: Partial<ValueInspectorLimits>): ValueInspectorLimits {
   return {
     maxDepth: clampInteger(limits.maxDepth, DEFAULT_VALUE_INSPECTOR_LIMITS.maxDepth, 1, 100),
-    maxEntries: clampInteger(limits.maxEntries, DEFAULT_VALUE_INSPECTOR_LIMITS.maxEntries, 1, 1_000),
+    maxEntries: clampInteger(
+      limits.maxEntries,
+      DEFAULT_VALUE_INSPECTOR_LIMITS.maxEntries,
+      1,
+      1_000,
+    ),
     maxColumns: clampInteger(limits.maxColumns, DEFAULT_VALUE_INSPECTOR_LIMITS.maxColumns, 1, 256),
-    maxTextLength: clampInteger(limits.maxTextLength, DEFAULT_VALUE_INSPECTOR_LIMITS.maxTextLength, 0, 1_000_000),
+    maxTextLength: clampInteger(
+      limits.maxTextLength,
+      DEFAULT_VALUE_INSPECTOR_LIMITS.maxTextLength,
+      0,
+      1_000_000,
+    ),
   };
 }
 
@@ -95,7 +110,10 @@ function normalizeLimits(limits: Partial<ValueInspectorLimits>): ValueInspectorL
  * soon as it fills the output budget, so malformed or exceptionally large
  * local values cannot monopolize a render frame.
  */
-export function valueInspectorText(value: unknown, maxLength = DEFAULT_VALUE_INSPECTOR_LIMITS.maxTextLength): ValueInspectorText {
+export function valueInspectorText(
+  value: unknown,
+  maxLength = DEFAULT_VALUE_INSPECTOR_LIMITS.maxTextLength,
+): ValueInspectorText {
   const limit = clampInteger(maxLength, DEFAULT_VALUE_INSPECTOR_LIMITS.maxTextLength, 0, 1_000_000);
   if (limit === 0) return { kind: 'text', text: '', truncated: true };
 
@@ -124,7 +142,8 @@ export function valueInspectorText(value: unknown, maxLength = DEFAULT_VALUE_INS
     if (typeof current === 'number' || typeof current === 'boolean') return append(String(current));
     if (typeof current === 'undefined') return append('undefined');
     if (typeof current === 'bigint') return append(`${current}n`);
-    if (typeof current === 'function' || typeof current === 'symbol') return append(`[${typeof current}]`);
+    if (typeof current === 'function' || typeof current === 'symbol')
+      return append(`[${typeof current}]`);
     if (current instanceof Uint8Array) return append(`Uint8Array(${current.byteLength})`);
     if (typeof current !== 'object') return append(String(current));
     if (seen.has(current)) return append('[Circular]');
@@ -182,7 +201,10 @@ export class ValueInspector {
   /** Immutable protocol snapshots let a single key index serve every page. */
   private readonly recordKeys = new WeakMap<object, readonly string[]>();
 
-  constructor(private readonly root: ProtocolData, limits: Partial<ValueInspectorLimits> = {}) {
+  constructor(
+    private readonly root: ProtocolData,
+    limits: Partial<ValueInspectorLimits> = {},
+  ) {
     this.limits = normalizeLimits(limits);
   }
 
@@ -191,10 +213,12 @@ export class ValueInspector {
       let value: ProtocolData = this.root;
       for (const segment of path) {
         if (Array.isArray(value)) {
-          if (typeof segment !== 'number' || segment < 0 || segment >= value.length) return undefined;
+          if (typeof segment !== 'number' || segment < 0 || segment >= value.length)
+            return undefined;
           value = value[segment]!;
         } else if (isRecord(value)) {
-          if (typeof segment !== 'string' || !Object.prototype.hasOwnProperty.call(value, segment)) return undefined;
+          if (typeof segment !== 'string' || !Object.prototype.hasOwnProperty.call(value, segment))
+            return undefined;
           value = value[segment]!;
         } else {
           return undefined;
@@ -209,9 +233,18 @@ export class ValueInspector {
   inspect(request: ValueInspectorRequest = {}): ValueInspectorContent {
     const path = request.path ?? [];
     const value = this.valueAt(path);
-    if (value === undefined) return { kind: 'text', text: '', truncated: false, reason: 'The selected value is unavailable.' };
+    if (value === undefined)
+      return {
+        kind: 'text',
+        text: '',
+        truncated: false,
+        reason: 'The selected value is unavailable.',
+      };
     if (path.length >= this.limits.maxDepth && isExpandable(value)) {
-      return { ...valueInspectorText(value, this.limits.maxTextLength), reason: `Maximum inspection depth (${this.limits.maxDepth}) reached.` };
+      return {
+        ...valueInspectorText(value, this.limits.maxTextLength),
+        reason: `Maximum inspection depth (${this.limits.maxDepth}) reached.`,
+      };
     }
 
     try {
@@ -234,7 +267,11 @@ export class ValueInspector {
     return 'text';
   }
 
-  private readRecordPage(value: Record<string, ProtocolData>, offset: number, limit: number): RecordPage {
+  private readRecordPage(
+    value: Record<string, ProtocolData>,
+    offset: number,
+    limit: number,
+  ): RecordPage {
     const keys = this.recordKeys.get(value) ?? Object.freeze(Object.keys(value));
     if (!this.recordKeys.has(value)) this.recordKeys.set(value, keys);
     const end = Math.min(keys.length, offset + limit);
@@ -253,7 +290,10 @@ export class ValueInspector {
     return clampInteger(offset, 0, 0, Number.MAX_SAFE_INTEGER);
   }
 
-  private columnsForRecords(records: readonly Record<string, ProtocolData>[], maximum: number): string[] {
+  private columnsForRecords(
+    records: readonly Record<string, ProtocolData>[],
+    maximum: number,
+  ): string[] {
     if (maximum <= 0) return [];
     const columns: string[] = [];
     const seen = new Set<string>();
@@ -268,9 +308,17 @@ export class ValueInspector {
     return columns;
   }
 
-  private inspectTree(value: ProtocolData, path: ValueInspectorPath, offset?: number, limit?: number): ValueInspectorContent {
+  private inspectTree(
+    value: ProtocolData,
+    path: ValueInspectorPath,
+    offset?: number,
+    limit?: number,
+  ): ValueInspectorContent {
     if (!isExpandable(value)) {
-      return { ...valueInspectorText(value, this.limits.maxTextLength), reason: 'A tree requires an object or array value.' };
+      return {
+        ...valueInspectorText(value, this.limits.maxTextLength),
+        reason: 'A tree requires an object or array value.',
+      };
     }
     const start = this.pageOffset(offset);
     const pageSize = this.pageSize(limit);
@@ -292,7 +340,10 @@ export class ValueInspector {
     }
 
     if (!isRecord(value)) {
-      return { ...valueInspectorText(value, this.limits.maxTextLength), reason: 'A tree requires an object or array value.' };
+      return {
+        ...valueInspectorText(value, this.limits.maxTextLength),
+        reason: 'A tree requires an object or array value.',
+      };
     }
     const page = this.readRecordPage(value, start, pageSize);
     return {
@@ -313,7 +364,11 @@ export class ValueInspector {
     };
   }
 
-  private inspectTable(value: ProtocolData, offset?: number, limit?: number): ValueInspectorContent {
+  private inspectTable(
+    value: ProtocolData,
+    offset?: number,
+    limit?: number,
+  ): ValueInspectorContent {
     const pageSize = this.pageSize(limit);
     const start = this.pageOffset(offset);
     if (Array.isArray(value)) {
@@ -321,14 +376,16 @@ export class ValueInspector {
       const pageValues: ProtocolData[] = [];
       for (let index = start; index < end; index += 1) pageValues.push(value[index]!);
       const allRecords = pageValues.every(isRecord);
-      const records = allRecords ? pageValues as Record<string, ProtocolData>[] : [];
+      const records = allRecords ? (pageValues as Record<string, ProtocolData>[]) : [];
       const columns = allRecords
         ? this.columnsForRecords(records, this.limits.maxColumns)
         : ['value'];
       const rows = pageValues.map((row) => {
         if (!allRecords) return { value: row };
         const record = row as Record<string, ProtocolData>;
-        return Object.fromEntries(columns.map((column) => [column, record[column] ?? null])) as Record<string, ProtocolData>;
+        return Object.fromEntries(
+          columns.map((column) => [column, record[column] ?? null]),
+        ) as Record<string, ProtocolData>;
       });
       const hasMore = end < value.length;
       return { kind: 'table', columns, rows, total: value.length, hasMore, truncated: hasMore };
@@ -337,28 +394,42 @@ export class ValueInspector {
       const page = this.readRecordPage(value, start, pageSize);
       const records = page.keys.map((key) => value[key]!);
       const allRecords = records.every(isRecord);
-      const recordValues = allRecords ? records as Record<string, ProtocolData>[] : [];
+      const recordValues = allRecords ? (records as Record<string, ProtocolData>[]) : [];
       const recordColumns = allRecords
         ? this.columnsForRecords(recordValues, Math.max(0, this.limits.maxColumns - 1))
-        : this.limits.maxColumns > 1 ? ['value'] : [];
+        : this.limits.maxColumns > 1
+          ? ['value']
+          : [];
       let keyColumn = 'key';
       if (recordColumns.includes(keyColumn)) {
         keyColumn = 'entry_key';
-        for (let suffix = 2; recordColumns.includes(keyColumn); suffix++) keyColumn = `entry_key_${suffix}`;
+        for (let suffix = 2; recordColumns.includes(keyColumn); suffix++)
+          keyColumn = `entry_key_${suffix}`;
       }
       const columns = [keyColumn, ...recordColumns];
       const rows = page.keys.map((key) => {
         const row = value[key]!;
-        if (!allRecords) return recordColumns.length ? { [keyColumn]: key, value: row } : { [keyColumn]: key };
+        if (!allRecords)
+          return recordColumns.length ? { [keyColumn]: key, value: row } : { [keyColumn]: key };
         const record = row as Record<string, ProtocolData>;
         return Object.fromEntries([
           [keyColumn, key],
           ...recordColumns.map((column) => [column, record[column] ?? null] as const),
         ]) as Record<string, ProtocolData>;
       });
-      return { kind: 'table', columns, rows, total: page.total, hasMore: page.hasMore, truncated: page.hasMore };
+      return {
+        kind: 'table',
+        columns,
+        rows,
+        total: page.total,
+        hasMore: page.hasMore,
+        truncated: page.hasMore,
+      };
     }
-    return { ...valueInspectorText(value, this.limits.maxTextLength), reason: 'A table requires an array or object value.' };
+    return {
+      ...valueInspectorText(value, this.limits.maxTextLength),
+      reason: 'A table requires an array or object value.',
+    };
   }
 
   private summary(value: ProtocolData): string {

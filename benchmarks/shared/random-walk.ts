@@ -23,7 +23,10 @@ export interface RandomWalkTrace {
   readonly frames: readonly (readonly RandomWalkAgent[])[];
 }
 
-export function createRandomWalkAgents(config: RandomWalkFixtureConfig, random = createDeterministicRandom(config.seed)): RandomWalkAgent[] {
+export function createRandomWalkAgents(
+  config: RandomWalkFixtureConfig,
+  random = createDeterministicRandom(config.seed),
+): RandomWalkAgent[] {
   return Array.from({ length: config.agentCount }, (_, index) => ({
     id: `walker_${index}`,
     x: random() * config.worldSize,
@@ -43,8 +46,10 @@ export function stepRandomWalk(
   const changed: RandomWalkAgent[] = [];
   for (let offset = 0; offset < config.changedAgents; offset += 1) {
     const agent = agents[(tick * config.changedAgents + offset) % agents.length]!;
-    agent.x = (agent.x + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
-    agent.y = (agent.y + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
+    agent.x =
+      (agent.x + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
+    agent.y =
+      (agent.y + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
     changed.push(agent);
   }
   return changed;
@@ -54,8 +59,12 @@ export function cloneRandomWalkAgents(agents: readonly RandomWalkAgent[]): Rando
   return agents.map((agent) => ({ ...agent }));
 }
 
-export function createRandomWalkTrace(config: RandomWalkFixtureConfig, frames: number): RandomWalkTrace {
-  if (!Number.isInteger(frames) || frames < 0) throw new Error('Random-walk trace frame count must be a non-negative integer.');
+export function createRandomWalkTrace(
+  config: RandomWalkFixtureConfig,
+  frames: number,
+): RandomWalkTrace {
+  if (!Number.isInteger(frames) || frames < 0)
+    throw new Error('Random-walk trace frame count must be a non-negative integer.');
   const random = createDeterministicRandom(config.seed);
   const agents = createRandomWalkAgents(config, random);
   const deltas: RandomWalkAgent[][] = [];
@@ -67,7 +76,10 @@ export function createRandomWalkTrace(config: RandomWalkFixtureConfig, frames: n
   return { initial: createRandomWalkAgents(config), frames: deltas };
 }
 
-export function applyRandomWalkDelta(agents: RandomWalkAgent[], delta: readonly RandomWalkAgent[]): void {
+export function applyRandomWalkDelta(
+  agents: RandomWalkAgent[],
+  delta: readonly RandomWalkAgent[],
+): void {
   for (const update of delta) {
     const index = Number(update.id.slice('walker_'.length));
     const agent = agents[index];
@@ -77,18 +89,31 @@ export function applyRandomWalkDelta(agents: RandomWalkAgent[], delta: readonly 
   }
 }
 
-export function traceExpectedRandomWalkState(trace: RandomWalkTrace, steps: number): { agents: Array<{ id: string; x: number; y: number }> } {
-  if (steps > trace.frames.length) throw new Error(`Trace has ${trace.frames.length} frames but ${steps} were requested.`);
+export function traceExpectedRandomWalkState(
+  trace: RandomWalkTrace,
+  steps: number,
+): { agents: Array<{ id: string; x: number; y: number }> } {
+  if (steps > trace.frames.length)
+    throw new Error(`Trace has ${trace.frames.length} frames but ${steps} were requested.`);
   const agents = cloneRandomWalkAgents(trace.initial);
   for (let index = 0; index < steps; index += 1) applyRandomWalkDelta(agents, trace.frames[index]!);
   return canonicalRandomWalkState(agents);
 }
 
-export function canonicalRandomWalkState(agents: readonly RandomWalkAgent[]): { agents: Array<{ id: string; x: number; y: number }> } {
-  return { agents: agents.map(({ id, x, y }) => ({ id, x, y })).sort((left, right) => left.id.localeCompare(right.id)) };
+export function canonicalRandomWalkState(agents: readonly RandomWalkAgent[]): {
+  agents: Array<{ id: string; x: number; y: number }>;
+} {
+  return {
+    agents: agents
+      .map(({ id, x, y }) => ({ id, x, y }))
+      .sort((left, right) => left.id.localeCompare(right.id)),
+  };
 }
 
-export function expectedRandomWalkState(config: RandomWalkFixtureConfig, steps: number): { agents: Array<{ id: string; x: number; y: number }> } {
+export function expectedRandomWalkState(
+  config: RandomWalkFixtureConfig,
+  steps: number,
+): { agents: Array<{ id: string; x: number; y: number }> } {
   const random = createDeterministicRandom(config.seed);
   const agents = createRandomWalkAgents(config, random);
   for (let tick = 0; tick < steps; tick += 1) stepRandomWalk(agents, config, random, tick);

@@ -1,7 +1,4 @@
-import {
-  modelBuilder,
-  numberField,
-} from '@tensnap/js/bindings';
+import { modelBuilder, numberField } from '@tensnap/js/bindings';
 import {
   DEFAULT_SCHELLING_CONFIG,
   SchellingModel,
@@ -19,62 +16,75 @@ export function setSchellingAuditHook(hook: ((model: SchellingModel) => void) | 
   auditHook = hook;
 }
 
-const builder = modelBuilder({
-  id: 'schelling',
-  name: 'Schelling Segregation Model',
-  description: 'Local similarity preference causes macro segregation patterns.',
-  stateSchemaVersion: '2',
-}, {
-  defaults: DEFAULT_SCHELLING_CONFIG,
-  create(config) {
-    return new SchellingModel(config);
+const builder = modelBuilder(
+  {
+    id: 'schelling',
+    name: 'Schelling Segregation Model',
+    description: 'Local similarity preference causes macro segregation patterns.',
+    stateSchemaVersion: '2',
   },
-  init(model) {
-    model.initialize();
-    auditHook?.(model);
-  },
-  step(model) {
-    const advanced = model.step();
-    auditHook?.(model);
-    return advanced;
-  },
-  reset(model) {
-    model.reset();
-    auditHook?.(model);
-  },
-  dispose(model) {
-    model.destroy();
-  },
-  time(model) {
-    return model.getStatistics().timeStep;
-  },
-  getConfig(model) {
-    return model.getConfig();
-  },
-  sceneRestore: {
-    mode: 'compose',
-    beforeApply(model, payload) {
-      if (payload.envs?.some((environment) => environment.layers.some((layer) => layer.layer_id === AGENT_LAYER))) {
-        model.prepareRestoredAgents();
-      }
+  {
+    defaults: DEFAULT_SCHELLING_CONFIG,
+    create(config) {
+      return new SchellingModel(config);
     },
-    restoreTime(model, time) {
-      model.restoreTime(time);
+    init(model) {
+      model.initialize();
+      auditHook?.(model);
     },
-    afterApply(model, payload) {
-      if (payload.envs?.some((environment) => environment.layers.some((layer) => layer.layer_id === AGENT_LAYER || layer.layer_id === GRID_LAYER))) {
-        model.finishRestoredAgents();
-      }
+    step(model) {
+      const advanced = model.step();
+      auditHook?.(model);
+      return advanced;
+    },
+    reset(model) {
+      model.reset();
+      auditHook?.(model);
+    },
+    dispose(model) {
+      model.destroy();
+    },
+    time(model) {
+      return model.getStatistics().timeStep;
+    },
+    getConfig(model) {
+      return model.getConfig();
+    },
+    sceneRestore: {
+      mode: 'compose',
+      beforeApply(model, payload) {
+        if (
+          payload.envs?.some((environment) =>
+            environment.layers.some((layer) => layer.layer_id === AGENT_LAYER),
+          )
+        ) {
+          model.prepareRestoredAgents();
+        }
+      },
+      restoreTime(model, time) {
+        model.restoreTime(time);
+      },
+      afterApply(model, payload) {
+        if (
+          payload.envs?.some((environment) =>
+            environment.layers.some(
+              (layer) => layer.layer_id === AGENT_LAYER || layer.layer_id === GRID_LAYER,
+            ),
+          )
+        ) {
+          model.finishRestoredAgents();
+        }
+      },
+    },
+    restoreCheckpoint(model, data) {
+      model.restoreCheckpointData(data);
+      auditHook?.(model);
+    },
+    captureCheckpoint(model) {
+      return model.captureCheckpointData();
     },
   },
-  restoreCheckpoint(model, data) {
-    model.restoreCheckpointData(data);
-    auditHook?.(model);
-  },
-  captureCheckpoint(model) {
-    return model.captureCheckpointData();
-  },
-});
+);
 
 builder.paramsFromConfig<SchellingConfig>({
   get: (model) => model.getConfig(),
@@ -91,7 +101,8 @@ builder.paramsFromConfig<SchellingConfig>({
   },
 });
 
-builder.env('main')
+builder
+  .env('main')
   .agentLayer(AGENT_LAYER, {
     metadata: (model) => {
       const config = model.getConfig();

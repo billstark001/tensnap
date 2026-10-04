@@ -2,10 +2,28 @@ import type { BackgroundData } from '../environment/storages/BackgroundStorage';
 import type { GridEnvData } from '../environment/storages/GridEnvStorage';
 import type { AgentRenderState } from '../environment/storages/AgentStorage';
 import type { TrajectoryStorageSnapshot } from '../environment/storages/TrajectoryStorage';
-import type { AgentStorage, BackgroundStorage, EdgeStorage, GridEnvStorage, TrajectoryStorage } from '../environment/storages';
+import type {
+  AgentStorage,
+  BackgroundStorage,
+  EdgeStorage,
+  GridEnvStorage,
+  TrajectoryStorage,
+} from '../environment/storages';
 import type { GraphEnvConfig, GraphEdge, GridCoordOffset, OriginMode } from '../environment/types';
-import type { ScenarioEnvironmentSnapshot, ScenarioEnvironmentState, ScenarioLayerSnapshot, ScenarioLayerState } from './types';
-import { findSceneBounds, layerRegistry, type LayerRegistryClass, type LayerSceneBounds, type SnapshotAgentLayerData, type SnapshotTrajectoryLayerData } from './layer-registry';
+import type {
+  ScenarioEnvironmentSnapshot,
+  ScenarioEnvironmentState,
+  ScenarioLayerSnapshot,
+  ScenarioLayerState,
+} from './types';
+import {
+  findSceneBounds,
+  layerRegistry,
+  type LayerRegistryClass,
+  type LayerSceneBounds,
+  type SnapshotAgentLayerData,
+  type SnapshotTrajectoryLayerData,
+} from './layer-registry';
 
 // #region Plan types
 
@@ -133,10 +151,7 @@ export interface RenderData {
 }
 // #endregion
 
-function buildRoleOrder(
-  rolesInPlan: Set<string>,
-  registry: LayerRegistryClass,
-): string[] {
+function buildRoleOrder(rolesInPlan: Set<string>, registry: LayerRegistryClass): string[] {
   const preferredOrder = registry.getRenderOrder();
   const preferredIndex = new Map<string, number>();
   preferredOrder.forEach((role, index) => preferredIndex.set(role, index));
@@ -225,8 +240,9 @@ function getLayerBuildEntry(layer: ScenarioLayerState): string {
   const metadataEntries = Object.keys(metadata)
     .sort((left, right) => left.localeCompare(right))
     .map((key) => [key, metadata[key]] as const);
-  const dependencyEntries = Object.entries(layer.dependencyLayerIds ?? {})
-    .sort(([left], [right]) => left.localeCompare(right));
+  const dependencyEntries = Object.entries(layer.dependencyLayerIds ?? {}).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
 
   return JSON.stringify({
     id: layer.id,
@@ -242,54 +258,106 @@ function buildPlanKey(baseKey: string, derived: Record<string, unknown>): string
 }
 
 export function getRenderBuildKey(environment: ScenarioEnvironmentState): string {
-  return [...environment.layers.values()]
-    .map(getLayerBuildEntry)
-    .sort()
-    .join('|');
+  return [...environment.layers.values()].map(getLayerBuildEntry).sort().join('|');
 }
 
 // #region Registry helpers
-function getRendererRole(layer: Pick<ScenarioLayerState, 'layerType'>, registry: LayerRegistryClass): string | undefined {
+function getRendererRole(
+  layer: Pick<ScenarioLayerState, 'layerType'>,
+  registry: LayerRegistryClass,
+): string | undefined {
   return registry.get(layer.layerType)?.renderer?.role;
 }
 
-function getSceneBoundsFromMetadata(layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>, registry: LayerRegistryClass): LayerSceneBounds | undefined {
-  return registry.get(layer.layerType)?.view?.getSceneBounds?.((layer.metadata ?? {}) as Record<string, unknown>);
+function getSceneBoundsFromMetadata(
+  layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>,
+  registry: LayerRegistryClass,
+): LayerSceneBounds | undefined {
+  return registry
+    .get(layer.layerType)
+    ?.view?.getSceneBounds?.((layer.metadata ?? {}) as Record<string, unknown>);
 }
 
-function getLayerZIndex(layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>, registry: LayerRegistryClass): number | undefined {
-  return registry.get(layer.layerType)?.renderer?.getZIndex?.((layer.metadata ?? {}) as Record<string, unknown>);
+function getLayerZIndex(
+  layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>,
+  registry: LayerRegistryClass,
+): number | undefined {
+  return registry
+    .get(layer.layerType)
+    ?.renderer?.getZIndex?.((layer.metadata ?? {}) as Record<string, unknown>);
 }
 
-function getCoordOffset(layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>, registry: LayerRegistryClass): GridCoordOffset {
-  return registry.get(layer.layerType)?.renderer?.getCoordOffset?.((layer.metadata ?? {}) as Record<string, unknown>) ?? 'int';
+function getCoordOffset(
+  layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>,
+  registry: LayerRegistryClass,
+): GridCoordOffset {
+  return (
+    registry
+      .get(layer.layerType)
+      ?.renderer?.getCoordOffset?.((layer.metadata ?? {}) as Record<string, unknown>) ?? 'int'
+  );
 }
 
-function getUsesGraphInteraction(layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>, registry: LayerRegistryClass): boolean {
-  return registry.get(layer.layerType)?.renderer?.getUsesGraphInteraction?.((layer.metadata ?? {}) as Record<string, unknown>) ?? false;
+function getUsesGraphInteraction(
+  layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>,
+  registry: LayerRegistryClass,
+): boolean {
+  return (
+    registry
+      .get(layer.layerType)
+      ?.renderer?.getUsesGraphInteraction?.((layer.metadata ?? {}) as Record<string, unknown>) ??
+    false
+  );
 }
 
-function getOriginMode(layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>, registry: LayerRegistryClass): OriginMode {
-  return registry.get(layer.layerType)?.renderer?.getOriginMode?.((layer.metadata ?? {}) as Record<string, unknown>) ?? 'bottom-left';
+function getOriginMode(
+  layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>,
+  registry: LayerRegistryClass,
+): OriginMode {
+  return (
+    registry
+      .get(layer.layerType)
+      ?.renderer?.getOriginMode?.((layer.metadata ?? {}) as Record<string, unknown>) ??
+    'bottom-left'
+  );
 }
 
-function getGraphConfig(layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>, registry: LayerRegistryClass): GraphEnvConfig {
-  return registry.get(layer.layerType)?.renderer?.getGraphConfig?.((layer.metadata ?? {}) as Record<string, unknown>) ?? ((layer.metadata ?? {}) as GraphEnvConfig);
+function getGraphConfig(
+  layer: Pick<ScenarioLayerState, 'layerType' | 'metadata'>,
+  registry: LayerRegistryClass,
+): GraphEnvConfig {
+  return (
+    registry
+      .get(layer.layerType)
+      ?.renderer?.getGraphConfig?.((layer.metadata ?? {}) as Record<string, unknown>) ??
+    ((layer.metadata ?? {}) as GraphEnvConfig)
+  );
 }
 
 function getBackgroundSource(layer: ScenarioLayerSnapshot, registry: LayerRegistryClass): unknown {
-  return registry.get(layer.layerType)?.renderer?.getBackgroundSource?.((layer.metadata ?? {}) as Record<string, unknown>);
+  return registry
+    .get(layer.layerType)
+    ?.renderer?.getBackgroundSource?.((layer.metadata ?? {}) as Record<string, unknown>);
 }
 
-function getSnapshotAgentLayer(layer: ScenarioLayerSnapshot, registry: LayerRegistryClass): SnapshotAgentLayerData | undefined {
+function getSnapshotAgentLayer(
+  layer: ScenarioLayerSnapshot,
+  registry: LayerRegistryClass,
+): SnapshotAgentLayerData | undefined {
   return registry.get(layer.layerType)?.renderer?.getSnapshotAgentLayer?.(layer);
 }
 
-function getSnapshotTrajectoryLayer(layer: ScenarioLayerSnapshot, registry: LayerRegistryClass): SnapshotTrajectoryLayerData | undefined {
+function getSnapshotTrajectoryLayer(
+  layer: ScenarioLayerSnapshot,
+  registry: LayerRegistryClass,
+): SnapshotTrajectoryLayerData | undefined {
   return registry.get(layer.layerType)?.renderer?.getSnapshotTrajectoryLayer?.(layer);
 }
 
-function getSnapshotGridData(layer: ScenarioLayerSnapshot, registry: LayerRegistryClass): GridEnvData | undefined {
+function getSnapshotGridData(
+  layer: ScenarioLayerSnapshot,
+  registry: LayerRegistryClass,
+): GridEnvData | undefined {
   return registry.get(layer.layerType)?.renderer?.getSnapshotGridData?.(layer);
 }
 
@@ -297,7 +365,10 @@ function getSnapshotEdges(layer: ScenarioLayerSnapshot, registry: LayerRegistryC
   return registry.get(layer.layerType)?.renderer?.getSnapshotEdges?.(layer) ?? [];
 }
 
-function getSnapshotBackground(layer: ScenarioLayerSnapshot, registry: LayerRegistryClass): BackgroundData | null | undefined {
+function getSnapshotBackground(
+  layer: ScenarioLayerSnapshot,
+  registry: LayerRegistryClass,
+): BackgroundData | null | undefined {
   return registry.get(layer.layerType)?.renderer?.getSnapshotBackground?.(layer);
 }
 // #endregion
@@ -397,7 +468,9 @@ export function createRenderPlan(
         const edgePlan: EdgeLayerPlan = {
           role: 'edge',
           kind: 'edge',
-          key: buildPlanKey(baseKey, { agentStorageId: getStorageIdentity(linkedAgentStorage as object) }),
+          key: buildPlanKey(baseKey, {
+            agentStorageId: getStorageIdentity(linkedAgentStorage as object),
+          }),
           layerId: layer.id,
           storage: layer.storage as EdgeStorage,
           agentLayerId: linkedAgentLayerId,
@@ -445,10 +518,14 @@ export function createRenderPlan(
     const linkedEdgeLayer = edgeLayerByAgentLayerId.get(linkedAgentLayerId);
     const coordOffset = linkedEdgeLayer
       ? 'float'
-      : linkedAgentLayer ? getCoordOffset(linkedAgentLayer, registry) : getCoordOffset(layer, registry);
+      : linkedAgentLayer
+        ? getCoordOffset(linkedAgentLayer, registry)
+        : getCoordOffset(layer, registry);
     const worldBounds = linkedEdgeLayer
       ? undefined
-      : linkedAgentLayer ? getSceneBoundsFromMetadata(linkedAgentLayer, registry) ?? sceneBounds : sceneBounds;
+      : linkedAgentLayer
+        ? (getSceneBoundsFromMetadata(linkedAgentLayer, registry) ?? sceneBounds)
+        : sceneBounds;
     const zIndex = getLayerZIndex(layer, registry) ?? implicitTrajectoryLayerZIndex++;
     trajectoryLayers.push({
       role: 'trajectory',
@@ -465,17 +542,16 @@ export function createRenderPlan(
 
   // Agent interaction mode depends on the complete edge index.
   for (const layer of agentLayerStates) {
-
     const baseKey = layerEntryById.get(layer.id)!;
     const linkedEdgeLayer = edgeLayerByAgentLayerId.get(layer.id);
 
     // Delegate usesGraphInteraction/coordOffset/originMode to registry
-    const usesGraphInteraction = linkedEdgeLayer
-      ? true
-      : getUsesGraphInteraction(layer, registry);
+    const usesGraphInteraction = linkedEdgeLayer ? true : getUsesGraphInteraction(layer, registry);
     const coordOffset = usesGraphInteraction ? 'float' : getCoordOffset(layer, registry);
     const originMode = usesGraphInteraction ? 'center' : getOriginMode(layer, registry);
-    const layerSceneBounds = usesGraphInteraction ? undefined : getSceneBoundsFromMetadata(layer, registry) ?? sceneBounds;
+    const layerSceneBounds = usesGraphInteraction
+      ? undefined
+      : (getSceneBoundsFromMetadata(layer, registry) ?? sceneBounds);
     const zIndex = getLayerZIndex(layer, registry) ?? implicitAgentLayerZIndex++;
 
     agentLayers.push({

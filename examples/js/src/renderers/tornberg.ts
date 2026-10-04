@@ -1,9 +1,5 @@
 import type { GraphAgentState, GraphEdge, GridAgentState } from '@tensnap/core/environment';
-import {
-  enumField,
-  modelBuilder,
-  numberField,
-} from '@tensnap/js/bindings';
+import { enumField, modelBuilder, numberField } from '@tensnap/js/bindings';
 import {
   TornbergConfig,
   TornbergMetrics,
@@ -108,50 +104,54 @@ function createNetworkEdges(state: TornbergState): GraphEdge[] {
   });
 }
 
-const builder = modelBuilder({
-  id: 'tornberg',
-  name: 'Tornberg Partisan Sorting',
-  description: 'Digital-media reach, homophily, and network topology amplify partisan sorting in cultural space.',
-  stateSchemaVersion: '1',
-}, {
-  defaults: DEFAULT_TORNBERG_CONFIG,
-  create(config): TornbergRuntime {
-    const state = initializeTornberg(config);
-    return {
-      config: { ...config },
-      state,
-      stepCount: 0,
-      lastMetrics: computeTornbergMetrics(state),
-    };
+const builder = modelBuilder(
+  {
+    id: 'tornberg',
+    name: 'Tornberg Partisan Sorting',
+    description:
+      'Digital-media reach, homophily, and network topology amplify partisan sorting in cultural space.',
+    stateSchemaVersion: '1',
   },
-  init(runtime) {
-    runtime.state = initializeTornberg(runtime.config);
-    runtime.stepCount = 0;
-    runtime.lastMetrics = computeTornbergMetrics(runtime.state);
-  },
-  step(runtime) {
-    const updatesPerTick = Math.max(1, Math.floor(runtime.config.updatesPerTick ?? 1));
-    for (let i = 0; i < updatesPerTick; i++) {
-      stepTornberg(runtime.state);
-    }
-    runtime.stepCount += 1;
-    if (runtime.stepCount % SORTING_SAMPLE_INTERVAL === 0) {
+  {
+    defaults: DEFAULT_TORNBERG_CONFIG,
+    create(config): TornbergRuntime {
+      const state = initializeTornberg(config);
+      return {
+        config: { ...config },
+        state,
+        stepCount: 0,
+        lastMetrics: computeTornbergMetrics(state),
+      };
+    },
+    init(runtime) {
+      runtime.state = initializeTornberg(runtime.config);
+      runtime.stepCount = 0;
       runtime.lastMetrics = computeTornbergMetrics(runtime.state);
-    }
-    return true;
+    },
+    step(runtime) {
+      const updatesPerTick = Math.max(1, Math.floor(runtime.config.updatesPerTick ?? 1));
+      for (let i = 0; i < updatesPerTick; i++) {
+        stepTornberg(runtime.state);
+      }
+      runtime.stepCount += 1;
+      if (runtime.stepCount % SORTING_SAMPLE_INTERVAL === 0) {
+        runtime.lastMetrics = computeTornbergMetrics(runtime.state);
+      }
+      return true;
+    },
+    reset(runtime) {
+      runtime.state = initializeTornberg(runtime.config);
+      runtime.stepCount = 0;
+      runtime.lastMetrics = computeTornbergMetrics(runtime.state);
+    },
+    time(runtime) {
+      return runtime.stepCount;
+    },
+    getConfig(runtime) {
+      return runtime.config;
+    },
   },
-  reset(runtime) {
-    runtime.state = initializeTornberg(runtime.config);
-    runtime.stepCount = 0;
-    runtime.lastMetrics = computeTornbergMetrics(runtime.state);
-  },
-  time(runtime) {
-    return runtime.stepCount;
-  },
-  getConfig(runtime) {
-    return runtime.config;
-  },
-});
+);
 
 builder.paramsFromConfig<TornbergConfig>({
   get: (runtime) => runtime.config,
@@ -176,13 +176,13 @@ builder.paramsFromConfig<TornbergConfig>({
   },
 });
 
-builder.env('culture-grid')
-  .agentLayer(CULTURE_LAYER, {
-    metadata: (runtime) => ({ width: runtime.config.width, height: runtime.config.height }),
-    items: (runtime) => createGridAgents(runtime.state),
-  });
+builder.env('culture-grid').agentLayer(CULTURE_LAYER, {
+  metadata: (runtime) => ({ width: runtime.config.width, height: runtime.config.height }),
+  items: (runtime) => createGridAgents(runtime.state),
+});
 
-builder.env('interaction-network')
+builder
+  .env('interaction-network')
   .agentLayer(NETWORK_AGENT_LAYER, {
     metadata: { coord_offset: 'float', origin_mode: 'center' },
     items: (runtime) => createNetworkAgents(runtime.state),

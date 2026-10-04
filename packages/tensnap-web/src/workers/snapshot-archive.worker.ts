@@ -23,9 +23,11 @@ scope.addEventListener('message', ({ data }) => {
       const archive = encodeSnapshotArchive(snapshot);
       return data.jsonSafe ? snapshotArchiveForJson(archive) : archive;
     });
-    const transfer = archives.flatMap((archive) => archive.segments.flatMap((segment) => (
-      segment.data instanceof Uint8Array ? [segment.data.buffer] : []
-    )));
+    const transfer = archives.flatMap((archive) =>
+      archive.segments.flatMap((segment) =>
+        segment.data instanceof Uint8Array ? [segment.data.buffer] : [],
+      ),
+    );
     scope.postMessage({ id: data.id, archives }, transfer);
   } catch (error) {
     scope.postMessage({

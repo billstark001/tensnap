@@ -16,10 +16,7 @@ export {
   snapshotArchiveForJson,
   snapshotEncodedByteLength,
 } from './SnapshotArchive';
-export {
-  SNAPSHOT_PLAYBACK_ACTIONS,
-  SnapshotPlaybackSource,
-} from './ProjectSource';
+export { SNAPSHOT_PLAYBACK_ACTIONS, SnapshotPlaybackSource } from './ProjectSource';
 export type {
   Keyframe,
   RecordingOptions,

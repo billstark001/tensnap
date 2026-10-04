@@ -1,4 +1,8 @@
-import type { RendererSessionOutboundDetail, RunStatus, RuntimeTaskSnapshot } from '@tensnap/core/runtime';
+import type {
+  RendererSessionOutboundDetail,
+  RunStatus,
+  RuntimeTaskSnapshot,
+} from '@tensnap/core/runtime';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type { ActionInvokePayload } from '@tensnap/protocol';
 import { resolveBrowserBenchmarkRunOptions } from './browser-options';
@@ -45,7 +49,8 @@ async function measureModelRun(
     };
     const completeActiveCycle = (completedAt: number) => {
       if (!activeDispatch) return;
-      if (activeDispatch.index >= warmupFrames) timings.push(completedAt - activeDispatch.startedAt);
+      if (activeDispatch.index >= warmupFrames)
+        timings.push(completedAt - activeDispatch.startedAt);
       activeDispatch = null;
     };
     const onOutbound = ((event: Event) => {
@@ -60,11 +65,18 @@ async function measureModelRun(
     }) as EventListener;
     const onRunStatus = ((event: Event) => {
       const status = (event as CustomEvent<RunStatus | null>).detail;
-      if (!status || status.id !== mounted.session.run.status?.id || status.state === 'running' || status.inFlight) return;
+      if (
+        !status ||
+        status.id !== mounted.session.run.status?.id ||
+        status.state === 'running' ||
+        status.inFlight
+      )
+        return;
       completeActiveCycle(performance.now());
-      const completionMetric = options.renderTriggerMode === 'requestAnimationFrame'
-        ? 'actionToRenderCompleteMs'
-        : 'actionToRunCompletionMs';
+      const completionMetric =
+        options.renderTriggerMode === 'requestAnimationFrame'
+          ? 'actionToRenderCompleteMs'
+          : 'actionToRunCompletionMs';
       settle({
         timings,
         // rAF is the comparable next-paint boundary. Timeout/auto are scheduler
@@ -141,9 +153,16 @@ export async function runBrowserBenchmark(
   const options = resolveBrowserBenchmarkRunOptions(browserOptions);
   const mounted = await benchCase.mount(container, options);
   try {
-    const result = mounted.kind === 'model'
-      ? await measureModelRun(mounted, benchCase.actionId ?? 'start', measuredFrames, warmupFrames, options)
-      : await measureComponentRun(mounted, measuredFrames, warmupFrames, options);
+    const result =
+      mounted.kind === 'model'
+        ? await measureModelRun(
+            mounted,
+            benchCase.actionId ?? 'start',
+            measuredFrames,
+            warmupFrames,
+            options,
+          )
+        : await measureComponentRun(mounted, measuredFrames, warmupFrames, options);
     return {
       caseName: benchCase.name,
       category: benchCase.category,

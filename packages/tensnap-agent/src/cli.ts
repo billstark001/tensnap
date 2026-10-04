@@ -9,11 +9,7 @@ import {
   resolveRuntimeContextPaths,
   RuntimeControlServer,
 } from './index';
-import {
-  isProcessAlive,
-  readRuntimeControl,
-  type RuntimeContextPaths,
-} from './runtime/context';
+import { isProcessAlive, readRuntimeControl, type RuntimeContextPaths } from './runtime/context';
 import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 
@@ -66,7 +62,10 @@ function getNumberFlag(parsed: ParsedArgs, key: string): number | undefined {
   return parsedValue;
 }
 
-function getValidationLevelFlag(parsed: ParsedArgs, key: string): ProtocolValidationLevel | undefined {
+function getValidationLevelFlag(
+  parsed: ParsedArgs,
+  key: string,
+): ProtocolValidationLevel | undefined {
   const value = getStringFlag(parsed, key);
   if (value === undefined) return undefined;
   if (value === 'off' || value === 'warning' || value === 'error') return value;
@@ -81,19 +80,21 @@ function parseJsonValue(raw: string): unknown {
   }
 }
 
-function parseViewportFlag(raw?: string): { x: number; y: number; width: number; height: number } | undefined {
+function parseViewportFlag(
+  raw?: string,
+): { x: number; y: number; width: number; height: number } | undefined {
   if (!raw) {
     return undefined;
   }
 
   const value = parseJsonValue(raw);
   if (
-    typeof value === 'object'
-    && value !== null
-    && typeof (value as Record<string, unknown>).x === 'number'
-    && typeof (value as Record<string, unknown>).y === 'number'
-    && typeof (value as Record<string, unknown>).width === 'number'
-    && typeof (value as Record<string, unknown>).height === 'number'
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).x === 'number' &&
+    typeof (value as Record<string, unknown>).y === 'number' &&
+    typeof (value as Record<string, unknown>).width === 'number' &&
+    typeof (value as Record<string, unknown>).height === 'number'
   ) {
     return value as { x: number; y: number; width: number; height: number };
   }
@@ -113,7 +114,9 @@ function buildBaseUrl(control: { host: string; controlPort: number | null }): st
   return `http://${control.host}:${control.controlPort}`;
 }
 
-async function resolveRunningRuntime(context: RuntimeContextPaths): Promise<{ baseUrl: string } | null> {
+async function resolveRunningRuntime(
+  context: RuntimeContextPaths,
+): Promise<{ baseUrl: string } | null> {
   const control = await readRuntimeControl(context);
   if (!control?.controlPort) {
     return null;
@@ -151,7 +154,10 @@ async function requestJson(baseUrl: string, path: string, init?: RequestInit): P
   return response.json();
 }
 
-async function waitForDaemon(context: RuntimeContextPaths, timeoutMs = 5000): Promise<{ baseUrl: string }> {
+async function waitForDaemon(
+  context: RuntimeContextPaths,
+  timeoutMs = 5000,
+): Promise<{ baseUrl: string }> {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
     const running = await resolveRunningRuntime(context);
@@ -178,7 +184,8 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
     maxRunStepsPolicy: getNumberFlag(parsed, 'max-steps-policy'),
     render: {
-      trigger: (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
+      trigger:
+        (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
       backgroundColor: getColorFlag(parsed, 'background-color'),
     },
   });
@@ -214,10 +221,16 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
 
-  console.log(JSON.stringify({
-    status: runtime.getStatus(),
-    control: address,
-  }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        status: runtime.getStatus(),
+        control: address,
+      },
+      null,
+      2,
+    ),
+  );
 
   const shutdown = async (): Promise<void> => {
     await runtime.stop();
@@ -361,7 +374,9 @@ async function printLogs(parsed: ParsedArgs): Promise<void> {
   }
 }
 
-async function requireRuntime(parsed: ParsedArgs): Promise<{ context: RuntimeContextPaths; baseUrl: string }> {
+async function requireRuntime(
+  parsed: ParsedArgs,
+): Promise<{ context: RuntimeContextPaths; baseUrl: string }> {
   const context = resolveRuntimeContextPaths({
     contextName: getStringFlag(parsed, 'context'),
     rootDir: getStringFlag(parsed, 'context-dir'),
@@ -452,14 +467,16 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runtime/status'), null, 2));
       return;
     }
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/runtime/render-trigger', {
-        method: 'POST',
-        body: JSON.stringify({ trigger }),
-      }),
-      null,
-      2,
-    ));
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, '/v1/runtime/render-trigger', {
+          method: 'POST',
+          body: JSON.stringify({ trigger }),
+        }),
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -477,15 +494,23 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'scene' && command === 'capture') {
     const { baseUrl } = await requireRuntime(parsed);
-    const result = await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' }) as Record<string, unknown>;
-    const status = await requestJson(baseUrl, '/v1/runtime/status') as { simulatorCapabilities?: string[] };
+    const result = (await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' })) as Record<
+      string,
+      unknown
+    >;
+    const status = (await requestJson(baseUrl, '/v1/runtime/status')) as {
+      simulatorCapabilities?: string[];
+    };
     const scene = status.simulatorCapabilities?.includes('scene.restore.projected')
-      ? await requestJson(baseUrl, '/v1/scene/snapshot') as { snapshot?: { metadata?: { time?: unknown } } }
+      ? ((await requestJson(baseUrl, '/v1/scene/snapshot')) as {
+          snapshot?: { metadata?: { time?: unknown } };
+        })
       : undefined;
     const capturedTime = scene?.snapshot?.metadata?.time;
-    const capture = typeof capturedTime === 'number' && Number.isFinite(capturedTime)
-      ? { ...result, time: capturedTime }
-      : result;
+    const capture =
+      typeof capturedTime === 'number' && Number.isFinite(capturedTime)
+        ? { ...result, time: capturedTime }
+        : result;
     const outputPath = getStringFlag(parsed, 'output');
     if (outputPath) {
       await writeFile(outputPath, `${JSON.stringify(capture, null, 2)}\n`, 'utf8');
@@ -503,14 +528,21 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       try {
         parsedCheckpoint = JSON.parse(await readFile(checkpointPath, 'utf8'));
       } catch (error) {
-        throw new Error(`Unable to read checkpoint file ${checkpointPath}: ${error instanceof Error ? error.message : String(error)}`);
+        throw new Error(
+          `Unable to read checkpoint file ${checkpointPath}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      if (typeof parsedCheckpoint !== 'object' || parsedCheckpoint === null || Array.isArray(parsedCheckpoint)) {
+      if (
+        typeof parsedCheckpoint !== 'object' ||
+        parsedCheckpoint === null ||
+        Array.isArray(parsedCheckpoint)
+      ) {
         throw new Error('Checkpoint file must contain a JSON object.');
       }
       const record = parsedCheckpoint as Record<string, unknown>;
       input.checkpoint = record.checkpoint ?? record;
-      if (typeof record.time === 'number' && Number.isFinite(record.time)) capturedTime = record.time;
+      if (typeof record.time === 'number' && Number.isFinite(record.time))
+        capturedTime = record.time;
     }
     const time = getNumberFlag(parsed, 'time');
     if (time !== undefined || capturedTime !== undefined) input.time = time ?? capturedTime;
@@ -521,22 +553,28 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const chartPolicy = getStringFlag(parsed, 'chart-policy');
     if (chartPolicy !== undefined) input.chartPolicy = chartPolicy;
     if (Object.keys(input).length === 0) {
-      throw new Error('Usage: tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>]');
+      throw new Error(
+        'Usage: tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>]',
+      );
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/scene/restore', {
-        method: 'POST',
-        body: JSON.stringify(input),
-      }),
-      null,
-    ));
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, '/v1/scene/restore', {
+          method: 'POST',
+          body: JSON.stringify(input),
+        }),
+        null,
+      ),
+    );
     return;
   }
 
   if (group === 'scene' && command === 'sync') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2));
+    console.log(
+      JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2),
+    );
     return;
   }
 
@@ -548,25 +586,27 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (envId && chartId) {
       throw new Error('Flags --env and --chart are mutually exclusive.');
     }
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/scene/render', {
-        method: 'POST',
-        body: JSON.stringify({
-          reason: rest[0] ?? 'manual',
-          envId,
-          chartId,
-          width: getNumberFlag(parsed, 'width'),
-          height: getNumberFlag(parsed, 'height'),
-          format: getStringFlag(parsed, 'format'),
-          quality: getNumberFlag(parsed, 'quality'),
-          backgroundColor: getColorFlag(parsed, 'background-color'),
-          outputPath: getStringFlag(parsed, 'output'),
-          viewport,
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, '/v1/scene/render', {
+          method: 'POST',
+          body: JSON.stringify({
+            reason: rest[0] ?? 'manual',
+            envId,
+            chartId,
+            width: getNumberFlag(parsed, 'width'),
+            height: getNumberFlag(parsed, 'height'),
+            format: getStringFlag(parsed, 'format'),
+            quality: getNumberFlag(parsed, 'quality'),
+            backgroundColor: getColorFlag(parsed, 'background-color'),
+            outputPath: getStringFlag(parsed, 'output'),
+            viewport,
+          }),
         }),
-      }),
-      null,
-      2,
-    ));
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -582,14 +622,16 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       throw new Error('Usage: tensnap-agent param set <parameter-id> <json-value>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
-        method: 'POST',
-        body: JSON.stringify({ value: parseJsonValue(rawValue) }),
-      }),
-      null,
-      2,
-    ));
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
+          method: 'POST',
+          body: JSON.stringify({ value: parseJsonValue(rawValue) }),
+        }),
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -605,14 +647,16 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       throw new Error('Usage: tensnap-agent action run <action-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      }),
-      null,
-      2,
-    ));
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        }),
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -620,24 +664,28 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const [actionId] = rest;
     const maxSteps = getNumberFlag(parsed, 'max-steps');
     if (!actionId || maxSteps === undefined) {
-      throw new Error('Usage: tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>]');
+      throw new Error(
+        'Usage: tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>]',
+      );
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(
-      await requestJson(baseUrl, '/v1/runs', {
-        method: 'POST',
-        body: JSON.stringify({
-          mode: 'bounded',
-          actionId,
-          maxSteps,
-          stopWhen: getStringFlag(parsed, 'stop-when'),
-          maxWallTimeMs: getNumberFlag(parsed, 'max-wall-time-ms'),
-          record: parsed.flags.record === true,
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, '/v1/runs', {
+          method: 'POST',
+          body: JSON.stringify({
+            mode: 'bounded',
+            actionId,
+            maxSteps,
+            stopWhen: getStringFlag(parsed, 'stop-when'),
+            maxWallTimeMs: getNumberFlag(parsed, 'max-wall-time-ms'),
+            record: parsed.flags.record === true,
+          }),
         }),
-      }),
-      null,
-      2,
-    ));
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -649,7 +697,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'run' && command === 'stop') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }), null, 2));
+    console.log(
+      JSON.stringify(await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }), null, 2),
+    );
     return;
   }
 
@@ -665,7 +715,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       throw new Error('Usage: tensnap-agent chart get <chart-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`), null, 2));
+    console.log(
+      JSON.stringify(
+        await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`),
+        null,
+        2,
+      ),
+    );
     return;
   }
 
@@ -680,26 +736,28 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  console.log([
-    'Usage:',
-    '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
-    '  tensnap-agent runtime status',
-    '  tensnap-agent runtime render-trigger manual|action-result',
-    '  tensnap-agent scene inspect',
-    '  tensnap-agent scene snapshot',
-    '  tensnap-agent scene capture [--output <capture.json>]',
-    '  tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>] [--chart-policy preserve|replace|truncate]',
-    '  tensnap-agent scene render [reason] [--env <env-id> | --chart <chart-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
-    '  tensnap-agent param list',
-    '  tensnap-agent param set <parameter-id> <json-value>',
-    '  tensnap-agent action list',
-    '  tensnap-agent action run <action-id>',
-    '  tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>] [--record]',
-    '  tensnap-agent run status',
-    '  tensnap-agent run stop',
-    '  tensnap-agent chart list',
-    '  tensnap-agent chart get <chart-id>',
-    '  tensnap-agent asset list',
-    '  tensnap-agent stream events',
-  ].join('\n'));
+  console.log(
+    [
+      'Usage:',
+      '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
+      '  tensnap-agent runtime status',
+      '  tensnap-agent runtime render-trigger manual|action-result',
+      '  tensnap-agent scene inspect',
+      '  tensnap-agent scene snapshot',
+      '  tensnap-agent scene capture [--output <capture.json>]',
+      '  tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>] [--chart-policy preserve|replace|truncate]',
+      '  tensnap-agent scene render [reason] [--env <env-id> | --chart <chart-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
+      '  tensnap-agent param list',
+      '  tensnap-agent param set <parameter-id> <json-value>',
+      '  tensnap-agent action list',
+      '  tensnap-agent action run <action-id>',
+      '  tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>] [--record]',
+      '  tensnap-agent run status',
+      '  tensnap-agent run stop',
+      '  tensnap-agent chart list',
+      '  tensnap-agent chart get <chart-id>',
+      '  tensnap-agent asset list',
+      '  tensnap-agent stream events',
+    ].join('\n'),
+  );
 }

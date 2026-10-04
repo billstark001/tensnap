@@ -184,9 +184,7 @@ export function normalizeNumber(
 }
 
 export function withDefined<T extends Record<string, unknown>>(value: T): T {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined),
-  ) as T;
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as T;
 }
 
 export function textToBytes(value: string): Uint8Array {
@@ -212,9 +210,9 @@ export function readPath(source: unknown, path: string): unknown {
 
 export function isChartValueEntry(value: unknown): value is { value: unknown; time?: number } {
   return (
-    typeof value === 'object'
-    && value !== null
-    && Object.prototype.hasOwnProperty.call(value, 'value')
+    typeof value === 'object' &&
+    value !== null &&
+    Object.prototype.hasOwnProperty.call(value, 'value')
   );
 }
 

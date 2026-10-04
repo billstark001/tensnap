@@ -20,11 +20,15 @@ vi.mock('../../store/scenario/store', () => ({
 }));
 
 vi.mock('../scenario/Environment2DView', () => ({
-  Environment2DView: ({ environment }: { environment: { id: string } }) => <div data-testid="environment-2d">{environment.id}</div>,
+  Environment2DView: ({ environment }: { environment: { id: string } }) => (
+    <div data-testid="environment-2d">{environment.id}</div>
+  ),
 }));
 
 vi.mock('../scenario/UniformEnvironmentView', () => ({
-  UniformEnvironmentView: ({ environment }: { environment: { id: string } }) => <div data-testid="environment-uniform">{environment.id}</div>,
+  UniformEnvironmentView: ({ environment }: { environment: { id: string } }) => (
+    <div data-testid="environment-uniform">{environment.id}</div>
+  ),
 }));
 
 vi.mock('./ParameterControl', () => ({
@@ -36,7 +40,9 @@ vi.mock('../scenario/ChartView', () => ({
 }));
 
 vi.mock('../value-inspector', () => ({
-  ValueInspector: ({ value }: { value: unknown }) => <div data-testid="monitor-view">{JSON.stringify(value)}</div>,
+  ValueInspector: ({ value }: { value: unknown }) => (
+    <div data-testid="monitor-view">{JSON.stringify(value)}</div>
+  ),
 }));
 
 vi.mock('../view/ViewErrorBoundary', () => ({
@@ -68,13 +74,19 @@ describe('AnchoredViewRenderer', () => {
   });
 
   it('routes uniform environments to UniformEnvironmentView', () => {
-    mockState.environments.set('env-uniform', { id: 'env-uniform', type: 'uniform', layers: new Map() });
+    mockState.environments.set('env-uniform', {
+      id: 'env-uniform',
+      type: 'uniform',
+      layers: new Map(),
+    });
 
     render(
       <AnchoredViewRenderer
         type="environment"
         id="env-uniform"
-        view={{ id: 'view-2', type: 'environment', data: { id: 'env-uniform', type: 'uniform' } } as any}
+        view={
+          { id: 'view-2', type: 'environment', data: { id: 'env-uniform', type: 'uniform' } } as any
+        }
       />,
     );
 
@@ -103,7 +115,9 @@ describe('AnchoredViewRenderer', () => {
       <AnchoredViewRenderer
         type="monitor"
         id="population"
-        view={{ id: 'view-4', type: 'monitor', data: { id: 'population', renderHint: 'table' } } as any}
+        view={
+          { id: 'view-4', type: 'monitor', data: { id: 'population', renderHint: 'table' } } as any
+        }
       />,
     );
 

@@ -1,4 +1,10 @@
-import type { LayerOptions, ItemRecord, LayerChangeBatch, LiteralField, FieldSelector } from './types';
+import type {
+  LayerOptions,
+  ItemRecord,
+  LayerChangeBatch,
+  LiteralField,
+  FieldSelector,
+} from './types';
 import { literal, projectFields } from './fields';
 import { readPath } from './utils';
 
@@ -9,11 +15,19 @@ export type AgentLayerOptions<M, I extends object> = Omit<LayerOptions<M, I>, 't
   size?: number | ((item: I, model: M) => number);
 };
 
-export function agentLayerOptions<M, I extends object>(options: AgentLayerOptions<M, I>): LayerOptions<M, I> {
+export function agentLayerOptions<M, I extends object>(
+  options: AgentLayerOptions<M, I>,
+): LayerOptions<M, I> {
   const { fields, color, icon, size, ...layerOptions } = options;
-  const shortcuts = Object.fromEntries(([
-    ['color', color], ['icon', icon], ['size', size],
-  ] as const).filter(([, value]) => value !== undefined));
+  const shortcuts = Object.fromEntries(
+    (
+      [
+        ['color', color],
+        ['icon', icon],
+        ['size', size],
+      ] as const
+    ).filter(([, value]) => value !== undefined),
+  );
   if (layerOptions.project && (fields !== undefined || Object.keys(shortcuts).length > 0)) {
     throw new Error('use project or fields and visual shortcuts, not both');
   }
@@ -26,17 +40,31 @@ export function agentLayerOptions<M, I extends object>(options: AgentLayerOption
   if (color !== undefined) configured.color = typeof color === 'function' ? color : literal(color);
   if (icon !== undefined) configured.icon = typeof icon === 'function' ? icon : literal(icon);
   if (size !== undefined) configured.size = typeof size === 'function' ? size : literal(size);
-  return { ...layerOptions, type: 'agent',
+  return {
+    ...layerOptions,
+    type: 'agent',
     ...(fields !== undefined || Object.keys(shortcuts).length > 0
-      ? { project: projectFields(configured) } : {}),
+      ? { project: projectFields(configured) }
+      : {}),
   };
 }
 
 type SourceId = string | number;
 type EntrySource<K, V> = ReadonlyMap<K, V> | Readonly<Record<string, V>>;
-type FieldConstant = number | boolean | null | Readonly<Record<string, unknown>> | LiteralField<unknown>;
-export type MapAgentField<M, K, V> = string | FieldConstant | ((model: M, key: K, value: V) => unknown);
-export type MatrixAgentField<M, V> = string | FieldConstant | ((model: M, row: number, col: number, value: V) => unknown);
+type FieldConstant =
+  | number
+  | boolean
+  | null
+  | Readonly<Record<string, unknown>>
+  | LiteralField<unknown>;
+export type MapAgentField<M, K, V> =
+  | string
+  | FieldConstant
+  | ((model: M, key: K, value: V) => unknown);
+export type MatrixAgentField<M, V> =
+  | string
+  | FieldConstant
+  | ((model: M, row: number, col: number, value: V) => unknown);
 
 function sourceFields(
   fields: Readonly<Record<string, unknown>> | undefined,
@@ -53,26 +81,46 @@ function sourceFields(
     }
   }
   const allowed = new Set(roots);
-  const compiled = [...Object.entries(fields ?? {}).map(([name, spec]) => {
-    if (typeof spec === 'string') {
-      const hasRoot = /^(?:model|key|value|row|col)(?=\.|\[|$)/.test(spec);
-      const selector = hasRoot ? spec : `value.${spec}`;
-      const match = /^(model|key|value|row|col)((?:\.[A-Za-z_$][\w$]*|\[(?:0|[1-9]\d*)\])*)$/.exec(selector);
-      if (!match || !allowed.has(match[1]!)) throw new Error(`unsupported source selector: ${spec}`);
-      const root = match[1]!;
-      const path = match[2]!.replace(/^\./, '');
-      return [name, (context: Record<string, unknown>) => path ? readPath(context[root], path) : context[root]] as const;
-    }
-    if (typeof spec === 'function') {
-      return [name, (_context: Record<string, unknown>, args: readonly unknown[]) => spec(...args)] as const;
-    }
-    const constant = typeof spec === 'object' && spec !== null && 'kind' in spec && spec.kind === 'literal'
-      ? (spec as LiteralField<unknown>).value : spec;
-    return [name, () => constant] as const;
-  }), ...Object.entries(shortcuts).map(([name, spec]) => [name,
-    (_context: Record<string, unknown>, args: readonly unknown[]) => typeof spec === 'function' ? spec(...args) : spec,
-  ] as const)];
-  return (context, args) => Object.fromEntries(compiled.map(([name, get]) => [name, get(context, args)]));
+  const compiled = [
+    ...Object.entries(fields ?? {}).map(([name, spec]) => {
+      if (typeof spec === 'string') {
+        const hasRoot = /^(?:model|key|value|row|col)(?=\.|\[|$)/.test(spec);
+        const selector = hasRoot ? spec : `value.${spec}`;
+        const match =
+          /^(model|key|value|row|col)((?:\.[A-Za-z_$][\w$]*|\[(?:0|[1-9]\d*)\])*)$/.exec(selector);
+        if (!match || !allowed.has(match[1]!))
+          throw new Error(`unsupported source selector: ${spec}`);
+        const root = match[1]!;
+        const path = match[2]!.replace(/^\./, '');
+        return [
+          name,
+          (context: Record<string, unknown>) =>
+            path ? readPath(context[root], path) : context[root],
+        ] as const;
+      }
+      if (typeof spec === 'function') {
+        return [
+          name,
+          (_context: Record<string, unknown>, args: readonly unknown[]) => spec(...args),
+        ] as const;
+      }
+      const constant =
+        typeof spec === 'object' && spec !== null && 'kind' in spec && spec.kind === 'literal'
+          ? (spec as LiteralField<unknown>).value
+          : spec;
+      return [name, () => constant] as const;
+    }),
+    ...Object.entries(shortcuts).map(
+      ([name, spec]) =>
+        [
+          name,
+          (_context: Record<string, unknown>, args: readonly unknown[]) =>
+            typeof spec === 'function' ? spec(...args) : spec,
+        ] as const,
+    ),
+  ];
+  return (context, args) =>
+    Object.fromEntries(compiled.map(([name, get]) => [name, get(context, args)]));
 }
 
 export interface MapAgentLayerOptions<M, K, V> {
@@ -88,7 +136,10 @@ export interface MapAgentLayerOptions<M, K, V> {
   replace?(model: M, values: Map<K, V>): void;
   metadata?: LayerOptions<M>['metadata'];
   revision?(model: M): unknown;
-  changes?(model: M, previousRevision: unknown): {
+  changes?(
+    model: M,
+    previousRevision: unknown,
+  ): {
     revision: unknown;
     changes: readonly { operation: 'create' | 'update' | 'delete'; key: K }[];
   } | null;
@@ -100,21 +151,31 @@ const stableId = (id: SourceId): string => {
   return `n:${id}`;
 };
 
-export function mapAgentLayerOptions<M, K, V>(options: MapAgentLayerOptions<M, K, V>): LayerOptions<M> {
+export function mapAgentLayerOptions<M, K, V>(
+  options: MapAgentLayerOptions<M, K, V>,
+): LayerOptions<M> {
   if (Boolean(options.revision) !== Boolean(options.changes)) {
     throw new Error('map source revision and changes must be declared together');
   }
   const encode = options.encodeKey ?? ((key: K) => key as SourceId);
   const decode = options.decodeKey ?? ((id: SourceId) => id as K);
   const decodeValue = options.decodeValue ?? ((value: unknown) => value as V);
-  const shortcuts = Object.fromEntries((['color', 'icon', 'size'] as const)
-    .filter((name) => options[name] !== undefined).map((name) => [name, options[name]]));
-  const configured = sourceFields(options.fields, shortcuts, options.project, ['model', 'key', 'value']);
+  const shortcuts = Object.fromEntries(
+    (['color', 'icon', 'size'] as const)
+      .filter((name) => options[name] !== undefined)
+      .map((name) => [name, options[name]]),
+  );
+  const configured = sourceFields(options.fields, shortcuts, options.project, [
+    'model',
+    'key',
+    'value',
+  ]);
   const entries = (model: M): [K, V][] => {
     const source = options.source(model);
-    const pairs = source instanceof Map
-      ? [...source.entries()] as [K, V][]
-      : Object.entries(source) as [K, V][];
+    const pairs =
+      source instanceof Map
+        ? ([...source.entries()] as [K, V][])
+        : (Object.entries(source) as [K, V][]);
     pairs.sort((a, b) => stableId(encode(a[0])).localeCompare(stableId(encode(b[0]))));
     for (let index = 1; index < pairs.length; index++) {
       if (stableId(encode(pairs[index - 1]![0])) === stableId(encode(pairs[index]![0]))) {
@@ -143,8 +204,9 @@ export function mapAgentLayerOptions<M, K, V>(options: MapAgentLayerOptions<M, K
     return result;
   };
   const projectEntry = (model: M, key: K, value: V): ItemRecord => {
-    const record = options.project?.(model, key, value)
-      ?? configured({ model, key, value }, [model, key, value]);
+    const record =
+      options.project?.(model, key, value) ??
+      configured({ model, key, value }, [model, key, value]);
     const data = record.data;
     if (data !== undefined && (typeof data !== 'object' || data === null || Array.isArray(data))) {
       throw new Error('map agent data must be an object');
@@ -152,29 +214,45 @@ export function mapAgentLayerOptions<M, K, V>(options: MapAgentLayerOptions<M, K
     return { ...record, id: encode(key), data: { ...(data as object | undefined), value } };
   };
   return {
-    type: 'agent', metadata: options.metadata,
-    items(model) { return entries(model).map(([key, value]) => projectEntry(model, key, value)); },
+    type: 'agent',
+    metadata: options.metadata,
+    items(model) {
+      return entries(model).map(([key, value]) => projectEntry(model, key, value));
+    },
     revision: options.revision,
-    changes: options.changes && ((model, previousRevision): LayerChangeBatch | null => {
-      const batch = options.changes!(model, previousRevision);
-      if (!batch) return null;
-      return { revision: batch.revision, changes: batch.changes.map((change) => {
-        const id = encode(change.key);
-        stableId(id);
-        if (change.operation === 'delete') return { operation: 'delete', key: id };
-        const source = options.source(model);
-        const present = source instanceof Map
-          ? source.has(change.key)
-          : Object.prototype.hasOwnProperty.call(source, String(change.key));
-        if (!present) throw new Error(`changed map key is absent: ${String(change.key)}`);
-        const value = source instanceof Map
-          ? source.get(change.key) as V
-          : (source as Record<string, V>)[String(change.key)]!;
-        return { operation: change.operation, key: id, record: projectEntry(model, change.key, value) };
-      }) };
-    }),
+    changes:
+      options.changes &&
+      ((model, previousRevision): LayerChangeBatch | null => {
+        const batch = options.changes!(model, previousRevision);
+        if (!batch) return null;
+        return {
+          revision: batch.revision,
+          changes: batch.changes.map((change) => {
+            const id = encode(change.key);
+            stableId(id);
+            if (change.operation === 'delete') return { operation: 'delete', key: id };
+            const source = options.source(model);
+            const present =
+              source instanceof Map
+                ? source.has(change.key)
+                : Object.prototype.hasOwnProperty.call(source, String(change.key));
+            if (!present) throw new Error(`changed map key is absent: ${String(change.key)}`);
+            const value =
+              source instanceof Map
+                ? (source.get(change.key) as V)
+                : (source as Record<string, V>)[String(change.key)]!;
+            return {
+              operation: change.operation,
+              key: id,
+              record: projectEntry(model, change.key, value),
+            };
+          }),
+        };
+      }),
     restore: {
-      validate(_model, layer) { read(layer); },
+      validate(_model, layer) {
+        read(layer);
+      },
       replace(model, items) {
         const values = read({ items });
         if (options.replace) {
@@ -209,28 +287,37 @@ export interface MatrixAgentLayerOptions<M, V> {
   decodeValue?(value: unknown): V;
   replace?(model: M, values: V[][]): void;
   restoreMetadata?(model: M, metadata: Record<string, unknown>): void;
-  validate?(model: M, layer: {
-    metadata?: Record<string, unknown>;
-    items?: Array<Record<string, unknown>>;
-  }): void;
+  validate?(
+    model: M,
+    layer: {
+      metadata?: Record<string, unknown>;
+      items?: Array<Record<string, unknown>>;
+    },
+  ): void;
   sparseDefault?: V;
   metadata?: LayerOptions<M>['metadata'];
   revision?(model: M): unknown;
-  changes?(model: M, previousRevision: unknown): {
+  changes?(
+    model: M,
+    previousRevision: unknown,
+  ): {
     revision: unknown;
     changes: readonly { operation: 'create' | 'update' | 'delete'; row: number; col: number }[];
   } | null;
 }
 
-export function matrixAgentLayerOptions<M, V>(options: MatrixAgentLayerOptions<M, V>): LayerOptions<M> {
+export function matrixAgentLayerOptions<M, V>(
+  options: MatrixAgentLayerOptions<M, V>,
+): LayerOptions<M> {
   if (Boolean(options.revision) !== Boolean(options.changes)) {
     throw new Error('matrix source revision and changes must be declared together');
   }
   const previousShapes = new WeakMap<object, readonly [number, number]>();
   const dimensions = (model: M): readonly [number, number] => {
     const source = options.source(model);
-    const shape = options.shape?.(model) ?? (Array.isArray(source)
-      ? [source.length, source[0]?.length ?? 0] as const : undefined);
+    const shape =
+      options.shape?.(model) ??
+      (Array.isArray(source) ? ([source.length, source[0]?.length ?? 0] as const) : undefined);
     if (!shape || shape.some((n) => !Number.isSafeInteger(n) || n < 0)) {
       throw new Error('matrix source requires a nonnegative [height, width] shape');
     }
@@ -247,24 +334,52 @@ export function matrixAgentLayerOptions<M, V>(options: MatrixAgentLayerOptions<M
     return source[row * width + col] as V;
   };
   const decode = options.decodeValue ?? ((value: unknown) => value as V);
-  const shortcuts = Object.fromEntries((['color', 'icon', 'size'] as const)
-    .filter((name) => options[name] !== undefined).map((name) => [name, options[name]]));
-  const configured = sourceFields(options.fields, shortcuts, options.project, ['model', 'key', 'value', 'row', 'col']);
+  const shortcuts = Object.fromEntries(
+    (['color', 'icon', 'size'] as const)
+      .filter((name) => options[name] !== undefined)
+      .map((name) => [name, options[name]]),
+  );
+  const configured = sourceFields(options.fields, shortcuts, options.project, [
+    'model',
+    'key',
+    'value',
+    'row',
+    'col',
+  ]);
   const sparse = Object.prototype.hasOwnProperty.call(options, 'sparseDefault');
-  const projectCell = (model: M, row: number, col: number, value: V, height: number): ItemRecord => {
-    const record = options.project?.(model, row, col, value)
-      ?? configured({ model, key: [row, col], row, col, value }, [model, row, col, value]);
+  const projectCell = (
+    model: M,
+    row: number,
+    col: number,
+    value: V,
+    height: number,
+  ): ItemRecord => {
+    const record =
+      options.project?.(model, row, col, value) ??
+      configured({ model, key: [row, col], row, col, value }, [model, row, col, value]);
     const data = record.data;
     if (data !== undefined && (typeof data !== 'object' || data === null || Array.isArray(data))) {
       throw new Error('matrix agent data must be an object');
     }
-    return { ...record, id: `cell:${row}:${col}`, x: col, y: height - 1 - row,
-      icon: record.icon ?? 'square', size: record.size ?? 1,
-      data: { ...(data as object | undefined), value } };
+    return {
+      ...record,
+      id: `cell:${row}:${col}`,
+      x: col,
+      y: height - 1 - row,
+      icon: record.icon ?? 'square',
+      size: record.size ?? 1,
+      data: { ...(data as object | undefined), value },
+    };
   };
   const incomingShapes = new WeakMap<object, readonly [number, number]>();
-  const read = (items: readonly Record<string, unknown>[], height: number, width: number): V[][] => {
-    const values = Array.from({ length: height }, () => Array<V>(width).fill(options.sparseDefault as V));
+  const read = (
+    items: readonly Record<string, unknown>[],
+    height: number,
+    width: number,
+  ): V[][] => {
+    const values = Array.from({ length: height }, () =>
+      Array<V>(width).fill(options.sparseDefault as V),
+    );
     const seen = new Set<string>();
     for (const item of items) {
       const matched = /^cell:(0|[1-9]\d*):(0|[1-9]\d*)$/.exec(String(item.id));
@@ -272,12 +387,16 @@ export function matrixAgentLayerOptions<M, V>(options: MatrixAgentLayerOptions<M
       const row = Number(matched[1]);
       const col = Number(matched[2]);
       const id = `${row}:${col}`;
-      if (row >= height || col >= width || seen.has(id)) throw new Error('duplicate or out-of-bounds matrix cell');
-      if (item.x !== col || item.y !== height - 1 - row) throw new Error('matrix cell coordinates do not match ID');
+      if (row >= height || col >= width || seen.has(id))
+        throw new Error('duplicate or out-of-bounds matrix cell');
+      if (item.x !== col || item.y !== height - 1 - row)
+        throw new Error('matrix cell coordinates do not match ID');
       const data = item.data;
-      if (!data || typeof data !== 'object' || !('value' in data)) throw new Error('matrix cell is missing data.value');
+      if (!data || typeof data !== 'object' || !('value' in data))
+        throw new Error('matrix cell is missing data.value');
       const value = decode((data as { value: unknown }).value);
-      if (sparse && Object.is(value, options.sparseDefault)) throw new Error('sparse default cell must be omitted');
+      if (sparse && Object.is(value, options.sparseDefault))
+        throw new Error('sparse default cell must be omitted');
       values[row]![col] = value;
       seen.add(id);
     }
@@ -287,37 +406,56 @@ export function matrixAgentLayerOptions<M, V>(options: MatrixAgentLayerOptions<M
   return {
     type: 'agent',
     revision: options.revision,
-    changes: options.changes && ((model, previousRevision): LayerChangeBatch | null => {
-      const [height, width] = dimensions(model);
-      const oldShape = previousShapes.get(model as object);
-      if (!oldShape || oldShape[0] !== height || oldShape[1] !== width) return null;
-      const batch = options.changes!(model, previousRevision);
-      if (!batch) return null;
-      return { revision: batch.revision, changes: batch.changes.map((change) => {
-        const { row, col } = change;
-        if (!Number.isSafeInteger(row) || !Number.isSafeInteger(col) ||
-            row < 0 || col < 0 || row >= height || col >= width) throw new Error('changed matrix cell is out of bounds');
-        const id = `cell:${row}:${col}`;
-        if (change.operation === 'delete') return { operation: 'delete', key: id };
-        const value = at(model, row, col);
-        if (sparse && Object.is(value, options.sparseDefault)) return { operation: 'delete', key: id };
-        return { operation: change.operation, key: id, record: projectCell(model, row, col, value, height) };
-      }) };
-    }),
+    changes:
+      options.changes &&
+      ((model, previousRevision): LayerChangeBatch | null => {
+        const [height, width] = dimensions(model);
+        const oldShape = previousShapes.get(model as object);
+        if (!oldShape || oldShape[0] !== height || oldShape[1] !== width) return null;
+        const batch = options.changes!(model, previousRevision);
+        if (!batch) return null;
+        return {
+          revision: batch.revision,
+          changes: batch.changes.map((change) => {
+            const { row, col } = change;
+            if (
+              !Number.isSafeInteger(row) ||
+              !Number.isSafeInteger(col) ||
+              row < 0 ||
+              col < 0 ||
+              row >= height ||
+              col >= width
+            )
+              throw new Error('changed matrix cell is out of bounds');
+            const id = `cell:${row}:${col}`;
+            if (change.operation === 'delete') return { operation: 'delete', key: id };
+            const value = at(model, row, col);
+            if (sparse && Object.is(value, options.sparseDefault))
+              return { operation: 'delete', key: id };
+            return {
+              operation: change.operation,
+              key: id,
+              record: projectCell(model, row, col, value, height),
+            };
+          }),
+        };
+      }),
     metadata(model) {
       const [height, width] = dimensions(model);
-      const extra = typeof options.metadata === 'function' ? options.metadata(model) : options.metadata;
+      const extra =
+        typeof options.metadata === 'function' ? options.metadata(model) : options.metadata;
       return { ...extra, width, height, coord_offset: 'int' };
     },
     items(model) {
       const [height, width] = dimensions(model);
       previousShapes.set(model as object, [height, width]);
       const items: ItemRecord[] = [];
-      for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) {
-        const value = at(model, row, col);
-        if (sparse && Object.is(value, options.sparseDefault)) continue;
-        items.push(projectCell(model, row, col, value, height));
-      }
+      for (let row = 0; row < height; row++)
+        for (let col = 0; col < width; col++) {
+          const value = at(model, row, col);
+          if (sparse && Object.is(value, options.sparseDefault)) continue;
+          items.push(projectCell(model, row, col, value, height));
+        }
       return items;
     },
     restore: {
@@ -325,36 +463,48 @@ export function matrixAgentLayerOptions<M, V>(options: MatrixAgentLayerOptions<M
         const metadata = layer.metadata;
         const width = metadata?.width;
         const height = metadata?.height;
-        if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) ||
-            (width as number) < 0 || (height as number) < 0 || metadata?.coord_offset !== 'int') {
+        if (
+          !Number.isSafeInteger(width) ||
+          !Number.isSafeInteger(height) ||
+          (width as number) < 0 ||
+          (height as number) < 0 ||
+          metadata?.coord_offset !== 'int'
+        ) {
           throw new Error('matrix restore requires width, height, and integer coordinates');
         }
         read(layer.items ?? [], height as number, width as number);
         options.validate?.(model, layer);
         incomingShapes.set(model as object, [height as number, width as number]);
       },
-      restoreMetadata(model, metadata) { options.restoreMetadata?.(model, metadata); },
+      restoreMetadata(model, metadata) {
+        options.restoreMetadata?.(model, metadata);
+      },
       replace(model, items) {
         const incomingShape = incomingShapes.get(model as object);
         if (!incomingShape) throw new Error('matrix restore was not validated');
         const [height, width] = incomingShape;
         const values = read(items, height, width);
-        if (options.replace) { options.replace(model, values); return; }
+        if (options.replace) {
+          options.replace(model, values);
+          return;
+        }
         const source = options.source(model);
         const [currentHeight, currentWidth] = dimensions(model);
         if (currentHeight !== height || currentWidth !== width) {
           throw new Error('matrix shape changed; provide replace');
         }
         if (Array.isArray(source)) {
-          for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) {
-            (source as V[][])[row]![col] = values[row]![col]!;
-          }
+          for (let row = 0; row < height; row++)
+            for (let col = 0; col < width; col++) {
+              (source as V[][])[row]![col] = values[row]![col]!;
+            }
         } else if ('set' in source && typeof source.set === 'function') {
           (source as { set(values: V[]): void }).set(values.flat());
         } else {
-          for (let row = 0; row < height; row++) for (let col = 0; col < width; col++) {
-            (source as { [index: number]: V })[row * width + col] = values[row]![col]!;
-          }
+          for (let row = 0; row < height; row++)
+            for (let col = 0; col < width; col++) {
+              (source as { [index: number]: V })[row * width + col] = values[row]![col]!;
+            }
         }
       },
     },

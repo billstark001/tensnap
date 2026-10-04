@@ -31,12 +31,26 @@ const formatMetadataValue = (value: unknown): string => {
   }
 };
 
-const ReadOnlyMetadataField = ({ id, label, value }: { id: string; label: string; value: unknown }) => {
+const ReadOnlyMetadataField = ({
+  id,
+  label,
+  value,
+}: {
+  id: string;
+  label: string;
+  value: unknown;
+}) => {
   const textValue = formatMetadataValue(value);
   if (textValue.length > 60 || textValue.includes('\n')) {
     return (
       <Form.Field label={label} htmlFor={id}>
-        <Form.Textarea id={id} rows={Math.min(6, Math.max(3, textValue.split('\n').length))} value={textValue} disabled className={styles.disabledField} />
+        <Form.Textarea
+          id={id}
+          rows={Math.min(6, Math.max(3, textValue.split('\n').length))}
+          value={textValue}
+          disabled
+          className={styles.disabledField}
+        />
       </Form.Field>
     );
   }
@@ -117,7 +131,10 @@ const MetadataValueField: React.FC<{
           try {
             onChange(jsonDraft.trim() === '' ? null : JSON.parse(jsonDraft));
           } catch (error) {
-            toast.error(_(msg`Invalid JSON`), error instanceof Error ? error.message : String(error));
+            toast.error(
+              _(msg`Invalid JSON`),
+              error instanceof Error ? error.message : String(error),
+            );
           }
         }}
       />
@@ -146,9 +163,7 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({
       },
       groups: layer.groups.map((group) => ({
         ...group,
-        entries: group.entries.map((entry) => (
-          entry.key === key ? { ...entry, value } : entry
-        )),
+        entries: group.entries.map((entry) => (entry.key === key ? { ...entry, value } : entry)),
       })),
     });
   };
@@ -179,12 +194,18 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({
             <Form.Field label={<Trans>Environment Type</Trans>} htmlFor="env-type">
               <Select.Root
                 value={env.type}
-                onValueChange={(value) => onRequestTypeChange(value as EditableEnvironmentData['type'])}
+                onValueChange={(value) =>
+                  onRequestTypeChange(value as EditableEnvironmentData['type'])
+                }
                 triggerClassName={styles.selectTrigger}
               >
                 <Select.Viewport>
-                  <Select.Item value="2d" indicator>2D</Select.Item>
-                  <Select.Item value="uniform" indicator>Uniform</Select.Item>
+                  <Select.Item value="2d" indicator>
+                    2D
+                  </Select.Item>
+                  <Select.Item value="uniform" indicator>
+                    Uniform
+                  </Select.Item>
                 </Select.Viewport>
               </Select.Root>
             </Form.Field>
@@ -203,37 +224,55 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({
           {env.type === '2d' && (
             <>
               <Form.FieldSet>
-                <Form.Label><Trans>2D Layer Metadata</Trans></Form.Label>
-                {env.layers.length > 0 ? env.layers.map((layer, layerIndex) => (
-                  <details key={layer.id} open style={{ marginBottom: '12px' }}>
-                    <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
-                      {layer.layerType} - {layer.id}
-                    </summary>
-                    {layer.groups.length > 0 ? layer.groups.map((group) => (
-                      <div key={`${layer.id}-${group.title}`} style={{ marginBottom: '12px' }}>
-                        <div className={styles.infoText} style={{ marginBottom: '6px', fontWeight: 600 }}>
-                          {group.title}
+                <Form.Label>
+                  <Trans>2D Layer Metadata</Trans>
+                </Form.Label>
+                {env.layers.length > 0 ? (
+                  env.layers.map((layer, layerIndex) => (
+                    <details key={layer.id} open style={{ marginBottom: '12px' }}>
+                      <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+                        {layer.layerType} - {layer.id}
+                      </summary>
+                      {layer.groups.length > 0 ? (
+                        layer.groups.map((group) => (
+                          <div key={`${layer.id}-${group.title}`} style={{ marginBottom: '12px' }}>
+                            <div
+                              className={styles.infoText}
+                              style={{ marginBottom: '6px', fontWeight: 600 }}
+                            >
+                              {group.title}
+                            </div>
+                            {group.entries.map(({ key, value, editable }) => {
+                              const valueKey =
+                                value != null && typeof value === 'object'
+                                  ? formatMetadataValue(value)
+                                  : '';
+                              return (
+                                <MetadataValueField
+                                  key={`${layer.id}-${key}-${valueKey}`}
+                                  id={`env-${layer.id}-${key}`}
+                                  label={key}
+                                  value={value}
+                                  editable={editable}
+                                  onChange={(nextValue) =>
+                                    updateLayerMetadata(layerIndex, key, nextValue)
+                                  }
+                                />
+                              );
+                            })}
+                          </div>
+                        ))
+                      ) : (
+                        <div className={styles.infoText}>
+                          <Trans>No metadata on this layer.</Trans>
                         </div>
-                        {group.entries.map(({ key, value, editable }) => {
-                          const valueKey = value != null && typeof value === 'object' ? formatMetadataValue(value) : '';
-                          return (
-                            <MetadataValueField
-                              key={`${layer.id}-${key}-${valueKey}`}
-                              id={`env-${layer.id}-${key}`}
-                              label={key}
-                              value={value}
-                              editable={editable}
-                              onChange={(nextValue) => updateLayerMetadata(layerIndex, key, nextValue)}
-                            />
-                          );
-                        })}
-                      </div>
-                    )) : (
-                      <div className={styles.infoText}><Trans>No metadata on this layer.</Trans></div>
-                    )}
-                  </details>
-                )) : (
-                  <div className={styles.infoText}><Trans>No layers available.</Trans></div>
+                      )}
+                    </details>
+                  ))
+                ) : (
+                  <div className={styles.infoText}>
+                    <Trans>No layers available.</Trans>
+                  </div>
                 )}
               </Form.FieldSet>
             </>
@@ -241,37 +280,56 @@ export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({
 
           {env.type === 'uniform' && (
             <Form.FieldSet>
-              <Form.Label><Trans>Uniform Layer Metadata</Trans></Form.Label>
-              {env.layers.length > 0 ? env.layers.map((layer, layerIndex) => (
-                <details key={layer.id} open style={{ marginBottom: '12px' }}>
-                  <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
-                    {layer.layerType} - {layer.id}
-                  </summary>
-                  {layer.groups.length > 0 ? layer.groups.map((group) => group.entries.map(({ key, value, editable }) => {
-                    const valueKey = value != null && typeof value === 'object' ? formatMetadataValue(value) : '';
-                    return (
-                      <MetadataValueField
-                        key={`${layer.id}-${key}-${valueKey}`}
-                        id={`env-${layer.id}-${key}`}
-                        label={key}
-                        value={value}
-                        editable={editable}
-                        onChange={(nextValue) => updateLayerMetadata(layerIndex, key, nextValue)}
-                      />
-                    );
-                  })) : (
-                    <div className={styles.infoText}><Trans>No metadata on this layer.</Trans></div>
-                  )}
-                </details>
-              )) : (
-                <div className={styles.infoText}><Trans>No layers available.</Trans></div>
+              <Form.Label>
+                <Trans>Uniform Layer Metadata</Trans>
+              </Form.Label>
+              {env.layers.length > 0 ? (
+                env.layers.map((layer, layerIndex) => (
+                  <details key={layer.id} open style={{ marginBottom: '12px' }}>
+                    <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
+                      {layer.layerType} - {layer.id}
+                    </summary>
+                    {layer.groups.length > 0 ? (
+                      layer.groups.map((group) =>
+                        group.entries.map(({ key, value, editable }) => {
+                          const valueKey =
+                            value != null && typeof value === 'object'
+                              ? formatMetadataValue(value)
+                              : '';
+                          return (
+                            <MetadataValueField
+                              key={`${layer.id}-${key}-${valueKey}`}
+                              id={`env-${layer.id}-${key}`}
+                              label={key}
+                              value={value}
+                              editable={editable}
+                              onChange={(nextValue) =>
+                                updateLayerMetadata(layerIndex, key, nextValue)
+                              }
+                            />
+                          );
+                        }),
+                      )
+                    ) : (
+                      <div className={styles.infoText}>
+                        <Trans>No metadata on this layer.</Trans>
+                      </div>
+                    )}
+                  </details>
+                ))
+              ) : (
+                <div className={styles.infoText}>
+                  <Trans>No layers available.</Trans>
+                </div>
               )}
             </Form.FieldSet>
           )}
         </>
       ) : (
         <div className={styles.infoText}>
-          <Trans>This view can keep its binding, but there is no registered environment to edit.</Trans>
+          <Trans>
+            This view can keep its binding, but there is no registered environment to edit.
+          </Trans>
         </div>
       )}
     </>

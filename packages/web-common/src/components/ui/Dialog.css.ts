@@ -8,13 +8,13 @@ const overlayShow = keyframes({
 });
 
 const contentShow = keyframes({
-  '0%': { 
-    opacity: 0, 
-    transform: 'translate(-50%, -48%) scale(0.96)' 
+  '0%': {
+    opacity: 0,
+    transform: 'translate(-50%, -48%) scale(0.96)',
   },
-  '100%': { 
-    opacity: 1, 
-    transform: 'translate(-50%, -50%) scale(1)' 
+  '100%': {
+    opacity: 1,
+    transform: 'translate(-50%, -50%) scale(1)',
   },
 });
 
@@ -24,13 +24,13 @@ const overlayHide = keyframes({
 });
 
 const contentHide = keyframes({
-  '0%': { 
-    opacity: 1, 
-    transform: 'translate(-50%, -50%) scale(1)' 
+  '0%': {
+    opacity: 1,
+    transform: 'translate(-50%, -50%) scale(1)',
   },
-  '100%': { 
-    opacity: 0, 
-    transform: 'translate(-50%, -48%) scale(0.96)' 
+  '100%': {
+    opacity: 0,
+    transform: 'translate(-50%, -48%) scale(0.96)',
   },
 });
 
@@ -41,7 +41,7 @@ export const dialogOverlay = style({
   inset: 0,
   zIndex: 30,
   animation: `${overlayShow} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.overlayDark,
@@ -69,7 +69,7 @@ export const dialogContent = style({
   zIndex: 30,
   overflow: 'auto',
   animation: `${contentShow} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
-  
+
   selectors: {
     '&:focus': {
       outline: 'none',
@@ -86,32 +86,41 @@ export const dialogContent = style({
 });
 
 // 大尺寸 Dialog Content
-export const dialogContentLarge = style([dialogContent, {
-  minWidth: '300px',
-  maxWidth: '600px',
-  width: '95vw',
-}]);
+export const dialogContentLarge = style([
+  dialogContent,
+  {
+    minWidth: '300px',
+    maxWidth: '600px',
+    width: '95vw',
+  },
+]);
 
-export const dialogContentXLarge = style([dialogContent, {
-  minWidth: '400px',
-  maxWidth: '1000px',
-  width: '95vw',
-}]);
+export const dialogContentXLarge = style([
+  dialogContent,
+  {
+    minWidth: '400px',
+    maxWidth: '1000px',
+    width: '95vw',
+  },
+]);
 
 // 超大尺寸 Dialog Content（如文件浏览器）
 const DIALOG_MARGIN = 32;
-export const dialogContentFull = style([dialogContent, {
-  display: 'flex',
-  flexDirection: 'column',
-  width: `calc(100vw - ${DIALOG_MARGIN}px)`,
-  maxWidth: `calc(100vw - ${DIALOG_MARGIN}px)`,
-  height: `calc(100vh - ${DIALOG_MARGIN}px)`,
-  maxHeight: `calc(100vh - ${DIALOG_MARGIN}px)`,
-  // Never let the desktop-sized minimum push a browser picker outside a
-  // narrow viewport. This is especially visible in the save filename row.
-  minWidth: `min(600px, calc(100vw - ${DIALOG_MARGIN}px))`,
-  minHeight: `min(400px, calc(100vh - ${DIALOG_MARGIN}px))`,
-}]);
+export const dialogContentFull = style([
+  dialogContent,
+  {
+    display: 'flex',
+    flexDirection: 'column',
+    width: `calc(100vw - ${DIALOG_MARGIN}px)`,
+    maxWidth: `calc(100vw - ${DIALOG_MARGIN}px)`,
+    height: `calc(100vh - ${DIALOG_MARGIN}px)`,
+    maxHeight: `calc(100vh - ${DIALOG_MARGIN}px)`,
+    // Never let the desktop-sized minimum push a browser picker outside a
+    // narrow viewport. This is especially visible in the save filename row.
+    minWidth: `min(600px, calc(100vw - ${DIALOG_MARGIN}px))`,
+    minHeight: `min(400px, calc(100vh - ${DIALOG_MARGIN}px))`,
+  },
+]);
 
 // Dialog Title 样式
 export const dialogTitle = style({
@@ -120,7 +129,7 @@ export const dialogTitle = style({
   fontWeight: '600',
   color: vars.color.foreground,
   marginBottom: vars.space.md,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -134,7 +143,7 @@ export const dialogDescription = style({
   color: vars.color.secondary,
   marginBottom: vars.space.md,
   lineHeight: 1.5,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -159,7 +168,7 @@ export const dialogClose = style({
   justifyContent: 'center',
   width: '32px',
   height: '32px',
-  
+
   selectors: {
     '&:hover': {
       backgroundColor: 'rgba(0, 0, 0, 0.05)',
@@ -206,7 +215,7 @@ export const dialogFooter = style({
   paddingTop: vars.space.md,
   borderTop: `1px solid rgba(0, 0, 0, 0.1)`,
   flexShrink: 0,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderTopColor: 'rgba(255, 255, 255, 0.1)',
@@ -228,7 +237,7 @@ export const dialogButton = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.space.xs,
-  
+
   selectors: {
     '&:hover': {
       backgroundColor: 'rgba(0, 0, 0, 0.05)',
@@ -258,42 +267,48 @@ export const dialogButton = style({
 });
 
 // 主要按钮样式
-export const dialogButtonPrimary = style([dialogButton, {
-  backgroundColor: vars.color.primary,
-  color: vars.color.background,
-  borderColor: vars.color.primary,
-  
-  selectors: {
-    '&:hover': {
-      backgroundColor: '#0052a3',
-      borderColor: '#0052a3',
-    },
-    '&:disabled': {
-      backgroundColor: vars.color.secondary,
-      borderColor: vars.color.secondary,
+export const dialogButtonPrimary = style([
+  dialogButton,
+  {
+    backgroundColor: vars.color.primary,
+    color: vars.color.background,
+    borderColor: vars.color.primary,
+
+    selectors: {
+      '&:hover': {
+        backgroundColor: '#0052a3',
+        borderColor: '#0052a3',
+      },
+      '&:disabled': {
+        backgroundColor: vars.color.secondary,
+        borderColor: vars.color.secondary,
+      },
     },
   },
-}]);
+]);
 
 // 危险按钮样式
-export const dialogButtonDanger = style([dialogButton, {
-  backgroundColor: vars.color.danger,
-  color: vars.color.background,
-  borderColor: vars.color.danger,
-  
-  selectors: {
-    '&:hover': {
-      backgroundColor: '#a30000',
-      borderColor: '#a30000',
+export const dialogButtonDanger = style([
+  dialogButton,
+  {
+    backgroundColor: vars.color.danger,
+    color: vars.color.background,
+    borderColor: vars.color.danger,
+
+    selectors: {
+      '&:hover': {
+        backgroundColor: '#a30000',
+        borderColor: '#a30000',
+      },
     },
   },
-}]);
+]);
 
 export const dialogSeparator = style({
   height: '1px',
   backgroundColor: 'rgba(0, 0, 0, 0.1)',
   margin: `${vars.space.md} 0`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: 'rgba(255, 255, 255, 0.1)',

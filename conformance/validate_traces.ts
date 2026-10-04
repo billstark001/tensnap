@@ -10,7 +10,9 @@ async function main(): Promise<void> {
   const files = (await readdir(directory)).filter((name) => name.endsWith('.json')).sort();
   assert.ok(files.length > 0, 'no conformance traces found');
   for (const file of files) {
-    const trace = JSON.parse(await readFile(resolve(directory, file), 'utf8')) as { messages?: unknown[] };
+    const trace = JSON.parse(await readFile(resolve(directory, file), 'utf8')) as {
+      messages?: unknown[];
+    };
     assert.ok(Array.isArray(trace.messages) && trace.messages.length > 0, `${file}: empty trace`);
     for (const [index, message] of trace.messages.entries()) {
       try {
@@ -23,4 +25,7 @@ async function main(): Promise<void> {
   console.log(`validated ${files.length} canonical conformance traces`);
 }
 
-main().catch((error) => { console.error(error); process.exitCode = 1; });
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

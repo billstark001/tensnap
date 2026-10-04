@@ -8,12 +8,10 @@ import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useSettingsStore } from './store/settings';
 import { useCallback, useEffect, useState } from 'react';
 
-
 export function App(props: Partial<MenuBarConfig>) {
-  
   const { loading: fileSystemLoading } = useFileSystem();
   const { loading: counterLoading } = useLoadingStore();
-  
+
   const {
     environment = 'web',
     system = 'other',
@@ -22,9 +20,9 @@ export function App(props: Partial<MenuBarConfig>) {
     onToggleFullscreen,
   } = props;
 
-  const [browserFullscreen, setBrowserFullscreen] = useState(() => (
-    typeof document !== 'undefined' && Boolean(document.fullscreenElement)
-  ));
+  const [browserFullscreen, setBrowserFullscreen] = useState(
+    () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
+  );
 
   useEffect(() => {
     if (environment !== 'web') return;
@@ -43,16 +41,17 @@ export function App(props: Partial<MenuBarConfig>) {
     else await document.documentElement.requestFullscreen();
   }, [onToggleFullscreen]);
 
-  const isFullscreen = environment === 'tauri'
-    ? controlledFullscreen ?? false
-    : browserFullscreen;
+  const isFullscreen =
+    environment === 'tauri' ? (controlledFullscreen ?? false) : browserFullscreen;
 
   const settingsDialogOpen = useSettingsStore((store) => store.settingsDialogOpen);
   const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
 
   return (
     <div className={styles.appContainer}>
-      <MenuBarContext.Provider value={{ environment, system, isFullscreen, onExit, onToggleFullscreen: toggleFullscreen }}>
+      <MenuBarContext.Provider
+        value={{ environment, system, isFullscreen, onExit, onToggleFullscreen: toggleFullscreen }}
+      >
         <ToolBarLayout />
       </MenuBarContext.Provider>
 

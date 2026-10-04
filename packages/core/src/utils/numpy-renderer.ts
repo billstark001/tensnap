@@ -1,20 +1,26 @@
-import { NumpyArrayData } from "./npy-parser";
+import { NumpyArrayData } from './npy-parser';
 import type { BackgroundInterpolation } from '@tensnap/protocol/layers';
 
 const validateShape = (shape: number[], expectedChannels: number[] = [1, 3, 4]) => {
   if (shape.length !== 3) {
-    throw new Error(`Invalid shape: expected 3 dimensions [h, w, c], got ${shape.length} dimensions`);
+    throw new Error(
+      `Invalid shape: expected 3 dimensions [h, w, c], got ${shape.length} dimensions`,
+    );
   }
   const [, , c] = shape;
   if (!expectedChannels.includes(c)) {
-    throw new Error(`Invalid number of channels: expected ${expectedChannels.join(', ')}, got ${c}`);
+    throw new Error(
+      `Invalid number of channels: expected ${expectedChannels.join(', ')}, got ${c}`,
+    );
   }
 };
 
 // int16 range: -32768 to 32767 -> normalize to 0-255
-const normalizeInt16 = (val: number) => Math.max(0, Math.min(255, Math.floor((val + 32768) / 257.003921568627)));
+const normalizeInt16 = (val: number) =>
+  Math.max(0, Math.min(255, Math.floor((val + 32768) / 257.003921568627)));
 // int32 range: -2147483648 to 2147483647 -> normalize to 0-255
-const normalizeInt32 = (val: number) => Math.max(0, Math.min(255, Math.floor((val + 2147483648) / 16843009.00392157)));
+const normalizeInt32 = (val: number) =>
+  Math.max(0, Math.min(255, Math.floor((val + 2147483648) / 16843009.00392157)));
 // For floating point types (float32, float64), assume values are in [0, 1] range
 // Values outside this range will be clamped
 const normalizeFloat = (val: number) => Math.max(0, Math.min(255, Math.floor(val * 255)));
@@ -24,7 +30,12 @@ const normalizeFloat = (val: number) => Math.max(0, Math.min(255, Math.floor(val
  * - int16/int32: normalize from dtype range to 0-255
  * - float32/float64: assume normalized [0, 1] range and scale to 0-255
  */
-const convertToRGBA = (data: NumpyArrayData['data'], h: number, w: number, c: number): Uint8ClampedArray => {
+const convertToRGBA = (
+  data: NumpyArrayData['data'],
+  h: number,
+  w: number,
+  c: number,
+): Uint8ClampedArray => {
   const pixels = new Uint8ClampedArray(h * w * 4);
   const totalPixels = h * w;
 
@@ -54,7 +65,6 @@ const convertToRGBA = (data: NumpyArrayData['data'], h: number, w: number, c: nu
 
   // For integer types (int16, int32), normalize from their range to 0-255
   if (data instanceof Int16Array) {
-
     for (let i = 0; i < totalPixels; i++) {
       const dataIndex = i * c;
       const pixelIndex = i * 4;
@@ -73,7 +83,6 @@ const convertToRGBA = (data: NumpyArrayData['data'], h: number, w: number, c: nu
   }
 
   if (data instanceof Int32Array) {
-
     for (let i = 0; i < totalPixels; i++) {
       const dataIndex = i * c;
       const pixelIndex = i * 4;
@@ -90,7 +99,6 @@ const convertToRGBA = (data: NumpyArrayData['data'], h: number, w: number, c: nu
     }
     return pixels;
   }
-
 
   for (let i = 0; i < totalPixels; i++) {
     const dataIndex = i * c;
@@ -109,7 +117,11 @@ const convertToRGBA = (data: NumpyArrayData['data'], h: number, w: number, c: nu
   return pixels;
 };
 
-const createCanvasWithImageData = (pixels: Uint8ClampedArray, w: number, h: number): HTMLCanvasElement => {
+const createCanvasWithImageData = (
+  pixels: Uint8ClampedArray,
+  w: number,
+  h: number,
+): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -159,7 +171,7 @@ export const renderNumpyBackground = (
   ctx: CanvasRenderingContext2D,
   numpyData: NumpyArrayData,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
 ): void => {
   const { data, shape } = numpyData;
 

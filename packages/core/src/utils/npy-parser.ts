@@ -1,7 +1,7 @@
 /**
  * Type definitions for NumPy array data with specific dtype mappings
  */
-export type NumpyArrayData = 
+export type NumpyArrayData =
   | { data: Uint8Array; shape: number[]; dtype: '|u1' | '<u1' | '>u1'; type: 'uint8' }
   | { data: Int16Array; shape: number[]; dtype: '<i2' | '>i2'; type: 'int16' }
   | { data: Int32Array; shape: number[]; dtype: '<i4' | '>i4'; type: 'int32' }
@@ -16,7 +16,7 @@ export type NumpyArrayData =
 export class NPYParser {
   // Magic string for NPY files
   private static readonly MAGIC = '\x93NUMPY';
-  
+
   // Data type mappings for NumPy format descriptors
   private static readonly DTYPE_MAP = {
     '|u1': { type: Uint8Array, size: 1, name: 'uint8' },
@@ -35,7 +35,12 @@ export class NPYParser {
   } as const;
 
   private static readonly SUPPORTED_TYPES = [
-    Uint8Array, Int16Array, Int32Array, BigInt64Array, Float32Array, Float64Array
+    Uint8Array,
+    Int16Array,
+    Int32Array,
+    BigInt64Array,
+    Float32Array,
+    Float64Array,
   ];
 
   /**
@@ -45,10 +50,12 @@ export class NPYParser {
     if (bytes.length < 8) {
       throw new Error('Invalid NPY file: buffer too small');
     }
-    
+
     const magic = String.fromCharCode(...bytes.slice(0, 6));
     if (magic !== this.MAGIC) {
-      throw new Error(`Invalid NPY file: incorrect magic string. Expected '${this.MAGIC}', got '${magic}'`);
+      throw new Error(
+        `Invalid NPY file: incorrect magic string. Expected '${this.MAGIC}', got '${magic}'`,
+      );
     }
   }
 
@@ -64,15 +71,15 @@ export class NPYParser {
     const bytes = new Uint8Array(buffer);
     const majorVersion = bytes[6];
     const minorVersion = bytes[7];
-    
+
     // Support NPY format versions 1.0, 2.0, and 3.0
     if (majorVersion < 1 || majorVersion > 3) {
       throw new Error(`Unsupported NPY version: ${majorVersion}.${minorVersion}`);
     }
-    
+
     let headerLength: number;
     let headerStart: number;
-    
+
     if (majorVersion === 1) {
       if (buffer.byteLength < 10) {
         throw new Error('Invalid NPY file: insufficient data for version 1.0 header');
@@ -86,11 +93,11 @@ export class NPYParser {
       headerLength = new DataView(buffer, 8, 4).getUint32(0, true);
       headerStart = 12;
     }
-    
+
     if (headerStart + headerLength > buffer.byteLength) {
       throw new Error('Invalid NPY file: header length exceeds buffer size');
     }
-    
+
     return { majorVersion, minorVersion, headerLength, headerStart };
   }
 
@@ -104,29 +111,31 @@ export class NPYParser {
   } {
     try {
       // More robust regex patterns
-      const shapeMatch = headerStr.match(/'shape':\s*\(([^)]*)\)/)
-        ?? headerStr.match(/"shape":\s*\(([^)]*)\)/);
-      const dtypeMatch = headerStr.match(/'descr':\s*['"]([^'"]*)['"]/)
-        ?? headerStr.match(/"descr":\s*['"]([^'"]*)['"]/);
-      const orderMatch = headerStr.match(/'fortran_order':\s*(True|False)/)
-        ?? headerStr.match(/"fortran_order":\s*(True|False)/);
-      
+      const shapeMatch =
+        headerStr.match(/'shape':\s*\(([^)]*)\)/) ?? headerStr.match(/"shape":\s*\(([^)]*)\)/);
+      const dtypeMatch =
+        headerStr.match(/'descr':\s*['"]([^'"]*)['"]/) ??
+        headerStr.match(/"descr":\s*['"]([^'"]*)['"]/);
+      const orderMatch =
+        headerStr.match(/'fortran_order':\s*(True|False)/) ??
+        headerStr.match(/"fortran_order":\s*(True|False)/);
+
       if (!shapeMatch || !dtypeMatch) {
         throw new Error('Required header fields missing (shape or descr)');
       }
-      
+
       // Parse shape with better error handling
       const shapeStr = shapeMatch[1].trim();
       let shape: number[];
-      
+
       if (shapeStr === '') {
         shape = []; // Scalar
       } else {
         shape = shapeStr
           .split(',')
-          .map(s => s.trim())
-          .filter(s => s !== '')
-          .map(s => {
+          .map((s) => s.trim())
+          .filter((s) => s !== '')
+          .map((s) => {
             const num = Number(s);
             if (!/^\d+$/.test(s) || !Number.isSafeInteger(num)) {
               throw new Error(`Invalid dimension in shape: ${s}`);
@@ -134,13 +143,15 @@ export class NPYParser {
             return num;
           });
       }
-      
+
       const dtype = dtypeMatch[1];
       const fortranOrder = orderMatch ? orderMatch[1] === 'True' : false;
-      
+
       return { shape, dtype, fortranOrder };
     } catch (error) {
-      throw new Error(`Failed to parse NPY header: ${error instanceof Error ? error.message : 'unknown error'}`);
+      throw new Error(
+        `Failed to parse NPY header: ${error instanceof Error ? error.message : 'unknown error'}`,
+      );
     }
   }
 
@@ -150,34 +161,36 @@ export class NPYParser {
   private static createTypedArray(
     buffer: ArrayBuffer,
     dtype: string,
-    expectedLength: number
+    expectedLength: number,
   ): Uint8Array | Int16Array | Int32Array | BigInt64Array | Float32Array | Float64Array {
     const typeInfo = this.DTYPE_MAP[dtype as keyof typeof this.DTYPE_MAP];
-    
+
     if (!typeInfo) {
-      throw new Error(`Unsupported dtype: ${dtype}. Supported types: ${Object.keys(this.DTYPE_MAP).join(', ')}`);
+      throw new Error(
+        `Unsupported dtype: ${dtype}. Supported types: ${Object.keys(this.DTYPE_MAP).join(', ')}`,
+      );
     }
-    
+
     const expectedBytes = expectedLength * typeInfo.size;
     if (!Number.isSafeInteger(expectedBytes)) {
       throw new Error(`Invalid NPY shape: byte count exceeds the safe integer range`);
     }
     if (buffer.byteLength < expectedBytes) {
       throw new Error(
-        `Insufficient data: expected ${expectedBytes} bytes for ${expectedLength} elements of type ${dtype}, got ${buffer.byteLength} bytes`
+        `Insufficient data: expected ${expectedBytes} bytes for ${expectedLength} elements of type ${dtype}, got ${buffer.byteLength} bytes`,
       );
     }
-    
+
     // Handle endianness for multi-byte types
     const isLittleEndian = dtype.startsWith('<') || dtype.startsWith('|');
     const needsByteSwap = !isLittleEndian && typeInfo.size > 1;
-    
+
     if (needsByteSwap) {
       // Create a copy and swap bytes for big-endian data
       const swappedBuffer = this.swapBytes(buffer.slice(0, expectedBytes), typeInfo.size);
       return new typeInfo.type(swappedBuffer) as any;
     }
-    
+
     return new typeInfo.type(buffer, 0, expectedLength) as any;
   }
 
@@ -187,13 +200,13 @@ export class NPYParser {
   private static swapBytes(buffer: ArrayBuffer, elementSize: number): ArrayBuffer {
     const view = new Uint8Array(buffer);
     const swapped = new Uint8Array(buffer.byteLength);
-    
+
     for (let i = 0; i < view.length; i += elementSize) {
       for (let j = 0; j < elementSize; j++) {
         swapped[i + j] = view[i + elementSize - 1 - j];
       }
     }
-    
+
     return swapped.buffer;
   }
 
@@ -203,15 +216,17 @@ export class NPYParser {
   private static transposeIfNeeded<T extends ArrayLike<any>>(
     data: T,
     shape: number[],
-    fortranOrder: boolean
+    fortranOrder: boolean,
   ): T {
     if (!fortranOrder || shape.length <= 1) {
       return data;
     }
-    
+
     // For simplicity, we'll throw an error for Fortran order arrays
     // Full implementation would require complex multi-dimensional transposition
-    throw new Error('Fortran order arrays are not currently supported. Please use C order (row-major) arrays.');
+    throw new Error(
+      'Fortran order arrays are not currently supported. Please use C order (row-major) arrays.',
+    );
   }
 
   /**
@@ -228,84 +243,88 @@ export class NPYParser {
     if (!buffer || buffer.byteLength === 0) {
       throw new Error('Invalid input: empty or null buffer');
     }
-    
+
     const bytes = new Uint8Array(buffer);
-    
+
     // Validate magic string
     this.validateMagic(bytes);
-    
+
     // Parse version and header length
-    const { majorVersion, minorVersion, headerLength, headerStart } = 
+    const { majorVersion, minorVersion, headerLength, headerStart } =
       this.parseVersionAndHeaderLength(buffer);
-    
+
     // Extract and parse header string
     const headerBytes = bytes.slice(headerStart, headerStart + headerLength);
     const headerStr = new TextDecoder('utf-8').decode(headerBytes);
-    
+
     const { shape, dtype, fortranOrder } = this.parseHeaderDict(headerStr);
-    
+
     return {
       shape,
       dtype,
       fortranOrder,
       headerLength: headerStart + headerLength,
       majorVersion,
-      minorVersion
+      minorVersion,
     };
   }
-  
+
   /**
    * Parses complete NPY file and returns data with shape information
    */
   static parse(buffer: ArrayBuffer): NumpyArrayData {
     const { shape, dtype, fortranOrder, headerLength } = this.parseHeader(buffer);
-    
+
     // Calculate expected number of elements
     const totalElements = shape.length === 0 ? 1 : shape.reduce((a, b) => a * b, 1);
     if (!Number.isSafeInteger(totalElements)) {
       throw new Error('Invalid NPY shape: element count exceeds the safe integer range');
     }
-    
+
     // Extract data portion
     const dataBuffer = buffer.slice(headerLength);
-    
+
     // Create appropriate typed array
     const data = this.createTypedArray(dataBuffer, dtype, totalElements);
-    
+
     // Handle Fortran order if needed
     const finalData = this.transposeIfNeeded(data, shape, fortranOrder);
-    
+
     // Get friendly type name
     const typeInfo = this.DTYPE_MAP[dtype as keyof typeof this.DTYPE_MAP];
     const type = typeInfo.name;
-    
+
     return { data: finalData, shape, dtype, type } as NumpyArrayData;
   }
-  
+
   /**
    * Converts typed array data to NPY format buffer
    */
   static toBuffer(
     data: Uint8Array | Int16Array | Int32Array | BigInt64Array | Float32Array | Float64Array,
-    shape: number[]
+    shape: number[],
   ): ArrayBuffer {
     // Validate input
-    if (!this.SUPPORTED_TYPES.some(Type => data instanceof Type)) {
-      throw new Error('Unsupported data type. Must be one of: Uint8Array, Int16Array, Int32Array, BigInt64Array, Float32Array, Float64Array');
+    if (!this.SUPPORTED_TYPES.some((Type) => data instanceof Type)) {
+      throw new Error(
+        'Unsupported data type. Must be one of: Uint8Array, Int16Array, Int32Array, BigInt64Array, Float32Array, Float64Array',
+      );
     }
-    
-    if (shape.some(dim => dim < 0 || !Number.isSafeInteger(dim))) {
+
+    if (shape.some((dim) => dim < 0 || !Number.isSafeInteger(dim))) {
       throw new Error('Shape must contain non-negative integers');
     }
-    
+
     const expectedElements = shape.length === 0 ? 1 : shape.reduce((a, b) => a * b, 1);
     if (!Number.isSafeInteger(expectedElements)) {
       throw new Error('Shape element count exceeds the safe integer range');
     }
     if (data.length !== expectedElements) {
-      throw new Error(`Data length (${data.length}) doesn't match shape (${shape.join('×')} = ${expectedElements})`);
+      throw new Error(
+        `Data length (${data.length}) doesn't match shape (${shape.join('×')} = ${expectedElements})`,
+      );
     }
-    
+
     // Determine dtype string
     let dtype: string;
     if (data instanceof Uint8Array) dtype = '|u1';
@@ -315,11 +334,11 @@ export class NPYParser {
     else if (data instanceof Float32Array) dtype = '<f4';
     else if (data instanceof Float64Array) dtype = '<f8';
     else throw new Error('Unsupported array type');
-    
+
     // Create header string
     const shapeStr = shape.length === 0 ? '' : shape.join(', ') + (shape.length === 1 ? ',' : '');
     const headerStr = `{'descr': '${dtype}', 'fortran_order': False, 'shape': (${shapeStr}), }`;
-    
+
     // Include the newline in the aligned header length.
     const padHeader = (start: number) => {
       const paddingLength = (64 - ((start + headerStr.length + 1) % 64)) % 64;
@@ -332,34 +351,34 @@ export class NPYParser {
       paddedHeader = padHeader(headerStart);
     }
     if (paddedHeader.length > 0xffffffff) throw new Error('NPY header is too large');
-    
+
     // Create output buffer
     const totalSize = headerStart + paddedHeader.length + data.byteLength;
     const buffer = new ArrayBuffer(totalSize);
     const view = new Uint8Array(buffer);
-    
+
     // Write magic string
     for (let i = 0; i < this.MAGIC.length; i++) {
       view[i] = this.MAGIC.charCodeAt(i);
     }
-    
+
     // Version 2 uses a 32-bit header length for large shape tuples.
     view[6] = headerStart === 10 ? 1 : 2;
     view[7] = 0;
-    
+
     // Write header length (little-endian)
     if (headerStart === 10) new DataView(buffer, 8, 2).setUint16(0, paddedHeader.length, true);
     else new DataView(buffer, 8, 4).setUint32(0, paddedHeader.length, true);
-    
+
     // Write header
     const encoder = new TextEncoder();
     const headerBytes = encoder.encode(paddedHeader);
     view.set(headerBytes, headerStart);
-    
+
     // Write data
     const dataView = new Uint8Array(buffer, headerStart + paddedHeader.length);
     dataView.set(new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
-    
+
     return buffer;
   }
 

@@ -7,7 +7,10 @@ const chart: ChartGroup = {
   id: 'chart',
   label: 'Chart',
   metadataDict: { 'a,b': { id: 'a,b', label: 'A, B' }, note: { id: 'note', label: 'Note' } },
-  data: [{ time: 1, 'a,b': 'x,"y"', note: 'line 1\nline 2' }, { time: 2, 'a,b': null }],
+  data: [
+    { time: 1, 'a,b': 'x,"y"', note: 'line 1\nline 2' },
+    { time: 2, 'a,b': null },
+  ],
 };
 
 describe('chart CSV export', () => {

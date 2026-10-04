@@ -19,8 +19,12 @@ describe('view history metadata commands', () => {
       undefined,
       {
         byteSize: 32,
-        apply: () => { Object.assign(action, { label: 'After', role: 'run' as const }); },
-        revert: () => { Object.assign(action, { label: 'Before', role: 'custom' as const }); },
+        apply: () => {
+          Object.assign(action, { label: 'After', role: 'run' as const });
+        },
+        revert: () => {
+          Object.assign(action, { label: 'Before', role: 'custom' as const });
+        },
       },
     );
 

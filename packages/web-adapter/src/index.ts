@@ -1,6 +1,6 @@
 /**
  * TenSnap Web Utils
- * 
+ *
  * Utility package for TenSnap web applications, including:
  * - File system UI components for demo and testing purposes
  * - Storage adapter implementations

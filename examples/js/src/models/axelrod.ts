@@ -92,15 +92,15 @@ export function getMooreNeighbors(
   row: number,
   col: number,
   width: number,
-  height: number
+  height: number,
 ): Array<[number, number]> {
   const coords: Array<[number, number]> = [];
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
       if (dr === 0 && dc === 0) continue;
       coords.push([
-        ((row + dr) % height + height) % height,
-        ((col + dc) % width + width) % width,
+        (((row + dr) % height) + height) % height,
+        (((col + dc) % width) + width) % width,
       ]);
     }
   }
@@ -112,7 +112,7 @@ export function getAxelrodNeighbors(
   col: number,
   width: number,
   height: number,
-  neighborhood: AxelrodNeighborhood = 'moore'
+  neighborhood: AxelrodNeighborhood = 'moore',
 ): Array<[number, number]> {
   const offsets: Array<[number, number]> = [
     [-1, 0],
@@ -122,26 +122,16 @@ export function getAxelrodNeighbors(
   ];
 
   if (neighborhood === 'moore' || neighborhood === 'extended') {
-    offsets.push(
-      [-1, -1],
-      [-1, 1],
-      [1, -1],
-      [1, 1],
-    );
+    offsets.push([-1, -1], [-1, 1], [1, -1], [1, 1]);
   }
 
   if (neighborhood === 'extended') {
-    offsets.push(
-      [-2, 0],
-      [2, 0],
-      [0, -2],
-      [0, 2],
-    );
+    offsets.push([-2, 0], [2, 0], [0, -2], [0, 2]);
   }
 
   return offsets.map(([dr, dc]) => [
-    ((row + dr) % height + height) % height,
-    ((col + dc) % width + width) % width,
+    (((row + dr) % height) + height) % height,
+    (((col + dc) % width) + width) % width,
   ]);
 }
 
@@ -167,7 +157,7 @@ function makeRandomFeatures(n: number, m: number, rng: () => number): number[] {
  */
 export function initializeAxelrod(
   config: AxelrodConfig,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
 ): AxelrodState {
   const { width, height, numFeatures, numTraits } = config;
   const agents: Agent[][] = Array.from({ length: height }, (_, r) =>
@@ -176,7 +166,7 @@ export function initializeAxelrod(
       row: r,
       col: c,
       features: makeRandomFeatures(numFeatures, numTraits, rng),
-    }))
+    })),
   );
   return { agents, config, totalUpdates: 0 };
 }
@@ -208,10 +198,7 @@ export function computeSimilarity(a: Agent, b: Agent): number {
  *
  * @returns true if a cultural update occurred.
  */
-export function stepAxelrod(
-  state: AxelrodState,
-  rng: () => number = Math.random
-): boolean {
+export function stepAxelrod(state: AxelrodState, rng: () => number = Math.random): boolean {
   const { agents, config } = state;
 
   // Step 1 — pick focal agent
@@ -256,9 +243,7 @@ export function stepAxelrod(
 /** Counts the number of culturally distinct configurations present. */
 export function countCultures(state: AxelrodState): number {
   const seen = new Set<string>();
-  for (const row of state.agents)
-    for (const agent of row)
-      seen.add(cultureKey(agent));
+  for (const row of state.agents) for (const agent of row) seen.add(cultureKey(agent));
   return seen.size;
 }
 
@@ -279,7 +264,13 @@ export function countCulturalRegions(state: AxelrodState): number {
 
       while (queue.length > 0) {
         const current = queue.shift()!;
-        for (const [nr, nc] of getAxelrodNeighbors(current.row, current.col, width, height, neighborhood)) {
+        for (const [nr, nc] of getAxelrodNeighbors(
+          current.row,
+          current.col,
+          width,
+          height,
+          neighborhood,
+        )) {
           const neighbor = state.agents[nr][nc];
           if (visited.has(neighbor.id) || cultureKey(neighbor) !== targetCulture) continue;
           visited.add(neighbor.id);
@@ -305,7 +296,13 @@ export function computeAxelrodPairMetrics(state: AxelrodState): {
 
   for (const row of state.agents) {
     for (const agent of row) {
-      for (const [nr, nc] of getAxelrodNeighbors(agent.row, agent.col, width, height, neighborhood)) {
+      for (const [nr, nc] of getAxelrodNeighbors(
+        agent.row,
+        agent.col,
+        width,
+        height,
+        neighborhood,
+      )) {
         const neighbor = state.agents[nr][nc];
         const a = Math.min(agent.id, neighbor.id);
         const b = Math.max(agent.id, neighbor.id);
@@ -352,7 +349,7 @@ export function computeAxelrodMetrics(state: AxelrodState): AxelrodMetrics {
 export function runAxelrod(
   config: AxelrodConfig,
   maxIterations = 1_000_000,
-  rng: () => number = Math.random
+  rng: () => number = Math.random,
 ): AxelrodResult {
   const state = initializeAxelrod(config, rng);
   const threshold = 10 * config.width * config.height;

@@ -5,8 +5,12 @@ describe('loading store', () => {
   it('keeps a shared process active until every overlapping operation finishes', async () => {
     let finishFirst!: () => void;
     let finishSecond!: () => void;
-    const firstWait = new Promise<void>((resolve) => { finishFirst = resolve; });
-    const secondWait = new Promise<void>((resolve) => { finishSecond = resolve; });
+    const firstWait = new Promise<void>((resolve) => {
+      finishFirst = resolve;
+    });
+    const secondWait = new Promise<void>((resolve) => {
+      finishSecond = resolve;
+    });
     const first = useLoadingStore.getState().withLoading(() => firstWait, 'project');
     const second = useLoadingStore.getState().withLoading(() => secondWait, 'project');
 

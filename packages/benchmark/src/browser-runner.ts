@@ -33,7 +33,13 @@ async function main(): Promise<void> {
   const config = workload.resolveConfig(request.config);
   if (workload.kind === 'browser') {
     const benchmark = workload.createBrowserCase({ config });
-    const stats = await runBrowserBenchmark(benchmark.case, root, request.measuredActions, request.warmupActions, request.browserOptions);
+    const stats = await runBrowserBenchmark(
+      benchmark.case,
+      root,
+      request.measuredActions,
+      request.warmupActions,
+      request.browserOptions,
+    );
     window.__TENSNAP_BENCHMARK_RESULT__ = {
       ok: true,
       stats,
@@ -49,16 +55,29 @@ async function main(): Promise<void> {
     throw new Error(`${workload.id} does not provide a browser execution path.`);
   }
   if (!request.endpoint || !request.encoding || !request.validation) {
-    throw new Error(`Protocol browser workload ${workload.id} requires endpoint, encoding, and validation.`);
+    throw new Error(
+      `Protocol browser workload ${workload.id} requires endpoint, encoding, and validation.`,
+    );
   }
-  const benchCase = workload.createBrowserCase({ config, endpoint: request.endpoint, encoding: request.encoding, validation: request.validation });
-  const stats = await runBrowserBenchmark(benchCase, root, request.measuredActions, request.warmupActions, request.browserOptions);
+  const benchCase = workload.createBrowserCase({
+    config,
+    endpoint: request.endpoint,
+    encoding: request.encoding,
+    validation: request.validation,
+  });
+  const stats = await runBrowserBenchmark(
+    benchCase,
+    root,
+    request.measuredActions,
+    request.warmupActions,
+    request.browserOptions,
+  );
   window.__TENSNAP_BENCHMARK_RESULT__ = { ok: true, stats, snapshot: stats.snapshot };
 }
 
 void main().catch((error) => {
   window.__TENSNAP_BENCHMARK_RESULT__ = {
     ok: false,
-    error: error instanceof Error ? error.stack ?? error.message : String(error),
+    error: error instanceof Error ? (error.stack ?? error.message) : String(error),
   };
 });

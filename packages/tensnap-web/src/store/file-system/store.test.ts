@@ -10,10 +10,12 @@ describe('file system store', () => {
 
   it('discards a directory listing that finishes after navigation', async () => {
     let finishOld!: (entries: DirectoryEntry[]) => void;
-    const oldListing = new Promise<DirectoryEntry[]>((resolve) => { finishOld = resolve; });
+    const oldListing = new Promise<DirectoryEntry[]>((resolve) => {
+      finishOld = resolve;
+    });
     const adapter = {
       initialize: vi.fn(async () => {}),
-      list: vi.fn((path: string) => path === '/old' ? oldListing : Promise.resolve([])),
+      list: vi.fn((path: string) => (path === '/old' ? oldListing : Promise.resolve([]))),
       getStats: vi.fn(async () => ({ totalFiles: 0, totalDirectories: 0, totalSize: 0 })),
       directoryExists: vi.fn(async () => true),
     } as unknown as FileSystemAdapter;
@@ -23,7 +25,16 @@ describe('file system store', () => {
     const oldNavigation = store.getState().setCurrentDirectory('/old');
     await vi.waitFor(() => expect(adapter.list).toHaveBeenCalledWith('/old'));
     await store.getState().setCurrentDirectory('/new');
-    finishOld([{ type: 'directory', name: 'old', path: '/old/old', parentPath: '/old', createdAt: new Date(), modifiedAt: new Date() }]);
+    finishOld([
+      {
+        type: 'directory',
+        name: 'old',
+        path: '/old/old',
+        parentPath: '/old',
+        createdAt: new Date(),
+        modifiedAt: new Date(),
+      },
+    ]);
     await oldNavigation;
 
     expect(store.getState().currentDirectory).toBe('/new');
@@ -33,13 +44,17 @@ describe('file system store', () => {
   it('keeps loading active until overlapping writes finish', async () => {
     let finishFirst!: (value: never) => void;
     let finishSecond!: (value: never) => void;
-    const first = new Promise<never>((resolve) => { finishFirst = resolve; });
-    const second = new Promise<never>((resolve) => { finishSecond = resolve; });
+    const first = new Promise<never>((resolve) => {
+      finishFirst = resolve;
+    });
+    const second = new Promise<never>((resolve) => {
+      finishSecond = resolve;
+    });
     const adapter = {
       initialize: vi.fn(async () => {}),
       list: vi.fn(async () => []),
       getStats: vi.fn(async () => ({ totalFiles: 0, totalDirectories: 0, totalSize: 0 })),
-      writeFile: vi.fn((path: string) => path === '/first' ? first : second),
+      writeFile: vi.fn((path: string) => (path === '/first' ? first : second)),
     } as unknown as FileSystemAdapter;
     const store = createFileSystemStore(adapter, 'test');
     await store.getState().initialize();
@@ -57,7 +72,9 @@ describe('file system store', () => {
 
   it('shares one adapter initialization among concurrent first operations', async () => {
     let finishInitialization!: () => void;
-    const wait = new Promise<void>((resolve) => { finishInitialization = resolve; });
+    const wait = new Promise<void>((resolve) => {
+      finishInitialization = resolve;
+    });
     const adapter = {
       initialize: vi.fn(() => wait),
       list: vi.fn(async () => []),

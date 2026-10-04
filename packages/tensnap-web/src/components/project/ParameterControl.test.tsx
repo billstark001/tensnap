@@ -36,33 +36,74 @@ describe('ParameterControl', () => {
   });
 
   it('uses the guarded renderer session and preserves zero-valued numeric bounds', () => {
-    const { rerender } = render(<ParameterControl parameter={{
-      id: 'rate', label: 'Rate', type: 'number', value: 0, min: 0, max: 0, step: 0.5,
-    }} />);
+    const { rerender } = render(
+      <ParameterControl
+        parameter={{
+          id: 'rate',
+          label: 'Rate',
+          type: 'number',
+          value: 0,
+          min: 0,
+          max: 0,
+          step: 0.5,
+        }}
+      />,
+    );
 
     const slider = screen.getByRole('slider');
     expect(slider).toHaveAttribute('min', '0');
     expect(slider).toHaveAttribute('max', '0');
     expect(slider).toHaveAttribute('step', '0.5');
 
-    rerender(<ParameterControl parameter={{
-      id: 'rate', label: 'Rate', type: 'number', value: 0, min: 0, max: 1, step: 0.5,
-    }} />);
+    rerender(
+      <ParameterControl
+        parameter={{
+          id: 'rate',
+          label: 'Rate',
+          type: 'number',
+          value: 0,
+          min: 0,
+          max: 1,
+          step: 0.5,
+        }}
+      />,
+    );
     fireEvent.change(screen.getByRole('slider'), { target: { value: '0.5' } });
     expect(setParameter).toHaveBeenCalledWith('rate', 0.5);
   });
 
   it('disables runtime edits unless the parameter explicitly allows them', () => {
     scenarioState.session.run.status = { state: 'running' };
-    const { rerender } = render(<ParameterControl parameter={{
-      id: 'rate', label: 'Rate', type: 'number', value: 2, min: 0, max: 10, step: 1,
-    }} />);
+    const { rerender } = render(
+      <ParameterControl
+        parameter={{
+          id: 'rate',
+          label: 'Rate',
+          type: 'number',
+          value: 2,
+          min: 0,
+          max: 10,
+          step: 1,
+        }}
+      />,
+    );
 
     expect(screen.getByRole('slider')).toBeDisabled();
 
-    rerender(<ParameterControl parameter={{
-      id: 'rate', label: 'Rate', type: 'number', value: 2, min: 0, max: 10, step: 1, allow_runtime_change: true,
-    }} />);
+    rerender(
+      <ParameterControl
+        parameter={{
+          id: 'rate',
+          label: 'Rate',
+          type: 'number',
+          value: 2,
+          min: 0,
+          max: 10,
+          step: 1,
+          allow_runtime_change: true,
+        }}
+      />,
+    );
     expect(screen.getByRole('slider')).not.toBeDisabled();
   });
 });

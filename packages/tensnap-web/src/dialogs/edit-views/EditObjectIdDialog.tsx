@@ -61,7 +61,9 @@ export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
             {objectExists ? (
               <Trans>The current object will be renamed when this edit is saved.</Trans>
             ) : (
-              <Trans>No object is registered for the current ID; the view binding will be updated.</Trans>
+              <Trans>
+                No object is registered for the current ID; the view binding will be updated.
+              </Trans>
             )}
           </div>
         </Form.Field>
@@ -72,7 +74,9 @@ export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
           <Trans>Apply</Trans>
         </Dialog.Button>
         <Dialog.Close asChild>
-          <Dialog.Button><Trans>Cancel</Trans></Dialog.Button>
+          <Dialog.Button>
+            <Trans>Cancel</Trans>
+          </Dialog.Button>
         </Dialog.Close>
       </Dialog.Footer>
     </Dialog.Root>

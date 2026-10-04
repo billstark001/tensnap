@@ -32,11 +32,10 @@ const scenarioState = {
 
 vi.mock('../../hooks/useButtonControls', () => ({
   useButtonControls: () => controlsState,
-  isActionVisiblyRunning: (status: { state?: string; pauseRequested?: boolean; spec?: { actionId?: string } } | null, actionId: string) => (
-    status?.state === 'running'
-    && !status.pauseRequested
-    && status.spec?.actionId === actionId
-  ),
+  isActionVisiblyRunning: (
+    status: { state?: string; pauseRequested?: boolean; spec?: { actionId?: string } } | null,
+    actionId: string,
+  ) => status?.state === 'running' && !status.pauseRequested && status.spec?.actionId === actionId,
 }));
 
 vi.mock('@/store/scenario/store', () => ({
@@ -59,9 +58,12 @@ vi.mock('@/dialogs/AboutDialog', () => ({
 vi.mock('@lingui/react', () => ({
   Trans: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useLingui: () => ({
-    _: (value: unknown) => typeof value === 'string'
-      ? value
-      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
+    _: (value: unknown) =>
+      typeof value === 'string'
+        ? value
+        : ((value as { message?: string; id?: string }).message ??
+          (value as { id?: string }).id ??
+          ''),
   }),
 }));
 
@@ -114,7 +116,14 @@ describe('SimulationControlTools', () => {
     const actions = new Map([
       ['start', { id: 'start', label: 'Start', scope: 'agent' as const, continuous: true }],
       ['step', { id: 'step', label: 'Step', continuous: true }],
-      ['reset', { id: 'reset', label: 'Reset', kwargs: [{ name: 'seed', type: 'integer' as const, required: true }] }],
+      [
+        'reset',
+        {
+          id: 'reset',
+          label: 'Reset',
+          kwargs: [{ name: 'seed', type: 'integer' as const, required: true }],
+        },
+      ],
     ]);
 
     expect(resolveToolbarActionIds(actions)).toEqual({

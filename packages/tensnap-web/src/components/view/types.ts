@@ -1,5 +1,5 @@
-import { AnchoredView, AnyView, ContainerView } from "@/types/ui";
-import { ComponentType, PropsWithChildren } from "react";
+import { AnchoredView, AnyView, ContainerView } from '@/types/ui';
+import { ComponentType, PropsWithChildren } from 'react';
 
 /**
  * Point type for positioning
@@ -42,20 +42,21 @@ export const getViewType = (view: AnyView): { type: AnyView['type']; dataType: s
 };
 
 export type AnchoredViewRendererType = ComponentType<{
-  view: AnyView,
-  parentView?: ContainerView,
-  id: string,
-  type: AnchoredView['type'],
+  view: AnyView;
+  parentView?: ContainerView;
+  id: string;
+  type: AnchoredView['type'];
 }>;
 
-export type ViewContextMenuRendererType = ComponentType<PropsWithChildren<{
-  node?: HTMLElement | null,
-  view: AnyView,
-  parentView?: ContainerView,
-  type: AnyView['type'],
-  dataType: string | null,
-}>>;
-
+export type ViewContextMenuRendererType = ComponentType<
+  PropsWithChildren<{
+    node?: HTMLElement | null;
+    view: AnyView;
+    parentView?: ContainerView;
+    type: AnyView['type'];
+    dataType: string | null;
+  }>
+>;
 
 export type DraggableViewData = {
   view?: AnyView;
@@ -71,4 +72,4 @@ export type DroppableViewData = {
   containerId?: string;
   relativeLeft: number;
   relativeTop: number;
-}
+};

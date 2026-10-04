@@ -60,7 +60,16 @@ function parseCliArgs(argv: string[]): CliArgs {
   const id = first === undefined || first.startsWith('--') ? 'schelling' : first;
   const rest = id === first ? tail : argv;
   const values = new Map<string, string>();
-  const allowed = new Set(['port', 'encoding', 'width', 'height', 'density', 'balance', 'threshold', 'seed']);
+  const allowed = new Set([
+    'port',
+    'encoding',
+    'width',
+    'height',
+    'density',
+    'balance',
+    'threshold',
+    'seed',
+  ]);
   for (let index = 0; index < rest.length; index += 1) {
     const argument = rest[index]!;
     if (!argument.startsWith('--')) throw new Error(`Unexpected argument: ${argument}`);
@@ -68,7 +77,8 @@ function parseCliArgs(argv: string[]): CliArgs {
     const name = argument.slice(2, equalsAt >= 0 ? equalsAt : undefined);
     if (!allowed.has(name)) throw new Error(`Unknown option: --${name}`);
     const value = equalsAt >= 0 ? argument.slice(equalsAt + 1) : rest[++index];
-    if (value === undefined || value.startsWith('--')) throw new Error(`--${name} requires a value.`);
+    if (value === undefined || value.startsWith('--'))
+      throw new Error(`--${name} requires a value.`);
     values.set(name, value);
   }
 
@@ -81,8 +91,9 @@ function parseCliArgs(argv: string[]): CliArgs {
     throw new Error('--port must be an integer from 1 through 65535.');
   }
 
-  const modelOptions = ['width', 'height', 'density', 'balance', 'threshold', 'seed']
-    .filter((name) => values.has(name));
+  const modelOptions = ['width', 'height', 'density', 'balance', 'threshold', 'seed'].filter(
+    (name) => values.has(name),
+  );
   if (id !== 'schelling' && modelOptions.length > 0) {
     throw new Error(`Schelling options cannot be used with the ${id} example.`);
   }
@@ -109,14 +120,17 @@ function parseCliArgs(argv: string[]): CliArgs {
     id,
     port,
     encoding,
-    config: id === 'schelling' ? {
-      gridWidth: width,
-      gridHeight: height,
-      density,
-      balance,
-      similarityThreshold: threshold,
-      ...(seed === undefined ? {} : { seed }),
-    } : undefined,
+    config:
+      id === 'schelling'
+        ? {
+            gridWidth: width,
+            gridHeight: height,
+            density,
+            balance,
+            similarityThreshold: threshold,
+            ...(seed === undefined ? {} : { seed }),
+          }
+        : undefined,
   };
 }
 

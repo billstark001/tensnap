@@ -1,5 +1,5 @@
-import { style } from "@vanilla-extract/css";
-import { vars } from "@tensnap/web-common/styles/global.css";
+import { style } from '@vanilla-extract/css';
+import { vars } from '@tensnap/web-common/styles/global.css';
 
 // Disabled field style
 export const disabledField = style({
@@ -28,7 +28,7 @@ export const infoText = style({
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
     },
-  }
+  },
 });
 
 export const warningText = style({
@@ -128,7 +128,7 @@ export const seriesList = style({
   padding: vars.space.sm,
   border: `1px solid rgba(0, 0, 0, 0.1)`,
   borderRadius: vars.radius.sm,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderColor: 'rgba(255, 255, 255, 0.2)',

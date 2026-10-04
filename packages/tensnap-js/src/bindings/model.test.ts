@@ -11,36 +11,53 @@ function emptyStateSync(modelId: string, requestId = 'sync-1'): StateSyncRequest
   return {
     request_id: requestId,
     model_id: modelId,
-  parameters: [],
-  actions: [],
-  envs: [],
-  charts: [],
+    parameters: [],
+    actions: [],
+    envs: [],
+    charts: [],
     monitors: [],
   };
 }
 
-async function initialize(session: { dispatch(message: { type: 'state_sync'; payload: StateSyncRequest }): Promise<void> }, modelId: string): Promise<void> {
+async function initialize(
+  session: { dispatch(message: { type: 'state_sync'; payload: StateSyncRequest }): Promise<void> },
+  modelId: string,
+): Promise<void> {
   await session.dispatch({ type: 'state_sync', payload: emptyStateSync(modelId) });
 }
 
 describe('modelBuilder', () => {
   it('publishes changed layer metadata after a step', async () => {
-    const builder = modelBuilder({ id: 'dynamic-layer', name: 'Dynamic Layer', description: 'Layer metadata changes on steps.' }, {
-      defaults: {},
-      create: () => ({ count: 0 }),
-      step(model) { model.count += 1; },
-    });
+    const builder = modelBuilder(
+      {
+        id: 'dynamic-layer',
+        name: 'Dynamic Layer',
+        description: 'Layer metadata changes on steps.',
+      },
+      {
+        defaults: {},
+        create: () => ({ count: 0 }),
+        step(model) {
+          model.count += 1;
+        },
+      },
+    );
     builder.env('main').gridLayer('grid', {
       metadata: (model) => ({ width: model.count + 1, height: 1 }),
     });
     const session = builder.build().createSession();
     const messages: SimulatorToRendererMessage[] = [];
-    session.attach((message) => { messages.push(message); });
+    session.attach((message) => {
+      messages.push(message);
+    });
     await session.open();
     await initialize(session, 'dynamic-layer');
 
     messages.length = 0;
-    await session.dispatch({ type: 'action_invoke', payload: { id: 'step', request_id: 'step-1' } });
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'step-1' },
+    });
     expect(messages).toContainEqual({
       type: 'env_layer_update',
       payload: { env_id: 'main', layer_id: 'grid', metadata: { width: 2, height: 1 } },
@@ -49,22 +66,25 @@ describe('modelBuilder', () => {
   });
 
   it('does not emit updates for unregistered model object classes', async () => {
-    const binding = modelBuilder({
-      id: 'minimal-binding',
-      name: 'Minimal Binding',
-      description: 'no optional model objects',
-    }, {
-      defaults: {},
-      create() {
-        return { tick: 0 };
+    const binding = modelBuilder(
+      {
+        id: 'minimal-binding',
+        name: 'Minimal Binding',
+        description: 'no optional model objects',
       },
-      step(model) {
-        model.tick += 1;
+      {
+        defaults: {},
+        create() {
+          return { tick: 0 };
+        },
+        step(model) {
+          model.tick += 1;
+        },
+        time(model) {
+          return model.tick;
+        },
       },
-      time(model) {
-        return model.tick;
-      },
-    }).build();
+    ).build();
     const messages: SimulatorToRendererMessage[] = [];
     const session = binding.createSession();
     session.attach((message) => {
@@ -79,28 +99,28 @@ describe('modelBuilder', () => {
       payload: { id: 'step', request_id: 'minimal-step' },
     });
 
-    expect(messages.map((message) => message.type)).toEqual([
-      'metadata_update',
-      'action_result',
-    ]);
+    expect(messages.map((message) => message.type)).toEqual(['metadata_update', 'action_result']);
     await session.close();
   });
 
   it('maps declarations to exact canonical v0.3 metadata without optional-field aliases', () => {
-    const binding = modelBuilder({
-      id: 'exact-output',
-      name: 'Exact Output',
-      description: 'mapping fixture',
-      stateSchemaVersion: '1',
-    }, {
-      defaults: { speed: 2 },
-      create(config) {
-        return { config, tick: 0 };
+    const binding = modelBuilder(
+      {
+        id: 'exact-output',
+        name: 'Exact Output',
+        description: 'mapping fixture',
+        stateSchemaVersion: '1',
       },
-      getConfig(model) {
-        return model.config;
+      {
+        defaults: { speed: 2 },
+        create(config) {
+          return { config, tick: 0 };
+        },
+        getConfig(model) {
+          return model.config;
+        },
       },
-    })
+    )
       .numberParam('speed', {
         get: (model) => model.config.speed,
         set(model, value) {
@@ -119,13 +139,15 @@ describe('modelBuilder', () => {
       .build();
 
     expect(binding.createScenario()).toEqual({
-      parameters: [{
-        id: 'speed',
-        type: 'number',
-        label: 'Speed',
-        value: 2,
-        allow_runtime_change: true,
-      }],
+      parameters: [
+        {
+          id: 'speed',
+          type: 'number',
+          label: 'Speed',
+          value: 2,
+          allow_runtime_change: true,
+        },
+      ],
       actions: [
         { id: 'start', label: 'Start', continuous: true },
         { id: 'step', label: 'Step', continuous: false },
@@ -148,29 +170,32 @@ describe('modelBuilder', () => {
   });
 
   it('creates a builder-driven session with lifecycle defaults and parameter refresh', async () => {
-    const builder = modelBuilder({
-      id: 'test-binding',
-      name: 'Test Binding',
-      description: 'test',
-    }, {
-      defaults: { speed: 1 },
-      create(config) {
-        return { tick: 0, speed: config.speed };
+    const builder = modelBuilder(
+      {
+        id: 'test-binding',
+        name: 'Test Binding',
+        description: 'test',
       },
-      getConfig(model) {
-        return { speed: model.speed };
+      {
+        defaults: { speed: 1 },
+        create(config) {
+          return { tick: 0, speed: config.speed };
+        },
+        getConfig(model) {
+          return { speed: model.speed };
+        },
+        time(model) {
+          return model.tick;
+        },
+        step(model) {
+          model.tick += model.speed;
+          return model.tick < 3;
+        },
+        reset(model) {
+          model.tick = 0;
+        },
       },
-      time(model) {
-        return model.tick;
-      },
-      step(model) {
-        model.tick += model.speed;
-        return model.tick < 3;
-      },
-      reset(model) {
-        model.tick = 0;
-      },
-    });
+    );
 
     builder.numberParam('speed', {
       label: 'Speed',
@@ -182,12 +207,11 @@ describe('modelBuilder', () => {
         model.speed = value;
       },
     });
-    builder.env('main')
-      .agentLayer('agents', {
-        items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
-        fields: { id: 'id', x: 'x', y: 'y', heading: 0 },
-        icon: 'circle',
-      });
+    builder.env('main').agentLayer('agents', {
+      items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
+      fields: { id: 'id', x: 'x', y: 'y', heading: 0 },
+      icon: 'circle',
+    });
     builder.chart('count', {
       label: 'Count',
       color: '#2563eb',
@@ -207,9 +231,14 @@ describe('modelBuilder', () => {
     expect(binding.id).toBe('test-binding');
     expect(messages.some((message) => message.type === 'action_create')).toBe(true);
     expect(messages.some((message) => message.type === 'item_create')).toBe(true);
-    expect(messages.some((message) => message.type === 'item_create' &&
-      JSON.stringify(message).includes('"heading":0') &&
-      JSON.stringify(message).includes('"icon":"circle"'))).toBe(true);
+    expect(
+      messages.some(
+        (message) =>
+          message.type === 'item_create' &&
+          JSON.stringify(message).includes('"heading":0') &&
+          JSON.stringify(message).includes('"icon":"circle"'),
+      ),
+    ).toBe(true);
     expect(messages.some((message) => message.type === 'metadata_update')).toBe(true);
 
     messages.length = 0;
@@ -239,12 +268,19 @@ describe('modelBuilder', () => {
 
     expect(messages).toContainEqual({
       type: 'action_result',
-      payload: expect.objectContaining({ id: 'start', request_id: 'tick-1', should_continue: false }),
+      payload: expect.objectContaining({
+        id: 'start',
+        request_id: 'tick-1',
+        should_continue: false,
+      }),
     });
     expect(messages.some((message) => message.type === 'item_update')).toBe(true);
 
     messages.length = 0;
-    await session.dispatch({ type: 'state_sync', payload: emptyStateSync('test-binding', 'sync-2') });
+    await session.dispatch({
+      type: 'state_sync',
+      payload: emptyStateSync('test-binding', 'sync-2'),
+    });
 
     expect(messages.some((message) => message.type === 'state_sync_begin')).toBe(true);
     expect(messages.some((message) => message.type === 'chart_create')).toBe(true);
@@ -254,16 +290,19 @@ describe('modelBuilder', () => {
   });
 
   it('updates enum option definitions without syncing accepted values', async () => {
-    const builder = modelBuilder({
-      id: 'enum-binding',
-      name: 'Enum Binding',
-      description: 'dynamic enum options test',
-    }, {
-      defaults: {},
-      create() {
-        return { mode: 'a', options: ['a', 'b'] };
+    const builder = modelBuilder(
+      {
+        id: 'enum-binding',
+        name: 'Enum Binding',
+        description: 'dynamic enum options test',
       },
-    });
+      {
+        defaults: {},
+        create() {
+          return { mode: 'a', options: ['a', 'b'] };
+        },
+      },
+    );
 
     builder.enumParam('mode', {
       get: (model) => model.mode,
@@ -316,16 +355,19 @@ describe('modelBuilder', () => {
   });
 
   it('publishes declared assets and serves missing data during asset_sync', async () => {
-    const binding = modelBuilder({
-      id: 'asset-binding',
-      name: 'Asset Binding',
-      description: 'Asset binding test.',
-    }, {
-      defaults: {},
-      create() {
-        return {};
+    const binding = modelBuilder(
+      {
+        id: 'asset-binding',
+        name: 'Asset Binding',
+        description: 'Asset binding test.',
       },
-    })
+      {
+        defaults: {},
+        create() {
+          return {};
+        },
+      },
+    )
       .asset('asset-1', {
         mime: 'text/plain',
         label: 'Greeting',
@@ -356,18 +398,22 @@ describe('modelBuilder', () => {
   });
 
   it('declares background and trajectory layers', async () => {
-    const builder = modelBuilder({
-      id: 'layer-coverage-binding',
-      name: 'Layer Coverage Binding',
-      description: 'built-in layer coverage test',
-    }, {
-      defaults: {},
-      create() {
-        return {};
+    const builder = modelBuilder(
+      {
+        id: 'layer-coverage-binding',
+        name: 'Layer Coverage Binding',
+        description: 'built-in layer coverage test',
       },
-    });
+      {
+        defaults: {},
+        create() {
+          return {};
+        },
+      },
+    );
 
-    builder.env('main')
+    builder
+      .env('main')
       .backgroundLayer('background', {
         metadata: { background: 'asset://map', interpolation: 'nearest' },
       })
@@ -423,30 +469,32 @@ describe('modelBuilder', () => {
   });
 
   it('reset deletes previously synced items before replaying the reset state', async () => {
-    const builder = modelBuilder({
-      id: 'reset-binding',
-      name: 'Reset Binding',
-      description: 'Reset binding test.',
-    }, {
-      defaults: {},
-      create() {
-        return { tick: 0 };
+    const builder = modelBuilder(
+      {
+        id: 'reset-binding',
+        name: 'Reset Binding',
+        description: 'Reset binding test.',
       },
-      time(model) {
-        return model.tick;
+      {
+        defaults: {},
+        create() {
+          return { tick: 0 };
+        },
+        time(model) {
+          return model.tick;
+        },
+        step(model) {
+          model.tick = 1;
+        },
+        reset(model) {
+          model.tick = 0;
+        },
       },
-      step(model) {
-        model.tick = 1;
-      },
-      reset(model) {
-        model.tick = 0;
-      },
-    });
+    );
 
-    builder.env('main')
-      .agentLayer('agents', {
-        items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
-      });
+    builder.env('main').agentLayer('agents', {
+      items: (model) => [{ id: 'agent-1', x: model.tick, y: 0 }],
+    });
 
     const messages: AnyProtocolMessage[] = [];
     const session = builder.build().createSession();
@@ -503,30 +551,32 @@ describe('modelBuilder', () => {
   });
 
   it('declared layers send field-level updates only for changed existing items', async () => {
-    const builder = modelBuilder({
-      id: 'sync-items-binding',
-      name: 'Sync Items Binding',
-      description: 'Sync items binding test.',
-    }, {
-      defaults: {},
-      create() {
-        return { tick: 0, shouldMove: false };
+    const builder = modelBuilder(
+      {
+        id: 'sync-items-binding',
+        name: 'Sync Items Binding',
+        description: 'Sync items binding test.',
       },
-      step(model) {
-        if (model.shouldMove) {
-          model.tick += 1;
-        }
-        model.shouldMove = true;
+      {
+        defaults: {},
+        create() {
+          return { tick: 0, shouldMove: false };
+        },
+        step(model) {
+          if (model.shouldMove) {
+            model.tick += 1;
+          }
+          model.shouldMove = true;
+        },
       },
-    });
+    );
 
-    builder.env('main')
-      .agentLayer('agents', {
-        items: (model) => [
-          { id: 'agent-1', x: model.tick, y: 0, color: 'red' },
-          { id: 'agent-2', x: 10, y: 0, color: 'blue' },
-        ],
-      });
+    builder.env('main').agentLayer('agents', {
+      items: (model) => [
+        { id: 'agent-1', x: model.tick, y: 0, color: 'red' },
+        { id: 'agent-2', x: 10, y: 0, color: 'blue' },
+      ],
+    });
 
     const messages: AnyProtocolMessage[] = [];
     const session = builder.build().createSession();
@@ -565,16 +615,19 @@ describe('modelBuilder', () => {
 
   it('validates action scope, targets, and kwargs before running model code', async () => {
     const run = vi.fn();
-    const binding = modelBuilder({
-      id: 'action-validation',
-      name: 'Action Validation',
-      description: 'action validation fixture',
-    }, {
-      defaults: {},
-      create() {
-        return { agents: [{ id: 'a-1', x: 0, y: 0 }] };
+    const binding = modelBuilder(
+      {
+        id: 'action-validation',
+        name: 'Action Validation',
+        description: 'action validation fixture',
       },
-    })
+      {
+        defaults: {},
+        create() {
+          return { agents: [{ id: 'a-1', x: 0, y: 0 }] };
+        },
+      },
+    )
       .env('main')
       .agentLayer('agents', { items: (model) => model.agents })
       .done()
@@ -599,29 +652,52 @@ describe('modelBuilder', () => {
     messages.length = 0;
     await session.dispatch({
       type: 'action_invoke',
-      payload: { id: 'move', request_id: 'wrong-target', target: { type: 'agent', env_id: 'main', layer_id: 'agents', agent_id: 'missing' }, kwargs: { distance: 1 } },
+      payload: {
+        id: 'move',
+        request_id: 'wrong-target',
+        target: { type: 'agent', env_id: 'main', layer_id: 'agents', agent_id: 'missing' },
+        kwargs: { distance: 1 },
+      },
     });
     expect(run).not.toHaveBeenCalled();
     expect(messages).toContainEqual({
       type: 'action_result',
-      payload: { id: 'move', request_id: 'wrong-target', error: expect.objectContaining({ code: 'invalid_target' }) },
+      payload: {
+        id: 'move',
+        request_id: 'wrong-target',
+        error: expect.objectContaining({ code: 'invalid_target' }),
+      },
     });
 
     messages.length = 0;
     await session.dispatch({
       type: 'action_invoke',
-      payload: { id: 'move', request_id: 'wrong-kwargs', target: { type: 'agent', env_id: 'main', layer_id: 'agents', agent_id: 'a-1' }, kwargs: { distance: 1.5 } },
+      payload: {
+        id: 'move',
+        request_id: 'wrong-kwargs',
+        target: { type: 'agent', env_id: 'main', layer_id: 'agents', agent_id: 'a-1' },
+        kwargs: { distance: 1.5 },
+      },
     });
     expect(run).not.toHaveBeenCalled();
     expect(messages).toContainEqual({
       type: 'action_result',
-      payload: { id: 'move', request_id: 'wrong-kwargs', error: expect.objectContaining({ code: 'invalid_kwargs' }) },
+      payload: {
+        id: 'move',
+        request_id: 'wrong-kwargs',
+        error: expect.objectContaining({ code: 'invalid_kwargs' }),
+      },
     });
 
     messages.length = 0;
     await session.dispatch({
       type: 'action_invoke',
-      payload: { id: 'move', request_id: 'move-1', target: { type: 'agent', env_id: 'main', layer_id: 'agents', agent_id: 'a-1' }, kwargs: { distance: 2 } },
+      payload: {
+        id: 'move',
+        request_id: 'move-1',
+        target: { type: 'agent', env_id: 'main', layer_id: 'agents', agent_id: 'a-1' },
+        kwargs: { distance: 2 },
+      },
     });
     expect(run).toHaveBeenCalledWith(
       expect.anything(),
@@ -638,38 +714,41 @@ describe('modelBuilder', () => {
   it('advertises and exercises monitor and opt-in scene capabilities', async () => {
     let initCount = 0;
     let stopCount = 0;
-    const binding = modelBuilder({
-      id: 'scene-binding',
-      name: 'Scene Binding',
-      description: 'scene capability fixture',
-      stateSchemaVersion: '1',
-    }, {
-      defaults: {},
-      create() {
-        return { tick: 0 };
+    const binding = modelBuilder(
+      {
+        id: 'scene-binding',
+        name: 'Scene Binding',
+        description: 'scene capability fixture',
+        stateSchemaVersion: '1',
       },
-      init() {
-        initCount += 1;
-      },
-      stop() {
-        stopCount += 1;
-      },
-      sceneRestore: {
-        mode: 'compose',
-        restoreTime(model, time) {
-          model.tick = time;
+      {
+        defaults: {},
+        create() {
+          return { tick: 0 };
+        },
+        init() {
+          initCount += 1;
+        },
+        stop() {
+          stopCount += 1;
+        },
+        sceneRestore: {
+          mode: 'compose',
+          restoreTime(model, time) {
+            model.tick = time;
+          },
+        },
+        restoreCheckpoint(model, checkpoint) {
+          model.tick = checkpoint instanceof Uint8Array ? checkpoint[0]! : 0;
+        },
+        captureCheckpoint(model) {
+          return new Uint8Array([model.tick]);
+        },
+        time(model) {
+          return model.tick;
         },
       },
-      restoreCheckpoint(model, checkpoint) {
-        model.tick = checkpoint instanceof Uint8Array ? checkpoint[0]! : 0;
-      },
-      captureCheckpoint(model) {
-        return new Uint8Array([model.tick]);
-      },
-      time(model) {
-        return model.tick;
-      },
-    })
+    )
       .env('main')
       .agentLayer('agents', { items: () => [] })
       .done()
@@ -686,31 +765,54 @@ describe('modelBuilder', () => {
       type: 'simulator_info',
       payload: expect.objectContaining({
         model: expect.objectContaining({ state_schema_version: '1' }),
-        capabilities: expect.arrayContaining(['monitor', 'scene.restore.projected', 'scene.restore.checkpoint']),
+        capabilities: expect.arrayContaining([
+          'monitor',
+          'scene.restore.projected',
+          'scene.restore.checkpoint',
+        ]),
       }),
     });
 
     await initialize(session, 'scene-binding');
     expect(initCount).toBe(1);
-    expect(messages).toContainEqual({ type: 'monitor_create', payload: { id: 'tick', label: 'Tick', render_hint: 'text' } });
+    expect(messages).toContainEqual({
+      type: 'monitor_create',
+      payload: { id: 'tick', label: 'Tick', render_hint: 'text' },
+    });
     expect(messages).toContainEqual({ type: 'monitor_update', payload: { id: 'tick', value: 0 } });
 
     messages.length = 0;
-    await session.dispatch({ type: 'action_invoke', payload: { id: 'stop', request_id: 'stop-1' } });
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'stop', request_id: 'stop-1' },
+    });
     expect(stopCount).toBe(1);
-    expect(messages).toContainEqual({ type: 'action_result', payload: { id: 'stop', request_id: 'stop-1', should_continue: false } });
+    expect(messages).toContainEqual({
+      type: 'action_result',
+      payload: { id: 'stop', request_id: 'stop-1', should_continue: false },
+    });
 
     messages.length = 0;
-    await session.dispatch({ type: 'action_invoke', payload: { id: 'reset', request_id: 'reset-1' } });
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'reset', request_id: 'reset-1' },
+    });
     expect(initCount).toBe(1);
-    expect(messages).toContainEqual({ type: 'action_result', payload: { id: 'reset', request_id: 'reset-1', should_continue: false } });
-    expect(messages.some((message) => [
-      'action_create',
-      'env_create',
-      'env_layer_create',
-      'monitor_create',
-      'param_create',
-    ].includes(message.type))).toBe(false);
+    expect(messages).toContainEqual({
+      type: 'action_result',
+      payload: { id: 'reset', request_id: 'reset-1', should_continue: false },
+    });
+    expect(
+      messages.some((message) =>
+        [
+          'action_create',
+          'env_create',
+          'env_layer_create',
+          'monitor_create',
+          'param_create',
+        ].includes(message.type),
+      ),
+    ).toBe(false);
 
     messages.length = 0;
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-1' } });
@@ -720,26 +822,58 @@ describe('modelBuilder', () => {
         request_id: 'capture-1',
         model_id: 'scene-binding',
         state_schema_version: '1',
-        checkpoint: expect.objectContaining({ encoding: 'application/octet-stream', data: new Uint8Array([0]) }),
+        checkpoint: expect.objectContaining({
+          encoding: 'application/octet-stream',
+          data: new Uint8Array([0]),
+        }),
       }),
     });
 
     messages.length = 0;
-    await session.dispatch({ type: 'scene_restore', payload: { request_id: 'restore-1', model_id: 'scene-binding', state_schema_version: '1', time: 7 } });
-    expect(messages[0]).toEqual({ type: 'scene_restore_begin', payload: { request_id: 'restore-1' } });
-    expect(messages[messages.length - 1]).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-1', status: 'ok' } });
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'restore-1',
+        model_id: 'scene-binding',
+        state_schema_version: '1',
+        time: 7,
+      },
+    });
+    expect(messages[0]).toEqual({
+      type: 'scene_restore_begin',
+      payload: { request_id: 'restore-1' },
+    });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end',
+      payload: { request_id: 'restore-1', status: 'ok' },
+    });
     expect(messages).toContainEqual({ type: 'metadata_update', payload: { time: 7 } });
-    expect(messages.some((message) => message.type === 'chart_create' || message.type === 'chart_update')).toBe(false);
+    expect(
+      messages.some(
+        (message) => message.type === 'chart_create' || message.type === 'chart_update',
+      ),
+    ).toBe(false);
 
     messages.length = 0;
-    await session.dispatch({ type: 'scene_restore', payload: { request_id: 'restore-1', model_id: 'scene-binding', state_schema_version: '1', time: 7 } });
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'restore-1',
+        model_id: 'scene-binding',
+        state_schema_version: '1',
+        time: 7,
+      },
+    });
     expect(messages).toEqual([
       { type: 'scene_restore_begin', payload: { request_id: 'restore-1' } },
       { type: 'scene_restore_end', payload: { request_id: 'restore-1', status: 'ok' } },
     ]);
 
     messages.length = 0;
-    await session.dispatch({ type: 'scene_restore', payload: { request_id: 'restore-empty', model_id: 'scene-binding' } });
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: { request_id: 'restore-empty', model_id: 'scene-binding' },
+    });
     expect(messages).toEqual([
       { type: 'scene_restore_begin', payload: { request_id: 'restore-empty' } },
       {
@@ -759,11 +893,19 @@ describe('modelBuilder', () => {
         request_id: 'restore-invalid',
         model_id: 'scene-binding',
         state_schema_version: '1',
-        envs: [{
-          id: 'main',
-          type: '2d',
-          layers: [{ layer_id: 'agents', layer_type: 'agent', items: [{ id: 'duplicate' }, { id: 'duplicate' }] }],
-        }],
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'agents',
+                layer_type: 'agent',
+                items: [{ id: 'duplicate' }, { id: 'duplicate' }],
+              },
+            ],
+          },
+        ],
       },
     });
     expect(messages).toEqual([
@@ -781,7 +923,12 @@ describe('modelBuilder', () => {
     messages.length = 0;
     await session.dispatch({
       type: 'scene_restore',
-      payload: { request_id: 'restore-stale', model_id: 'scene-binding', expected_instance_id: 'stale', time: 1 },
+      payload: {
+        request_id: 'restore-stale',
+        model_id: 'scene-binding',
+        expected_instance_id: 'stale',
+        time: 1,
+      },
     });
     expect(messages).toEqual([
       { type: 'scene_restore_begin', payload: { request_id: 'restore-stale' } },
@@ -807,68 +954,97 @@ describe('modelBuilder', () => {
 
   it('keeps metadata restore callbacks on their declared layer', async () => {
     const model = { left: '', right: '' };
-    const binding = modelBuilder({
-      id: 'two-grids', name: 'Two Grids', description: 'layer ownership',
-    }, { defaults: {}, create: () => model })
+    const binding = modelBuilder(
+      {
+        id: 'two-grids',
+        name: 'Two Grids',
+        description: 'layer ownership',
+      },
+      { defaults: {}, create: () => model },
+    )
       .env('main')
       .gridLayer('right', {
-        restore: { restoreMetadata(_model, metadata) { model.right = metadata.marker as string; } },
+        restore: {
+          restoreMetadata(_model, metadata) {
+            model.right = metadata.marker as string;
+          },
+        },
       })
       .gridLayer('left', {
-        restore: { restoreMetadata(_model, metadata) { model.left = metadata.marker as string; } },
+        restore: {
+          restoreMetadata(_model, metadata) {
+            model.left = metadata.marker as string;
+          },
+        },
       })
       .done()
       .build();
     const messages: SimulatorToRendererMessage[] = [];
     const session = binding.createSession();
-    session.attach((message) => { messages.push(message); });
+    session.attach((message) => {
+      messages.push(message);
+    });
     await session.open();
     await initialize(session, 'two-grids');
     messages.length = 0;
-    await session.dispatch({ type: 'scene_restore', payload: {
-      request_id: 'restore-grids', model_id: 'two-grids',
-      envs: [{ id: 'main', type: '2d', layers: [
-        { layer_id: 'left', layer_type: 'grid', metadata: { marker: 'L' }, items: [] },
-        { layer_id: 'right', layer_type: 'grid', metadata: { marker: 'R' }, items: [] },
-      ] }],
-    } });
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'restore-grids',
+        model_id: 'two-grids',
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              { layer_id: 'left', layer_type: 'grid', metadata: { marker: 'L' }, items: [] },
+              { layer_id: 'right', layer_type: 'grid', metadata: { marker: 'R' }, items: [] },
+            ],
+          },
+        ],
+      },
+    });
     expect(messages[messages.length - 1]).toEqual({
-      type: 'scene_restore_end', payload: { request_id: 'restore-grids', status: 'ok' },
+      type: 'scene_restore_end',
+      payload: { request_id: 'restore-grids', status: 'ok' },
     });
     expect(model).toEqual({ left: 'L', right: 'R' });
     await session.close();
   });
 
   it('restores projected model state declaratively with complete layer CUD', async () => {
-    const binding = modelBuilder({
-      id: 'declarative-restore',
-      name: 'Declarative Restore',
-      description: 'complete CUD fixture',
-    }, {
-      defaults: { speed: 1 },
-      create(config) {
-        return {
-          speed: config.speed,
-          time: 1,
-          agents: new Map([
-            ['a', { id: 'a', x: 0, y: 0 }],
-            ['gone', { id: 'gone', x: 1, y: 0 }],
-          ]),
-        };
+    const binding = modelBuilder(
+      {
+        id: 'declarative-restore',
+        name: 'Declarative Restore',
+        description: 'complete CUD fixture',
       },
-      getConfig(model) {
-        return { speed: model.speed };
-      },
-      time(model) {
-        return model.time;
-      },
-      sceneRestore: {
-        mode: 'compose',
-        restoreTime(model, time) {
-          model.time = time;
+      {
+        defaults: { speed: 1 },
+        create(config) {
+          return {
+            speed: config.speed,
+            time: 1,
+            agents: new Map([
+              ['a', { id: 'a', x: 0, y: 0 }],
+              ['gone', { id: 'gone', x: 1, y: 0 }],
+            ]),
+          };
+        },
+        getConfig(model) {
+          return { speed: model.speed };
+        },
+        time(model) {
+          return model.time;
+        },
+        sceneRestore: {
+          mode: 'compose',
+          restoreTime(model, time) {
+            model.time = time;
+          },
         },
       },
-    })
+    )
       .numberParam('speed', {
         get: (model) => model.speed,
         set(model, value) {
@@ -881,10 +1057,18 @@ describe('modelBuilder', () => {
         key: 'id',
         restore: {
           create(model, item) {
-            model.agents.set(item.id as string, { id: item.id as string, x: item.x as number, y: item.y as number });
+            model.agents.set(item.id as string, {
+              id: item.id as string,
+              x: item.x as number,
+              y: item.y as number,
+            });
           },
           update(model, _key, item) {
-            model.agents.set(item.id as string, { id: item.id as string, x: item.x as number, y: item.y as number });
+            model.agents.set(item.id as string, {
+              id: item.id as string,
+              x: item.x as number,
+              y: item.y as number,
+            });
           },
           delete(model, key) {
             const id = (key as { id: string }).id;
@@ -911,23 +1095,33 @@ describe('modelBuilder', () => {
         model_id: 'declarative-restore',
         time: 9,
         parameters: [{ id: 'speed', value: 3 }],
-        envs: [{
-          id: 'main',
-          type: '2d',
-          layers: [{
-            layer_id: 'agents',
-            layer_type: 'agent',
-            items: [
-              { id: 'a', x: 4, y: 5 },
-              { id: 'new', x: 6, y: 7 },
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'agents',
+                layer_type: 'agent',
+                items: [
+                  { id: 'a', x: 4, y: 5 },
+                  { id: 'new', x: 6, y: 7 },
+                ],
+              },
             ],
-          }],
-        }],
+          },
+        ],
       },
     });
 
-    expect(messages[0]).toEqual({ type: 'scene_restore_begin', payload: { request_id: 'restore-cud' } });
-    expect(messages[messages.length - 1]).toEqual({ type: 'scene_restore_end', payload: { request_id: 'restore-cud', status: 'ok' } });
+    expect(messages[0]).toEqual({
+      type: 'scene_restore_begin',
+      payload: { request_id: 'restore-cud' },
+    });
+    expect(messages[messages.length - 1]).toEqual({
+      type: 'scene_restore_end',
+      payload: { request_id: 'restore-cud', status: 'ok' },
+    });
     expect(messages).toContainEqual({ type: 'metadata_update', payload: { time: 9 } });
     expect(messages).toContainEqual({
       type: 'item_create',
@@ -945,23 +1139,28 @@ describe('modelBuilder', () => {
   });
 
   it('supports checkpoint restore without a projected-state hook', async () => {
-    const binding = modelBuilder({
-      id: 'checkpoint-only',
-      name: 'Checkpoint Only',
-      description: 'checkpoint-only fixture',
-      stateSchemaVersion: '1',
-    }, {
-      defaults: {},
-      create() { return { value: 2 }; },
-      checkpoint: {
-        restore(model, data) {
-          model.value = data instanceof Uint8Array ? data[0]! : 0;
+    const binding = modelBuilder(
+      {
+        id: 'checkpoint-only',
+        name: 'Checkpoint Only',
+        description: 'checkpoint-only fixture',
+        stateSchemaVersion: '1',
+      },
+      {
+        defaults: {},
+        create() {
+          return { value: 2 };
         },
-        capture(model) {
-          return new Uint8Array([model.value]);
+        checkpoint: {
+          restore(model, data) {
+            model.value = data instanceof Uint8Array ? data[0]! : 0;
+          },
+          capture(model) {
+            return new Uint8Array([model.value]);
+          },
         },
       },
-    }).build();
+    ).build();
     const messages: AnyProtocolMessage[] = [];
     const session = binding.createSession();
     session.attach((message: SimulatorToRendererMessage) => {
@@ -992,7 +1191,10 @@ describe('modelBuilder', () => {
     });
 
     messages.length = 0;
-    await session.dispatch({ type: 'scene_capture', payload: { request_id: 'checkpoint-only-capture' } });
+    await session.dispatch({
+      type: 'scene_capture',
+      payload: { request_id: 'checkpoint-only-capture' },
+    });
     expect(messages).toContainEqual({
       type: 'scene_capture_result',
       payload: expect.objectContaining({
@@ -1008,23 +1210,35 @@ describe('modelBuilder', () => {
 
   it('replaces an array-backed layer without item identity callbacks', async () => {
     let active: { cells: { id: string; alive: boolean }[] } | undefined;
-    const binding = modelBuilder({
-      id: 'replace-layer', name: 'Replace Layer', description: 'array-backed fixture',
-    }, {
-      defaults: {},
-      create() {
-        active = { cells: [{ id: 'old', alive: true }] };
-        return active;
+    const binding = modelBuilder(
+      {
+        id: 'replace-layer',
+        name: 'Replace Layer',
+        description: 'array-backed fixture',
       },
-      sceneRestore: { mode: 'compose' },
-    }).env('main').agentLayer('cells', {
-      items: (model) => model.cells,
-      restore: {
-        replace(model, items) {
-          model.cells = items.map((item) => ({ id: item.id as string, alive: item.alive as boolean }));
+      {
+        defaults: {},
+        create() {
+          active = { cells: [{ id: 'old', alive: true }] };
+          return active;
         },
+        sceneRestore: { mode: 'compose' },
       },
-    }).done().build();
+    )
+      .env('main')
+      .agentLayer('cells', {
+        items: (model) => model.cells,
+        restore: {
+          replace(model, items) {
+            model.cells = items.map((item) => ({
+              id: item.id as string,
+              alive: item.alive as boolean,
+            }));
+          },
+        },
+      })
+      .done()
+      .build();
     const messages: AnyProtocolMessage[] = [];
     const session = binding.createSession();
     session.attach((message: SimulatorToRendererMessage) => {
@@ -1036,14 +1250,26 @@ describe('modelBuilder', () => {
     await session.dispatch({
       type: 'scene_restore',
       payload: {
-        request_id: 'replace', model_id: 'replace-layer',
-        envs: [{ id: 'main', type: '2d', layers: [{
-          layer_id: 'cells', layer_type: 'agent', items: [{ id: 'new', alive: false }],
-        }] }],
+        request_id: 'replace',
+        model_id: 'replace-layer',
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'cells',
+                layer_type: 'agent',
+                items: [{ id: 'new', alive: false }],
+              },
+            ],
+          },
+        ],
       },
     });
     expect(messages[messages.length - 1]).toEqual({
-      type: 'scene_restore_end', payload: { request_id: 'replace', status: 'ok' },
+      type: 'scene_restore_end',
+      payload: { request_id: 'replace', status: 'ok' },
     });
     expect(active?.cells).toEqual([{ id: 'new', alive: false }]);
     await session.close();
@@ -1051,28 +1277,47 @@ describe('modelBuilder', () => {
 
   it('reconciles against checkpoint-imported entities', async () => {
     let active: { agents: Map<string, { id: string }> } | undefined;
-    const binding = modelBuilder({
-      id: 'checkpoint-overlay', name: 'Checkpoint Overlay', description: 'import then reconcile',
-      stateSchemaVersion: '1',
-    }, {
-      defaults: {},
-      create() {
-        active = { agents: new Map([['before', { id: 'before' }]]) };
-        return active;
+    const binding = modelBuilder(
+      {
+        id: 'checkpoint-overlay',
+        name: 'Checkpoint Overlay',
+        description: 'import then reconcile',
+        stateSchemaVersion: '1',
       },
-      checkpoint: {
-        capture() { return new Uint8Array([1]); },
-        restore(model) { model.agents = new Map([['checkpoint', { id: 'checkpoint' }]]); },
+      {
+        defaults: {},
+        create() {
+          active = { agents: new Map([['before', { id: 'before' }]]) };
+          return active;
+        },
+        checkpoint: {
+          capture() {
+            return new Uint8Array([1]);
+          },
+          restore(model) {
+            model.agents = new Map([['checkpoint', { id: 'checkpoint' }]]);
+          },
+        },
+        sceneRestore: { mode: 'compose' },
       },
-      sceneRestore: { mode: 'compose' },
-    }).env('main').agentLayer('agents', {
-      items: (model) => [...model.agents.values()],
-      restore: {
-        create(model, item) { model.agents.set(item.id as string, { id: item.id as string }); },
-        update(model, _key, item) { model.agents.set(item.id as string, { id: item.id as string }); },
-        delete(model, key) { model.agents.delete((key as { id: string }).id); },
-      },
-    }).done().build();
+    )
+      .env('main')
+      .agentLayer('agents', {
+        items: (model) => [...model.agents.values()],
+        restore: {
+          create(model, item) {
+            model.agents.set(item.id as string, { id: item.id as string });
+          },
+          update(model, _key, item) {
+            model.agents.set(item.id as string, { id: item.id as string });
+          },
+          delete(model, key) {
+            model.agents.delete((key as { id: string }).id);
+          },
+        },
+      })
+      .done()
+      .build();
     const messages: AnyProtocolMessage[] = [];
     const session = binding.createSession();
     session.attach((message: SimulatorToRendererMessage) => {
@@ -1081,42 +1326,82 @@ describe('modelBuilder', () => {
     await session.open();
     await initialize(session, 'checkpoint-overlay');
     messages.length = 0;
-    await session.dispatch({ type: 'scene_restore', payload: {
-      request_id: 'combined', model_id: 'checkpoint-overlay',
-      checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1]) },
-      envs: [{ id: 'main', type: '2d', layers: [{
-        layer_id: 'agents', layer_type: 'agent', items: [{ id: 'new' }],
-      }] }],
-    } });
+    await session.dispatch({
+      type: 'scene_restore',
+      payload: {
+        request_id: 'combined',
+        model_id: 'checkpoint-overlay',
+        checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1]) },
+        envs: [
+          {
+            id: 'main',
+            type: '2d',
+            layers: [
+              {
+                layer_id: 'agents',
+                layer_type: 'agent',
+                items: [{ id: 'new' }],
+              },
+            ],
+          },
+        ],
+      },
+    });
     expect(messages[messages.length - 1]).toEqual({
-      type: 'scene_restore_end', payload: { request_id: 'combined', status: 'ok' },
+      type: 'scene_restore_end',
+      payload: { request_id: 'combined', status: 'ok' },
     });
     expect([...active!.agents.keys()]).toEqual(['new']);
     await session.close();
   });
 
   it('requires paired checkpoint hooks and a state schema version', () => {
-    expect(() => modelBuilder({ id: 'capture-only', name: 'Capture', description: 'invalid fixture' }, {
-      defaults: {},
-      create() { return {}; },
-      captureCheckpoint() { return new Uint8Array(); },
-    }).build()).toThrow(/restoreCheckpoint/);
+    expect(() =>
+      modelBuilder(
+        { id: 'capture-only', name: 'Capture', description: 'invalid fixture' },
+        {
+          defaults: {},
+          create() {
+            return {};
+          },
+          captureCheckpoint() {
+            return new Uint8Array();
+          },
+        },
+      ).build(),
+    ).toThrow(/restoreCheckpoint/);
 
-    expect(() => modelBuilder({ id: 'missing-schema', name: 'Schema', description: 'invalid fixture' }, {
-      defaults: {},
-      create() { return {}; },
-      restoreCheckpoint() {},
-      captureCheckpoint() { return new Uint8Array(); },
-    }).build()).toThrow(/stateSchemaVersion/);
+    expect(() =>
+      modelBuilder(
+        { id: 'missing-schema', name: 'Schema', description: 'invalid fixture' },
+        {
+          defaults: {},
+          create() {
+            return {};
+          },
+          restoreCheckpoint() {},
+          captureCheckpoint() {
+            return new Uint8Array();
+          },
+        },
+      ).build(),
+    ).toThrow(/stateSchemaVersion/);
   });
 
   it('rejects a mismatched state-sync model without initializing the instance', async () => {
     let initialized = 0;
-    const binding = modelBuilder({ id: 'strict-model', name: 'Strict', description: 'strict sync fixture' }, {
-      defaults: {},
-      create() { return {}; },
-      init() { initialized += 1; },
-    }).build();
+    const binding = modelBuilder(
+      { id: 'strict-model', name: 'Strict', description: 'strict sync fixture' },
+      {
+        defaults: {},
+        create() {
+          return {};
+        },
+        init() {
+          initialized += 1;
+        },
+      },
+    ).build();
     const messages: AnyProtocolMessage[] = [];
     const session = binding.createSession();
     session.attach((message: SimulatorToRendererMessage) => {
@@ -1127,10 +1412,16 @@ describe('modelBuilder', () => {
 
     await initialize(session, 'other-model');
     expect(initialized).toBe(0);
-    expect(messages).toEqual([{
-      type: 'error',
-      payload: { code: 'model_mismatch', message: 'Expected model strict-model.', request_id: 'sync-1' },
-    }]);
+    expect(messages).toEqual([
+      {
+        type: 'error',
+        payload: {
+          code: 'model_mismatch',
+          message: 'Expected model strict-model.',
+          request_id: 'sync-1',
+        },
+      },
+    ]);
     await session.close();
   });
 });

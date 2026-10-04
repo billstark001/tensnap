@@ -32,11 +32,13 @@ const mockToast = {
 };
 
 vi.mock('@/store/scenario/store', () => ({
-  useScenarioStore: (selector: (state: typeof mockScenarioStore) => unknown) => selector(mockScenarioStore),
+  useScenarioStore: (selector: (state: typeof mockScenarioStore) => unknown) =>
+    selector(mockScenarioStore),
 }));
 
 vi.mock('@/store/settings', () => ({
-  useSettingsStore: (selector: (state: typeof mockSettingsStore) => unknown) => selector(mockSettingsStore),
+  useSettingsStore: (selector: (state: typeof mockSettingsStore) => unknown) =>
+    selector(mockSettingsStore),
 }));
 
 vi.mock('@/store/transport', () => ({
@@ -49,11 +51,22 @@ vi.mock('@/store/toast', () => ({
 
 vi.mock('@lingui/react', () => ({
   useLingui: () => ({
-    _: (value: unknown) => typeof value === 'string'
-      ? value
-      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
+    _: (value: unknown) =>
+      typeof value === 'string'
+        ? value
+        : ((value as { message?: string; id?: string }).message ??
+          (value as { id?: string }).id ??
+          ''),
   }),
-  Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
+  Trans: ({
+    children,
+    message,
+    id,
+  }: {
+    children?: React.ReactNode;
+    message?: string;
+    id?: string;
+  }) => <>{children ?? message ?? id}</>,
 }));
 
 describe('StatusBar', () => {

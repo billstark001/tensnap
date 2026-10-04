@@ -5,7 +5,9 @@ describe('RingBuffer', () => {
   it('rejects fractional and unsafe capacities with a clear error', () => {
     expect(() => new RingBuffer<number>(1.5)).toThrow(/non-negative safe integer/);
     expect(() => new RingBuffer<number>(-1)).toThrow(/non-negative safe integer/);
-    expect(() => new RingBuffer<number>(Number.POSITIVE_INFINITY)).toThrow(/non-negative safe integer/);
+    expect(() => new RingBuffer<number>(Number.POSITIVE_INFINITY)).toThrow(
+      /non-negative safe integer/,
+    );
   });
 
   it('retains the newest entries after resize', () => {

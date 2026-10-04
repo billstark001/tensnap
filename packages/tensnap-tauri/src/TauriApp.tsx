@@ -19,7 +19,7 @@ import { registerTauriLocaleCatalog } from './i18n/register-catalog';
 const TauriMenuEventsLoader = () => {
   useTauriMenuEvents();
   return null;
-}
+};
 
 configureSettingsPersistence(new TauriSettingsPersistence());
 
@@ -110,7 +110,11 @@ export const TauriApp: React.FC = () => {
 
         setIsReady(true);
       } catch (error) {
-        setError(error instanceof Error ? error.message : String(error) || 'Unknown error during initialization');
+        setError(
+          error instanceof Error
+            ? error.message
+            : String(error) || 'Unknown error during initialization',
+        );
         setIsReady(true);
       }
     };
@@ -120,14 +124,16 @@ export const TauriApp: React.FC = () => {
 
   if (!isReady) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        fontSize: '1.2rem',
-        color: '#666'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          fontSize: '1.2rem',
+          color: '#666',
+        }}
+      >
         Initializing...
       </div>
     );
@@ -135,14 +141,16 @@ export const TauriApp: React.FC = () => {
 
   if (error) {
     return (
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '100vh',
-        fontSize: '1.2rem',
-        color: '#666'
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          fontSize: '1.2rem',
+          color: '#666',
+        }}
+      >
         Error initializing: {error}
       </div>
     );

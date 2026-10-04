@@ -5,9 +5,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@lingui/react', () => ({
   useLingui: () => ({
-    _: (value: unknown) => typeof value === 'string'
-      ? value
-      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
+    _: (value: unknown) =>
+      typeof value === 'string'
+        ? value
+        : ((value as { message?: string; id?: string }).message ??
+          (value as { id?: string }).id ??
+          ''),
   }),
 }));
 
@@ -15,7 +18,9 @@ import { ValueInspector } from './ValueInspector';
 
 describe('ValueInspector', () => {
   it('returns to a valid page when a high-frequency value shrinks', async () => {
-    const { rerender } = render(<ValueInspector value={Array.from({ length: 101 }, (_, index) => index)} />);
+    const { rerender } = render(
+      <ValueInspector value={Array.from({ length: 101 }, (_, index) => index)} />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Next value rows' }));
     expect(screen.getByText('101–101 / 101')).toBeInTheDocument();
@@ -29,9 +34,11 @@ describe('ValueInspector', () => {
   });
 
   it('virtualizes wide, paged tables instead of mounting every cell', () => {
-    const rows = Array.from({ length: 100 }, (_, row) => Object.fromEntries(
-      Array.from({ length: 64 }, (_, column) => [`column-${column}`, `${row}:${column}`]),
-    ));
+    const rows = Array.from({ length: 100 }, (_, row) =>
+      Object.fromEntries(
+        Array.from({ length: 64 }, (_, column) => [`column-${column}`, `${row}:${column}`]),
+      ),
+    );
 
     render(<ValueInspector value={rows} renderHint="table" />);
 
@@ -45,7 +52,9 @@ describe('ValueInspector', () => {
     vi.useFakeTimers();
     try {
       const largeCustomData = 'x'.repeat(4 * 1024 * 1024);
-      const { rerender } = render(<ValueInspector value={[{ largeCustomData, tick: 0 }]} renderHint="table" />);
+      const { rerender } = render(
+        <ValueInspector value={[{ largeCustomData, tick: 0 }]} renderHint="table" />,
+      );
       for (let tick = 1; tick <= 120; tick += 1) {
         rerender(<ValueInspector value={[{ largeCustomData, tick }]} renderHint="table" />);
       }

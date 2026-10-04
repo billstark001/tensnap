@@ -12,9 +12,9 @@ export { EdgeStorage } from './EdgeStorage';
 export type { EdgeStorageData, EdgeStorageSnapshot } from './EdgeStorage';
 export { TrajectoryStorage } from './TrajectoryStorage';
 export type {
-	TrajectoryDelta,
-	TrajectoryEntry,
-	TrajectorySnapshotItem,
-	TrajectoryStorageData,
-	TrajectoryStorageSnapshot,
+  TrajectoryDelta,
+  TrajectoryEntry,
+  TrajectorySnapshotItem,
+  TrajectoryStorageData,
+  TrajectoryStorageSnapshot,
 } from './TrajectoryStorage';

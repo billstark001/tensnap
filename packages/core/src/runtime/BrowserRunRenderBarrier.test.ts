@@ -60,11 +60,14 @@ describe('BrowserRunRenderBarrier', () => {
   it('uses timeout scheduling and enforces Max TPS', async () => {
     const host = new FakeTimingHost();
     host.nowValue = 102;
-    const barrier = new BrowserRunRenderBarrier(() => ({
-      mode: 'setTimeout',
-      maxTps: 100,
-      maxRenderFps: 120,
-    }), host);
+    const barrier = new BrowserRunRenderBarrier(
+      () => ({
+        mode: 'setTimeout',
+        maxTps: 100,
+        maxRenderFps: 120,
+      }),
+      host,
+    );
     const resolved = vi.fn();
 
     void barrier.wait(taskAt(100)).then(resolved);
@@ -79,11 +82,14 @@ describe('BrowserRunRenderBarrier', () => {
 
   it('only frame-locks when requestAnimationFrame is selected', async () => {
     const host = new FakeTimingHost();
-    const barrier = new BrowserRunRenderBarrier(() => ({
-      mode: 'requestAnimationFrame',
-      maxTps: 100,
-      maxRenderFps: 120,
-    }), host);
+    const barrier = new BrowserRunRenderBarrier(
+      () => ({
+        mode: 'requestAnimationFrame',
+        maxTps: 100,
+        maxRenderFps: 120,
+      }),
+      host,
+    );
     const resolved = vi.fn();
 
     void barrier.wait(taskAt(0)).then(resolved);
@@ -151,9 +157,14 @@ describe('BrowserRunRenderBarrier', () => {
 
   it('recalibrates after the display cadence changes', () => {
     const host = new FakeTimingHost();
-    const barrier = new BrowserRunRenderBarrier(() => ({
-      mode: 'auto', maxTps: 5, maxRenderFps: 120,
-    }), host);
+    const barrier = new BrowserRunRenderBarrier(
+      () => ({
+        mode: 'auto',
+        maxTps: 5,
+        maxRenderFps: 120,
+      }),
+      host,
+    );
 
     void barrier.wait(taskAt(0));
     for (let frame = 1; frame <= 7; frame += 1) host.fireAnimationFrame(frame * 16);

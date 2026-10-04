@@ -53,7 +53,12 @@ function randomFromSeed(seed: number): () => number {
 }
 
 function requiredInteger(value: unknown, name: string, minimum: number, maximum?: number): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || (maximum !== undefined && value > maximum)) {
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < minimum ||
+    (maximum !== undefined && value > maximum)
+  ) {
     throw new Error(`${name} must be an integer in [${minimum}, ${maximum ?? '∞'}].`);
   }
   return value;
@@ -66,7 +71,9 @@ function requiredNumber(value: unknown, name: string, minimum: number): number {
   return value;
 }
 
-function resolveConfig(overrides: Partial<RandomWalkBenchmarkConfig> = {}): RandomWalkBenchmarkConfig {
+function resolveConfig(
+  overrides: Partial<RandomWalkBenchmarkConfig> = {},
+): RandomWalkBenchmarkConfig {
   const config = { ...defaults, ...overrides };
   const agentCount = requiredInteger(config.agentCount, 'agentCount', 1, 10_000);
   const changedAgents = requiredInteger(config.changedAgents, 'changedAgents', 0, agentCount);
@@ -103,59 +110,98 @@ function stepAgents(
   for (let offset = 0; offset < config.changedAgents; offset += 1) {
     const index = (tick * config.changedAgents + offset) % agents.length;
     const agent = agents[index]!;
-    agent.x = (agent.x + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
-    agent.y = (agent.y + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
+    agent.x =
+      (agent.x + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
+    agent.y =
+      (agent.y + (random() * 2 - 1) * config.stepSize + config.worldSize) % config.worldSize;
     changed.push(agent);
   }
   return changed;
 }
 
 function projectAgent(agent: RandomWalkAgent): Record<string, unknown> {
-  return { id: agent.id, x: agent.x, y: agent.y, icon: agent.icon, size: agent.size, color: agent.color };
+  return {
+    id: agent.id,
+    x: agent.x,
+    y: agent.y,
+    icon: agent.icon,
+    size: agent.size,
+    color: agent.color,
+  };
 }
 
 function projectUpdate(agent: RandomWalkAgent): Record<string, unknown> {
   return { id: agent.id, x: agent.x, y: agent.y };
 }
 
-const binding = modelBuilder<RandomWalkBenchmarkConfig, RandomWalkModel>({
-  id: 'benchmark.v0.3.random-walk',
-  name: 'v0.3 sparse random walk benchmark',
-  description: 'Deterministic sparse agent updates for TenSnap v0.3 benchmark artifacts.',
-}, {
-  defaults,
-  create(config) {
-    const random = randomFromSeed(config.seed);
-    return { config: { ...config }, agents: createAgents(config, random), changed: [], random, tick: 0 };
+const binding = modelBuilder<RandomWalkBenchmarkConfig, RandomWalkModel>(
+  {
+    id: 'benchmark.v0.3.random-walk',
+    name: 'v0.3 sparse random walk benchmark',
+    description: 'Deterministic sparse agent updates for TenSnap v0.3 benchmark artifacts.',
   },
-  getConfig(model) { return model.config; },
-  step(model) {
-    model.changed = stepAgents(model.agents, model.config, model.random, model.tick);
-    model.tick += 1;
-    return true;
+  {
+    defaults,
+    create(config) {
+      const random = randomFromSeed(config.seed);
+      return {
+        config: { ...config },
+        agents: createAgents(config, random),
+        changed: [],
+        random,
+        tick: 0,
+      };
+    },
+    getConfig(model) {
+      return model.config;
+    },
+    step(model) {
+      model.changed = stepAgents(model.agents, model.config, model.random, model.tick);
+      model.tick += 1;
+      return true;
+    },
+    reset(model) {
+      model.random = randomFromSeed(model.config.seed);
+      model.agents = createAgents(model.config, model.random);
+      model.changed = [];
+      model.tick = 0;
+    },
+    time(model) {
+      return model.tick;
+    },
   },
-  reset(model) {
-    model.random = randomFromSeed(model.config.seed);
-    model.agents = createAgents(model.config, model.random);
-    model.changed = [];
-    model.tick = 0;
-  },
-  time(model) { return model.tick; },
-});
+);
 
 binding.paramsFromConfig<RandomWalkBenchmarkConfig>({
   get: (model) => model.config,
-  set(model, patch) { Object.assign(model.config, patch); },
+  set(model, patch) {
+    Object.assign(model.config, patch);
+  },
   fields: {
-    agentCount: numberField({ label: 'Agent count', integer: true, runtime: false, min: 1, max: 10_000 }),
-    changedAgents: numberField({ label: 'Changed agents per step', integer: true, runtime: false, min: 0 }),
+    agentCount: numberField({
+      label: 'Agent count',
+      integer: true,
+      runtime: false,
+      min: 1,
+      max: 10_000,
+    }),
+    changedAgents: numberField({
+      label: 'Changed agents per step',
+      integer: true,
+      runtime: false,
+      min: 0,
+    }),
     worldSize: numberField({ label: 'World size', runtime: false, min: 1 }),
     stepSize: numberField({ label: 'Step size', min: 0, step: 0.1 }),
   },
 });
 
 binding.env('main').agentLayer<RandomWalkAgent>('agents', {
-  metadata: (model) => ({ width: model.config.worldSize, height: model.config.worldSize, coord_offset: 'float' }),
+  metadata: (model) => ({
+    width: model.config.worldSize,
+    height: model.config.worldSize,
+    coord_offset: 'float',
+  }),
   items: (model) => model.agents,
   updates: (model) => model.changed,
   project: (_model, agent) => projectAgent(agent),
@@ -164,7 +210,9 @@ binding.env('main').agentLayer<RandomWalkAgent>('agents', {
 
 const randomWalkBinding = binding.build();
 
-function canonicalAgentState(agents: readonly RandomWalkAgent[]): { agents: Array<{ id: string; x: number; y: number }> } {
+function canonicalAgentState(agents: readonly RandomWalkAgent[]): {
+  agents: Array<{ id: string; x: number; y: number }>;
+} {
   return {
     agents: agents
       .map((agent) => ({ id: agent.id, x: agent.x, y: agent.y }))
@@ -192,23 +240,35 @@ class RandomWalkSemantics implements BenchmarkSemanticValidator {
   observe(message: SimulatorToRendererMessage): void {
     if (this.firstMessage) {
       this.firstMessage = false;
-      if (message.type !== 'simulator_info') throw new Error('v0.3 benchmark session must begin with simulator_info.');
+      if (message.type !== 'simulator_info')
+        throw new Error('v0.3 benchmark session must begin with simulator_info.');
     }
     if (message.type === 'state_sync_begin') {
-      if (this.stateSyncBegun || this.stateSyncEnded) throw new Error('State sync transaction was not well formed.');
+      if (this.stateSyncBegun || this.stateSyncEnded)
+        throw new Error('State sync transaction was not well formed.');
       this.stateSyncBegun = true;
       return;
     }
     if (message.type === 'state_sync_end') {
-      if (!this.stateSyncBegun || this.stateSyncEnded) throw new Error('State sync ended without one open transaction.');
+      if (!this.stateSyncBegun || this.stateSyncEnded)
+        throw new Error('State sync ended without one open transaction.');
       this.stateSyncEnded = true;
       return;
     }
     if (message.type === 'item_create') {
-      const payload = message.payload as { env_id: string; layer_id: string; items: Array<Record<string, unknown>> };
-      if (payload.env_id !== 'main' || payload.layer_id !== 'agents') throw new Error('Unexpected item_create target.');
+      const payload = message.payload as {
+        env_id: string;
+        layer_id: string;
+        items: Array<Record<string, unknown>>;
+      };
+      if (payload.env_id !== 'main' || payload.layer_id !== 'agents')
+        throw new Error('Unexpected item_create target.');
       for (const item of payload.items) {
-        if (typeof item.id !== 'string' || typeof item.x !== 'number' || typeof item.y !== 'number') {
+        if (
+          typeof item.id !== 'string' ||
+          typeof item.x !== 'number' ||
+          typeof item.y !== 'number'
+        ) {
           throw new Error('Initial agent item is incomplete.');
         }
         this.agents.set(item.id, { id: item.id, x: item.x, y: item.y });
@@ -216,14 +276,25 @@ class RandomWalkSemantics implements BenchmarkSemanticValidator {
       return;
     }
     if (message.type === 'item_update') {
-      const payload = message.payload as { env_id: string; layer_id: string; items: Array<Record<string, unknown>> };
-      if (payload.env_id !== 'main' || payload.layer_id !== 'agents') throw new Error('Unexpected item_update target.');
+      const payload = message.payload as {
+        env_id: string;
+        layer_id: string;
+        items: Array<Record<string, unknown>>;
+      };
+      if (payload.env_id !== 'main' || payload.layer_id !== 'agents')
+        throw new Error('Unexpected item_update target.');
       for (const item of payload.items) {
         const keys = Object.keys(item).sort();
-        if (keys.join(',') !== 'id,x,y' || typeof item.id !== 'string' || typeof item.x !== 'number' || typeof item.y !== 'number') {
+        if (
+          keys.join(',') !== 'id,x,y' ||
+          typeof item.id !== 'string' ||
+          typeof item.x !== 'number' ||
+          typeof item.y !== 'number'
+        ) {
           throw new Error('Incremental agent updates must contain only id, x, and y.');
         }
-        if (!this.agents.has(item.id)) throw new Error(`Update references unknown agent ${item.id}.`);
+        if (!this.agents.has(item.id))
+          throw new Error(`Update references unknown agent ${item.id}.`);
         this.agents.set(item.id, { id: item.id, x: item.x, y: item.y });
         this.updatesInCurrentAction += 1;
       }
@@ -233,27 +304,39 @@ class RandomWalkSemantics implements BenchmarkSemanticValidator {
       const payload = message.payload as { id: string };
       if (payload.id !== 'start') return;
       if (this.updatesInCurrentAction !== this.config.changedAgents) {
-        throw new Error(`Expected ${this.config.changedAgents} updated agents before action_result, received ${this.updatesInCurrentAction}.`);
+        throw new Error(
+          `Expected ${this.config.changedAgents} updated agents before action_result, received ${this.updatesInCurrentAction}.`,
+        );
       }
       this.actionCount += 1;
       this.updatesInCurrentAction = 0;
       return;
     }
-    if (message.type.startsWith('chart_') || message.type.startsWith('monitor_') || message.type.startsWith('asset_')) {
+    if (
+      message.type.startsWith('chart_') ||
+      message.type.startsWith('monitor_') ||
+      message.type.startsWith('asset_')
+    ) {
       throw new Error(`Unregistered optional family emitted ${message.type}.`);
     }
   }
 
   assert(actionCount: number): void {
-    if (this.firstMessage || !this.stateSyncBegun || !this.stateSyncEnded) throw new Error('Missing complete v0.3 handshake/state-sync sequence.');
-    if (this.agents.size !== this.config.agentCount) throw new Error(`Expected ${this.config.agentCount} synchronized agents, received ${this.agents.size}.`);
+    if (this.firstMessage || !this.stateSyncBegun || !this.stateSyncEnded)
+      throw new Error('Missing complete v0.3 handshake/state-sync sequence.');
+    if (this.agents.size !== this.config.agentCount)
+      throw new Error(
+        `Expected ${this.config.agentCount} synchronized agents, received ${this.agents.size}.`,
+      );
     if (this.actionCount !== actionCount || this.updatesInCurrentAction !== 0) {
       throw new Error(`Expected ${actionCount} completed actions, received ${this.actionCount}.`);
     }
   }
 
   snapshot(): unknown {
-    return { agents: [...this.agents.values()].sort((left, right) => left.id.localeCompare(right.id)) };
+    return {
+      agents: [...this.agents.values()].sort((left, right) => left.id.localeCompare(right.id)),
+    };
   }
 }
 
@@ -282,7 +365,12 @@ export const workload: BenchmarkWorkload<RandomWalkBenchmarkConfig> = {
       width: config.width,
       height: config.height,
       createTransport() {
-        const transport = new WebSocketManagerImpl('benchmark-random-walk', endpoint, encoding === 'msgpack', 'strict');
+        const transport = new WebSocketManagerImpl(
+          'benchmark-random-walk',
+          endpoint,
+          encoding === 'msgpack',
+          'strict',
+        );
         transport.clientMessageValidation = validation;
         transport.serverMessageValidation = validation;
         return transport;

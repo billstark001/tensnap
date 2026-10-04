@@ -46,38 +46,40 @@ export interface AgentRenderState {
   data?: Record<string, unknown>;
 }
 
-
-export type AgentDelta = {
-  /** Newly added agents. */
-  added: AgentRenderState[];
-  /** Updated agents. */
-  updated: AgentRenderState[];
-  /** IDs of removed agents. */
-  removed: AgentId[];
-  /**
-   * True when the entire agent set was replaced (setAgents / clearAgents).
-   * Consumers should treat `added` as the new full snapshot and discard
-   * any previously cached state.
-   */
-  replaced?: false;
-  positionsFlushed?: false;
-} | {
-  added?: undefined;
-  updated?: undefined;
-  removed?: undefined;
-  replaced: true;
-  positionsFlushed?: false;
-} | {
-  added?: undefined;
-  updated?: undefined;
-  removed?: undefined;
-  replaced?: false;
-  /**
-   * True when only positions/velocities were updated via mergePositions().
-   * Consumers should only refresh node coordinates — no structural changes.
-   */
-  positionsFlushed: true;
-}
+export type AgentDelta =
+  | {
+      /** Newly added agents. */
+      added: AgentRenderState[];
+      /** Updated agents. */
+      updated: AgentRenderState[];
+      /** IDs of removed agents. */
+      removed: AgentId[];
+      /**
+       * True when the entire agent set was replaced (setAgents / clearAgents).
+       * Consumers should treat `added` as the new full snapshot and discard
+       * any previously cached state.
+       */
+      replaced?: false;
+      positionsFlushed?: false;
+    }
+  | {
+      added?: undefined;
+      updated?: undefined;
+      removed?: undefined;
+      replaced: true;
+      positionsFlushed?: false;
+    }
+  | {
+      added?: undefined;
+      updated?: undefined;
+      removed?: undefined;
+      replaced?: false;
+      /**
+       * True when only positions/velocities were updated via mergePositions().
+       * Consumers should only refresh node coordinates — no structural changes.
+       */
+      positionsFlushed: true;
+    };
 
 export interface AgentStorageData {
   agents: Map<AgentId, AgentRenderState>;
@@ -136,7 +138,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
    * Call `flushPositions()` once per animation frame to trigger re-render.
    */
   mergePositions(
-    positions: Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>
+    positions: Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>,
   ): void {
     const agents = this._data.agents;
     positions.forEach((pos, id) => {
@@ -335,13 +337,19 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
 
   /** Exact radius query; uses the retained spatial hash for compact queries and scans for broad ones. */
   getAgentsWithinRadius(x: number, y: number, radius: number): AgentRenderState[] {
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(radius) || radius < 0) return [];
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(radius) || radius < 0)
+      return [];
     const squaredRadius = radius * radius;
     const withinRadius = (agent: AgentRenderState | undefined): agent is AgentRenderState => {
       const agentX = agent?.x;
       const agentY = agent?.y;
-      if (typeof agentX !== 'number' || !Number.isFinite(agentX)
-        || typeof agentY !== 'number' || !Number.isFinite(agentY)) return false;
+      if (
+        typeof agentX !== 'number' ||
+        !Number.isFinite(agentX) ||
+        typeof agentY !== 'number' ||
+        !Number.isFinite(agentY)
+      )
+        return false;
       const dx = agentX - x;
       const dy = agentY - y;
       return Number.isFinite(squaredRadius)
@@ -358,9 +366,14 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const cellCount = (maxX - minX + 1) * (maxY - minY + 1);
     // Iterating empty cells is slower than scanning the agents for a large or
     // sparse query. Unsafe cell indices may also fail to advance by one.
-    if (!Number.isSafeInteger(minX) || !Number.isSafeInteger(maxX)
-      || !Number.isSafeInteger(minY) || !Number.isSafeInteger(maxY)
-      || cellCount > this._data.agents.size * 4) return scan();
+    if (
+      !Number.isSafeInteger(minX) ||
+      !Number.isSafeInteger(maxX) ||
+      !Number.isSafeInteger(minY) ||
+      !Number.isSafeInteger(maxY) ||
+      cellCount > this._data.agents.size * 4
+    )
+      return scan();
     const result: AgentRenderState[] = [];
     for (let cellX = minX; cellX <= maxX; cellX += 1) {
       for (let cellY = minY; cellY <= maxY; cellY += 1) {
@@ -386,7 +399,13 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     this.unindexAgent(agent.id);
     const x = agent.x;
     const y = agent.y;
-    if (typeof x !== 'number' || !Number.isFinite(x) || typeof y !== 'number' || !Number.isFinite(y)) return;
+    if (
+      typeof x !== 'number' ||
+      !Number.isFinite(x) ||
+      typeof y !== 'number' ||
+      !Number.isFinite(y)
+    )
+      return;
     const key = this.cellKey(x, y);
     const cell = this.spatialCells.get(key) ?? new Set<AgentId>();
     cell.add(agent.id);

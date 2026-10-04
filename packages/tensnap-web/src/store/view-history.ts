@@ -26,7 +26,8 @@ export function recordViewHistoryChange(
   sideEffects?: ViewHistorySideEffects,
 ) {
   const viewChanged = JSON.stringify(before) !== JSON.stringify(after);
-  if (!history || !replaceMainView || (!viewChanged && !sideEffects?.apply && !sideEffects?.revert)) return;
+  if (!history || !replaceMainView || (!viewChanged && !sideEffects?.apply && !sideEffects?.revert))
+    return;
   const beforePatch = structuredClone(before);
   const afterPatch = structuredClone(after);
   history.recordApplied({
@@ -51,14 +52,26 @@ export function useRecordViewHistory() {
   const history = useScenarioUndoRedoStore();
   const replaceMainView = useScenarioStore((state) => state.replaceMainView);
 
-  return useCallback((
-    label: string,
-    scope: HistoryCommandScope,
-    before: ContainerView,
-    after: ContainerView,
-    mergeKey?: string,
-    sideEffects?: ViewHistorySideEffects,
-  ) => {
-    recordViewHistoryChange(history, replaceMainView, label, scope, before, after, mergeKey, sideEffects);
-  }, [history, replaceMainView]);
+  return useCallback(
+    (
+      label: string,
+      scope: HistoryCommandScope,
+      before: ContainerView,
+      after: ContainerView,
+      mergeKey?: string,
+      sideEffects?: ViewHistorySideEffects,
+    ) => {
+      recordViewHistoryChange(
+        history,
+        replaceMainView,
+        label,
+        scope,
+        before,
+        after,
+        mergeKey,
+        sideEffects,
+      );
+    },
+    [history, replaceMainView],
+  );
 }

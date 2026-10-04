@@ -39,15 +39,17 @@ describe('Rectangle Packing with MaxRects', () => {
 
     it('calculates bounds for a dense view list without a function-argument limit', () => {
       const rectangles: PlacedRectangle[] = Array.from({ length: 150_000 }, (_, left) => ({
-        type: 'dense', left, top: 0, width: 1, height: 2,
+        type: 'dense',
+        left,
+        top: 0,
+        width: 1,
+        height: 2,
       }));
       expect(calculateBounds(rectangles)).toEqual({ width: 150_000, height: 2 });
     });
 
     it('should handle single rectangle', () => {
-      const rectangles: Rectangle[] = [
-        { type: 'A', width: 50, height: 60 },
-      ];
+      const rectangles: Rectangle[] = [{ type: 'A', width: 50, height: 60 }];
 
       const result = pack(rectangles);
       expect(result.rectangles.length).toBe(1);
@@ -56,10 +58,13 @@ describe('Rectangle Packing with MaxRects', () => {
     });
 
     it('honors an explicit zero padding between adjacent rectangles', () => {
-      const result = pack([
-        { type: 'A', width: 10, height: 10 },
-        { type: 'B', width: 10, height: 10 },
-      ], { containerWidth: 20, containerHeight: 10, padding: 0 });
+      const result = pack(
+        [
+          { type: 'A', width: 10, height: 10 },
+          { type: 'B', width: 10, height: 10 },
+        ],
+        { containerWidth: 20, containerHeight: 10, padding: 0 },
+      );
       expect(result.rectangles).toHaveLength(2);
       expect(result.actualBounds).toEqual({ width: 20, height: 10 });
     });
@@ -191,11 +196,11 @@ describe('Rectangle Packing with MaxRects', () => {
 
           const horizontalGap = Math.min(
             Math.abs(a.left + a.width - b.left),
-            Math.abs(b.left + b.width - a.left)
+            Math.abs(b.left + b.width - a.left),
           );
           const verticalGap = Math.min(
             Math.abs(a.top + a.height - b.top),
-            Math.abs(b.top + b.height - a.top)
+            Math.abs(b.top + b.height - a.top),
           );
 
           const minGap = Math.min(horizontalGap, verticalGap);
@@ -209,9 +214,7 @@ describe('Rectangle Packing with MaxRects', () => {
     });
 
     it('should respect paddingBorder', () => {
-      const rectangles: Rectangle[] = [
-        { type: 'A', width: 30, height: 40 },
-      ];
+      const rectangles: Rectangle[] = [{ type: 'A', width: 30, height: 40 }];
 
       const result = pack(rectangles, { paddingBorder: 10 });
 
@@ -222,9 +225,7 @@ describe('Rectangle Packing with MaxRects', () => {
     });
 
     it('should respect asymmetric paddingBorder', () => {
-      const rectangles: Rectangle[] = [
-        { type: 'A', width: 30, height: 40 },
-      ];
+      const rectangles: Rectangle[] = [{ type: 'A', width: 30, height: 40 }];
 
       const result = pack(rectangles, { paddingBorder: [5, 15] });
 
@@ -273,7 +274,7 @@ describe('Rectangle Packing with MaxRects', () => {
       const result = pack(rectangles, {
         preservePosition: true,
         sortBy: 'position',
-        paddingBorder: 0
+        paddingBorder: 0,
       });
 
       // 检查所有矩形都被打包了
@@ -281,12 +282,12 @@ describe('Rectangle Packing with MaxRects', () => {
 
       // 检查相对位置关系是否大致保留
       // A应该在B的左边
-      const rectA = result.rectangles.find(r => r.type === 'A')!;
-      const rectB = result.rectangles.find(r => r.type === 'B')!;
-      const rectC = result.rectangles.find(r => r.type === 'C')!;
+      const rectA = result.rectangles.find((r) => r.type === 'A')!;
+      const rectB = result.rectangles.find((r) => r.type === 'B')!;
+      const rectC = result.rectangles.find((r) => r.type === 'C')!;
 
       expect(rectA.left).toBeLessThanOrEqual(rectB.left);
-      
+
       // C应该在A下方
       expect(rectC.top).toBeGreaterThanOrEqual(rectA.top);
     });
@@ -301,13 +302,13 @@ describe('Rectangle Packing with MaxRects', () => {
         preservePosition: true,
         sortBy: 'position',
         containerWidth: 300,
-        containerHeight: 300
+        containerHeight: 300,
       });
 
       // 矩形不应该被移动到容器的左上角（0,0）
       // 它们应该尝试保持在原来的区域附近
-      const rectA = result.rectangles.find(r => r.type === 'A')!;
-      const rectB = result.rectangles.find(r => r.type === 'B')!;
+      const rectA = result.rectangles.find((r) => r.type === 'A')!;
+      const rectB = result.rectangles.find((r) => r.type === 'B')!;
 
       // B应该在A的右边
       expect(rectB.left).toBeGreaterThan(rectA.left);
@@ -324,14 +325,14 @@ describe('Rectangle Packing with MaxRects', () => {
       const result = pack(rectangles, {
         preservePosition: true,
         groupByType: true,
-        sortBy: 'position'
+        sortBy: 'position',
       });
 
       expect(result.rectangles.length).toBe(4);
-      
+
       // 同类型的矩形应该大致保持相对位置
-      const typeA = result.rectangles.filter(r => r.type === 'A');
-      const typeB = result.rectangles.filter(r => r.type === 'B');
+      const typeA = result.rectangles.filter((r) => r.type === 'A');
+      const typeB = result.rectangles.filter((r) => r.type === 'B');
 
       expect(typeA.length).toBe(2);
       expect(typeB.length).toBe(2);
@@ -349,7 +350,7 @@ describe('Rectangle Packing with MaxRects', () => {
       const result = pack(rectangles, { sortBy: 'area' });
 
       // 最大的矩形应该在左上角
-      const largest = result.rectangles.find(r => r.width === 30);
+      const largest = result.rectangles.find((r) => r.width === 30);
       expect(largest).toBeDefined();
       expect(largest!.left).toBeLessThanOrEqual(10);
       expect(largest!.top).toBeLessThanOrEqual(10);
@@ -366,7 +367,7 @@ describe('Rectangle Packing with MaxRects', () => {
 
       const result = pack(rectangles, {
         containerWidth: 50,
-        containerHeight: 50
+        containerHeight: 50,
       });
 
       expect(result.suggestedContainerWidth).toBeGreaterThan(50);
@@ -382,7 +383,7 @@ describe('Rectangle Packing with MaxRects', () => {
       const result = pack(rectangles, {
         containerWidth: 50,
         containerHeight: 50,
-        targetAspectRatio: 2 // width:height = 2:1
+        targetAspectRatio: 2, // width:height = 2:1
       });
 
       const ratio = result.suggestedContainerWidth / result.suggestedContainerHeight;
@@ -426,14 +427,15 @@ describe('Rectangle Packing with MaxRects', () => {
 
       const result = pack(rectangles, { sortBy: 'area' });
 
-      const large = result.rectangles.find(r => r.width === 50);
-      const smallRects = result.rectangles.filter(r => r.width === 10);
+      const large = result.rectangles.find((r) => r.width === 50);
+      const smallRects = result.rectangles.filter((r) => r.width === 10);
 
       expect(large).toBeDefined();
 
       // 大矩形应该比大部分小矩形更靠近左上角
       const largeDistance = large!.left + large!.top;
-      const avgSmallDistance = smallRects.reduce((sum, r) => sum + r.left + r.top, 0) / smallRects.length;
+      const avgSmallDistance =
+        smallRects.reduce((sum, r) => sum + r.left + r.top, 0) / smallRects.length;
 
       expect(largeDistance).toBeLessThan(avgSmallDistance);
     });

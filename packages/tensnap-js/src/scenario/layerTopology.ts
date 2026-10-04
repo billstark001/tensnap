@@ -39,14 +39,17 @@ export function orderLayers<T>(
   const state = new Map<string, 'active' | 'done'>();
   const visit = (id: string): void => {
     if (state.get(id) === 'done') return;
-    if (state.get(id) === 'active') throw new Error(`Cyclic layer dependency: ${environmentId}/${id}`);
+    if (state.get(id) === 'active')
+      throw new Error(`Cyclic layer dependency: ${environmentId}/${id}`);
     state.set(id, 'active');
     const layer = byId.get(id)!;
-    const refs = Object.entries(dependenciesOf(layer) ?? {})
-      .sort((a, b) => (position.get(a[1]) ?? -1) - (position.get(b[1]) ?? -1));
+    const refs = Object.entries(dependenciesOf(layer) ?? {}).sort(
+      (a, b) => (position.get(a[1]) ?? -1) - (position.get(b[1]) ?? -1),
+    );
     for (const [role, dependencyId] of refs) {
       const dependency = byId.get(dependencyId);
-      if (!dependency) throw new Error(`Layer ${environmentId}/${id} depends on missing layer ${dependencyId}`);
+      if (!dependency)
+        throw new Error(`Layer ${environmentId}/${id} depends on missing layer ${dependencyId}`);
       if (role === 'agent' && typeOf(dependency) !== 'agent') {
         throw new Error(`Layer ${environmentId}/${id} requires agent layer ${dependencyId}`);
       }

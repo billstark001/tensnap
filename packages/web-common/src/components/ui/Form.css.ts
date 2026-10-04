@@ -1,5 +1,5 @@
-import { globalStyle, style } from "@vanilla-extract/css";
-import { vars } from "../../styles/global.css";
+import { globalStyle, style } from '@vanilla-extract/css';
+import { vars } from '../../styles/global.css';
 
 export const formInput = style({
   width: '100%',
@@ -8,7 +8,7 @@ export const formInput = style({
   border: `1px solid ${vars.color.secondary}`,
   fontSize: vars.fontSize.sm,
   transition: 'border-color 0.2s ease',
-  
+
   selectors: {
     '&:focus': {
       outline: 'none',
@@ -29,7 +29,7 @@ export const formLabel = style({
   fontWeight: '500',
   color: vars.color.foreground,
   marginBottom: vars.space.xs,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,

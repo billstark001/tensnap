@@ -35,9 +35,7 @@ export interface SimulatorSessionHandlers {
   onError?(payload: ErrorPayload, session: SimulatorSession): void | Promise<void>;
 }
 
-export type SessionMessageSender = (
-  message: SimulatorToRendererMessage,
-) => void | Promise<void>;
+export type SessionMessageSender = (message: SimulatorToRendererMessage) => void | Promise<void>;
 
 export class SimulatorSession {
   readonly emitter: SimulatorEmitter;
@@ -113,7 +111,10 @@ export class SimulatorSession {
         await this.handlers.onSceneCapture?.(message.payload as SceneCapturePayload, this);
         return;
       case 'screenshot_response':
-        await this.handlers.onScreenshotResponse?.(message.payload as ScreenshotResponsePayload, this);
+        await this.handlers.onScreenshotResponse?.(
+          message.payload as ScreenshotResponsePayload,
+          this,
+        );
         return;
       case 'error':
         await this.handlers.onError?.(message.payload as ErrorPayload, this);

@@ -1,11 +1,19 @@
 import type {
-  Action, ChartMetadata, MonitorMetadata, Parameter, ScenarioEnvironmentType, StateSyncRequest,
+  Action,
+  ChartMetadata,
+  MonitorMetadata,
+  Parameter,
+  ScenarioEnvironmentType,
+  StateSyncRequest,
 } from '@tensnap/protocol';
 import type { MonitorState } from '../monitor';
 import type { ScenarioSnapshot } from './types';
 
 /** Definitions advertised during state sync; excludes simulation state and chart values. */
-export type StateSyncInventory = Pick<StateSyncRequest, 'parameters' | 'actions' | 'envs' | 'charts' | 'monitors'>;
+export type StateSyncInventory = Pick<
+  StateSyncRequest,
+  'parameters' | 'actions' | 'envs' | 'charts' | 'monitors'
+>;
 
 /** Build a wire request from definition lists without accepting identity fields from callers. */
 export function createStateSyncRequest(
@@ -21,7 +29,11 @@ export function createStateSyncRequest(
     request_id: requestId,
     model_id: modelId,
     ...(instanceId === undefined ? {} : { instance_id: instanceId }),
-    parameters, actions, envs, charts, monitors,
+    parameters,
+    actions,
+    envs,
+    charts,
+    monitors,
   };
 }
 
@@ -54,17 +66,24 @@ export function createStateSyncInventory(source: StateSyncInventorySource): Stat
     envs: [...source.environments].map((environment) => ({
       id: environment.id,
       type: environment.type,
-      layers: [...environment.layers].map((layer) => ({ layer_id: layer.id, layer_type: layer.layerType })),
+      layers: [...environment.layers].map((layer) => ({
+        layer_id: layer.id,
+        layer_type: layer.layerType,
+      })),
     })),
     charts,
     monitors: [...source.monitors].map(({ id, label, render_hint }) => ({
-      id, label, ...(render_hint === undefined ? {} : { render_hint }),
+      id,
+      label,
+      ...(render_hint === undefined ? {} : { render_hint }),
     })),
   };
 }
 
 /** Extract the advertised definitions from a saved scenario; an absent snapshot means an empty inventory. */
-export function createStateSyncInventoryFromSnapshot(snapshot?: ScenarioSnapshot): StateSyncInventory {
+export function createStateSyncInventoryFromSnapshot(
+  snapshot?: ScenarioSnapshot,
+): StateSyncInventory {
   return createStateSyncInventory({
     parameters: snapshot?.parameters ?? [],
     actions: snapshot?.actions ?? [],

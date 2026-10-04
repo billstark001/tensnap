@@ -29,7 +29,13 @@ const defaults: SnapshotRestoreConfig = {
 };
 
 function integer(value: unknown, name: string, minimum: number, maximum?: number): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || (maximum !== undefined && value > maximum)) throw new Error(`${name} must be an integer in range.`);
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < minimum ||
+    (maximum !== undefined && value > maximum)
+  )
+    throw new Error(`${name} must be an integer in range.`);
   return value;
 }
 
@@ -41,8 +47,14 @@ function resolveConfig(overrides: Partial<SnapshotRestoreConfig> = {}): Snapshot
     agentCount,
     changedAgents: integer(config.changedAgents, 'changedAgents', 0, agentCount),
     segmentFrames: integer(config.segmentFrames, 'segmentFrames', 1, 1_000),
-    worldSize: typeof config.worldSize === 'number' && config.worldSize > 0 ? config.worldSize : defaults.worldSize,
-    stepSize: typeof config.stepSize === 'number' && config.stepSize >= 0 ? config.stepSize : defaults.stepSize,
+    worldSize:
+      typeof config.worldSize === 'number' && config.worldSize > 0
+        ? config.worldSize
+        : defaults.worldSize,
+    stepSize:
+      typeof config.stepSize === 'number' && config.stepSize >= 0
+        ? config.stepSize
+        : defaults.stepSize,
     seed: integer(config.seed, 'seed', 0, 0xffff_ffff),
   };
 }
@@ -56,20 +68,37 @@ function createNodeCase(config: SnapshotRestoreConfig): NodeBenchmarkCase {
   return {
     run(iteration) {
       const changed = stepRandomWalk(agents, config, random, iteration);
-      const update = { type: 'item_update' as const, payload: { env_id: 'main', layer_id: 'agents', items: changed.map(({ id, x, y }) => ({ id, x, y })) } };
+      const update = {
+        type: 'item_update' as const,
+        payload: {
+          env_id: 'main',
+          layer_id: 'agents',
+          items: changed.map(({ id, x, y }) => ({ id, x, y })),
+        },
+      };
       scenario.apply(update);
       recorder.recordMessage(update);
-      recorder.recordMessage({ type: 'action_result', payload: { id: 'step', request_id: `snapshot-${iteration}`, should_continue: true } });
+      recorder.recordMessage({
+        type: 'action_result',
+        payload: { id: 'step', request_id: `snapshot-${iteration}`, should_continue: true },
+      });
       const snapshot = recorder.current;
       if (!snapshot) throw new Error('Snapshot recorder unexpectedly stopped.');
       const archive = encodeSnapshotArchive(snapshot, config.segmentFrames);
       const restored = materializeSnapshot(decodeSnapshotArchive(archive));
       const current = scenario.dump();
-      if (JSON.stringify(restored) !== JSON.stringify(current)) throw new Error('Archive restore changed Scenario state.');
-      return { metrics: { archiveBytes: archive.byteLength, archiveSegments: archive.segments.length } };
+      if (JSON.stringify(restored) !== JSON.stringify(current))
+        throw new Error('Archive restore changed Scenario state.');
+      return {
+        metrics: { archiveBytes: archive.byteLength, archiveSegments: archive.segments.length },
+      };
     },
-    snapshot() { return canonicalRandomWalkState(agents); },
-    expectedState(actions) { return expectedRandomWalkState(config, actions); },
+    snapshot() {
+      return canonicalRandomWalkState(agents);
+    },
+    expectedState(actions) {
+      return expectedRandomWalkState(config, actions);
+    },
   };
 }
 
@@ -79,7 +108,8 @@ export const workload: BenchmarkWorkload<SnapshotRestoreConfig> = {
   version: 1,
   kind: 'node',
   category: 'snapshot',
-  description: 'Incremental snapshot recording, MessagePack archive encode/decode, and materialized restore verification.',
+  description:
+    'Incremental snapshot recording, MessagePack archive encode/decode, and materialized restore verification.',
   supportedSuites: ['node'],
   resolveConfig,
   createNodeCase,

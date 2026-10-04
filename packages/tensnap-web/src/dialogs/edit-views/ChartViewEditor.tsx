@@ -21,9 +21,10 @@ interface ChartViewEditorProps extends BaseViewEditorProps {
 
 const formatChartDataPreview = (chartGroup: ChartGroup): string => {
   const preview = chartGroup.data.slice(0, 20);
-  const suffix = chartGroup.data.length > preview.length
-    ? `\n... ${chartGroup.data.length - preview.length} more point(s)`
-    : '';
+  const suffix =
+    chartGroup.data.length > preview.length
+      ? `\n... ${chartGroup.data.length - preview.length} more point(s)`
+      : '';
   return `${JSON.stringify(preview, null, 2)}${suffix}`;
 };
 
@@ -34,7 +35,10 @@ const NewSeriesForm: React.FC<{
   onConfirm: () => void;
   onCancel: () => void;
 }> = ({ formData, onUpdate, onConfirm, onCancel }) => (
-  <div className={styles.seriesItem} style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}>
+  <div
+    className={styles.seriesItem}
+    style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}
+  >
     <Form.Input
       type="color"
       value={formData.color}
@@ -109,7 +113,15 @@ const SeriesItem: React.FC<{
   onUpdateId: (newId: string) => void;
   onToggleEdit: () => void;
   onRemove: () => void;
-}> = ({ metadata, isEditing, onUpdateColor, onUpdateMetadata, onUpdateId, onToggleEdit, onRemove }) => (
+}> = ({
+  metadata,
+  isEditing,
+  onUpdateColor,
+  onUpdateMetadata,
+  onUpdateId,
+  onToggleEdit,
+  onRemove,
+}) => (
   <div className={styles.seriesItem}>
     <Form.Input
       type="color"
@@ -187,7 +199,11 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
   const { _ } = useLingui();
   const toast = useToast();
   const [editingMetadataId, setEditingMetadataId] = useState<string | null>(null);
-  const [newMetadataForm, setNewMetadataForm] = useState<{ id: string; label: string; color: string } | null>(null);
+  const [newMetadataForm, setNewMetadataForm] = useState<{
+    id: string;
+    label: string;
+    color: string;
+  } | null>(null);
 
   const metadataList = chartGroup ? Object.values(chartGroup.metadataDict) : [];
 
@@ -196,7 +212,9 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
       setNewMetadataForm({
         id: `series-${generateUniqueId()}`,
         label: 'New Series',
-        color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+        color: `#${Math.floor(Math.random() * 16777215)
+          .toString(16)
+          .padStart(6, '0')}`,
       });
     } else if (chartGroup && newMetadataForm.id && newMetadataForm.label) {
       if (newMetadataForm.id in chartGroup.metadataDict) {
@@ -286,11 +304,23 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
           </Form.Field>
 
           <Form.FieldSet>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px',
+              }}
+            >
               <Form.Label>
                 <Trans>Chart Series</Trans> ({metadataList.length})
               </Form.Label>
-              <button type="button" onClick={handleAddMetadata} className={styles.iconButton} title="Add series">
+              <button
+                type="button"
+                onClick={handleAddMetadata}
+                className={styles.iconButton}
+                title="Add series"
+              >
                 <Plus size={16} />
               </button>
             </div>
@@ -326,7 +356,9 @@ export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
         </>
       ) : (
         <div className={styles.infoText}>
-          <Trans>This view can keep its binding, but there is no registered chart group to edit.</Trans>
+          <Trans>
+            This view can keep its binding, but there is no registered chart group to edit.
+          </Trans>
         </div>
       )}
     </>

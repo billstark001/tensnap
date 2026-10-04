@@ -61,10 +61,10 @@ async function waitForInitialWebRender(
     const finishIfReady = () => {
       const state = store.getState();
       if (
-        state.connected
-        && state.stateSync.phase === 'idle'
-        && state.actions.size > 0
-        && state.environments.size > 0
+        state.connected &&
+        state.stateSync.phase === 'idle' &&
+        state.actions.size > 0 &&
+        state.environments.size > 0
       ) {
         clearTimeout(timer);
         unsubscribe();
@@ -105,9 +105,15 @@ export async function mountWebChartBenchmark(
   const { host, root } = await prepareComponentHost(container, options);
   let revision = 0;
   let data = options.initialData;
-  const render = () => root.render(
-    <CanvasChartView data={data} dataVersion={revision} config={options.config} style={{ width: '100%', height: '100%' }} />,
-  );
+  const render = () =>
+    root.render(
+      <CanvasChartView
+        data={data}
+        dataVersion={revision}
+        config={options.config}
+        style={{ width: '100%', height: '100%' }}
+      />,
+    );
   flushSync(render);
   await waitForAnimationFrame();
   return {
@@ -126,7 +132,11 @@ export async function mountWebChartBenchmark(
 /** Mount a production Web environment component without a transport. */
 export async function mountWebEnvironmentBenchmark(
   container: HTMLElement,
-  options: WebComponentHostOptions & { scenario: Scenario; environmentId: string; display: '2d' | 'uniform' },
+  options: WebComponentHostOptions & {
+    scenario: Scenario;
+    environmentId: string;
+    display: '2d' | 'uniform';
+  },
 ): Promise<MountedWebComponentBenchmark> {
   const { host, root } = await prepareComponentHost(container, options);
   const historyStore = createHistoryStore();
@@ -137,18 +147,29 @@ export async function mountWebEnvironmentBenchmark(
     host.remove();
     throw new Error(`Benchmark environment "${options.environmentId}" was not found.`);
   }
-  const view = options.display === 'uniform'
-    ? <UniformEnvironmentView environment={environment} scenario={options.scenario} assets={options.scenario.assets} />
-    : <Environment2DView environment={environment} scenario={options.scenario} assets={options.scenario.assets} />;
-  flushSync(() => root.render(
-    <I18nProvider i18n={i18n}>
-      <ScenarioStoreProvider value={scenarioStore}>
-        <ScenarioUndoRedoStoreProvider value={historyStore}>
-          {view}
-        </ScenarioUndoRedoStoreProvider>
-      </ScenarioStoreProvider>
-    </I18nProvider>,
-  ));
+  const view =
+    options.display === 'uniform' ? (
+      <UniformEnvironmentView
+        environment={environment}
+        scenario={options.scenario}
+        assets={options.scenario.assets}
+      />
+    ) : (
+      <Environment2DView
+        environment={environment}
+        scenario={options.scenario}
+        assets={options.scenario.assets}
+      />
+    );
+  flushSync(() =>
+    root.render(
+      <I18nProvider i18n={i18n}>
+        <ScenarioStoreProvider value={scenarioStore}>
+          <ScenarioUndoRedoStoreProvider value={historyStore}>{view}</ScenarioUndoRedoStoreProvider>
+        </ScenarioStoreProvider>
+      </I18nProvider>,
+    ),
+  );
   await waitForAnimationFrame();
   await waitForAnimationFrame();
   return {

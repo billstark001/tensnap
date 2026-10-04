@@ -25,8 +25,16 @@ interface AgentDetailsDialogProps {
 }
 
 const INSPECTION_EVENTS = [
-  'metadata:update', 'env:create', 'env:delete', 'layer:create', 'layer:update',
-  'layer:delete', 'item:create', 'item:update', 'item:delete', 'reset',
+  'metadata:update',
+  'env:create',
+  'env:delete',
+  'layer:create',
+  'layer:update',
+  'layer:delete',
+  'item:create',
+  'item:update',
+  'item:delete',
+  'reset',
 ] as const;
 const INSPECTION_REFRESH_MS = 100;
 
@@ -90,9 +98,10 @@ function AgentInspectionCanvas({
     resolveAssetUrlRef.current = resolveAssetUrl;
   }, [resolveAssetUrl]);
 
-  const resolveCurrentAssetUrl = useCallback((assetId: string) => (
-    resolveAssetUrlRef.current?.(assetId)
-  ), []);
+  const resolveCurrentAssetUrl = useCallback(
+    (assetId: string) => resolveAssetUrlRef.current?.(assetId),
+    [],
+  );
 
   useEffect(() => {
     const container = containerRef.current;
@@ -124,26 +133,36 @@ function AgentInspectionCanvas({
     }
   }, [follow, inspection.viewport]);
 
-  return <div ref={containerRef} className={styles.inspectionCanvas} aria-label="Agent neighbourhood" />;
+  return (
+    <div ref={containerRef} className={styles.inspectionCanvas} aria-label="Agent neighbourhood" />
+  );
 }
 
 // Component to render position information
-const PositionInfo = ({ agent: _agent, agentType }: Pick<AgentDetailsDialogProps, 'agent' | 'agentType'>) => {
+const PositionInfo = ({
+  agent: _agent,
+  agentType,
+}: Pick<AgentDetailsDialogProps, 'agent' | 'agentType'>) => {
   if (agentType === '2d') {
     const agent = _agent as AgentRenderState;
     return (
       <div className={styles.positionInfo}>
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}><Trans>Position:</Trans></span>
-          {agent.x !== undefined && agent.y !== undefined
-            ? `(${agent.x.toFixed(4)}, ${agent.y.toFixed(4)})`
-            : <Trans>Not positioned</Trans>
-          }
+          <span className={styles.detailLabel}>
+            <Trans>Position:</Trans>
+          </span>
+          {agent.x !== undefined && agent.y !== undefined ? (
+            `(${agent.x.toFixed(4)}, ${agent.y.toFixed(4)})`
+          ) : (
+            <Trans>Not positioned</Trans>
+          )}
         </div>
         {agent.heading !== undefined && (
           <div className={styles.headingInfo}>
-            <span className={styles.detailLabel}><Trans>Heading:</Trans></span>
-            {(agent.heading * 180 / Math.PI).toFixed(2)}°
+            <span className={styles.detailLabel}>
+              <Trans>Heading:</Trans>
+            </span>
+            {((agent.heading * 180) / Math.PI).toFixed(2)}°
           </div>
         )}
       </div>
@@ -171,9 +190,10 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const [follow, setFollow] = useState(true);
   const inspection = useLiveInspection(scenario, agentRef, radius, isOpen);
   const liveAgent = scenario && agentRef ? inspection?.agent : agent;
-  const inspectionEnvironment = inspection && inspection.kind !== 'none'
-    ? scenario?.getEnvironment(inspection.environmentId)
-    : undefined;
+  const inspectionEnvironment =
+    inspection && inspection.kind !== 'none'
+      ? scenario?.getEnvironment(inspection.environmentId)
+      : undefined;
 
   useEffect(() => {
     if (scenario && agentRef && !inspection) {
@@ -185,7 +205,9 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
 
   const size = liveAgent.size || 16;
   const color = liveAgent.color || '#666666';
-  const assetId = liveAgent.icon?.startsWith('asset:') ? liveAgent.icon.slice('asset:'.length) : null;
+  const assetId = liveAgent.icon?.startsWith('asset:')
+    ? liveAgent.icon.slice('asset:'.length)
+    : null;
   const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
   const hasCustomData = liveAgent.data !== undefined && Object.keys(liveAgent.data).length > 0;
   const showUnavailableSpatialContext = agentType !== 'uniform' && inspection?.kind === 'none';
@@ -225,7 +247,9 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             />
             <div className={styles.inspectionControls}>
               <Form.FieldSet className={styles.radiusField}>
-                <Form.Label htmlFor="agent-inspection-radius"><Trans>Radius</Trans></Form.Label>
+                <Form.Label htmlFor="agent-inspection-radius">
+                  <Trans>Radius</Trans>
+                </Form.Label>
                 <Form.Input
                   id="agent-inspection-radius"
                   aria-label="Inspection radius"
@@ -257,14 +281,18 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
           </div>
         )}
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}><Trans>ID:</Trans></span>
+          <span className={styles.detailLabel}>
+            <Trans>ID:</Trans>
+          </span>
           {liveAgent.id}
         </div>
 
         <PositionInfo agent={liveAgent} agentType={agentType} />
 
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}><Trans>Icon:</Trans></span>
+          <span className={styles.detailLabel}>
+            <Trans>Icon:</Trans>
+          </span>
           <div className={styles.agentIcon}>
             {createIconElement(liveAgent.icon, size, color, assetUrl)}
           </div>
@@ -272,23 +300,30 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
         </div>
 
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}><Trans>Color:</Trans></span>
-          <span
-            className={styles.colorSwatch}
-            style={{ backgroundColor: color }}
-          />
+          <span className={styles.detailLabel}>
+            <Trans>Color:</Trans>
+          </span>
+          <span className={styles.colorSwatch} style={{ backgroundColor: color }} />
           {color}
         </div>
 
         <div className={styles.detailRow}>
-          <span className={styles.detailLabel}><Trans>Size:</Trans></span>
+          <span className={styles.detailLabel}>
+            <Trans>Size:</Trans>
+          </span>
           {liveAgent.size || <Trans>default</Trans>}
         </div>
 
         <div className={styles.dataSection}>
           <div className={styles.dataHeader}>
-            <h4 className={styles.dataSectionTitle}><Trans>Custom Data:</Trans></h4>
-            {!hasCustomData && <span className={styles.dataEmpty}><Trans>None</Trans></span>}
+            <h4 className={styles.dataSectionTitle}>
+              <Trans>Custom Data:</Trans>
+            </h4>
+            {!hasCustomData && (
+              <span className={styles.dataEmpty}>
+                <Trans>None</Trans>
+              </span>
+            )}
           </div>
           {hasCustomData && (
             <ValueInspector value={liveAgent.data} compact className={styles.dataContent} />
@@ -298,7 +333,9 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
 
       <Dialog.Footer>
         <Dialog.Close asChild>
-          <Dialog.Button><Trans>Close</Trans></Dialog.Button>
+          <Dialog.Button>
+            <Trans>Close</Trans>
+          </Dialog.Button>
         </Dialog.Close>
       </Dialog.Footer>
 

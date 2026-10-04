@@ -1,16 +1,16 @@
-import { Trans } from "@lingui/react/macro";
+import { Trans } from '@lingui/react/macro';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
-import { ViewContextMenuRendererType } from "../view/types";
-import { ClipboardCopy, Edit, Pause, Play, Sheet, StepForward, Trash2 } from "lucide-react";
-import { EditViewDialog } from "@/dialogs/edit-views/EditViewDialog";
-import { useCallback, useState } from "react";
-import { AnyView, ButtonView } from "@/types/ui";
-import { useViewContext } from "../view/useViewContext";
-import { useToast } from "@/store/toast";
-import { useScenarioStore } from "@/store/scenario/store";
+import { ViewContextMenuRendererType } from '../view/types';
+import { ClipboardCopy, Edit, Pause, Play, Sheet, StepForward, Trash2 } from 'lucide-react';
+import { EditViewDialog } from '@/dialogs/edit-views/EditViewDialog';
+import { useCallback, useState } from 'react';
+import { AnyView, ButtonView } from '@/types/ui';
+import { useViewContext } from '../view/useViewContext';
+import { useToast } from '@/store/toast';
+import { useScenarioStore } from '@/store/scenario/store';
 import { exportToCSV } from '@tensnap/core/chart/browser';
-import { useUpdateAndDeleteView } from "./view-edit-hooks";
-import { copyCanvas } from "@/utils/data";
+import { useUpdateAndDeleteView } from './view-edit-hooks';
+import { copyCanvas } from '@/utils/data';
 import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
 import { useSettingsStore } from '@/store/settings';
 import { valueInspectorText } from '@tensnap/core/value-inspector';
@@ -18,7 +18,6 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 
 export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
-
   const { view, type, parentView, children, node } = props;
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -34,13 +33,16 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   const setRunProfile = useSettingsStore((state) => state.setContinuousRunProfile);
   const toast = useToast();
   const { _ } = useLingui();
-  const button = type === 'button' ? view as ButtonView : null;
+  const button = type === 'button' ? (view as ButtonView) : null;
   const continuousActionId = button?.data.continuous ? button.data.id : null;
   const continuousRunIsActive = continuousActionId !== null && isRunning(continuousActionId);
 
-  const handleDelete = useCallback((id: string) => {
-    deleteView(id);
-  }, [deleteView]);
+  const handleDelete = useCallback(
+    (id: string) => {
+      deleteView(id);
+    },
+    [deleteView],
+  );
 
   const handleEdit = useCallback(() => {
     setEditingView(structuredClone(view));
@@ -54,9 +56,12 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
     }
   }, []);
 
-  const handleSaveEdit = useCallback((updatedView: AnyView, objectData?: any) => {
-    return updateView(updatedView, objectData);
-  }, [updateView]);
+  const handleSaveEdit = useCallback(
+    (updatedView: AnyView, objectData?: any) => {
+      return updateView(updatedView, objectData);
+    },
+    [updateView],
+  );
 
   const handleCopyCanvas = useCallback(async () => {
     if (!node) return;
@@ -96,7 +101,9 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
       // Copy the storage snapshot at selection time, rather than the visible
       // page of the inspector, so table/tree display modes produce the same
       // complete text representation.
-      await navigator.clipboard.writeText(valueInspectorText(monitor.value ?? null, 1_000_000).text);
+      await navigator.clipboard.writeText(
+        valueInspectorText(monitor.value ?? null, 1_000_000).text,
+      );
       toast.success(_(msg`Monitor data copied to clipboard.`));
     } catch (error) {
       toast.error(
@@ -117,8 +124,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
   return (
     <>
-      <ContextMenu.Root trigger={children} >
-
+      <ContextMenu.Root trigger={children}>
         <ContextMenu.Label>
           <Trans>Options</Trans>
         </ContextMenu.Label>
@@ -149,7 +155,11 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
             <ContextMenu.Separator />
             <ContextMenu.Item onSelect={handleContinuousRun}>
               {continuousRunIsActive ? <Pause /> : <Play />}
-              {continuousRunIsActive ? <Trans>Stop continuous run</Trans> : <Trans>Continuous run…</Trans>}
+              {continuousRunIsActive ? (
+                <Trans>Stop continuous run</Trans>
+              ) : (
+                <Trans>Continuous run…</Trans>
+              )}
             </ContextMenu.Item>
             <ContextMenu.Item onSelect={() => onButtonAction(continuousActionId, false)}>
               <StepForward />
@@ -160,17 +170,12 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
         <ContextMenu.Separator />
 
-        <ContextMenu.Item
-          onSelect={handleEdit}
-        >
+        <ContextMenu.Item onSelect={handleEdit}>
           <Edit />
           <Trans>Edit</Trans>
         </ContextMenu.Item>
 
-        <ContextMenu.Item
-          variant='danger'
-          onSelect={() => handleDelete(view.id)}
-        >
+        <ContextMenu.Item variant="danger" onSelect={() => handleDelete(view.id)}>
           <Trash2 />
           <Trans>Delete</Trans>
         </ContextMenu.Item>
@@ -204,5 +209,4 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
       )}
     </>
   );
-
-}
+};

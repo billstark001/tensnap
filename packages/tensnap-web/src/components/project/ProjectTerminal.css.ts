@@ -1,6 +1,5 @@
-import { vars } from "@tensnap/web-common/styles/global.css";
-import { globalStyle, style } from "@vanilla-extract/css";
-
+import { vars } from '@tensnap/web-common/styles/global.css';
+import { globalStyle, style } from '@vanilla-extract/css';
 
 export const projectContainer = style({
   width: '100%',

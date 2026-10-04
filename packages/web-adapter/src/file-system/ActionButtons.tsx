@@ -18,7 +18,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   onRefresh,
   onCreate,
   onExport,
-  onFileInputChange
+  onFileInputChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -28,25 +28,14 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
 
   return (
     <div className={styles.actionButtons}>
-      <button 
-        className={styles.actionButton}
-        onClick={onRefresh}
-        disabled={loading}
-      >
+      <button className={styles.actionButton} onClick={onRefresh} disabled={loading}>
         {t`Refresh`}
       </button>
-      <button 
-        className={styles.actionButton}
-        onClick={onCreate}
-      >
+      <button className={styles.actionButton} onClick={onCreate}>
         {t`New`}
       </button>
       {allowUpload && (
-        <button 
-          className={styles.primaryButton}
-          onClick={handleUploadClick}
-          disabled={loading}
-        >
+        <button className={styles.primaryButton} onClick={handleUploadClick} disabled={loading}>
           {t`Upload Files`}
         </button>
       )}
@@ -56,10 +45,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={styles.dropdownContent}>
-            <DropdownMenu.Item 
-              className={styles.dropdownItem}
-              onClick={() => onExport()}
-            >
+            <DropdownMenu.Item className={styles.dropdownItem} onClick={() => onExport()}>
               {t`Export`}
             </DropdownMenu.Item>
           </DropdownMenu.Content>

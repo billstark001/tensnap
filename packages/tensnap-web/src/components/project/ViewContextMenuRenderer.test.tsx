@@ -41,11 +41,22 @@ vi.mock('@tensnap/core/chart/browser', () => ({
 }));
 
 vi.mock('@lingui/react', () => ({
-  Trans: ({ children, message, id }: { children?: React.ReactNode; message?: string; id?: string }) => <>{children ?? message ?? id}</>,
+  Trans: ({
+    children,
+    message,
+    id,
+  }: {
+    children?: React.ReactNode;
+    message?: string;
+    id?: string;
+  }) => <>{children ?? message ?? id}</>,
   useLingui: () => ({
-    _: (value: unknown) => typeof value === 'string'
-      ? value
-      : (value as { message?: string; id?: string }).message ?? (value as { id?: string }).id ?? '',
+    _: (value: unknown) =>
+      typeof value === 'string'
+        ? value
+        : ((value as { message?: string; id?: string }).message ??
+          (value as { id?: string }).id ??
+          ''),
   }),
 }));
 

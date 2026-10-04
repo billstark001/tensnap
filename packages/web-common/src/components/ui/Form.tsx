@@ -1,4 +1,9 @@
-import React, { forwardRef, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
+import React, {
+  forwardRef,
+  InputHTMLAttributes,
+  TextareaHTMLAttributes,
+  SelectHTMLAttributes,
+} from 'react';
 import * as formStyles from './Form.css';
 import clsx from 'clsx';
 
@@ -7,15 +12,13 @@ export interface FormProps extends React.FormHTMLAttributes<HTMLFormElement> {
   children: React.ReactNode;
 }
 
-export const Form = forwardRef<HTMLFormElement, FormProps>(
-  ({ children, ...props }, ref) => {
-    return (
-      <form ref={ref} {...props}>
-        {children}
-      </form>
-    );
-  }
-);
+export const Form = forwardRef<HTMLFormElement, FormProps>(({ children, ...props }, ref) => {
+  return (
+    <form ref={ref} {...props}>
+      {children}
+    </form>
+  );
+});
 Form.displayName = 'Form';
 
 // FieldSet Component
@@ -26,15 +29,11 @@ export interface FieldSetProps extends React.FieldsetHTMLAttributes<HTMLFieldSet
 export const FieldSet = forwardRef<HTMLFieldSetElement, FieldSetProps>(
   ({ children, className, ...props }, ref) => {
     return (
-      <fieldset 
-        ref={ref} 
-        className={`${formStyles.formFieldSet} ${className || ''}`} 
-        {...props}
-      >
+      <fieldset ref={ref} className={`${formStyles.formFieldSet} ${className || ''}`} {...props}>
         {children}
       </fieldset>
     );
-  }
+  },
 );
 FieldSet.displayName = 'FieldSet';
 
@@ -46,32 +45,20 @@ export interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> 
 export const Label = forwardRef<HTMLLabelElement, LabelProps>(
   ({ children, className, ...props }, ref) => {
     return (
-      <label 
-        ref={ref} 
-        className={`${formStyles.formLabel} ${className || ''}`} 
-        {...props}
-      >
+      <label ref={ref} className={`${formStyles.formLabel} ${className || ''}`} {...props}>
         {children}
       </label>
     );
-  }
+  },
 );
 Label.displayName = 'Label';
 
 // Input Component
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {}
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <input 
-        ref={ref} 
-        className={`${formStyles.formInput} ${className || ''}`} 
-        {...props}
-      />
-    );
-  }
-);
+export const Input = forwardRef<HTMLInputElement, InputProps>(({ className, ...props }, ref) => {
+  return <input ref={ref} className={`${formStyles.formInput} ${className || ''}`} {...props} />;
+});
 Input.displayName = 'Input';
 
 // Textarea Component
@@ -80,13 +67,9 @@ export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElemen
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => {
     return (
-      <textarea 
-        ref={ref} 
-        className={`${formStyles.formInput} ${className || ''}`} 
-        {...props}
-      />
+      <textarea ref={ref} className={`${formStyles.formInput} ${className || ''}`} {...props} />
     );
-  }
+  },
 );
 Textarea.displayName = 'Textarea';
 
@@ -98,15 +81,11 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ children, className, ...props }, ref) => {
     return (
-      <select 
-        ref={ref} 
-        className={`${formStyles.formInput} ${className || ''}`} 
-        {...props}
-      >
+      <select ref={ref} className={`${formStyles.formInput} ${className || ''}`} {...props}>
         {children}
       </select>
     );
-  }
+  },
 );
 Select.displayName = 'Select';
 
@@ -148,7 +127,7 @@ export const FieldGroup = forwardRef<HTMLDivElement, FieldGroupProps>(
         {children}
       </div>
     );
-  }
+  },
 );
 FieldGroup.displayName = 'FieldGroup';
 

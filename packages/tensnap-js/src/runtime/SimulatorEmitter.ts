@@ -35,9 +35,7 @@ import type {
   StateSyncEndPayload,
 } from '@tensnap/protocol';
 
-export type SimulatorMessageSender = (
-  message: SimulatorToRendererMessage,
-) => void | Promise<void>;
+export type SimulatorMessageSender = (message: SimulatorToRendererMessage) => void | Promise<void>;
 
 export class SimulatorEmitter {
   constructor(private readonly sendMessage: SimulatorMessageSender) {}

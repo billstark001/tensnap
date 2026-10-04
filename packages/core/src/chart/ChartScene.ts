@@ -41,15 +41,36 @@ export interface ChartTooltip {
   values: Array<{ key: string; label: string; value: number; color: string }>;
 }
 
-interface Padding { top: number; right: number; bottom: number; left: number; }
-interface SeriesPoint { time: number; value: number; }
-interface SampleBucket { first: SeriesPoint; last: SeriesPoint; min: SeriesPoint; max: SeriesPoint; }
+interface Padding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+interface SeriesPoint {
+  time: number;
+  value: number;
+}
+interface SampleBucket {
+  first: SeriesPoint;
+  last: SeriesPoint;
+  min: SeriesPoint;
+  max: SeriesPoint;
+}
 
 const light = {
-  background: '#ffffff', grid: '#e0e0e0', axis: '#333333', text: '#666666', label: '#333333',
+  background: '#ffffff',
+  grid: '#e0e0e0',
+  axis: '#333333',
+  text: '#666666',
+  label: '#333333',
 };
 const dark = {
-  background: '#1f1f1f', grid: '#404040', axis: '#cccccc', text: '#b0b0b0', label: '#e0e0e0',
+  background: '#1f1f1f',
+  grid: '#404040',
+  axis: '#cccccc',
+  text: '#b0b0b0',
+  label: '#e0e0e0',
 };
 const MAX_AXIS_TICKS = 100;
 
@@ -98,14 +119,22 @@ function formatTick(value: number): string {
 }
 
 /** Min/max bucket sampling preserves extrema per pixel; small input is returned unchanged. */
-export function downsampleSeries(points: SeriesPoint[], xMin: number, xMax: number, pixelWidth: number): SeriesPoint[] {
+export function downsampleSeries(
+  points: SeriesPoint[],
+  xMin: number,
+  xMax: number,
+  pixelWidth: number,
+): SeriesPoint[] {
   if (!Number.isFinite(pixelWidth) || pixelWidth <= 1) return points;
   const width = Math.floor(pixelWidth);
   if (points.length <= Math.max(4, width * 2)) return points;
   const range = xMax - xMin || 1;
   const buckets = new Array<SampleBucket | undefined>(width);
   for (const point of points) {
-    const bucket = Math.max(0, Math.min(width - 1, Math.floor(((point.time - xMin) / range) * width)));
+    const bucket = Math.max(
+      0,
+      Math.min(width - 1, Math.floor(((point.time - xMin) / range) * width)),
+    );
     const current = buckets[bucket];
     if (!current) {
       buckets[bucket] = { first: point, last: point, min: point, max: point };
@@ -118,8 +147,9 @@ export function downsampleSeries(points: SeriesPoint[], xMin: number, xMax: numb
   const retained: SeriesPoint[] = [];
   for (const bucket of buckets) {
     if (!bucket) continue;
-    const candidates = [bucket.first, bucket.min, bucket.max, bucket.last]
-      .sort((left, right) => left.time - right.time);
+    const candidates = [bucket.first, bucket.min, bucket.max, bucket.last].sort(
+      (left, right) => left.time - right.time,
+    );
     for (const candidate of candidates) {
       if (retained[retained.length - 1] !== candidate) retained.push(candidate);
     }
@@ -141,7 +171,10 @@ function sampleDataColumn(
   const range = xMax - xMin || 1;
 
   const addToBucket = (point: SeriesPoint) => {
-    const index = Math.max(0, Math.min(pixelWidth - 1, Math.floor(((point.time - xMin) / range) * pixelWidth)));
+    const index = Math.max(
+      0,
+      Math.min(pixelWidth - 1, Math.floor(((point.time - xMin) / range) * pixelWidth)),
+    );
     const current = buckets![index];
     if (!current) {
       buckets![index] = { first: point, last: point, min: point, max: point };
@@ -154,7 +187,8 @@ function sampleDataColumn(
 
   for (const point of data) {
     const value = point[key];
-    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isFinite(point.time)) continue;
+    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isFinite(point.time))
+      continue;
     const seriesPoint = { time: point.time, value };
     if (!buckets) {
       smallSeries.push(seriesPoint);
@@ -171,8 +205,9 @@ function sampleDataColumn(
   const sampled: SeriesPoint[] = [];
   for (const bucket of buckets) {
     if (!bucket) continue;
-    const candidates = [bucket.first, bucket.min, bucket.max, bucket.last]
-      .sort((left, right) => left.time - right.time);
+    const candidates = [bucket.first, bucket.min, bucket.max, bucket.last].sort(
+      (left, right) => left.time - right.time,
+    );
     for (const candidate of candidates) {
       if (sampled[sampled.length - 1] !== candidate) sampled.push(candidate);
     }
@@ -187,7 +222,12 @@ function sampleDataColumn(
 export class ChartScene {
   private data: ChartDataPoint[] = [];
   private config: ChartConfig;
-  private dataBounds: ChartBounds = { xMin: Infinity, xMax: -Infinity, yMin: Infinity, yMax: -Infinity };
+  private dataBounds: ChartBounds = {
+    xMin: Infinity,
+    xMax: -Infinity,
+    yMin: Infinity,
+    yMax: -Infinity,
+  };
   private indexedDataLength = 0;
   private indexedTail: ChartDataPoint | undefined;
 
@@ -201,9 +241,10 @@ export class ChartScene {
    * bounds update; pass a new array after editing or reordering older rows.
    */
   updateData(data: ChartDataPoint[]): void {
-    const canAppend = data === this.data
-      && data.length >= this.indexedDataLength
-      && (this.indexedDataLength === 0 || data[this.indexedDataLength - 1] === this.indexedTail);
+    const canAppend =
+      data === this.data &&
+      data.length >= this.indexedDataLength &&
+      (this.indexedDataLength === 0 || data[this.indexedDataLength - 1] === this.indexedTail);
     this.data = data;
     if (canAppend) this.extendDataBounds(this.indexedDataLength);
     else this.recalculateDataBounds();
@@ -232,8 +273,14 @@ export class ChartScene {
 
   /** Return the nearest row with a finite configured line value in time-sorted data. */
   getTooltipAt(pointerX: number, width: number): ChartTooltip | null {
-    if (this.config.showTooltip === false || this.data.length === 0
-      || !Number.isFinite(pointerX) || !Number.isFinite(width) || width <= 0) return null;
+    if (
+      this.config.showTooltip === false ||
+      this.data.length === 0 ||
+      !Number.isFinite(pointerX) ||
+      !Number.isFinite(width) ||
+      width <= 0
+    )
+      return null;
     const padding: Padding = {
       top: this.config.padding?.top ?? 24,
       right: this.config.padding?.right ?? 20,
@@ -242,7 +289,8 @@ export class ChartScene {
     };
     const plotWidth = Math.max(1, width - padding.left - padding.right);
     const bounds = this.getBounds();
-    const target = bounds.xMin + ((pointerX - padding.left) / plotWidth) * (bounds.xMax - bounds.xMin || 1);
+    const target =
+      bounds.xMin + ((pointerX - padding.left) / plotWidth) * (bounds.xMax - bounds.xMin || 1);
     const point = this.findNearestPoint(target);
     if (!point) return null;
 
@@ -255,11 +303,23 @@ export class ChartScene {
     return values.length ? { x: point.time, values } : null;
   }
 
-  render(context: ChartCanvasContext, width: number, height: number, options: ChartRenderOptions = {}): void {
+  render(
+    context: ChartCanvasContext,
+    width: number,
+    height: number,
+    options: ChartRenderOptions = {},
+  ): void {
     const colors = options.theme === 'dark' ? dark : light;
     const ratio = options.pixelRatio ?? 1;
-    if (!Number.isFinite(width) || !Number.isFinite(height) || !Number.isFinite(ratio)
-      || width <= 0 || height <= 0 || ratio <= 0) return;
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      !Number.isFinite(ratio) ||
+      width <= 0 ||
+      height <= 0 ||
+      ratio <= 0
+    )
+      return;
     const cssWidth = width / ratio;
     const cssHeight = height / ratio;
     const padding: Padding = {
@@ -273,8 +333,12 @@ export class ChartScene {
     const bounds = this.getBounds();
     const xTicks = niceTicks(bounds.xMin, bounds.xMax);
     const yTicks = niceTicks(bounds.yMin, bounds.yMax);
-    const x = (value: number) => padding.left + ((value - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * plotWidth;
-    const y = (value: number) => padding.top + plotHeight - ((value - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * plotHeight;
+    const x = (value: number) =>
+      padding.left + ((value - bounds.xMin) / (bounds.xMax - bounds.xMin || 1)) * plotWidth;
+    const y = (value: number) =>
+      padding.top +
+      plotHeight -
+      ((value - bounds.yMin) / (bounds.yMax - bounds.yMin || 1)) * plotHeight;
 
     context.save();
     context.clearRect(0, 0, cssWidth, cssHeight);
@@ -286,23 +350,38 @@ export class ChartScene {
     if (this.config.showGrid !== false) {
       context.strokeStyle = colors.grid;
       for (const tick of xTicks) {
-        context.beginPath(); context.moveTo(x(tick), padding.top); context.lineTo(x(tick), padding.top + plotHeight); context.stroke();
+        context.beginPath();
+        context.moveTo(x(tick), padding.top);
+        context.lineTo(x(tick), padding.top + plotHeight);
+        context.stroke();
       }
       for (const tick of yTicks) {
-        context.beginPath(); context.moveTo(padding.left, y(tick)); context.lineTo(padding.left + plotWidth, y(tick)); context.stroke();
+        context.beginPath();
+        context.moveTo(padding.left, y(tick));
+        context.lineTo(padding.left + plotWidth, y(tick));
+        context.stroke();
       }
     }
 
     context.strokeStyle = colors.axis;
     context.fillStyle = colors.text;
     if (this.config.showXAxis !== false) {
-      context.beginPath(); context.moveTo(padding.left, padding.top + plotHeight); context.lineTo(padding.left + plotWidth, padding.top + plotHeight); context.stroke();
-      context.textAlign = 'center'; context.textBaseline = 'top';
-      for (const tick of xTicks) context.fillText(formatTick(tick), x(tick), padding.top + plotHeight + 6);
+      context.beginPath();
+      context.moveTo(padding.left, padding.top + plotHeight);
+      context.lineTo(padding.left + plotWidth, padding.top + plotHeight);
+      context.stroke();
+      context.textAlign = 'center';
+      context.textBaseline = 'top';
+      for (const tick of xTicks)
+        context.fillText(formatTick(tick), x(tick), padding.top + plotHeight + 6);
     }
     if (this.config.showYAxis !== false) {
-      context.beginPath(); context.moveTo(padding.left, padding.top); context.lineTo(padding.left, padding.top + plotHeight); context.stroke();
-      context.textAlign = 'right'; context.textBaseline = 'middle';
+      context.beginPath();
+      context.moveTo(padding.left, padding.top);
+      context.lineTo(padding.left, padding.top + plotHeight);
+      context.stroke();
+      context.textAlign = 'right';
+      context.textBaseline = 'middle';
       for (const tick of yTicks) context.fillText(formatTick(tick), padding.left - 7, y(tick));
     }
 
@@ -312,7 +391,8 @@ export class ChartScene {
     for (const line of this.config.lines) this.renderLine(context, line, bounds, x, y, plotWidth);
     context.restore();
 
-    if (this.config.showLegend !== false) this.renderLegend(context, colors.label, padding, plotWidth);
+    if (this.config.showLegend !== false)
+      this.renderLegend(context, colors.label, padding, plotWidth);
     context.restore();
   }
 
@@ -324,7 +404,13 @@ export class ChartScene {
     y: (value: number) => number,
     plotWidth: number,
   ): void {
-    const sampled = sampleDataColumn(this.data, line.key, bounds.xMin, bounds.xMax, Math.ceil(plotWidth));
+    const sampled = sampleDataColumn(
+      this.data,
+      line.key,
+      bounds.xMin,
+      bounds.xMax,
+      Math.ceil(plotWidth),
+    );
     if (sampled.length < 2) return;
     context.beginPath();
     context.strokeStyle = line.color ?? '#8884d8';
@@ -352,13 +438,19 @@ export class ChartScene {
     let left = low - 1;
     let right = low;
     while (left >= 0 || right < this.data.length) {
-      const useLeft = left >= 0 && (right >= this.data.length
-        || Math.abs(time - this.data[left].time) <= Math.abs(this.data[right].time - time));
+      const useLeft =
+        left >= 0 &&
+        (right >= this.data.length ||
+          Math.abs(time - this.data[left].time) <= Math.abs(this.data[right].time - time));
       const point = this.data[useLeft ? left-- : right++];
-      if (Number.isFinite(point.time) && this.config.lines.some((line) => {
-        const value = point[line.key];
-        return typeof value === 'number' && Number.isFinite(value);
-      })) return point;
+      if (
+        Number.isFinite(point.time) &&
+        this.config.lines.some((line) => {
+          const value = point[line.key];
+          return typeof value === 'number' && Number.isFinite(value);
+        })
+      )
+        return point;
     }
     return undefined;
   }
@@ -385,7 +477,12 @@ export class ChartScene {
     this.indexedTail = this.data[this.data.length - 1];
   }
 
-  private renderLegend(context: ChartCanvasContext, labelColor: string, padding: Padding, plotWidth: number): void {
+  private renderLegend(
+    context: ChartCanvasContext,
+    labelColor: string,
+    padding: Padding,
+    plotWidth: number,
+  ): void {
     let left = padding.left;
     let top = padding.top + 4;
     context.font = '11px sans-serif';

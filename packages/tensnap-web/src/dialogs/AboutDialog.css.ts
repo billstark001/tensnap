@@ -1,5 +1,5 @@
-import { vars } from "@tensnap/web-common/styles/global.css";
-import { style } from "@vanilla-extract/css";
+import { vars } from '@tensnap/web-common/styles/global.css';
+import { style } from '@vanilla-extract/css';
 
 export const aboutContainer = style({
   padding: `${vars.space.lg} 0`,
@@ -24,7 +24,7 @@ export const aboutTitle = style({
   fontWeight: 'bold',
   marginBottom: vars.space.sm,
   color: vars.color.foreground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -35,7 +35,7 @@ export const aboutTitle = style({
 export const aboutVersion = style({
   fontSize: vars.fontSize.sm,
   color: vars.color.textSecondary,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextSecondary,
@@ -52,7 +52,7 @@ export const aboutText = style({
   lineHeight: 1.6,
   marginBottom: vars.space.md,
   color: vars.color.foreground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -64,7 +64,7 @@ export const aboutLinks = style({
   marginTop: vars.space.lg,
   borderTop: `1px solid ${vars.color.border}`,
   paddingTop: vars.space.md,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderTopColor: vars.color.darkBorder,
@@ -75,7 +75,7 @@ export const aboutLinks = style({
 export const aboutLinkItem = style({
   marginBottom: vars.space.md,
   color: vars.color.foreground,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkForeground,
@@ -86,11 +86,11 @@ export const aboutLinkItem = style({
 export const aboutLink = style({
   color: vars.color.link,
   textDecoration: 'none',
-  
+
   ':hover': {
     textDecoration: 'underline',
   },
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkLink,
@@ -103,7 +103,7 @@ export const aboutFooter = style({
   fontSize: vars.fontSize.xs,
   color: vars.color.textSecondary,
   textAlign: 'center',
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       color: vars.color.darkTextSecondary,

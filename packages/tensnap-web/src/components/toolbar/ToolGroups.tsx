@@ -45,9 +45,7 @@ import { resolveToolbarActionIds } from './toolbar-action-model';
 import { isActionVisiblyRunning } from '../../hooks/useButtonControls';
 
 const ToolGroupContainer = ({ children }: { children: React.ReactNode }) => {
-  return <div className={styles.toolGroup}>
-    {children}
-  </div>
+  return <div className={styles.toolGroup}>{children}</div>;
 };
 
 export function FileOperationTools() {
@@ -56,11 +54,7 @@ export function FileOperationTools() {
 
   return (
     <ToolGroupContainer>
-      <ToolButton
-        icon={<FileText size={16} />}
-        tooltip={_(msg`New File`)}
-        onClick={onNewFile}
-      />
+      <ToolButton icon={<FileText size={16} />} tooltip={_(msg`New File`)} onClick={onNewFile} />
 
       <ToolButton
         icon={<FolderOpen size={16} />}
@@ -74,7 +68,7 @@ export function FileOperationTools() {
         disabled={!canSaveFile}
       />
     </ToolGroupContainer>
-  )
+  );
 }
 
 export function UndoRedoTools() {
@@ -91,7 +85,9 @@ export function UndoRedoTools() {
       />
       <ToolButton
         icon={<Redo size={16} />}
-        tooltip={undoRedoStore?.future[0]?.label ? `Redo ${undoRedoStore.future[0].label}` : _(msg`Redo`)}
+        tooltip={
+          undoRedoStore?.future[0]?.label ? `Redo ${undoRedoStore.future[0].label}` : _(msg`Redo`)
+        }
         disabled={!undoRedoStore?.canRedo()}
         onClick={() => undoRedoStore?.redo()}
       />
@@ -128,7 +124,9 @@ export function SimulationControlTools() {
   const primaryActionIds = new Set([runActionId, stepActionId, resetActionId].filter(Boolean));
   const overflowActions = isSnapshotSource
     ? []
-    : [...(actions?.values() ?? [])].filter((action) => isDirectModelAction(action) && !primaryActionIds.has(action.id));
+    : [...(actions?.values() ?? [])].filter(
+        (action) => isDirectModelAction(action) && !primaryActionIds.has(action.id),
+      );
   // A local run remains technically "running" until its dispatched tick has
   // completed, but it is no longer actionable as a running control once pause
   // has been requested. Keep this in lockstep with view buttons so the second
@@ -137,70 +135,78 @@ export function SimulationControlTools() {
     ? isSnapshotPlaying
     : isActionVisiblyRunning(runStatus, runActionId ?? '');
   const waiting = Boolean(running && runStatus?.inFlight);
-  const runDisabled = (!isSnapshotSource && !connected) || !runActionId || Boolean(runStatus?.inFlight && !running);
-  const diagnostic = (available: boolean, role: string, fallback: string) => (
-    available ? fallback : `No ${role} action is available.`
-  );
+  const runDisabled =
+    (!isSnapshotSource && !connected) || !runActionId || Boolean(runStatus?.inFlight && !running);
+  const diagnostic = (available: boolean, role: string, fallback: string) =>
+    available ? fallback : `No ${role} action is available.`;
 
   return (
     <>
       <ToolGroupContainer>
-      <ToolButton
-        icon={running ? <Pause size={16} /> : <Play size={16} />}
-        tooltip={diagnostic(Boolean(runActionId), 'run', running
-          ? (waiting ? 'Pause after current tick' : 'Pause')
-          : runStatus?.inFlight ? 'Waiting for current tick' : 'Run')}
-        disabled={runDisabled}
-        isActive={running}
-        onClick={() => runActionId && (running ? pauseRun() : startManualRun(runActionId))}
-      />
-      <ToolButton
-        icon={<Timer size={16} />}
-        tooltip={diagnostic(Boolean(runActionId), 'run', _(msg`Conditional Run…`))}
-        disabled={runDisabled}
-        onClick={() => setConditionalOpen(true)}
-      />
-      <ToolButton
-        icon={<SkipForward size={16} />}
-        tooltip={diagnostic(Boolean(stepActionId), 'step', _(msg`Step`))}
-        disabled={(!isSnapshotSource && !connected) || !stepActionId}
-        onClick={() => stepActionId && requestStep(stepActionId)}
-      />
-      <ToolButton
-        icon={<TimerReset size={16} />}
-        tooltip={diagnostic(Boolean(resetActionId), 'reset', _(msg`Reset`))}
-        disabled={(!isSnapshotSource && !connected) || !resetActionId}
-        onClick={() => {
-          if (!resetActionId) return;
-          stopRecording?.();
-          history?.clear();
-          requestReset(resetActionId);
-        }}
-      />
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button
-            className={styles.toolButton}
-            aria-label={_(msg`More Actions`)}
-            disabled={(!isSnapshotSource && !connected) || overflowActions.length === 0}
-          >
-            <MoreHorizontal size={16} />
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-            {overflowActions.map((action) => (
-              <DropdownMenu.Item
-                key={action.id}
-                className={styles.dropdownItem}
-                onSelect={() => requestModelAction(action.id)}
-              >
-                {`Model action: ${action.label}`}
-              </DropdownMenu.Item>
-            ))}
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+        <ToolButton
+          icon={running ? <Pause size={16} /> : <Play size={16} />}
+          tooltip={diagnostic(
+            Boolean(runActionId),
+            'run',
+            running
+              ? waiting
+                ? 'Pause after current tick'
+                : 'Pause'
+              : runStatus?.inFlight
+                ? 'Waiting for current tick'
+                : 'Run',
+          )}
+          disabled={runDisabled}
+          isActive={running}
+          onClick={() => runActionId && (running ? pauseRun() : startManualRun(runActionId))}
+        />
+        <ToolButton
+          icon={<Timer size={16} />}
+          tooltip={diagnostic(Boolean(runActionId), 'run', _(msg`Conditional Run…`))}
+          disabled={runDisabled}
+          onClick={() => setConditionalOpen(true)}
+        />
+        <ToolButton
+          icon={<SkipForward size={16} />}
+          tooltip={diagnostic(Boolean(stepActionId), 'step', _(msg`Step`))}
+          disabled={(!isSnapshotSource && !connected) || !stepActionId}
+          onClick={() => stepActionId && requestStep(stepActionId)}
+        />
+        <ToolButton
+          icon={<TimerReset size={16} />}
+          tooltip={diagnostic(Boolean(resetActionId), 'reset', _(msg`Reset`))}
+          disabled={(!isSnapshotSource && !connected) || !resetActionId}
+          onClick={() => {
+            if (!resetActionId) return;
+            stopRecording?.();
+            history?.clear();
+            requestReset(resetActionId);
+          }}
+        />
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              className={styles.toolButton}
+              aria-label={_(msg`More Actions`)}
+              disabled={(!isSnapshotSource && !connected) || overflowActions.length === 0}
+            >
+              <MoreHorizontal size={16} />
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+              {overflowActions.map((action) => (
+                <DropdownMenu.Item
+                  key={action.id}
+                  className={styles.dropdownItem}
+                  onSelect={() => requestModelAction(action.id)}
+                >
+                  {`Model action: ${action.label}`}
+                </DropdownMenu.Item>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </ToolGroupContainer>
       {runActionId && !isSnapshotSource && (
         <ContinuousRunDialog
@@ -221,7 +227,7 @@ export function SimulationControlTools() {
         />
       )}
     </>
-  )
+  );
 }
 
 export function ViewTools() {
@@ -230,13 +236,18 @@ export function ViewTools() {
   const updateMainViewLayout = useScenarioStore((store) => store.updateMainViewLayout);
 
   const transportStore = useTransportStore();
-  const isSnapshotSource = useProjectStore((store) => store.activeProject?.source.kind === 'snapshot');
+  const isSnapshotSource = useProjectStore(
+    (store) => store.activeProject?.source.kind === 'snapshot',
+  );
   const { _ } = useLingui();
   const toast = useToast();
 
   const handleTakeSnapshot = () => {
     void captureSnapshot?.().catch((error) => {
-      toast.error(_(msg`Unable to capture snapshot`), error instanceof Error ? error.message : String(error));
+      toast.error(
+        _(msg`Unable to capture snapshot`),
+        error instanceof Error ? error.message : String(error),
+      );
     });
   };
 
@@ -250,14 +261,8 @@ export function ViewTools() {
         isActive={isAdjusting}
         onClick={() => setIsAdjusting(!isAdjusting)}
       />
-      <ToolButton
-        icon={<ZoomIn size={16} />}
-        tooltip={_(msg`Zoom In`)}
-      />
-      <ToolButton
-        icon={<ZoomOut size={16} />}
-        tooltip={_(msg`Zoom Out`)}
-      />
+      <ToolButton icon={<ZoomIn size={16} />} tooltip={_(msg`Zoom In`)} />
+      <ToolButton icon={<ZoomOut size={16} />} tooltip={_(msg`Zoom Out`)} />
       <ToolButton
         icon={<Target size={16} />}
         tooltip={_(msg`Take Snapshot`)}
@@ -267,7 +272,11 @@ export function ViewTools() {
       <ToolButton
         icon={<RefreshCcw size={16} />}
         tooltip={_(msg`Synchronize State`)}
-        onClick={() => dump ? transportStore?.requestStateSync(createStateSyncInventoryFromSnapshot(dump())) : undefined}
+        onClick={() =>
+          dump
+            ? transportStore?.requestStateSync(createStateSyncInventoryFromSnapshot(dump()))
+            : undefined
+        }
         disabled={isSnapshotSource}
       />
       <ToolButton
@@ -276,19 +285,15 @@ export function ViewTools() {
         onClick={() => updateMainViewLayout?.()}
       />
     </ToolGroupContainer>
-  )
+  );
 }
 
 export function SettingTools() {
-  const {
-    setSettingsDialogOpen,
-    aboutDialogOpen, setAboutDialogOpen,
-    theme, toggleTheme,
-  } = useSettingsStore();
+  const { setSettingsDialogOpen, aboutDialogOpen, setAboutDialogOpen, theme, toggleTheme } =
+    useSettingsStore();
   const { _ } = useLingui();
   return (
     <ToolGroupContainer>
-
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
           <button

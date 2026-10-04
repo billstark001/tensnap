@@ -83,10 +83,11 @@ export class ModelBuilder<
     options: ParamsFromConfigOptions<TConfig, TModel, TSource>,
   ): this {
     const defaults = (this.options.defaults ?? {}) as TConfig;
-    const fields = (options.fields ?? inferConfigFields(options.get(
-      this.options.create(defaults),
-      defaults,
-    ))) as Record<string, ConfigParamField | undefined>;
+    const fields = (options.fields ??
+      inferConfigFields(options.get(this.options.create(defaults), defaults))) as Record<
+      string,
+      ConfigParamField | undefined
+    >;
     for (const [key, field] of Object.entries(fields)) {
       if (field) {
         this.parameters.push(createConfigParameter(key as keyof TSource & string, field, options));
@@ -176,14 +177,13 @@ export function modelBuilder<
   return new ModelBuilder(metadata, options);
 }
 
-export function buildBinding<
-  TConfig extends object,
-  TModel,
-  TMetadata extends ModelMetadata,
->(
+export function buildBinding<TConfig extends object, TModel, TMetadata extends ModelMetadata>(
   binding: BoundModelDefinition<TConfig, TModel> & { metadata: TMetadata },
 ): DeclarativeExampleBinding<TConfig, TMetadata> {
-  if (binding.options.checkpoint && (binding.options.captureCheckpoint || binding.options.restoreCheckpoint)) {
+  if (
+    binding.options.checkpoint &&
+    (binding.options.captureCheckpoint || binding.options.restoreCheckpoint)
+  ) {
     throw new Error('Use checkpoint or captureCheckpoint/restoreCheckpoint, not both.');
   }
   const normalized: typeof binding = {
@@ -197,7 +197,8 @@ export function buildBinding<
   const hasRestoreCheckpoint = normalized.options.restoreCheckpoint !== undefined;
   const hasCaptureCheckpoint = normalized.options.captureCheckpoint !== undefined;
   const hasDeclarativeLayerRestore = binding.environments.some((environment) =>
-    environment.layers.some((layer) => layer.restore !== undefined));
+    environment.layers.some((layer) => layer.restore !== undefined),
+  );
   if (hasRestoreCheckpoint !== hasCaptureCheckpoint) {
     throw new Error('Checkpoint support requires both restoreCheckpoint and captureCheckpoint.');
   }
@@ -205,13 +206,17 @@ export function buildBinding<
     throw new Error('Checkpoint support requires a stable stateSchemaVersion.');
   }
   if (binding.options.sceneRestore?.mode === 'imperative' && hasDeclarativeLayerRestore) {
-    throw new Error('Imperative sceneRestore cannot be combined with declarative layer restore. Use sceneRestore.mode "compose".');
+    throw new Error(
+      'Imperative sceneRestore cannot be combined with declarative layer restore. Use sceneRestore.mode "compose".',
+    );
   }
   for (const environment of binding.environments) {
     for (const layer of environment.layers) {
       const restore = layer.restore;
       if (restore?.replace && (restore.create || restore.update || restore.delete)) {
-        throw new Error(`Layer ${environment.id}/${layer.id} cannot combine restore.replace with item callbacks.`);
+        throw new Error(
+          `Layer ${environment.id}/${layer.id} cannot combine restore.replace with item callbacks.`,
+        );
       }
     }
   }

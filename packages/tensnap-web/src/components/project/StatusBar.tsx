@@ -5,7 +5,15 @@ import { useSettingsStore } from '@/store/settings';
 import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { PanelRight, PanelBottom, PanelRightClose, PanelBottomClose, RefreshCw, Wrench, Info } from 'lucide-react';
+import {
+  PanelRight,
+  PanelBottom,
+  PanelRightClose,
+  PanelBottomClose,
+  RefreshCw,
+  Wrench,
+  Info,
+} from 'lucide-react';
 import { useState, useCallback } from 'react';
 
 import * as styles from './StatusBar.css';
@@ -36,7 +44,7 @@ export function StatusBar({
   const runRevision = useScenarioStore((store) => store.runRevision);
   const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
   const transportStore = useTransportStore();
-  
+
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
 
@@ -50,13 +58,15 @@ export function StatusBar({
   const runStatus = session?.run.status;
   const modelMismatch = session?.identityStatus === 'model-mismatch';
   const awaitingHandshake = socketConnected && session?.identityStatus === 'awaiting-info';
-  const connectionLabel = modelMismatch
-    ? <Trans>Model mismatch</Trans>
-    : awaitingHandshake || isConnecting
-      ? <Trans>Connecting</Trans>
-      : connected && socketConnected
-        ? <Trans>Connected</Trans>
-        : <Trans>Disconnected</Trans>;
+  const connectionLabel = modelMismatch ? (
+    <Trans>Model mismatch</Trans>
+  ) : awaitingHandshake || isConnecting ? (
+    <Trans>Connecting</Trans>
+  ) : connected && socketConnected ? (
+    <Trans>Connected</Trans>
+  ) : (
+    <Trans>Disconnected</Trans>
+  );
   const connectionClassName = modelMismatch
     ? styles.statusRejected
     : awaitingHandshake || isConnecting
@@ -71,32 +81,36 @@ export function StatusBar({
   const simulatorRenderMs = actionMetrics?.simulator.render_ms ?? null;
   const runSummary = runStatus
     ? [
-      runStatus.spec.actionId,
-      runStatus.spec.mode,
-      runStatus.spec.mode === 'bounded'
-        ? `${runStatus.completedSteps}/${runStatus.spec.maxSteps}`
-        : `${runStatus.completedSteps}/∞`,
-      runStatus.inFlight ? 'waiting for tick' : runStatus.state,
-      runStatus.stopReason,
-      runStatus.spec.maxWallTimeMs ? `deadline ${runStatus.spec.maxWallTimeMs}ms` : undefined,
-      runStatus.conditionValue === undefined ? undefined : `condition ${JSON.stringify(runStatus.conditionValue)}`,
-      isRecording ? 'recording' : undefined,
-    ].filter(Boolean).join(' · ')
+        runStatus.spec.actionId,
+        runStatus.spec.mode,
+        runStatus.spec.mode === 'bounded'
+          ? `${runStatus.completedSteps}/${runStatus.spec.maxSteps}`
+          : `${runStatus.completedSteps}/∞`,
+        runStatus.inFlight ? 'waiting for tick' : runStatus.state,
+        runStatus.stopReason,
+        runStatus.spec.maxWallTimeMs ? `deadline ${runStatus.spec.maxWallTimeMs}ms` : undefined,
+        runStatus.conditionValue === undefined
+          ? undefined
+          : `condition ${JSON.stringify(runStatus.conditionValue)}`,
+        isRecording ? 'recording' : undefined,
+      ]
+        .filter(Boolean)
+        .join(' · ')
     : null;
 
   const handleReconnect = useCallback(async () => {
     if (reconnectDisabled || !reconnect || !transportStore) return;
-    
+
     setIsReconnecting(true);
     try {
       await reconnect();
-      
+
       // 等待一小段时间让连接状态更新
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       // 检查实际的连接状态
       const isNowConnected = transportStore.isConnected();
-      
+
       if (isNowConnected) {
         toast.success(_(msg`Reconnected successfully`));
       } else {
@@ -106,7 +120,12 @@ export function StatusBar({
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       appendDiagnostic?.({
-        severity: 'error', domain: 'transport', source: 'status-bar', code: 'manual_reconnect_failed', message, details: error,
+        severity: 'error',
+        domain: 'transport',
+        source: 'status-bar',
+        code: 'manual_reconnect_failed',
+        message,
+        details: error,
       });
       toast.error(_(msg`Failed to reconnect`), message);
     } finally {
@@ -120,40 +139,60 @@ export function StatusBar({
         {connectionLabel}
       </span>
       <span className={styles.statusMeta}>
-        <span><Trans>Time Step:</Trans></span>
+        <span>
+          <Trans>Time Step:</Trans>
+        </span>
         <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
       </span>
       {runSummary && (
         <span className={styles.statusMeta} title={runSummary}>
-          <span><Trans>Run:</Trans></span>
+          <span>
+            <Trans>Run:</Trans>
+          </span>
           <span className={styles.metricValue}>{runSummary}</span>
         </span>
       )}
       <span className={styles.statusMeta}>
-        <span><Trans>TPS:</Trans></span>
-        <span className={styles.metricValue}>{runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}</span>
+        <span>
+          <Trans>TPS:</Trans>
+        </span>
+        <span className={styles.metricValue}>
+          {runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}
+        </span>
       </span>
       <span className={styles.statusMeta}>
-        <span><Trans>MSPT:</Trans></span>
-        <span className={styles.metricValue}>{runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}</span>
+        <span>
+          <Trans>MSPT:</Trans>
+        </span>
+        <span className={styles.metricValue}>
+          {runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}
+        </span>
       </span>
       <span className={styles.statusMeta}>
-        <span><Trans>Model:</Trans></span>
-        <span className={styles.metricValue}>{simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}</span>
+        <span>
+          <Trans>Model:</Trans>
+        </span>
+        <span className={styles.metricValue}>
+          {simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}
+        </span>
       </span>
       {simulatorCommMs != null && (
         <span className={styles.statusMeta}>
-          <span><Trans>Comm:</Trans></span>
+          <span>
+            <Trans>Comm:</Trans>
+          </span>
           <span className={styles.metricValue}>{simulatorCommMs.toFixed(1)}</span>
         </span>
       )}
       {simulatorRenderMs != null && (
         <span className={styles.statusMeta}>
-          <span><Trans>Srv Render:</Trans></span>
+          <span>
+            <Trans>Srv Render:</Trans>
+          </span>
           <span className={styles.metricValue}>{simulatorRenderMs.toFixed(1)}</span>
         </span>
       )}
-      
+
       <div className={styles.buttonGroup}>
         <button
           onClick={handleReconnect}
@@ -165,11 +204,10 @@ export function StatusBar({
             cursor: reconnectDisabled ? 'not-allowed' : 'pointer',
           }}
         >
-          <RefreshCw 
-            size={16}
-            className={isReconnecting || isConnecting ? 'spinning-icon' : ''}
-          />
-          <span><Trans>Reconnect</Trans></span>
+          <RefreshCw size={16} className={isReconnecting || isConnecting ? 'spinning-icon' : ''} />
+          <span>
+            <Trans>Reconnect</Trans>
+          </span>
         </button>
 
         <button
@@ -178,7 +216,9 @@ export function StatusBar({
           title={_(msg`Simulator information`)}
         >
           <Info size={16} />
-          <span><Trans>Info</Trans></span>
+          <span>
+            <Trans>Info</Trans>
+          </span>
         </button>
         <button
           onClick={() => setSettingsDialogOpen(true)}
@@ -186,7 +226,9 @@ export function StatusBar({
           title={_(msg`Settings`)}
         >
           <Wrench size={16} />
-          <span><Trans>Settings</Trans></span>
+          <span>
+            <Trans>Settings</Trans>
+          </span>
         </button>
         <style>{`
           @keyframes spin {
@@ -197,7 +239,7 @@ export function StatusBar({
             animation: spin 1s linear infinite;
           }
         `}</style>
-        
+
         {onToggleRightPanel && (
           <button
             onClick={onToggleRightPanel}
@@ -224,5 +266,5 @@ export function StatusBar({
         scenario={scenario ?? null}
       />
     </div>
-  )
+  );
 }

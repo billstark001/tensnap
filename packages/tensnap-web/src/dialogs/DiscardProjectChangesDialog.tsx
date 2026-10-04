@@ -15,7 +15,9 @@ export function DiscardProjectChangesDialog() {
         if (!open) cancelClose();
       }}
       title={<Trans>Discard unsaved changes?</Trans>}
-      description={<Trans>Close this project and discard renderer edits that have not been saved?</Trans>}
+      description={
+        <Trans>Close this project and discard renderer edits that have not been saved?</Trans>
+      }
       confirmLabel={<Trans>Discard and close</Trans>}
       cancelLabel={<Trans>Keep editing</Trans>}
       confirmVariant="danger"

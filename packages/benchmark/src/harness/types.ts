@@ -7,13 +7,27 @@ import type {
 } from '@tensnap/protocol';
 import type { BrowserBenchmarkCase } from '../browser-types';
 import type { BenchmarkCase } from '../browser-types';
-import type { BrowserBenchmarkRunOptions, ResolvedBrowserBenchmarkRunOptions } from '../browser-types';
+import type {
+  BrowserBenchmarkRunOptions,
+  ResolvedBrowserBenchmarkRunOptions,
+} from '../browser-types';
 
 /** Where an experiment executes. `ws` always means a real loopback WebSocket. */
 export type BenchmarkSuite = 'node' | 'ws' | 'browser';
 export type BenchmarkConfig = Record<string, unknown>;
-export type BenchmarkWorkloadKind = 'protocol' | 'node' | 'browser' | 'external-process' | 'external-browser';
-export type BenchmarkCategory = 'publication' | 'core' | 'snapshot' | 'renderer' | 'comparison' | 'system';
+export type BenchmarkWorkloadKind =
+  | 'protocol'
+  | 'node'
+  | 'browser'
+  | 'external-process'
+  | 'external-browser';
+export type BenchmarkCategory =
+  | 'publication'
+  | 'core'
+  | 'snapshot'
+  | 'renderer'
+  | 'comparison'
+  | 'system';
 
 interface BenchmarkWorkloadBase<TConfig extends BenchmarkConfig = BenchmarkConfig> {
   readonly schemaVersion: 2;
@@ -30,8 +44,9 @@ interface BenchmarkWorkloadBase<TConfig extends BenchmarkConfig = BenchmarkConfi
  * A production protocol path. This is the only workload type permitted to
  * enter the simulator, codec, and WebSocket runners.
  */
-export interface ProtocolBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
-  extends BenchmarkWorkloadBase<TConfig> {
+export interface ProtocolBenchmarkWorkload<
+  TConfig extends BenchmarkConfig = BenchmarkConfig,
+> extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'protocol';
   readonly protocolVersion: typeof PROTOCOL_VERSION;
   readonly modelId: string;
@@ -44,15 +59,17 @@ export interface ProtocolBenchmarkWorkload<TConfig extends BenchmarkConfig = Ben
 }
 
 /** A local, deterministic microbenchmark for a renderer-core or archive path. */
-export interface NodeBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
-  extends BenchmarkWorkloadBase<TConfig> {
+export interface NodeBenchmarkWorkload<
+  TConfig extends BenchmarkConfig = BenchmarkConfig,
+> extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'node';
   createNodeCase(config: TConfig): NodeBenchmarkCase;
 }
 
 /** A deterministic browser-only benchmark, including renderer controls. */
-export interface BrowserBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
-  extends BenchmarkWorkloadBase<TConfig> {
+export interface BrowserBenchmarkWorkload<
+  TConfig extends BenchmarkConfig = BenchmarkConfig,
+> extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'browser';
   createBrowserCase(options: BrowserCaseOptions<TConfig>): BrowserBenchmarkCase;
 }
@@ -111,12 +128,17 @@ export interface ExternalBenchmarkResult {
 }
 
 /** A headless system benchmark whose result is a schema-v1 JSON line. */
-export interface ExternalProcessBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
-  extends BenchmarkWorkloadBase<TConfig> {
+export interface ExternalProcessBenchmarkWorkload<
+  TConfig extends BenchmarkConfig = BenchmarkConfig,
+> extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'external-process';
   createExternalCommand(config: TConfig, context: ExternalProcessContext): ExternalCommand;
   /** Validate framework-independent invariants in the external JSON result. */
-  validateExternalResult?(config: TConfig, result: ExternalBenchmarkResult, context: ExternalProcessContext): void;
+  validateExternalResult?(
+    config: TConfig,
+    result: ExternalBenchmarkResult,
+    context: ExternalProcessContext,
+  ): void;
 }
 
 export interface ExternalBrowserAction {
@@ -175,8 +197,9 @@ export interface ExternalBrowserSpec {
 }
 
 /** A browser-driven external system, such as Mesa/Solara or WGLMakie. */
-export interface ExternalBrowserBenchmarkWorkload<TConfig extends BenchmarkConfig = BenchmarkConfig>
-  extends BenchmarkWorkloadBase<TConfig> {
+export interface ExternalBrowserBenchmarkWorkload<
+  TConfig extends BenchmarkConfig = BenchmarkConfig,
+> extends BenchmarkWorkloadBase<TConfig> {
   readonly kind: 'external-browser';
   createExternalBrowserSpec(config: TConfig, context: ExternalBrowserContext): ExternalBrowserSpec;
   /**
@@ -375,7 +398,7 @@ export interface BenchmarkRun {
     readonly validation?: ProtocolValidationLevel;
     readonly warmupActions: number;
     readonly measuredActions: number;
-      readonly repetitions: number;
+    readonly repetitions: number;
     readonly processIsolated: boolean;
     readonly primaryMetric: string;
     readonly featureLevel?: string;
@@ -384,7 +407,11 @@ export interface BenchmarkRun {
     readonly browser?: {
       readonly name: 'chromium';
       readonly version: string;
-      readonly viewport: { readonly width: number; readonly height: number; readonly deviceScaleFactor: number };
+      readonly viewport: {
+        readonly width: number;
+        readonly height: number;
+        readonly deviceScaleFactor: number;
+      };
       readonly headless: true;
       /** Resolved scheduling policy used for this browser run. */
       readonly runOptions?: ResolvedBrowserBenchmarkRunOptions;

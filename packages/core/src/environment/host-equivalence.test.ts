@@ -112,13 +112,15 @@ function createSceneLayers(): NamedLayer[] {
     applySceneBoundsToView: true,
   });
 
-  const grid = new GridLayer(new GridEnvStorage({
-    width: 12,
-    height: 8,
-    x_ratio: 2,
-    y_ratio: 2,
-    stroke_color: '#94a3b8',
-  }));
+  const grid = new GridLayer(
+    new GridEnvStorage({
+      width: 12,
+      height: 8,
+      x_ratio: 2,
+      y_ratio: 2,
+      stroke_color: '#94a3b8',
+    }),
+  );
 
   const gridAgents = new AgentStorage();
   gridAgents.setAgents([
@@ -231,8 +233,10 @@ function summarize(
       x: readNumber(sprite?.group, 'x'),
       y: readNumber(sprite?.group, 'y'),
     },
-    trajectorySegmentCount: trajectoryLayer._lines.get('sprite')?.segments
-      .reduce((count, segment) => count + segment.lines.length, 0) ?? 0,
+    trajectorySegmentCount:
+      trajectoryLayer._lines
+        .get('sprite')
+        ?.segments.reduce((count, segment) => count + segment.lines.length, 0) ?? 0,
     graphLinkCount: edgeLayer._simLinks.length,
   };
 }
@@ -317,12 +321,18 @@ describe('EnvironmentView and HeadlessEnvironmentView host equivalence', () => {
       const passiveSummary = summarize(passiveView, passiveLayers);
 
       expect(interactiveSummary).toEqual(passiveSummary);
-      expect(interactiveLayers.every(({ layer }) => isLayerInteractionEnabled(layer) === true)).toBe(true);
-      expect(passiveLayers.every(({ layer }) => isLayerInteractionEnabled(layer) === false)).toBe(true);
+      expect(
+        interactiveLayers.every(({ layer }) => isLayerInteractionEnabled(layer) === true),
+      ).toBe(true);
+      expect(passiveLayers.every(({ layer }) => isLayerInteractionEnabled(layer) === false)).toBe(
+        true,
+      );
 
       interactiveView.enableLayerInteraction = false;
       expect(summarize(interactiveView, interactiveLayers)).toEqual(interactiveSummary);
-      expect(interactiveLayers.every(({ layer }) => isLayerInteractionEnabled(layer) === false)).toBe(true);
+      expect(
+        interactiveLayers.every(({ layer }) => isLayerInteractionEnabled(layer) === false),
+      ).toBe(true);
     } finally {
       detachView(interactiveView, interactiveLayers);
       detachView(passiveView, passiveLayers);

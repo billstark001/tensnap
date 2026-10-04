@@ -74,10 +74,7 @@ export class GridLayer extends BaseLayer {
 
   private _envData: GridEnvData;
 
-  constructor(
-    storage: GridEnvStorage,
-    _config: GridLayerConfig = {}
-  ) {
+  constructor(storage: GridEnvStorage, _config: GridLayerConfig = {}) {
     super();
 
     this._envData = storage.getData();
@@ -107,21 +104,14 @@ export class GridLayer extends BaseLayer {
    * @param ratio    Subdivision ratio           (c)
    * @param ppu      Pixels per scene unit along this axis
    */
-  private _selectLevels(
-    unit: number,
-    interval: number,
-    ratio: number,
-    ppu: number
-  ): number[] {
-    const baseStep = unit * interval;            // scene-unit step at m = 0
+  private _selectLevels(unit: number, interval: number, ratio: number, ppu: number): number[] {
+    const baseStep = unit * interval; // scene-unit step at m = 0
     const logRatio = Math.log(ratio);
 
     // Smallest m where pixel_step_m ≥ THRESHOLD_FINE:
     //   baseStep · ratio^m · ppu ≥ THRESHOLD_FINE
     //   m ≥ log_c(THRESHOLD_FINE / (baseStep · ppu))
-    const mFinest = Math.ceil(
-      Math.log(THRESHOLD_FINE / (baseStep * ppu)) / logRatio
-    );
+    const mFinest = Math.ceil(Math.log(THRESHOLD_FINE / (baseStep * ppu)) / logRatio);
 
     const levels: number[] = [];
     for (let dm = 0; dm < LEVEL_ALPHAS.length; dm++) {
@@ -151,16 +141,34 @@ export class GridLayer extends BaseLayer {
       stroke_color: strokeColor = '#808080',
     } = this._envData;
 
-    if (!Number.isInteger(xRatio) || xRatio <= 1 || !Number.isInteger(yRatio) || yRatio <= 1
-      || !Number.isFinite(xUnit) || xUnit <= 0 || !Number.isFinite(yUnit) || yUnit <= 0
-      || !Number.isFinite(xInterval) || xInterval <= 0 || !Number.isFinite(yInterval) || yInterval <= 0
-      || !Number.isFinite(xOrigin) || !Number.isFinite(yOrigin)) return;
+    if (
+      !Number.isInteger(xRatio) ||
+      xRatio <= 1 ||
+      !Number.isInteger(yRatio) ||
+      yRatio <= 1 ||
+      !Number.isFinite(xUnit) ||
+      xUnit <= 0 ||
+      !Number.isFinite(yUnit) ||
+      yUnit <= 0 ||
+      !Number.isFinite(xInterval) ||
+      xInterval <= 0 ||
+      !Number.isFinite(yInterval) ||
+      yInterval <= 0 ||
+      !Number.isFinite(xOrigin) ||
+      !Number.isFinite(yOrigin)
+    )
+      return;
 
     const scale = this.calculateViewportScale(this._viewport, this._fitMode);
     // The fitted viewport can be narrower/taller than the physical canvas
     // when their aspect ratios differ. Draw through the whole canvas coverage
     // so the grid remains a background rather than a centered rectangle.
-    const { x: viewLeft, y: viewBottom, width: viewW, height: viewH } = this.getCanvasSceneCoverage();
+    const {
+      x: viewLeft,
+      y: viewBottom,
+      width: viewW,
+      height: viewH,
+    } = this.getCanvasSceneCoverage();
     const viewRight = viewLeft + viewW;
     const viewTop = viewBottom + viewH;
     const horizontalMargin = Math.max(viewW * VIEWPORT_MARGIN_FACTOR, xUnit * xInterval);
@@ -169,21 +177,35 @@ export class GridLayer extends BaseLayer {
     // ── Vertical lines (X axis) ──────────────────────────────────────────────
     const xLevels = this._selectLevels(xUnit, xInterval, xRatio, scale.scaleX);
     this._drawLines(
-      xLevels, xOrigin, xUnit, xInterval, xRatio,
-      viewLeft, viewRight,
-      viewBottom - verticalMargin, viewTop + verticalMargin,
+      xLevels,
+      xOrigin,
+      xUnit,
+      xInterval,
+      xRatio,
+      viewLeft,
+      viewRight,
+      viewBottom - verticalMargin,
+      viewTop + verticalMargin,
       'vertical',
-      strokeColor, scale.scaleX,
+      strokeColor,
+      scale.scaleX,
     );
 
     // ── Horizontal lines (Y axis) ────────────────────────────────────────────
     const yLevels = this._selectLevels(yUnit, yInterval, yRatio, scale.scaleY);
     this._drawLines(
-      yLevels, yOrigin, yUnit, yInterval, yRatio,
-      viewBottom, viewTop,
-      viewLeft - horizontalMargin, viewRight + horizontalMargin,
+      yLevels,
+      yOrigin,
+      yUnit,
+      yInterval,
+      yRatio,
+      viewBottom,
+      viewTop,
+      viewLeft - horizontalMargin,
+      viewRight + horizontalMargin,
       'horizontal',
-      strokeColor, scale.scaleY,
+      strokeColor,
+      scale.scaleY,
     );
   }
 
@@ -222,12 +244,12 @@ export class GridLayer extends BaseLayer {
     perpMax: number,
     direction: 'vertical' | 'horizontal',
     strokeColor: string,
-    ppu: number
+    ppu: number,
   ): void {
     if (levels.length === 0) return;
 
-    const iRatio = Math.round(ratio);   // integer subdivision count (for modulo)
-    const baseStep = unit * interval;      // scene-unit step at m = 0
+    const iRatio = Math.round(ratio); // integer subdivision count (for modulo)
+    const baseStep = unit * interval; // scene-unit step at m = 0
 
     for (let li = 0; li < levels.length; li++) {
       const m = levels[li];
@@ -235,12 +257,16 @@ export class GridLayer extends BaseLayer {
       const step = baseStep * Math.pow(ratio, m);
       if (!Number.isFinite(step) || step <= 0 || !Number.isFinite(ppu) || ppu <= 0) continue;
       const color = this._withAlpha(strokeColor, LEVEL_ALPHAS[li]);
-      const weight = LEVEL_WEIGHTS_PX[li] / ppu;   // px → scene units
+      const weight = LEVEL_WEIGHTS_PX[li] / ppu; // px → scene units
 
       const kMin = Math.floor((viewMin - origin) / step) - 1;
       const kMax = Math.ceil((viewMax - origin) / step) + 1;
-      if (!Number.isSafeInteger(kMin) || !Number.isSafeInteger(kMax)
-        || kMax - kMin > MAX_GRID_LINES_PER_LEVEL) continue;
+      if (
+        !Number.isSafeInteger(kMin) ||
+        !Number.isSafeInteger(kMax) ||
+        kMax - kMin > MAX_GRID_LINES_PER_LEVEL
+      )
+        continue;
 
       for (let k = kMin; k <= kMax; k++) {
         // n = k mod c (with wrap for negative k).
@@ -251,13 +277,9 @@ export class GridLayer extends BaseLayer {
         const pos = origin + step * k;
         if (!Number.isFinite(pos)) continue;
         const pts: [number, number, number, number] =
-          direction === 'vertical'
-            ? [pos, perpMin, pos, perpMax]
-            : [perpMin, pos, perpMax, pos];
+          direction === 'vertical' ? [pos, perpMin, pos, perpMax] : [perpMin, pos, perpMax, pos];
 
-        this.group.add(
-          new Line({ points: pts, stroke: color, strokeWidth: weight })
-        );
+        this.group.add(new Line({ points: pts, stroke: color, strokeWidth: weight }));
       }
     }
   }

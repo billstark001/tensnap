@@ -29,9 +29,10 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
         ...result,
         checkpoint: {
           ...result.checkpoint,
-          data: typeof result.checkpoint.data === 'string'
-            ? result.checkpoint.data
-            : encodeBytesAsBase64(result.checkpoint.data),
+          data:
+            typeof result.checkpoint.data === 'string'
+              ? result.checkpoint.data
+              : encodeBytesAsBase64(result.checkpoint.data),
         },
       });
     } catch (error) {
@@ -42,7 +43,12 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
   app.post('/v1/scene/restore', async (c) => {
     const body = await c.req.json<Record<string, unknown>>();
     const chartPolicy = body.chartPolicy;
-    if (chartPolicy !== undefined && chartPolicy !== 'preserve' && chartPolicy !== 'replace' && chartPolicy !== 'truncate') {
+    if (
+      chartPolicy !== undefined &&
+      chartPolicy !== 'preserve' &&
+      chartPolicy !== 'replace' &&
+      chartPolicy !== 'truncate'
+    ) {
       return c.json({ error: 'chartPolicy must be preserve, replace, or truncate.' }, 400);
     }
     const { chartPolicy: _chartPolicy, ...input } = body;

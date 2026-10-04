@@ -30,19 +30,26 @@ function itemKeyPart(value: string | number): string {
   return `${typeof value}:${String(value)}`;
 }
 
-function parseProjectedItem(layer: ScenarioLayerSnapshot, item: unknown, index: number): { item: ProjectedItem; key: string } {
+function parseProjectedItem(
+  layer: ScenarioLayerSnapshot,
+  item: unknown,
+  index: number,
+): { item: ProjectedItem; key: string } {
   const portable = ItemSchema.safeParse(item);
-  if (!portable.success) throw new Error(`Layer ${layer.id} has a non-protocol item at index ${index}.`);
+  if (!portable.success)
+    throw new Error(`Layer ${layer.id} has a non-protocol item at index ${index}.`);
 
   switch (layer.layerType) {
     case 'agent': {
       const parsed = AgentItemSchema.safeParse(portable.data);
-      if (!parsed.success) throw new Error(`Agent layer ${layer.id} has an invalid item at index ${index}.`);
+      if (!parsed.success)
+        throw new Error(`Agent layer ${layer.id} has an invalid item at index ${index}.`);
       return { item: portable.data, key: `id:${itemKeyPart(parsed.data.id)}` };
     }
     case 'edge': {
       const parsed = EdgeItemSchema.safeParse(portable.data);
-      if (!parsed.success) throw new Error(`Edge layer ${layer.id} has an invalid item at index ${index}.`);
+      if (!parsed.success)
+        throw new Error(`Edge layer ${layer.id} has an invalid item at index ${index}.`);
       return {
         item: portable.data,
         key: `edge:${itemKeyPart(parsed.data.source)}\u0000${itemKeyPart(parsed.data.target)}`,
@@ -50,7 +57,8 @@ function parseProjectedItem(layer: ScenarioLayerSnapshot, item: unknown, index: 
     }
     case 'trajectory': {
       const parsed = TrajectoryItemSchema.safeParse(portable.data);
-      if (!parsed.success) throw new Error(`Trajectory layer ${layer.id} has an invalid item at index ${index}.`);
+      if (!parsed.success)
+        throw new Error(`Trajectory layer ${layer.id} has an invalid item at index ${index}.`);
       return { item: portable.data, key: `id:${itemKeyPart(parsed.data.id)}` };
     }
     default:
@@ -61,13 +69,14 @@ function parseProjectedItem(layer: ScenarioLayerSnapshot, item: unknown, index: 
 function projectItems(layer: ScenarioLayerSnapshot): ProjectedItem[] | undefined {
   if (layer.layerType === 'grid' || layer.layerType === 'background') return undefined;
   const storage = asRecord(layer.storageSnapshot);
-  const source = layer.layerType === 'agent'
-    ? storage.agents
-    : layer.layerType === 'edge'
-      ? storage.edges
-      : layer.layerType === 'trajectory'
-        ? storage.configs
-        : undefined;
+  const source =
+    layer.layerType === 'agent'
+      ? storage.agents
+      : layer.layerType === 'edge'
+        ? storage.edges
+        : layer.layerType === 'trajectory'
+          ? storage.configs
+          : undefined;
   if (!Array.isArray(source)) {
     throw new Error(`Layer ${layer.id} (${layer.layerType}) cannot be projected for restore.`);
   }
@@ -82,23 +91,32 @@ function projectItems(layer: ScenarioLayerSnapshot): ProjectedItem[] | undefined
   });
 }
 
-function validateLayerTopology(environmentId: string, layers: readonly ScenarioLayerSnapshot[]): void {
+function validateLayerTopology(
+  environmentId: string,
+  layers: readonly ScenarioLayerSnapshot[],
+): void {
   const byId = new Map(layers.map((layer) => [layer.id, layer]));
   for (const layer of layers) {
     const dependencies = layer.dependencyLayerIds;
     const keys = Object.keys(dependencies);
     if (layer.layerType === 'edge' || layer.layerType === 'trajectory') {
       if (keys.length !== 1 || typeof dependencies.agent !== 'string') {
-        throw new Error(`Layer ${layer.id} in environment ${environmentId} must depend on exactly one agent layer.`);
+        throw new Error(
+          `Layer ${layer.id} in environment ${environmentId} must depend on exactly one agent layer.`,
+        );
       }
       const agentLayer = byId.get(dependencies.agent);
       if (!agentLayer || agentLayer.layerType !== 'agent') {
-        throw new Error(`Layer ${layer.id} in environment ${environmentId} depends on a missing or non-agent layer.`);
+        throw new Error(
+          `Layer ${layer.id} in environment ${environmentId} depends on a missing or non-agent layer.`,
+        );
       }
       continue;
     }
     if (keys.length > 0) {
-      throw new Error(`Layer ${layer.id} in environment ${environmentId} must not declare dependencies.`);
+      throw new Error(
+        `Layer ${layer.id} in environment ${environmentId} must not declare dependencies.`,
+      );
     }
   }
 }
@@ -109,8 +127,10 @@ function hasSameDependencies(
 ): boolean {
   const expectedKeys = Object.keys(expected ?? {});
   const actualKeys = Object.keys(actual ?? {});
-  return expectedKeys.length === actualKeys.length
-    && expectedKeys.every((key) => actual?.[key] === expected?.[key]);
+  return (
+    expectedKeys.length === actualKeys.length &&
+    expectedKeys.every((key) => actual?.[key] === expected?.[key])
+  );
 }
 
 /** Whether a projected restore would add, remove, or rewire an environment layer. */
@@ -126,9 +146,11 @@ export function projectedRestoreChangesTopology(
     environmentIds.add(environment.id);
 
     const currentEnvironment = scenario.getEnvironment(environment.id);
-    if (!currentEnvironment
-      || currentEnvironment.type !== environment.type
-      || currentEnvironment.layers.size !== environment.layers.length) {
+    if (
+      !currentEnvironment ||
+      currentEnvironment.type !== environment.type ||
+      currentEnvironment.layers.size !== environment.layers.length
+    ) {
       return true;
     }
 
@@ -138,9 +160,11 @@ export function projectedRestoreChangesTopology(
       layerIds.add(layer.layer_id);
 
       const currentLayer = currentEnvironment.layers.get(layer.layer_id);
-      if (!currentLayer
-        || currentLayer.layerType !== layer.layer_type
-        || !hasSameDependencies(layer.dependency_layer_ids, currentLayer.dependencyLayerIds)) {
+      if (
+        !currentLayer ||
+        currentLayer.layerType !== layer.layer_type ||
+        !hasSameDependencies(layer.dependency_layer_ids, currentLayer.dependencyLayerIds)
+      ) {
         return true;
       }
     }
@@ -157,7 +181,8 @@ export function projectedRestoreChangesTopology(
 export function projectSnapshotForRestore(snapshot: ScenarioSnapshot): ProjectedRestoreState {
   const parameterIds = new Set<string>();
   const parameters = snapshot.parameters.map((parameter) => {
-    if (parameterIds.has(parameter.id)) throw new Error(`Duplicate parameter id in snapshot: ${parameter.id}.`);
+    if (parameterIds.has(parameter.id))
+      throw new Error(`Duplicate parameter id in snapshot: ${parameter.id}.`);
     parameterIds.add(parameter.id);
     const value = ProtocolValueSchema.safeParse(parameter.value);
     if (!value.success) throw new Error(`Parameter ${parameter.id} has a non-protocol value.`);
@@ -166,11 +191,13 @@ export function projectSnapshotForRestore(snapshot: ScenarioSnapshot): Projected
 
   const environmentIds = new Set<string>();
   const envs = snapshot.environments.map((environment) => {
-    if (environmentIds.has(environment.id)) throw new Error(`Duplicate environment id in snapshot: ${environment.id}.`);
+    if (environmentIds.has(environment.id))
+      throw new Error(`Duplicate environment id in snapshot: ${environment.id}.`);
     environmentIds.add(environment.id);
     const layerIds = new Set<string>();
     for (const layer of environment.layers) {
-      if (layerIds.has(layer.id)) throw new Error(`Duplicate layer id in environment ${environment.id}: ${layer.id}.`);
+      if (layerIds.has(layer.id))
+        throw new Error(`Duplicate layer id in environment ${environment.id}: ${layer.id}.`);
       layerIds.add(layer.id);
     }
     validateLayerTopology(environment.id, environment.layers);
@@ -182,16 +209,23 @@ export function projectSnapshotForRestore(snapshot: ScenarioSnapshot): Projected
       return {
         layer_id: layer.id,
         layer_type: layer.layerType,
-        dependency_layer_ids: Object.keys(layer.dependencyLayerIds).length ? structuredClone(layer.dependencyLayerIds) : undefined,
+        dependency_layer_ids: Object.keys(layer.dependencyLayerIds).length
+          ? structuredClone(layer.dependencyLayerIds)
+          : undefined,
         metadata: metadata.data,
         items,
       };
     });
-    return RestorableEnvironmentSchema.parse({ id: environment.id, type: environment.type, layers });
+    return RestorableEnvironmentSchema.parse({
+      id: environment.id,
+      type: environment.type,
+      layers,
+    });
   });
 
-  const time = typeof snapshot.metadata.time === 'number' && Number.isFinite(snapshot.metadata.time)
-    ? snapshot.metadata.time
-    : undefined;
+  const time =
+    typeof snapshot.metadata.time === 'number' && Number.isFinite(snapshot.metadata.time)
+      ? snapshot.metadata.time
+      : undefined;
   return { time, parameters, envs };
 }

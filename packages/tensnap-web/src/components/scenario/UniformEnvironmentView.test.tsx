@@ -29,7 +29,13 @@ vi.mock('../../dialogs/AgentIconElement', () => ({
 }));
 
 vi.mock('@tensnap/web-common/components/ui/Pagination', () => ({
-  Pagination: ({ totalPages, onPageChange }: { totalPages: number; onPageChange: (page: number) => void }) => (
+  Pagination: ({
+    totalPages,
+    onPageChange,
+  }: {
+    totalPages: number;
+    onPageChange: (page: number) => void;
+  }) => (
     <div>
       {Array.from({ length: totalPages }, (_, index) => (
         <button key={index} type="button" onClick={() => onPageChange(index + 1)}>
@@ -41,7 +47,10 @@ vi.mock('@tensnap/web-common/components/ui/Pagination', () => ({
 }));
 
 vi.mock('@lingui/react', () => ({
-  useLingui: () => ({ _: (value: { message?: string } | string) => typeof value === 'string' ? value : value.message ?? '' }),
+  useLingui: () => ({
+    _: (value: { message?: string } | string) =>
+      typeof value === 'string' ? value : (value.message ?? ''),
+  }),
   Trans: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
 }));
 
@@ -52,21 +61,28 @@ describe('UniformEnvironmentView', () => {
 
   it('subscribes once and derives only the visible agents page from mutable storage', () => {
     const storage = new AgentStorage();
-    storage.addAgents(Array.from({ length: 20 }, (_, index) => ({
-      id: `agent-${index}`,
-      color: '#666666',
-    })));
+    storage.addAgents(
+      Array.from({ length: 20 }, (_, index) => ({
+        id: `agent-${index}`,
+        color: '#666666',
+      })),
+    );
     const subscribe = vi.spyOn(storage, 'subscribe');
     const environment = {
       id: 'uniform',
       type: 'uniform',
-      layers: new Map([['agents', {
-        id: 'agents',
-        layerType: 'agent',
-        metadata: {},
-        dependencyLayerIds: {},
-        storage,
-      }]]),
+      layers: new Map([
+        [
+          'agents',
+          {
+            id: 'agents',
+            layerType: 'agent',
+            metadata: {},
+            dependencyLayerIds: {},
+            storage,
+          },
+        ],
+      ]),
     } as any;
 
     render(<UniformEnvironmentView environment={environment} />);

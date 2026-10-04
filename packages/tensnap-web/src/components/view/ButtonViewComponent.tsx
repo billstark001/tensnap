@@ -1,6 +1,6 @@
-import { ButtonView } from "@/types/ui";
+import { ButtonView } from '@/types/ui';
 import * as styles from './styles.css';
-import { useViewContext } from "./useViewContext";
+import { useViewContext } from './useViewContext';
 import clsx from 'clsx';
 import { Play, Pause } from 'lucide-react';
 import { useScenarioStore } from '@/store/scenario/store';
@@ -29,7 +29,6 @@ const stopReasonGlyph = {
 } as const;
 
 export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
-
   const { onButtonAction, isRunning } = useViewContext();
   const session = useScenarioStore((state) => state.session);
   const actions = useScenarioStore((state) => state.actions);
@@ -39,9 +38,12 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
   const isSnapshotSource = source?.kind === 'snapshot';
   void actionRevision;
   const action = actions?.get(view.data.id);
-  const isDisabled = view.disabled
-    || (isSnapshotSource
-      ? !SNAPSHOT_PLAYBACK_ACTIONS.includes(view.data.id as typeof SNAPSHOT_PLAYBACK_ACTIONS[number])
+  const isDisabled =
+    view.disabled ||
+    (isSnapshotSource
+      ? !SNAPSHOT_PLAYBACK_ACTIONS.includes(
+          view.data.id as (typeof SNAPSHOT_PLAYBACK_ACTIONS)[number],
+        )
       : !isDirectModelAction(action));
   const isContinuous = (view as ButtonView).data.continuous ?? false;
   const running = isContinuous && isRunning(view.data.id);
@@ -50,14 +52,13 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
     return session?.run.status;
   })();
   const isRunForContinuousButton = isContinuous && status?.spec.actionId === view.data.id;
-  const conditionSummary = isRunForContinuousButton && status?.conditionValue !== undefined
-    ? typeof status.conditionValue === 'string'
-      ? status.conditionValue
-      : JSON.stringify(status.conditionValue)
-    : undefined;
-  const visibleStopReason = status?.pauseRequested
-    ? 'paused'
-    : status?.stopReason ?? 'stopped';
+  const conditionSummary =
+    isRunForContinuousButton && status?.conditionValue !== undefined
+      ? typeof status.conditionValue === 'string'
+        ? status.conditionValue
+        : JSON.stringify(status.conditionValue)
+      : undefined;
+  const visibleStopReason = status?.pauseRequested ? 'paused' : (status?.stopReason ?? 'stopped');
   const runTitle = isRunForContinuousButton
     ? status.state === 'running' && !status.pauseRequested
       ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}${status.inFlight ? ' · waiting' : ''}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`

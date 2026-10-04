@@ -37,7 +37,7 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     const sign = val < 0 ? -1 : 1;
 
     // 防止太小的值,直接截断为0或1
-    if (absVal < 1e-10) return val < 0 ? -1 : (val === 0 ? 0 : 1);
+    if (absVal < 1e-10) return val < 0 ? -1 : val === 0 ? 0 : 1;
 
     const log10Val = Math.log10(absVal);
     const exponent = roundUp ? Math.ceil(log10Val) : Math.floor(log10Val);
@@ -82,7 +82,7 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     return {
       min: convertedMin,
       max: convertedMax,
-      step: finalStep
+      step: finalStep,
     };
   }
 

@@ -69,8 +69,16 @@ export const DEFAULT_SCHELLING_STUDY_OPTIONS: SchellingStudyOptions = {
 function optionValues(argv: readonly string[]): Map<string, string | true> {
   const values = new Map<string, string | true>();
   const allowed = new Set([
-    'width', 'height', 'density', 'balance', 'thresholds',
-    'warmup-steps', 'steps', 'seeds', 'seed', 'mode',
+    'width',
+    'height',
+    'density',
+    'balance',
+    'thresholds',
+    'warmup-steps',
+    'steps',
+    'seeds',
+    'seed',
+    'mode',
   ]);
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index]!;
@@ -99,21 +107,37 @@ function finiteNumber(values: Map<string, string | true>, name: string, fallback
   return value;
 }
 
-function positiveInteger(values: Map<string, string | true>, name: string, fallback: number): number {
+function positiveInteger(
+  values: Map<string, string | true>,
+  name: string,
+  fallback: number,
+): number {
   const value = finiteNumber(values, name, fallback);
-  if (!Number.isInteger(value) || value <= 0) throw new Error(`--${name} must be a positive integer.`);
+  if (!Number.isInteger(value) || value <= 0)
+    throw new Error(`--${name} must be a positive integer.`);
   return value;
 }
 
-function nonNegativeInteger(values: Map<string, string | true>, name: string, fallback: number): number {
+function nonNegativeInteger(
+  values: Map<string, string | true>,
+  name: string,
+  fallback: number,
+): number {
   const value = finiteNumber(values, name, fallback);
-  if (!Number.isInteger(value) || value < 0) throw new Error(`--${name} must be a non-negative integer.`);
+  if (!Number.isInteger(value) || value < 0)
+    throw new Error(`--${name} must be a non-negative integer.`);
   return value;
 }
 
 export function parseSchellingThresholds(value: string): number[] {
-  const thresholds = value.split(',').filter(Boolean).map((item) => Number(item.trim()));
-  if (thresholds.length === 0 || thresholds.some((threshold) => !Number.isFinite(threshold) || threshold < 0 || threshold > 1)) {
+  const thresholds = value
+    .split(',')
+    .filter(Boolean)
+    .map((item) => Number(item.trim()));
+  if (
+    thresholds.length === 0 ||
+    thresholds.some((threshold) => !Number.isFinite(threshold) || threshold < 0 || threshold > 1)
+  ) {
     throw new Error('--thresholds must contain one or more values from 0 through 1.');
   }
   return thresholds;
@@ -125,7 +149,8 @@ export function parseSchellingStudyOptions(
 ): SchellingStudyOptions {
   const values = optionValues(argv);
   const mode = values.get('mode') ?? defaults.mode;
-  if (mode !== 'steady' && mode !== 'convergence') throw new Error('--mode must be steady or convergence.');
+  if (mode !== 'steady' && mode !== 'convergence')
+    throw new Error('--mode must be steady or convergence.');
   const density = finiteNumber(values, 'density', defaults.density);
   const balance = finiteNumber(values, 'balance', defaults.balance);
   if (density < 0 || density > 1 || balance < 0 || balance > 1) {
@@ -137,9 +162,10 @@ export function parseSchellingStudyOptions(
     height: positiveInteger(values, 'height', defaults.height),
     density,
     balance,
-    thresholds: thresholdsRaw === undefined
-      ? [...defaults.thresholds]
-      : parseSchellingThresholds(thresholdsRaw as string),
+    thresholds:
+      thresholdsRaw === undefined
+        ? [...defaults.thresholds]
+        : parseSchellingThresholds(thresholdsRaw as string),
     warmupSteps: nonNegativeInteger(values, 'warmup-steps', defaults.warmupSteps),
     steps: positiveInteger(values, 'steps', defaults.steps),
     seeds: positiveInteger(values, 'seeds', defaults.seeds),
@@ -186,11 +212,15 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
     balance: options.balance,
   };
   if (options.warmupSteps > 0) {
-    runSchellingTrial({
-      ...baseConfig,
-      similarityThreshold: options.thresholds[0]!,
-      seed: options.seed,
-    }, options.warmupSteps, 'steady');
+    runSchellingTrial(
+      {
+        ...baseConfig,
+        similarityThreshold: options.thresholds[0]!,
+        seed: options.seed,
+      },
+      options.warmupSteps,
+      'steady',
+    );
   }
 
   const trials: SchellingTrialResult[] = [];
@@ -200,7 +230,11 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
       trials.push({
         threshold,
         seed,
-        ...runSchellingTrial({ ...baseConfig, similarityThreshold: threshold, seed }, options.steps, options.mode),
+        ...runSchellingTrial(
+          { ...baseConfig, similarityThreshold: threshold, seed },
+          options.steps,
+          options.mode,
+        ),
       });
     }
   }
@@ -212,9 +246,12 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
     const selected = trials.filter((trial) => trial.threshold === threshold);
     return {
       threshold,
-      meanSatisfiedPct: selected.reduce((total, trial) => total + trial.satisfiedPct, 0) / selected.length,
-      meanSegregationIndex: selected.reduce((total, trial) => total + trial.segregationIndex, 0) / selected.length,
-      meanLastMoved: selected.reduce((total, trial) => total + trial.lastMoved, 0) / selected.length,
+      meanSatisfiedPct:
+        selected.reduce((total, trial) => total + trial.satisfiedPct, 0) / selected.length,
+      meanSegregationIndex:
+        selected.reduce((total, trial) => total + trial.segregationIndex, 0) / selected.length,
+      meanLastMoved:
+        selected.reduce((total, trial) => total + trial.lastMoved, 0) / selected.length,
       meanSteps: selected.reduce((total, trial) => total + trial.stepsRun, 0) / selected.length,
       convergedRuns: selected.filter((trial) => trial.converged).length,
     };
@@ -227,27 +264,34 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
     totalTicks,
     msPerTick: totalTicks === 0 ? 0 : elapsedMs / totalTicks,
     satisfiedPct: trials.reduce((total, trial) => total + trial.satisfiedPct, 0) / trialCount,
-    segregationIndex: trials.reduce((total, trial) => total + trial.segregationIndex, 0) / trialCount,
+    segregationIndex:
+      trials.reduce((total, trial) => total + trial.segregationIndex, 0) / trialCount,
     actualSteps: totalTicks / trialCount,
   };
 }
 
 export function formatSchellingStudyCsv(result: SchellingStudyResult): string {
-  const lines = ['threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs'];
+  const lines = [
+    'threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs',
+  ];
   for (const row of result.rows) {
-    lines.push([
-      row.threshold.toFixed(2),
-      row.meanSatisfiedPct.toFixed(4),
-      row.meanSegregationIndex.toFixed(4),
-      row.meanLastMoved.toFixed(2),
-      row.meanSteps.toFixed(2),
-      row.convergedRuns,
-    ].join(','));
+    lines.push(
+      [
+        row.threshold.toFixed(2),
+        row.meanSatisfiedPct.toFixed(4),
+        row.meanSegregationIndex.toFixed(4),
+        row.meanLastMoved.toFixed(2),
+        row.meanSteps.toFixed(2),
+        row.convergedRuns,
+      ].join(','),
+    );
   }
   lines.push(
     'performance_metric,total_ticks,elapsed_ms,tpms,mspt',
     [
-      'performance', result.totalTicks, result.elapsedMs.toFixed(3),
+      'performance',
+      result.totalTicks,
+      result.elapsedMs.toFixed(3),
       (result.elapsedMs === 0 ? 0 : result.totalTicks / result.elapsedMs).toFixed(6),
       result.msPerTick.toFixed(6),
     ].join(','),

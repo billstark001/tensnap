@@ -35,10 +35,28 @@ const OfflineEnvironment = (props: {
   const { environment, assets, scenario, updateTrigger } = props;
   const displayType = getEnvironmentDisplayType(environment);
   if (displayType === '2d') {
-    return <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}><Environment2DView environment={environment} assets={assets} scenario={scenario} updateTrigger={updateTrigger} /></ViewErrorBoundary>;
+    return (
+      <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
+        <Environment2DView
+          environment={environment}
+          assets={assets}
+          scenario={scenario}
+          updateTrigger={updateTrigger}
+        />
+      </ViewErrorBoundary>
+    );
   }
   if (displayType === 'uniform') {
-    return <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}><UniformEnvironmentView environment={environment} assets={assets} scenario={scenario} updateTrigger={updateTrigger} /></ViewErrorBoundary>;
+    return (
+      <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
+        <UniformEnvironmentView
+          environment={environment}
+          assets={assets}
+          scenario={scenario}
+          updateTrigger={updateTrigger}
+        />
+      </ViewErrorBoundary>
+    );
   }
   return <div>Unsupported environment type: {environment.type}</div>;
 };
@@ -67,10 +85,26 @@ const SnapshotPreviewContextMenu: React.FC<{
   }, [toast]);
 
   return (
-    <ContextMenu.Root trigger={<div ref={previewRef} className={className}>{children}</div>}>
-      <ContextMenu.Label><Trans>Options</Trans></ContextMenu.Label>
-      {chartGroup && <ContextMenu.Item onSelect={() => exportToCSV(chartGroup)}><Sheet /><Trans>Save As CSV</Trans></ContextMenu.Item>}
-      <ContextMenu.Item onSelect={handleCopy}><ClipboardCopy /><Trans>Copy</Trans></ContextMenu.Item>
+    <ContextMenu.Root
+      trigger={
+        <div ref={previewRef} className={className}>
+          {children}
+        </div>
+      }
+    >
+      <ContextMenu.Label>
+        <Trans>Options</Trans>
+      </ContextMenu.Label>
+      {chartGroup && (
+        <ContextMenu.Item onSelect={() => exportToCSV(chartGroup)}>
+          <Sheet />
+          <Trans>Save As CSV</Trans>
+        </ContextMenu.Item>
+      )}
+      <ContextMenu.Item onSelect={handleCopy}>
+        <ClipboardCopy />
+        <Trans>Copy</Trans>
+      </ContextMenu.Item>
     </ContextMenu.Root>
   );
 };
@@ -98,7 +132,10 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const { _ } = useLingui();
   const firstFrame = snapshot?.initial.frame ?? 0;
   const lastFrame = snapshot?.frames[snapshot.frames.length - 1]?.index ?? firstFrame;
-  const player = useMemo(() => snapshot ? new SnapshotPlaybackSource(snapshot) : null, [snapshot]);
+  const player = useMemo(
+    () => (snapshot ? new SnapshotPlaybackSource(snapshot) : null),
+    [snapshot],
+  );
   const [frame, setFrame] = useState(firstFrame);
   const [playing, setPlaying] = useState(false);
   const [label, setLabel] = useState(snapshot?.metadata.label ?? '');
@@ -129,92 +166,207 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const time = replay.metadata.time ?? '-';
   const monitors = [...replay.monitors.all.values()];
 
-  return <>
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
-      <Dialog.CloseButton />
-      <Dialog.Title><Trans>Snapshot replay</Trans></Dialog.Title>
-      <Dialog.Description><Trans>Inspect this recording offline. Opening it creates a disconnected copy.</Trans></Dialog.Description>
-      <Dialog.Body className={styles.detailContainer}>
-        <div className={styles.replaySidebar}>
-          <div className={styles.detailRow}>
-            <label className={styles.detailLabel} htmlFor="snapshot-name"><Trans>Snapshot name</Trans></label>
-            <input
-              id="snapshot-name"
-              className={styles.snapshotNameInput}
-              value={label}
-              placeholder={identity.id}
-              onChange={(event) => {
-                const next = event.target.value;
-                setLabel(next);
-                onRename(next);
-              }}
-            />
+  return (
+    <>
+      <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
+        <Dialog.CloseButton />
+        <Dialog.Title>
+          <Trans>Snapshot replay</Trans>
+        </Dialog.Title>
+        <Dialog.Description>
+          <Trans>Inspect this recording offline. Opening it creates a disconnected copy.</Trans>
+        </Dialog.Description>
+        <Dialog.Body className={styles.detailContainer}>
+          <div className={styles.replaySidebar}>
+            <div className={styles.detailRow}>
+              <label className={styles.detailLabel} htmlFor="snapshot-name">
+                <Trans>Snapshot name</Trans>
+              </label>
+              <input
+                id="snapshot-name"
+                className={styles.snapshotNameInput}
+                value={label}
+                placeholder={identity.id}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setLabel(next);
+                  onRename(next);
+                }}
+              />
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>
+                <Trans>ID:</Trans>
+              </span>
+              <span className={styles.detailValue}>{identity.id}</span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>
+                <Trans>Recorded:</Trans>
+              </span>
+              <span className={styles.detailValue}>{formatTimestamp(identity.timestamp)}</span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>
+                <Trans>Frame:</Trans>
+              </span>
+              <span className={styles.detailValue}>
+                {frame}/{lastFrame}
+              </span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>
+                <Trans>Simulation time:</Trans>
+              </span>
+              <span className={styles.detailValue}>{String(time)}</span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>
+                <Trans>Frame updates:</Trans>
+              </span>
+              <span className={styles.detailValue}>{currentFrame?.messages.length ?? 0}</span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>
+                <Trans>Action:</Trans>
+              </span>
+              <span className={styles.detailValue}>{currentFrame?.action?.id ?? '-'}</span>
+            </div>
+            {!isStatic && (
+              <div className={styles.timelineControls}>
+                <button
+                  type="button"
+                  className={styles.timelineButton}
+                  onClick={() => {
+                    player.reset();
+                    setFrame(firstFrame);
+                  }}
+                  title={_(msg`First frame`)}
+                  aria-label={_(msg`First frame`)}
+                >
+                  <SkipBack size={15} />
+                </button>
+                <button
+                  type="button"
+                  className={styles.timelineButton}
+                  onClick={() => setPlaying((value) => !value)}
+                  title={playing ? _(msg`Pause`) : _(msg`Play`)}
+                  aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}
+                >
+                  {playing ? <Pause size={15} /> : <Play size={15} />}
+                </button>
+                <input
+                  className={styles.timelineRange}
+                  type="range"
+                  min={firstFrame}
+                  max={lastFrame}
+                  value={frame}
+                  onChange={(event) => {
+                    setPlaying(false);
+                    const next = Number(event.target.value);
+                    player.seek(next);
+                    setFrame(player.frame);
+                  }}
+                />
+              </div>
+            )}
+            {snapshot.truncated && (
+              <p className={styles.truncatedNotice}>
+                <Trans>Older frames were removed to stay within the recording budget.</Trans>
+              </p>
+            )}
+            <Dialog.Separator />
+            <h4 className={styles.sectionTitle}>
+              <Trans>Parameters</Trans>
+            </h4>
+            <div className={styles.parameterList}>
+              {[...replay.parameters.values()].map((parameter) => (
+                <div key={parameter.id} className={styles.parameterItem}>
+                  <span className={styles.parameterLabel}>{parameter.label}</span>
+                  <span className={styles.parameterValue}>{String(parameter.value ?? '-')}</span>
+                </div>
+              ))}
+            </div>
+            <Dialog.Separator />
+            <h4 className={styles.sectionTitle}>
+              <Trans>Monitors</Trans>
+            </h4>
+            <div className={styles.monitorList}>
+              {monitors.length === 0 ? (
+                <p className={styles.emptyMonitorNotice}>
+                  <Trans>No monitor data was recorded.</Trans>
+                </p>
+              ) : (
+                monitors.map((monitor) => (
+                  <section key={monitor.id} className={styles.monitorItem}>
+                    <span className={styles.monitorLabel}>{monitor.label || monitor.id}</span>
+                    <ValueInspector
+                      value={monitor.value ?? null}
+                      renderHint={monitor.render_hint ?? 'auto'}
+                      compact
+                    />
+                  </section>
+                ))
+              )}
+            </div>
           </div>
-          <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>ID:</Trans></span><span className={styles.detailValue}>{identity.id}</span></div>
-          <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Recorded:</Trans></span><span className={styles.detailValue}>{formatTimestamp(identity.timestamp)}</span></div>
-          <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Frame:</Trans></span><span className={styles.detailValue}>{frame}/{lastFrame}</span></div>
-          <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Simulation time:</Trans></span><span className={styles.detailValue}>{String(time)}</span></div>
-          <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Frame updates:</Trans></span><span className={styles.detailValue}>{currentFrame?.messages.length ?? 0}</span></div>
-          <div className={styles.detailRow}><span className={styles.detailLabel}><Trans>Action:</Trans></span><span className={styles.detailValue}>{currentFrame?.action?.id ?? '-'}</span></div>
-          {!isStatic && <div className={styles.timelineControls}>
-            <button type="button" className={styles.timelineButton} onClick={() => { player.reset(); setFrame(firstFrame); }} title={_(msg`First frame`)} aria-label={_(msg`First frame`)}><SkipBack size={15} /></button>
-            <button type="button" className={styles.timelineButton} onClick={() => setPlaying((value) => !value)} title={playing ? _(msg`Pause`) : _(msg`Play`)} aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}>
-              {playing ? <Pause size={15} /> : <Play size={15} />}
-            </button>
-            <input
-              className={styles.timelineRange}
-              type="range"
-              min={firstFrame}
-              max={lastFrame}
-              value={frame}
-              onChange={(event) => {
-                setPlaying(false);
-                const next = Number(event.target.value);
-                player.seek(next);
-                setFrame(player.frame);
-              }}
-            />
-          </div>}
-          {snapshot.truncated && <p className={styles.truncatedNotice}><Trans>Older frames were removed to stay within the recording budget.</Trans></p>}
-          <Dialog.Separator />
-          <h4 className={styles.sectionTitle}><Trans>Parameters</Trans></h4>
-          <div className={styles.parameterList}>
-            {[...replay.parameters.values()].map((parameter) => <div key={parameter.id} className={styles.parameterItem}><span className={styles.parameterLabel}>{parameter.label}</span><span className={styles.parameterValue}>{String(parameter.value ?? '-')}</span></div>)}
+          <Dialog.Separator vertical />
+          <div className={styles.replayContent}>
+            <div className={styles.environmentList}>
+              {[...replay.environments.values()].map((environment) => (
+                <SnapshotPreviewContextMenu key={environment.id} className={styles.environmentItem}>
+                  <div className={styles.environmentHeader}>
+                    <span className={styles.environmentType}>{environment.type}</span>
+                    <span className={styles.environmentLabel}>{environment.id}</span>
+                  </div>
+                  <div className={styles.environmentDisplay}>
+                    <OfflineEnvironment
+                      environment={environment}
+                      assets={replay.assets}
+                      scenario={replay}
+                      updateTrigger={frame}
+                    />
+                  </div>
+                </SnapshotPreviewContextMenu>
+              ))}
+            </div>
+            {replay.charts.getGroupList().length > 0 && (
+              <div className={styles.chartList}>
+                {replay.charts.getGroupList().map((group) => (
+                  <SnapshotPreviewContextMenu
+                    key={group.id}
+                    className={styles.chartItem}
+                    chartGroup={group}
+                  >
+                    <h4 className={styles.sectionTitle}>{group.label || group.id}</h4>
+                    <ChartView chartGroup={group} updateInterval={0} updateTrigger={frame} />
+                  </SnapshotPreviewContextMenu>
+                ))}
+              </div>
+            )}
           </div>
-          <Dialog.Separator />
-          <h4 className={styles.sectionTitle}><Trans>Monitors</Trans></h4>
-          <div className={styles.monitorList}>
-            {monitors.length === 0 ? (
-              <p className={styles.emptyMonitorNotice}><Trans>No monitor data was recorded.</Trans></p>
-            ) : monitors.map((monitor) => (
-              <section key={monitor.id} className={styles.monitorItem}>
-                <span className={styles.monitorLabel}>{monitor.label || monitor.id}</span>
-                <ValueInspector value={monitor.value ?? null} renderHint={monitor.render_hint ?? 'auto'} compact />
-              </section>
-            ))}
-          </div>
-        </div>
-        <Dialog.Separator vertical />
-        <div className={styles.replayContent}>
-          <div className={styles.environmentList}>
-            {[...replay.environments.values()].map((environment) => (
-              <SnapshotPreviewContextMenu key={environment.id} className={styles.environmentItem}>
-                <div className={styles.environmentHeader}><span className={styles.environmentType}>{environment.type}</span><span className={styles.environmentLabel}>{environment.id}</span></div>
-                <div className={styles.environmentDisplay}><OfflineEnvironment environment={environment} assets={replay.assets} scenario={replay} updateTrigger={frame} /></div>
-              </SnapshotPreviewContextMenu>
-            ))}
-          </div>
-          {replay.charts.getGroupList().length > 0 && <div className={styles.chartList}>
-            {replay.charts.getGroupList().map((group) => <SnapshotPreviewContextMenu key={group.id} className={styles.chartItem} chartGroup={group}><h4 className={styles.sectionTitle}>{group.label || group.id}</h4><ChartView chartGroup={group} updateInterval={0} updateTrigger={frame} /></SnapshotPreviewContextMenu>)}
-          </div>}
-        </div>
-      </Dialog.Body>
-      <Dialog.Footer>
-        <Dialog.Button variant="danger" onClick={onDelete} disabled={deleteDisabled}><Trans>Delete recording</Trans></Dialog.Button>
-        <Dialog.Button onClick={() => setRestoreOpen(true)} disabled={!session?.isConnected || !session.simulatorInfo}><Trans>Restore to live simulator</Trans></Dialog.Button>
-        <Dialog.Button variant="primary" onClick={() => onOpenOffline(frame)}><Trans>Open as offline copy</Trans></Dialog.Button>
-      </Dialog.Footer>
-    </Dialog.Root>
-    <SceneRestoreDialog open={restoreOpen} onOpenChange={setRestoreOpen} snapshot={snapshot} session={session} />
-  </>;
+        </Dialog.Body>
+        <Dialog.Footer>
+          <Dialog.Button variant="danger" onClick={onDelete} disabled={deleteDisabled}>
+            <Trans>Delete recording</Trans>
+          </Dialog.Button>
+          <Dialog.Button
+            onClick={() => setRestoreOpen(true)}
+            disabled={!session?.isConnected || !session.simulatorInfo}
+          >
+            <Trans>Restore to live simulator</Trans>
+          </Dialog.Button>
+          <Dialog.Button variant="primary" onClick={() => onOpenOffline(frame)}>
+            <Trans>Open as offline copy</Trans>
+          </Dialog.Button>
+        </Dialog.Footer>
+      </Dialog.Root>
+      <SceneRestoreDialog
+        open={restoreOpen}
+        onOpenChange={setRestoreOpen}
+        snapshot={snapshot}
+        session={session}
+      />
+    </>
+  );
 };

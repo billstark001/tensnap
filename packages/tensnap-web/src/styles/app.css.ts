@@ -15,7 +15,7 @@ export const header = style({
   padding: vars.space.md,
   borderBottom: `1px solid ${vars.color.gridLine}`,
   backgroundColor: vars.color.background,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -43,7 +43,7 @@ export const environmentCard = style({
   borderRadius: vars.radius.md,
   padding: vars.space.md,
   boxShadow: vars.shadow.sm,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
@@ -66,15 +66,15 @@ export const button = style({
   fontSize: vars.fontSize.sm,
   fontWeight: 500,
   transition: 'background-color 0.2s',
-  
+
   ':hover': {
     backgroundColor: vars.color.primaryHover,
   },
-  
+
   ':active': {
     transform: 'translateY(1px)',
   },
-  
+
   ':disabled': {
     opacity: 0.5,
     cursor: 'not-allowed',
@@ -91,7 +91,7 @@ export const spinnerOverlay = style({
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 9999, // 确保在所有dialogs之上
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.overlayDark,
@@ -101,7 +101,7 @@ export const spinnerOverlay = style({
 
 const spin = keyframes({
   '0%': { transform: 'rotate(0deg)' },
-  '100%': { transform: 'rotate(360deg)' }
+  '100%': { transform: 'rotate(360deg)' },
 });
 
 export const spinner = style({
@@ -111,7 +111,7 @@ export const spinner = style({
   borderTop: `4px solid ${vars.color.primary}`,
   borderRadius: vars.radius.full,
   animation: `${spin} 1s linear infinite`,
-  
+
   selectors: {
     'body[data-theme="dark"] &': {
       borderColor: vars.color.darkGridLine,

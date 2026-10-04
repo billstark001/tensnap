@@ -1,7 +1,12 @@
 import { createStoreContext } from '@/utils/zustand';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 
-export type HistoryCommandScope = 'layout' | 'view-config' | 'renderer-override' | 'snapshot' | 'remote-param';
+export type HistoryCommandScope =
+  | 'layout'
+  | 'view-config'
+  | 'renderer-override'
+  | 'snapshot'
+  | 'remote-param';
 export type HistoryStatus = 'idle' | 'applying' | 'reverting' | 'failed';
 
 export interface HistoryCommand {
@@ -46,10 +51,12 @@ export interface HistoryStoreOptions {
   onError?: (error: unknown, command: HistoryCommand) => void;
 }
 
-const messageOf = (error: unknown) => error instanceof Error ? error.message : String(error);
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** Project-scoped command history. Commands contain renderer-owned patches only. */
-export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundStore<StoreApi<HistoryState>> => {
+export const createHistoryStore = (
+  options: HistoryStoreOptions = {},
+): UseBoundStore<StoreApi<HistoryState>> => {
   const maxCommands = options.maxCommands ?? 64;
   const maxBytes = options.maxBytes ?? 4 * 1024 * 1024;
   if (!Number.isSafeInteger(maxCommands) || maxCommands < 1) {
@@ -98,24 +105,22 @@ export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundS
       };
       const last = state.past[state.past.length - 1];
       const canMerge = Boolean(
-        last?.mergeKey
-        && stamped.mergeKey === last.mergeKey
-        && stamped.timestamp! >= (last.timestamp ?? 0)
-        && (stamped.timestamp! - (last.timestamp ?? 0)) <= 750,
+        last?.mergeKey &&
+        stamped.mergeKey === last.mergeKey &&
+        stamped.timestamp! >= (last.timestamp ?? 0) &&
+        stamped.timestamp! - (last.timestamp ?? 0) <= 750,
       );
       const merged = canMerge
         ? {
-          ...stamped,
-          id: last.id,
-          label: command.label,
-          byteSize: Math.max(last.byteSize, command.byteSize),
-          revert: last.revert,
-          beforeStateId: last.beforeStateId,
-        }
+            ...stamped,
+            id: last.id,
+            label: command.label,
+            byteSize: Math.max(last.byteSize, command.byteSize),
+            revert: last.revert,
+            beforeStateId: last.beforeStateId,
+          }
         : stamped;
-      const candidate = canMerge
-        ? [...state.past.slice(0, -1), merged]
-        : [...state.past, stamped];
+      const candidate = canMerge ? [...state.past.slice(0, -1), merged] : [...state.past, stamped];
       const retained = retainWithinBudget(candidate);
       set({
         past: retained.commands,
@@ -225,11 +230,8 @@ export const createHistoryStore = (options: HistoryStoreOptions = {}): UseBoundS
 
 export const createHistoryCommandId = () => crypto.randomUUID();
 
-export const estimateHistoryBytes = (...values: unknown[]) => (
-  new TextEncoder().encode(JSON.stringify(values)).byteLength
-);
+export const estimateHistoryBytes = (...values: unknown[]) =>
+  new TextEncoder().encode(JSON.stringify(values)).byteLength;
 
-export const {
-  Provider: ScenarioUndoRedoStoreProvider,
-  useStore: useScenarioUndoRedoStore,
-} = createStoreContext<HistoryState>();
+export const { Provider: ScenarioUndoRedoStoreProvider, useStore: useScenarioUndoRedoStore } =
+  createStoreContext<HistoryState>();

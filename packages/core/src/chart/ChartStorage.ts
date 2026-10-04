@@ -1,6 +1,6 @@
 import type { ChartMetadata, ChartUpdateData } from '@tensnap/protocol';
 import type { ChartGroup, ChartSeriesPoint } from './types';
-import { instantiateChartMetadata } from "./utils";
+import { instantiateChartMetadata } from './utils';
 
 type WarnFn = (msg: string) => void;
 const noopWarn: WarnFn = () => undefined;
@@ -16,13 +16,14 @@ function mapGetOrInit<K, V>(map: Map<K, V[]>, key: K): V[] {
 function mapListRemove<K, V>(map: Map<K, V[]>, key: K, item: V): void {
   const list = map.get(key);
   if (!list) return;
-  const next = list.filter(x => x !== item);
+  const next = list.filter((x) => x !== item);
   next.length ? map.set(key, next) : map.delete(key);
 }
 
 /** First index whose point time is >= `time`. */
 function lowerBoundTime(data: ChartSeriesPoint[], time: number): number {
-  let lo = 0, hi = data.length;
+  let lo = 0,
+    hi = data.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
     if (data[mid].time < time) lo = mid + 1;
@@ -33,7 +34,8 @@ function lowerBoundTime(data: ChartSeriesPoint[], time: number): number {
 
 /** First index whose point time is > `time`. */
 function upperBoundTime(data: ChartSeriesPoint[], time: number): number {
-  let lo = 0, hi = data.length;
+  let lo = 0,
+    hi = data.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
     if (data[mid].time <= time) lo = mid + 1;
@@ -43,8 +45,6 @@ function upperBoundTime(data: ChartSeriesPoint[], time: number): number {
 }
 
 // #endregion
-
-
 
 // #region ChartStorage
 
@@ -73,11 +73,14 @@ export class ChartStorage {
     return this._revision;
   }
 
-  // #region Snapshot 
+  // #region Snapshot
 
   shallowCopy(): ChartStorage {
     const copy = new ChartStorage();
-    this.groups.forEach((g, id) => { copy.groups.set(id, g); copy.pushBuffer.set(id, new Map()); });
+    this.groups.forEach((g, id) => {
+      copy.groups.set(id, g);
+      copy.pushBuffer.set(id, new Map());
+    });
     this.metaMap.forEach((list, id) => copy.metaMap.set(id, list));
     this.metaGroups.forEach((list, id) => copy.metaGroups.set(id, list));
     this.latestValues.forEach((value, id) => copy.latestValues.set(id, { ...value }));
@@ -90,7 +93,7 @@ export class ChartStorage {
       id: group.id,
       label: group.label,
       metadataDict: Object.fromEntries(
-        Object.entries(group.metadataDict).map(([id, meta]) => [id, { ...meta }])
+        Object.entries(group.metadataDict).map(([id, meta]) => [id, { ...meta }]),
       ),
       data: group.data.map((point) => ({ ...point })),
     }));
@@ -107,7 +110,7 @@ export class ChartStorage {
         id: group.id,
         label: group.label,
         metadataDict: Object.fromEntries(
-          Object.entries(group.metadataDict).map(([id, meta]) => [id, { ...meta }])
+          Object.entries(group.metadataDict).map(([id, meta]) => [id, { ...meta }]),
         ),
         data: group.data.map((point) => ({ ...point })),
       });
@@ -117,7 +120,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Internal: registration 
+  // #region Internal: registration
 
   private _register(metaId: string, meta: ChartMetadata, group: ChartGroup): void {
     mapGetOrInit(this.metaMap, metaId).push(meta);
@@ -167,12 +170,12 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Internal: data helpers 
+  // #region Internal: data helpers
 
   private _extractPoints(data: ChartSeriesPoint[], metaId: string): ChartSeriesPoint[] {
     return data
-      .filter(dp => dp[metaId] !== undefined)
-      .map(dp => ({ time: dp.time, [metaId]: dp[metaId] }));
+      .filter((dp) => dp[metaId] !== undefined)
+      .map((dp) => ({ time: dp.time, [metaId]: dp[metaId] }));
   }
 
   private _mergePoints(groups: ChartGroup[], metaId: string): ChartSeriesPoint[] {
@@ -228,7 +231,8 @@ export class ChartStorage {
 
     // General out-of-order path: linear merge of two sorted arrays.
     const merged: ChartSeriesPoint[] = [];
-    let i = 0, j = 0;
+    let i = 0,
+      j = 0;
     while (i < data.length && j < normalized.length) {
       const current = data[i];
       const next = normalized[j];
@@ -299,7 +303,7 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Groups 
+  // #region Groups
 
   hasGroup(groupId: string): boolean {
     return this.groups.has(groupId);
@@ -348,7 +352,10 @@ export class ChartStorage {
   renameGroup(oldId: string, newId: string, warn: WarnFn = noopWarn): boolean {
     const group = this.groups.get(oldId);
     if (!group) return false;
-    if (this.groups.has(newId)) { warn(`Group "${newId}" already exists.`); return false; }
+    if (this.groups.has(newId)) {
+      warn(`Group "${newId}" already exists.`);
+      return false;
+    }
 
     group.id = newId;
     this.groups.delete(oldId);
@@ -367,12 +374,12 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Metadata 
+  // #region Metadata
 
   upsertMeta(meta: ChartMetadata): void {
     const existing = this.metaMap.get(meta.id);
     if (existing?.length) {
-      existing.forEach(m => Object.assign(m, meta));
+      existing.forEach((m) => Object.assign(m, meta));
     } else {
       this.addGroup(instantiateChartMetadata(meta));
     }
@@ -381,7 +388,10 @@ export class ChartStorage {
 
   addMeta(groupId: string, meta: ChartMetadata, warn: WarnFn = noopWarn): boolean {
     const group = this.groups.get(groupId);
-    if (!group) { warn(`Group "${groupId}" not found.`); return false; }
+    if (!group) {
+      warn(`Group "${groupId}" not found.`);
+      return false;
+    }
     if (meta.id in group.metadataDict) {
       warn(`Metadata "${meta.id}" already exists in group "${groupId}".`);
       return false;
@@ -395,7 +405,7 @@ export class ChartStorage {
   updateMeta(metaId: string, update: Partial<ChartMetadata>): boolean {
     const list = this.metaMap.get(metaId);
     if (!list?.length) return false;
-    list.forEach(m => Object.assign(m, update));
+    list.forEach((m) => Object.assign(m, update));
     this.touch();
     return true;
   }
@@ -407,7 +417,7 @@ export class ChartStorage {
    */
   removeMeta(
     metaId: string,
-    opts?: { persistData?: boolean; returnData?: boolean }
+    opts?: { persistData?: boolean; returnData?: boolean },
   ): ChartSeriesPoint[] | null {
     const groups = this.metaGroups.get(metaId);
     if (!groups?.length) return null;
@@ -430,10 +440,13 @@ export class ChartStorage {
     metaId: string,
     groupId: string,
     opts?: { persistData?: boolean; returnData?: boolean },
-    warn: WarnFn = noopWarn
+    warn: WarnFn = noopWarn,
   ): ChartSeriesPoint[] | null {
     const group = this.groups.get(groupId);
-    if (!group) { warn(`Group "${groupId}" not found.`); return null; }
+    if (!group) {
+      warn(`Group "${groupId}" not found.`);
+      return null;
+    }
     if (!(metaId in group.metadataDict)) {
       warn(`Metadata "${metaId}" not found in group "${groupId}".`);
       return null;
@@ -457,12 +470,18 @@ export class ChartStorage {
     fromGroupId: string,
     toGroupId: string,
     opts?: { copy?: boolean },
-    warn: WarnFn = noopWarn
+    warn: WarnFn = noopWarn,
   ): boolean {
     const from = this.groups.get(fromGroupId);
     const to = this.groups.get(toGroupId);
-    if (!from) { warn(`Group "${fromGroupId}" not found.`); return false; }
-    if (!to) { warn(`Group "${toGroupId}" not found.`); return false; }
+    if (!from) {
+      warn(`Group "${fromGroupId}" not found.`);
+      return false;
+    }
+    if (!to) {
+      warn(`Group "${toGroupId}" not found.`);
+      return false;
+    }
     if (!(metaId in from.metadataDict)) {
       warn(`Metadata "${metaId}" not found in group "${fromGroupId}".`);
       return false;
@@ -487,19 +506,20 @@ export class ChartStorage {
     return true;
   }
 
-  renameMeta(
-    oldId: string,
-    newId: string,
-    groupId?: string,
-    warn: WarnFn = noopWarn
-  ): boolean {
-    if (this.metaMap.has(newId)) { warn(`Metadata "${newId}" already exists.`); return false; }
+  renameMeta(oldId: string, newId: string, groupId?: string, warn: WarnFn = noopWarn): boolean {
+    if (this.metaMap.has(newId)) {
+      warn(`Metadata "${newId}" already exists.`);
+      return false;
+    }
 
-    const candidates = groupId !== undefined
-      ? (this.groups.get(groupId) ? [this.groups.get(groupId)!] : [])
-      : [...(this.metaGroups.get(oldId) ?? [])];
+    const candidates =
+      groupId !== undefined
+        ? this.groups.get(groupId)
+          ? [this.groups.get(groupId)!]
+          : []
+        : [...(this.metaGroups.get(oldId) ?? [])];
 
-    const affected = candidates.filter(g => oldId in g.metadataDict);
+    const affected = candidates.filter((g) => oldId in g.metadataDict);
     if (!affected.length) return false;
 
     for (const group of affected) {
@@ -510,7 +530,10 @@ export class ChartStorage {
       delete group.metadataDict[oldId];
       this._register(newId, renamed, group);
       for (const dp of group.data) {
-        if (oldId in dp) { dp[newId] = dp[oldId]; delete dp[oldId]; }
+        if (oldId in dp) {
+          dp[newId] = dp[oldId];
+          delete dp[oldId];
+        }
       }
     }
 
@@ -532,16 +555,19 @@ export class ChartStorage {
   getAllMeta(): ChartMetadata[] {
     const seen = new Set<string>();
     const result: ChartMetadata[] = [];
-    this.metaMap.forEach(list => {
+    this.metaMap.forEach((list) => {
       for (const m of list) {
-        if (!seen.has(m.id)) { result.push(m); seen.add(m.id); }
+        if (!seen.has(m.id)) {
+          result.push(m);
+          seen.add(m.id);
+        }
       }
     });
     return result;
   }
 
   // #endregion
-  // #region Queries 
+  // #region Queries
 
   /**
    * Returns all data points for a metadata ID merged across groups, sorted by
@@ -585,7 +611,10 @@ export class ChartStorage {
         const value = point[metaId];
         if (value !== undefined) {
           const diff = Math.abs(point.time - time);
-          if (diff < bestDiff) { bestDiff = diff; best = value; }
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            best = value;
+          }
           break;
         }
       }
@@ -595,14 +624,17 @@ export class ChartStorage {
   }
 
   // #endregion
-  // #region Data mutation 
+  // #region Data mutation
 
   push(currentTime: number, points: ChartUpdateData[], warn: WarnFn = noopWarn): void {
     const touched: Array<[ChartGroup, Map<number, ChartSeriesPoint>]> = [];
 
     for (const { id, time = currentTime, value } of points) {
       const groups = this.metaGroups.get(id);
-      if (!groups) { warn(`Metadata "${id}" not found.`); continue; }
+      if (!groups) {
+        warn(`Metadata "${id}" not found.`);
+        continue;
+      }
 
       this.recordLatest(id, time, value);
 
@@ -625,11 +657,14 @@ export class ChartStorage {
   pushMany(metaId: string, points: ChartSeriesPoint[], warn: WarnFn = noopWarn): void {
     if (!points.length) return;
     const groups = this.metaGroups.get(metaId);
-    if (!groups?.length) { warn(`Metadata "${metaId}" not found.`); return; }
+    if (!groups?.length) {
+      warn(`Metadata "${metaId}" not found.`);
+      return;
+    }
 
     const sorted = points
-      .filter(dp => metaId in dp)
-      .map(dp => ({ time: dp.time, [metaId]: dp[metaId] }))
+      .filter((dp) => metaId in dp)
+      .map((dp) => ({ time: dp.time, [metaId]: dp[metaId] }))
       .sort((a, b) => a.time - b.time);
     if (!sorted.length) return;
 
@@ -641,7 +676,9 @@ export class ChartStorage {
   }
 
   clearAll(): void {
-    this.groups.forEach(g => { g.data = []; });
+    this.groups.forEach((g) => {
+      g.data = [];
+    });
     this.latestValues.clear();
     this.touch();
   }
@@ -685,9 +722,9 @@ export class ChartStorage {
       if (metas.size === Object.keys(group.metadataDict).length) {
         group.data = [];
       } else {
-        group.data = group.data.map(dp => {
+        group.data = group.data.map((dp) => {
           const copy = { ...dp };
-          metas.forEach(id => delete copy[id]);
+          metas.forEach((id) => delete copy[id]);
           return copy;
         });
       }
@@ -704,9 +741,7 @@ export class ChartStorage {
   truncateAll(time: number, inclusive: boolean): void {
     let changed = false;
     for (const group of this.groups.values()) {
-      const keep = inclusive
-        ? lowerBoundTime(group.data, time)
-        : upperBoundTime(group.data, time);
+      const keep = inclusive ? lowerBoundTime(group.data, time) : upperBoundTime(group.data, time);
       if (keep !== group.data.length) {
         group.data.length = keep;
         changed = true;
@@ -724,9 +759,7 @@ export class ChartStorage {
     for (const id of groupIds) {
       const group = this.groups.get(id);
       if (!group) continue;
-      const keep = inclusive
-        ? lowerBoundTime(group.data, time)
-        : upperBoundTime(group.data, time);
+      const keep = inclusive ? lowerBoundTime(group.data, time) : upperBoundTime(group.data, time);
       if (keep !== group.data.length) {
         group.data.length = keep;
         truncated.add(id);
@@ -745,9 +778,7 @@ export class ChartStorage {
     const truncated = new Set<string>();
     if (target.size === 0) return truncated;
     for (const group of this.groups.values()) {
-      const start = inclusive
-        ? lowerBoundTime(group.data, time)
-        : upperBoundTime(group.data, time);
+      const start = inclusive ? lowerBoundTime(group.data, time) : upperBoundTime(group.data, time);
       if (start === group.data.length) continue;
       let changedData: ChartSeriesPoint[] | null = null;
       for (let index = start; index < group.data.length; index++) {
@@ -761,7 +792,8 @@ export class ChartStorage {
         }
         if (changedPoint !== null) {
           changedData ??= group.data.slice(0, index);
-          if (Object.keys(changedPoint).some((key) => key !== 'time')) changedData.push(changedPoint);
+          if (Object.keys(changedPoint).some((key) => key !== 'time'))
+            changedData.push(changedPoint);
         } else if (changedData !== null) {
           changedData.push(point);
         }

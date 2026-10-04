@@ -9,7 +9,10 @@ interface AppErrorBoundaryState {
 }
 
 /** Last-resort shell so a bad remote payload cannot blank the whole app. */
-export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
+export class AppErrorBoundary extends React.Component<
+  AppErrorBoundaryProps,
+  AppErrorBoundaryState
+> {
   state: AppErrorBoundaryState = { hasError: false };
 
   static getDerivedStateFromError(): AppErrorBoundaryState {
@@ -26,7 +29,9 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
         <main role="alert">
           <h1>TenSnap could not render this view.</h1>
           <p>The simulator data may be invalid. Reload after reconnecting the simulator.</p>
-          <button type="button" onClick={() => window.location.reload()}>Reload</button>
+          <button type="button" onClick={() => window.location.reload()}>
+            Reload
+          </button>
         </main>
       );
     }

@@ -80,10 +80,7 @@ export class GuideLineGenerator {
   private readonly enableSpacing: boolean;
   private readonly enableSize: boolean;
 
-  constructor(
-    threshold = 5,
-    options: { enableSpacing?: boolean; enableSize?: boolean } = {}
-  ) {
+  constructor(threshold = 5, options: { enableSpacing?: boolean; enableSize?: boolean } = {}) {
     this.threshold = threshold;
     this.enableSpacing = options.enableSpacing ?? true;
     this.enableSize = options.enableSize ?? true;
@@ -144,15 +141,19 @@ export class GuideLineGenerator {
           });
         }
       }
-    };
+    }
   }
 
   private matchSpacingGuidelines(axis: Axis, coord: ViewBox, guidelines: GuideLine[]): void {
-
     const config = AXIS_CONFIG[axis];
     const spacings = this.calculateSpacings(axis);
 
-    for (const [{ distance, views: [v1, v2] }] of spacings) {
+    for (const [
+      {
+        distance,
+        views: [v1, v2],
+      },
+    ] of spacings) {
       // 检查 coord 能否在 v1 前或 v2 后形成等间距
       const coordEnd = coord[config.posKey] + coord[config.sizeKey];
       const v1Start = v1.view[config.posKey];
@@ -161,31 +162,38 @@ export class GuideLineGenerator {
       // coord 在 v1 之前
       const distBefore = v1Start - coordEnd;
       if (Math.abs(distBefore - distance) <= this.threshold && distBefore > 0) {
-        guidelines.push(this.createSpacingGuideline(
-          axis,
-          v1Start - distance - coord[config.sizeKey],
-          distance,
-          [v1.index, v2.index],
-          [coord, v1.view, v2.view]
-        ));
+        guidelines.push(
+          this.createSpacingGuideline(
+            axis,
+            v1Start - distance - coord[config.sizeKey],
+            distance,
+            [v1.index, v2.index],
+            [coord, v1.view, v2.view],
+          ),
+        );
       }
 
       // coord 在 v2 之后
       const distAfter = coord[config.posKey] - v2End;
       if (Math.abs(distAfter - distance) <= this.threshold && distAfter > 0) {
-        guidelines.push(this.createSpacingGuideline(
-          axis,
-          v2End + distance,
-          distance,
-          [v1.index, v2.index],
-          [coord, v1.view, v2.view]
-        ));
+        guidelines.push(
+          this.createSpacingGuideline(
+            axis,
+            v2End + distance,
+            distance,
+            [v1.index, v2.index],
+            [coord, v1.view, v2.view],
+          ),
+        );
       }
-    };
-
+    }
   }
 
-  private matchSizeGuidelines(dim: 'width' | 'height', coord: ViewBox, guidelines: GuideLine[]): void {
+  private matchSizeGuidelines(
+    dim: 'width' | 'height',
+    coord: ViewBox,
+    guidelines: GuideLine[],
+  ): void {
     const axis = dim === 'width' ? 'vertical' : 'horizontal';
     const config = AXIS_CONFIG[axis];
     const sizeGroups = this.groupBySizes(dim);
@@ -207,7 +215,6 @@ export class GuideLineGenerator {
         });
       }
     }
-
   }
 
   private calculateSpacings(axis: Axis) {
@@ -218,7 +225,7 @@ export class GuideLineGenerator {
 
     const spacings: Array<{
       distance: number;
-      views: [typeof sorted[0], typeof sorted[0]];
+      views: [(typeof sorted)[0], (typeof sorted)[0]];
       gap: [number, number];
     }> = [];
 
@@ -243,14 +250,14 @@ export class GuideLineGenerator {
   private groupByDistance<T extends { distance: number }>(items: T[]): T[][] {
     const groups: T[][] = [];
     for (const item of items) {
-      const group = groups.find(g => Math.abs(g[0].distance - item.distance) <= this.threshold);
+      const group = groups.find((g) => Math.abs(g[0].distance - item.distance) <= this.threshold);
       if (group) {
         group.push(item);
       } else {
         groups.push([item]);
       }
     }
-    return groups.filter(g => g.length >= 1).map(g => g.slice(0, 1)); // 每组取一个代表
+    return groups.filter((g) => g.length >= 1).map((g) => g.slice(0, 1)); // 每组取一个代表
   }
 
   private groupBySizes(dim: 'width' | 'height') {
@@ -258,7 +265,7 @@ export class GuideLineGenerator {
     for (let i = 0; i < this.views.length; i++) {
       const view = this.views[i];
       const size = view[dim];
-      const group = groups.find(g => Math.abs(g.size - size) <= this.threshold);
+      const group = groups.find((g) => Math.abs(g.size - size) <= this.threshold);
       if (group) {
         group.indices.push(i);
       } else {
@@ -273,45 +280,50 @@ export class GuideLineGenerator {
     position: number,
     distance: number,
     refIndices: number[],
-    boxes: ViewBox[]
+    boxes: ViewBox[],
   ): GuideLine {
     const config = AXIS_CONFIG[axis === 'vertical' ? 'horizontal' : 'vertical'];
-    const starts = boxes.map(b => b[config.posKey]);
-    const ends = boxes.map(b => b[config.posKey] + b[config.sizeKey]);
+    const starts = boxes.map((b) => b[config.posKey]);
+    const ends = boxes.map((b) => b[config.posKey] + b[config.sizeKey]);
 
     return {
       type: axis,
       position,
       alignType: AXIS_CONFIG[axis].spacingAlign,
-      relatedSegments: [{
-        start: Math.min(...starts) - this.extension,
-        end: Math.max(...ends) + this.extension,
-      }],
+      relatedSegments: [
+        {
+          start: Math.min(...starts) - this.extension,
+          end: Math.max(...ends) + this.extension,
+        },
+      ],
       spacingInfo: { distance, referenceViews: refIndices },
     };
   }
 
   private createSizeSegments(axis: Axis, coord: ViewBox, indices: number[]): GuideLineSegment[] {
     const config = AXIS_CONFIG[axis === 'vertical' ? 'horizontal' : 'vertical'];
-    const boxes = [coord, ...indices.map(i => this.views[i])];
-    const starts = boxes.map(b => b[config.posKey]);
-    const ends = boxes.map(b => b[config.posKey] + b[config.sizeKey]);
+    const boxes = [coord, ...indices.map((i) => this.views[i])];
+    const starts = boxes.map((b) => b[config.posKey]);
+    const ends = boxes.map((b) => b[config.posKey] + b[config.sizeKey]);
 
-    return [{
-      start: Math.min(...starts) - this.extension,
-      end: Math.max(...ends) + this.extension,
-    }];
+    return [
+      {
+        start: Math.min(...starts) - this.extension,
+        end: Math.max(...ends) + this.extension,
+      },
+    ];
   }
 
   private calculateSegments(axis: Axis, viewIndex: number, coord: ViewBox): GuideLineSegment[] {
     const perpConfig = AXIS_CONFIG[axis === 'vertical' ? 'horizontal' : 'vertical'];
-    const viewBounds = this.boundaries[axis === 'vertical' ? 'horizontal' : 'vertical']
-      .filter(b => b.viewIndex === viewIndex);
+    const viewBounds = this.boundaries[axis === 'vertical' ? 'horizontal' : 'vertical'].filter(
+      (b) => b.viewIndex === viewIndex,
+    );
 
     if (viewBounds.length === 0) return [];
 
-    const viewStart = viewBounds.find(b => b.type === perpConfig.edgeTypes[0])?.pos ?? 0;
-    const viewEnd = viewBounds.find(b => b.type === perpConfig.edgeTypes[1])?.pos ?? 0;
+    const viewStart = viewBounds.find((b) => b.type === perpConfig.edgeTypes[0])?.pos ?? 0;
+    const viewEnd = viewBounds.find((b) => b.type === perpConfig.edgeTypes[1])?.pos ?? 0;
     const coordStart = coord[perpConfig.posKey];
     const coordEnd = coordStart + coord[perpConfig.sizeKey];
 
@@ -320,7 +332,12 @@ export class GuideLineGenerator {
 
     return overlapStart < overlapEnd
       ? [{ start: overlapStart, end: overlapEnd }]
-      : [{ start: Math.min(viewStart, coordStart) - this.extension, end: Math.max(viewEnd, coordEnd) + this.extension }];
+      : [
+          {
+            start: Math.min(viewStart, coordStart) - this.extension,
+            end: Math.max(viewEnd, coordEnd) + this.extension,
+          },
+        ];
   }
 
   private getAxisPoints(box: ViewBox, axis: Axis): [number, number, number] {
@@ -343,7 +360,7 @@ export class GuideLineGenerator {
       boundaries[axis].push(
         { pos, viewIndex: index, type: config.edgeTypes[0] },
         { pos: pos + size, viewIndex: index, type: config.edgeTypes[1] },
-        { pos: pos + size / 2, viewIndex: index, type: config.edgeTypes[2] }
+        { pos: pos + size / 2, viewIndex: index, type: config.edgeTypes[2] },
       );
     };
 
@@ -357,9 +374,14 @@ export class GuideLineGenerator {
     this.boundaries = boundaries;
   }
 
-  private findMatchingBoundaries(boundaries: Boundary[], target: number, threshold: number): Boundary[] {
+  private findMatchingBoundaries(
+    boundaries: Boundary[],
+    target: number,
+    threshold: number,
+  ): Boundary[] {
     const [min, max] = [target - threshold, target + threshold];
-    let left = 0, right = boundaries.length;
+    let left = 0,
+      right = boundaries.length;
 
     while (left < right) {
       const mid = (left + right) >> 1;
@@ -370,7 +392,7 @@ export class GuideLineGenerator {
       }
     }
 
-    return boundaries.slice(left).filter(b => b.pos <= max);
+    return boundaries.slice(left).filter((b) => b.pos <= max);
   }
 
   private deduplicateGuidelines(guidelines: GuideLine[]): GuideLine[] {
@@ -387,7 +409,7 @@ export class GuideLineGenerator {
       }
     }
 
-    return Array.from(map.values()).map(line => ({
+    return Array.from(map.values()).map((line) => ({
       ...line,
       relatedSegments: this.mergeSegments(line.relatedSegments),
     }));
@@ -412,7 +434,7 @@ export class GuideLineGenerator {
   }
 
   private hashViews(views: ViewBox[]): string {
-    return views.map(v => `${v.left},${v.top},${v.width},${v.height}`).join('|');
+    return views.map((v) => `${v.left},${v.top},${v.width},${v.height}`).join('|');
   }
 
   clearCache(): void {
@@ -437,9 +459,11 @@ export function calculateSnapDistance(coord: ViewBox, line: GuideLine): number {
     'center-h': () => Math.abs(coord.top + coord.height / 2 - line.position),
     'spacing-h': () => Math.abs(coord.left - line.position),
     'spacing-v': () => Math.abs(coord.top - line.position),
-    'size-h': () => line.spacingInfo ? Math.abs(coord.height - line.spacingInfo.distance) : Infinity,
-    'size-v': () => line.spacingInfo ? Math.abs(coord.width - line.spacingInfo.distance) : Infinity,
-    'cross': () => Infinity,
+    'size-h': () =>
+      line.spacingInfo ? Math.abs(coord.height - line.spacingInfo.distance) : Infinity,
+    'size-v': () =>
+      line.spacingInfo ? Math.abs(coord.width - line.spacingInfo.distance) : Infinity,
+    cross: () => Infinity,
   };
 
   return distMap[line.alignType]();
@@ -455,7 +479,7 @@ export class GuideLineMatcher {
     snapContent: GuideLineContent,
     threshold = 5,
     mode: 'drag' | 'resize' = 'drag',
-    options?: { enableSpacing?: boolean; enableSize?: boolean }
+    options?: { enableSpacing?: boolean; enableSize?: boolean },
   ) {
     this.generator = new GuideLineGenerator(threshold, options);
     this.snapContent = snapContent;

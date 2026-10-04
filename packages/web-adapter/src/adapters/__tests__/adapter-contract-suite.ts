@@ -7,7 +7,10 @@ type AdapterFactoryResult = {
 
 type AdapterFactory = () => Promise<AdapterFactoryResult>;
 
-export function runFileSystemAdapterContractSuite(name: string, createAdapter: AdapterFactory): void {
+export function runFileSystemAdapterContractSuite(
+  name: string,
+  createAdapter: AdapterFactory,
+): void {
   describe(name, () => {
     let adapter: FileSystemAdapter;
     let teardown: (() => Promise<void> | void) | undefined;

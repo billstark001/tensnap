@@ -11,7 +11,10 @@ describe('SnapshotPlaybackSource', () => {
     const update = { type: 'metadata_update' as const, payload: { time: 4 } };
     scenario.apply(update);
     recorder.recordMessage(update);
-    recorder.recordMessage({ type: 'action_result', payload: { id: 'step', request_id: 'step-1' } });
+    recorder.recordMessage({
+      type: 'action_result',
+      payload: { id: 'step', request_id: 'step-1' },
+    });
     const source = new SnapshotPlaybackSource(recorder.stop()!);
 
     expect(SNAPSHOT_PLAYBACK_ACTIONS).toEqual(['start', 'step', 'stop', 'reset']);
@@ -31,7 +34,10 @@ describe('SnapshotPlaybackSource', () => {
     const update = { type: 'metadata_update' as const, payload: { time: 7 } };
     scenario.apply(update);
     recorder.recordMessage(update);
-    recorder.recordMessage({ type: 'action_result', payload: { id: 'step', request_id: 'step-7' } });
+    recorder.recordMessage({
+      type: 'action_result',
+      payload: { id: 'step', request_id: 'step-7' },
+    });
     const source = new SnapshotPlaybackSource(recorder.stop()!);
     const scenarioRef = source.scenario;
 
@@ -53,7 +59,10 @@ describe('SnapshotPlaybackSource', () => {
       const update = { type: 'metadata_update' as const, payload: { time } };
       scenario.apply(update);
       recorder.recordMessage(update);
-      recorder.recordMessage({ type: 'action_result', payload: { id: 'step', request_id: `step-${time}` } });
+      recorder.recordMessage({
+        type: 'action_result',
+        payload: { id: 'step', request_id: `step-${time}` },
+      });
     }
     const source = new SnapshotPlaybackSource(recorder.stop()!);
 

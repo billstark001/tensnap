@@ -1,5 +1,12 @@
 import { useCallback, useState } from 'react';
-import { BooleanParameter, EnumParameter, Parameter, ParameterType, NumberParameter, StringParameter } from '../../types/model';
+import {
+  BooleanParameter,
+  EnumParameter,
+  Parameter,
+  ParameterType,
+  NumberParameter,
+  StringParameter,
+} from '../../types/model';
 import { useScenarioStore } from '../../store/scenario/store';
 import { useProjectStore } from '@/store/project';
 import * as styles from './ParameterControl.css';
@@ -12,7 +19,15 @@ interface ParameterControlProps {
   showLabel?: boolean;
 }
 
-function SliderParameterControl({ parameter, onChange, disabled = false }: { parameter: NumberParameter; onChange: (value: number) => void; disabled?: boolean }) {
+function SliderParameterControl({
+  parameter,
+  onChange,
+  disabled = false,
+}: {
+  parameter: NumberParameter;
+  onChange: (value: number) => void;
+  disabled?: boolean;
+}) {
   const [isEditingValue, setIsEditingValue] = useState(false);
   const [editValue, setEditValue] = useState(String(parameter.value));
 
@@ -30,12 +45,12 @@ function SliderParameterControl({ parameter, onChange, disabled = false }: { par
       const min = parameter.min ?? 0;
       const max = parameter.max ?? 100;
       const step = parameter.step ?? 1;
-      
+
       let truncated = Math.max(min, Math.min(max, numValue));
       // Round to nearest step
       truncated = Math.round((truncated - min) / step) * step + min;
       truncated = Math.max(min, Math.min(max, truncated));
-      
+
       onChange(truncated);
     }
     setIsEditingValue(false);
@@ -74,7 +89,7 @@ function SliderParameterControl({ parameter, onChange, disabled = false }: { par
           style={{ width: '60px', textAlign: 'right' }}
         />
       ) : (
-        <span 
+        <span
           className={styles.sliderValue}
           onClick={disabled ? undefined : handleValueClick}
           style={{ cursor: disabled ? 'default' : 'pointer' }}
@@ -87,7 +102,15 @@ function SliderParameterControl({ parameter, onChange, disabled = false }: { par
   );
 }
 
-function EnumParameterControl({ parameter, onChange, disabled = false }: { parameter: EnumParameter; onChange: (value: string) => void; disabled?: boolean }) {
+function EnumParameterControl({
+  parameter,
+  onChange,
+  disabled = false,
+}: {
+  parameter: EnumParameter;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   const { value, options, labels } = parameter;
   return (
     <Select.Root
@@ -96,11 +119,13 @@ function EnumParameterControl({ parameter, onChange, disabled = false }: { param
       onValueChange={onChange}
       disabled={disabled}
     >
-      {options?.length ? options.filter(Boolean).map((opt) => (
-        <Select.Item key={opt} value={opt} className={styles.option} indicator>
-          {labels?.[opt] || opt}
-        </Select.Item>
-      )) : (
+      {options?.length ? (
+        options.filter(Boolean).map((opt) => (
+          <Select.Item key={opt} value={opt} className={styles.option} indicator>
+            {labels?.[opt] || opt}
+          </Select.Item>
+        ))
+      ) : (
         <Select.Item value="_" className={styles.option} indicator>
           (no options)
         </Select.Item>
@@ -109,16 +134,22 @@ function EnumParameterControl({ parameter, onChange, disabled = false }: { param
   );
 }
 
-function SwitchParameterControl({ parameter, onChange, disabled = false }: { parameter: BooleanParameter; onChange: (value: boolean) => void; disabled?: boolean }) {
+function SwitchParameterControl({
+  parameter,
+  onChange,
+  disabled = false,
+}: {
+  parameter: BooleanParameter;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <div className={styles.controlContainer}>
-      <label
-        className={styles.switchLabel}
-        htmlFor="airplane-mode"
-      >
+      <label className={styles.switchLabel} htmlFor="airplane-mode">
         {parameter.label}
       </label>
-      <Switch.Root className={styles.switchRoot}
+      <Switch.Root
+        className={styles.switchRoot}
         checked={parameter.value}
         disabled={disabled}
         onCheckedChange={onChange}
@@ -129,7 +160,15 @@ function SwitchParameterControl({ parameter, onChange, disabled = false }: { par
   );
 }
 
-function StringParameterControl({ parameter, onChange, disabled = false }: { parameter: StringParameter; onChange: (value: string) => void; disabled?: boolean }) {
+function StringParameterControl({
+  parameter,
+  onChange,
+  disabled = false,
+}: {
+  parameter: StringParameter;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) {
   return (
     <div className={styles.controlContainer}>
       <input
@@ -143,11 +182,16 @@ function StringParameterControl({ parameter, onChange, disabled = false }: { par
   );
 }
 
-const FallbackRenderer: React.FC<{ parameter: Parameter; disabled?: boolean }> = ({ parameter }) => {
+const FallbackRenderer: React.FC<{ parameter: Parameter; disabled?: boolean }> = ({
+  parameter,
+}) => {
   return <div>Unsupported parameter type: {parameter.type}</div>;
 };
 
-const renderers: Record<ParameterType, React.FC<{ parameter: Parameter; onChange: (value: any) => void; disabled?: boolean }> | null> = {
+const renderers: Record<
+  ParameterType,
+  React.FC<{ parameter: Parameter; onChange: (value: any) => void; disabled?: boolean }> | null
+> = {
   number: SliderParameterControl as any,
   enum: EnumParameterControl as any,
   boolean: SwitchParameterControl as any,
@@ -159,16 +203,20 @@ export function ParameterControl({ parameter, showLabel = false }: ParameterCont
   const connected = useScenarioStore((state) => state.connected);
   useScenarioStore((state) => state.parameterUpdateTrigger.value);
   const runRevision = useScenarioStore((state) => state.runRevision);
-  const isSnapshotSource = useProjectStore((state) => state.activeProject?.source.kind === 'snapshot');
+  const isSnapshotSource = useProjectStore(
+    (state) => state.activeProject?.source.kind === 'snapshot',
+  );
 
   const parameterId = parameter.id;
   void runRevision;
-  const runtimeLocked = session?.run.status?.state === 'running' && parameter.allow_runtime_change !== true;
-  const disabled = isSnapshotSource
-    || !connected
-    || !session
-    || session.identityStatus !== 'matching'
-    || runtimeLocked;
+  const runtimeLocked =
+    session?.run.status?.state === 'running' && parameter.allow_runtime_change !== true;
+  const disabled =
+    isSnapshotSource ||
+    !connected ||
+    !session ||
+    session.identityStatus !== 'matching' ||
+    runtimeLocked;
 
   const onChange = useCallback(
     (value: any) => {
@@ -182,21 +230,15 @@ export function ParameterControl({ parameter, showLabel = false }: ParameterCont
         // session rolls back the optimistic echo before rethrowing.
       }
     },
-    [disabled, parameterId, session]
+    [disabled, parameterId, session],
   );
 
   const Renderer = renderers[parameter.type] || FallbackRenderer;
 
   return (
     <div className={styles.parameterContainer}>
-      {showLabel && (
-        <label className={styles.label}>
-          {parameter.label}
-        </label>
-      )}
+      {showLabel && <label className={styles.label}>{parameter.label}</label>}
       <Renderer parameter={parameter} onChange={onChange} disabled={disabled} />
     </div>
   );
-
-
 }

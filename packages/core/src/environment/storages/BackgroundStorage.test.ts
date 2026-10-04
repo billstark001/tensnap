@@ -33,7 +33,10 @@ describe('BackgroundStorage', () => {
     await oldLoad;
 
     expect(storage.getData()).toEqual({
-      kind: 'image', url: 'https://example.test/new.png', isBlob: false, interpolation: 'nearest',
+      kind: 'image',
+      url: 'https://example.test/new.png',
+      isBlob: false,
+      interpolation: 'nearest',
     });
   });
 
@@ -54,9 +57,13 @@ describe('BackgroundStorage', () => {
     vi.stubGlobal('Image', FakeImage);
     const revokeObjectURL = vi.fn();
     let id = 0;
-    vi.stubGlobal('URL', Object.assign(class extends URL {}, {
-      createObjectURL: vi.fn(() => `blob:owned-${++id}`), revokeObjectURL,
-    }));
+    vi.stubGlobal(
+      'URL',
+      Object.assign(class extends URL {}, {
+        createObjectURL: vi.fn(() => `blob:owned-${++id}`),
+        revokeObjectURL,
+      }),
+    );
     const storage = new BackgroundStorage();
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     for (let index = 0; index < 3; index++) {
@@ -67,10 +74,15 @@ describe('BackgroundStorage', () => {
     }
 
     vi.advanceTimersByTime(200);
-    expect(revokeObjectURL.mock.calls.map(([url]) => url)).toEqual(['blob:owned-1', 'blob:owned-2']);
+    expect(revokeObjectURL.mock.calls.map(([url]) => url)).toEqual([
+      'blob:owned-1',
+      'blob:owned-2',
+    ]);
     storage.destroy();
     expect(revokeObjectURL.mock.calls.map(([url]) => url)).toEqual([
-      'blob:owned-1', 'blob:owned-2', 'blob:owned-3',
+      'blob:owned-1',
+      'blob:owned-2',
+      'blob:owned-3',
     ]);
   });
 

@@ -4,10 +4,7 @@ import type {
   TransportEventHandler,
   TransportEventMap,
 } from '@tensnap/core';
-import type {
-  ProtocolEncoding,
-  RendererToSimulatorMessage,
-} from '@tensnap/protocol';
+import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
 import {
   generateConnectionId,
   isPostMessageEnvelope,
@@ -211,7 +208,9 @@ export class PostMessageTransport implements ISimulatorTransport {
   }
 }
 
-export function createPostMessageTransport(options: PostMessageTransportOptions): PostMessageTransport {
+export function createPostMessageTransport(
+  options: PostMessageTransportOptions,
+): PostMessageTransport {
   return new PostMessageTransport(options);
 }
 

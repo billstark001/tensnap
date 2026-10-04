@@ -19,7 +19,8 @@ interface NetLogoMemoryRenderConfig extends BenchmarkConfig {
 }
 
 function requiredString(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.length === 0) throw new Error(`${name} must be a non-empty string.`);
+  if (typeof value !== 'string' || value.length === 0)
+    throw new Error(`${name} must be a non-empty string.`);
   return value;
 }
 
@@ -52,16 +53,25 @@ function interpolate(
   measuredActions: number,
 ): string {
   return value
-    .split('{repositoryRoot}').join(root)
-    .split('{seed}').join(String(config.seed + replicate))
-    .split('{replicate}').join(String(replicate))
-    .split('{warmupActions}').join(String(warmupActions))
-    .split('{measuredActions}').join(String(measuredActions));
+    .split('{repositoryRoot}')
+    .join(root)
+    .split('{seed}')
+    .join(String(config.seed + replicate))
+    .split('{replicate}')
+    .join(String(replicate))
+    .split('{warmupActions}')
+    .join(String(warmupActions))
+    .split('{measuredActions}')
+    .join(String(measuredActions));
 }
 
 function finiteSeries(result: ExternalBenchmarkResult, name: string, count: number): void {
   const value = result.stagesMs?.[name];
-  if (!Array.isArray(value) || value.length !== count || value.some((item) => !Number.isFinite(item) || item < 0)) {
+  if (
+    !Array.isArray(value) ||
+    value.length !== count ||
+    value.some((item) => !Number.isFinite(item) || item < 0)
+  ) {
     throw new Error(`NetLogo ${name} must contain ${count} finite non-negative timings.`);
   }
 }
@@ -72,23 +82,27 @@ export const workload: ExternalProcessBenchmarkWorkload<NetLogoMemoryRenderConfi
   version: 1,
   kind: 'external-process',
   category: 'system',
-  description: 'NetLogo 7 headless in-memory view rasterization with exact patch-state validation and an untimed PNG checkpoint.',
+  description:
+    'NetLogo 7 headless in-memory view rasterization with exact patch-state validation and an untimed PNG checkpoint.',
   supportedSuites: ['node'],
   resolveConfig,
   createExternalCommand(config, context) {
-    const expand = (value: string) => interpolate(
-      value,
-      config,
-      context.repositoryRoot,
-      context.replicate,
-      context.warmupActions,
-      context.measuredActions,
-    );
+    const expand = (value: string) =>
+      interpolate(
+        value,
+        config,
+        context.repositoryRoot,
+        context.replicate,
+        context.warmupActions,
+        context.measuredActions,
+      );
     return {
       executable: expand(config.executable),
       args: config.args.map(expand),
       cwd: path.resolve(context.repositoryRoot, expand(config.cwd)),
-      env: Object.fromEntries(Object.entries(config.env ?? {}).map(([name, value]) => [name, expand(value)])),
+      env: Object.fromEntries(
+        Object.entries(config.env ?? {}).map(([name, value]) => [name, expand(value)]),
+      ),
       timeoutMs: config.timeoutMs,
     };
   },
@@ -97,21 +111,32 @@ export const workload: ExternalProcessBenchmarkWorkload<NetLogoMemoryRenderConfi
       const actualHash = createHash('sha256')
         .update(readFileSync(path.resolve(context.repositoryRoot, relativePath)))
         .digest('hex');
-      if (actualHash !== expectedHash) throw new Error(`NetLogo environment lock ${relativePath} does not match its SHA-256.`);
+      if (actualHash !== expectedHash)
+        throw new Error(`NetLogo environment lock ${relativePath} does not match its SHA-256.`);
     }
     if (result.timingsMs.length !== context.measuredActions) {
-      throw new Error(`NetLogo emitted ${result.timingsMs.length} timings; expected ${context.measuredActions}.`);
+      throw new Error(
+        `NetLogo emitted ${result.timingsMs.length} timings; expected ${context.measuredActions}.`,
+      );
     }
     if (result.correctness?.actionCount !== context.warmupActions + context.measuredActions) {
-      throw new Error('NetLogo action count does not include the complete warmup/measured sequence.');
+      throw new Error(
+        'NetLogo action count does not include the complete warmup/measured sequence.',
+      );
     }
     if (result.runtime?.netlogo !== config.netlogoVersion) {
       throw new Error(`NetLogo runtime must be ${config.netlogoVersion}.`);
     }
-    if ((result.state as { instrumentation?: unknown } | undefined)?.instrumentation !== 'headless-in-memory-view') {
-      throw new Error('NetLogo render adapter did not declare headless-in-memory-view instrumentation.');
+    if (
+      (result.state as { instrumentation?: unknown } | undefined)?.instrumentation !==
+      'headless-in-memory-view'
+    ) {
+      throw new Error(
+        'NetLogo render adapter did not declare headless-in-memory-view instrumentation.',
+      );
     }
-    if (result.metrics?.patches !== 2_500) throw new Error('NetLogo render benchmark must validate 2,500 patches.');
+    if (result.metrics?.patches !== 2_500)
+      throw new Error('NetLogo render benchmark must validate 2,500 patches.');
     if (!result.visual?.checkpoints.final || !result.visual.inlinePngBase64?.final) {
       throw new Error('NetLogo render benchmark must retain a hashed final PNG.');
     }

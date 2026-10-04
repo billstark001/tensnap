@@ -57,13 +57,18 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({
 
       {action && continuous !== actionContinuous && (
         <div className={styles.warningText}>
-          <Trans>This button’s continuous setting controls renderer scheduling and differs from the simulator action declaration. It is allowed, but verify the action is safe to repeat.</Trans>
+          <Trans>
+            This button’s continuous setting controls renderer scheduling and differs from the
+            simulator action declaration. It is allowed, but verify the action is safe to repeat.
+          </Trans>
         </div>
       )}
 
       {action ? (
         <div className={styles.objectPanel}>
-          <h3 className={styles.panelTitle}><Trans>Action</Trans></h3>
+          <h3 className={styles.panelTitle}>
+            <Trans>Action</Trans>
+          </h3>
 
           <Form.Field label={<Trans>Action Label</Trans>} htmlFor="action-label">
             <Form.Input
@@ -76,7 +81,9 @@ export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({
         </div>
       ) : (
         <div className={styles.infoText}>
-          <Trans>The button can keep this binding, but there is no registered action to edit.</Trans>
+          <Trans>
+            The button can keep this binding, but there is no registered action to edit.
+          </Trans>
         </div>
       )}
     </>

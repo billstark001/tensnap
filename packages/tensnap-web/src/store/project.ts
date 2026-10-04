@@ -1,6 +1,6 @@
-import { create, StoreApi, UseBoundStore } from "zustand";
-import { createTransportStore, TransportStore } from "./transport";
-import { generateUniqueId } from "@/utils/common";
+import { create, StoreApi, UseBoundStore } from 'zustand';
+import { createTransportStore, TransportStore } from './transport';
+import { generateUniqueId } from '@/utils/common';
 import {
   archiveProjectFileContentInWorker,
   parseProjectFileContent,
@@ -8,15 +8,24 @@ import {
   ProjectSourceSchema,
   recoverProjectFileContent,
   type ProjectFileContent,
-} from "@/types/project";
-import { decode, encode } from "@msgpack/msgpack";
-import { createHistoryStore, type HistoryState } from "./undo-redo";
-import { useSettingsStore } from "./settings";
-import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from "@/utils/msgpack";
-import { createStateSyncInventoryFromSnapshot, type StateSyncInventory } from '@tensnap/core/scenario';
-import { materializeSnapshot, SnapshotPlaybackSource, type ProjectSource, type Snapshot, type SnapshotModelIdentity } from '@tensnap/core/snapshot';
-import { createScenarioStore, ScenarioStore } from "./scenario/store";
-import { getFileSystemState } from "./file-system/provider";
+} from '@/types/project';
+import { decode, encode } from '@msgpack/msgpack';
+import { createHistoryStore, type HistoryState } from './undo-redo';
+import { useSettingsStore } from './settings';
+import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from '@/utils/msgpack';
+import {
+  createStateSyncInventoryFromSnapshot,
+  type StateSyncInventory,
+} from '@tensnap/core/scenario';
+import {
+  materializeSnapshot,
+  SnapshotPlaybackSource,
+  type ProjectSource,
+  type Snapshot,
+  type SnapshotModelIdentity,
+} from '@tensnap/core/snapshot';
+import { createScenarioStore, ScenarioStore } from './scenario/store';
+import { getFileSystemState } from './file-system/provider';
 
 export interface ProjectOpenResult {
   recovered: boolean;
@@ -35,9 +44,10 @@ export interface ProjectContextScheme {
 }
 
 function projectTabName(project: ProjectContextScheme): string {
-  if (!project.filepath) return project.source.kind === 'snapshot'
-    ? `Snapshot: ${project.source.snapshot_id}`
-    : projectSourceDisplayName(project.source);
+  if (!project.filepath)
+    return project.source.kind === 'snapshot'
+      ? `Snapshot: ${project.source.snapshot_id}`
+      : projectSourceDisplayName(project.source);
   const normalized = project.filepath.replace(/\\/g, '/').replace(/\/+$/, '');
   return normalized.slice(normalized.lastIndexOf('/') + 1) || project.filepath;
 }
@@ -48,15 +58,24 @@ export const projectSourceConnectionId = (source: ProjectSource): string | null 
   return null;
 };
 
-export const projectSourceDisplayName = (source: ProjectSource): string => projectSourceConnectionId(source) ?? (source.kind === 'snapshot' ? `offline:${source.snapshot_id}` : 'offline');
+export const projectSourceDisplayName = (source: ProjectSource): string =>
+  projectSourceConnectionId(source) ??
+  (source.kind === 'snapshot' ? `offline:${source.snapshot_id}` : 'offline');
 
 /** Rebase a recording so a snapshot project starts at the frame the user chose. */
 const snapshotSourceFromFrame = (snapshot: Snapshot, frame?: number): Snapshot => {
   if (frame !== undefined && !Number.isSafeInteger(frame)) {
     throw new Error('Snapshot frame must be a safe integer.');
   }
-  const initialFrame = frame ?? snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
-  const bounded = Math.max(snapshot.initial.frame, Math.min(initialFrame, snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame));
+  const initialFrame =
+    frame ?? snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
+  const bounded = Math.max(
+    snapshot.initial.frame,
+    Math.min(
+      initialFrame,
+      snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame,
+    ),
+  );
   let selectedFrame = snapshot.initial.frame;
   let frameTimestamp = snapshot.initial.timestamp;
   for (const entry of snapshot.frames) {
@@ -66,7 +85,11 @@ const snapshotSourceFromFrame = (snapshot: Snapshot, frame?: number): Snapshot =
   }
   if (selectedFrame === snapshot.initial.frame) return structuredClone(snapshot);
   const rebased = structuredClone(snapshot);
-  rebased.initial = { frame: selectedFrame, timestamp: frameTimestamp, scenario: materializeSnapshot(snapshot, selectedFrame) };
+  rebased.initial = {
+    frame: selectedFrame,
+    timestamp: frameTimestamp,
+    scenario: materializeSnapshot(snapshot, selectedFrame),
+  };
   rebased.keyframes = rebased.keyframes.filter((keyframe) => keyframe.frame > selectedFrame);
   rebased.frames = rebased.frames.filter((entry) => entry.index > selectedFrame);
   return rebased;
@@ -81,20 +104,23 @@ const createProject = (
   const useUndoRedoStore = createHistoryStore({
     maxCommands: 64,
     maxBytes: 4 * 1024 * 1024,
-    onError: (error, command) => project?.useScenarioStore.getState().appendDiagnostic({
-      severity: 'error',
-      domain: 'ui',
-      source: 'undo-redo',
-      code: 'history_command_failed',
-      message: `Unable to ${command.label}: ${error instanceof Error ? error.message : String(error)}`,
-      details: error,
-    }),
+    onError: (error, command) =>
+      project?.useScenarioStore.getState().appendDiagnostic({
+        severity: 'error',
+        domain: 'ui',
+        source: 'undo-redo',
+        code: 'history_command_failed',
+        message: `Unable to ${command.label}: ${error instanceof Error ? error.message : String(error)}`,
+        details: error,
+      }),
   });
   const useScenarioStore = createScenarioStore(useUndoRedoStore, {
     assertSnapshotSetAllowed: (snapshots) => {
       const protectedId = project?.source.kind === 'snapshot' ? project.source.snapshot_id : null;
       if (protectedId && !snapshots.some((snapshot) => snapshot.metadata.id === protectedId)) {
-        throw new Error(`Snapshot ${protectedId} is the active project source and cannot be removed.`);
+        throw new Error(
+          `Snapshot ${protectedId} is the active project source and cannot be removed.`,
+        );
       }
     },
   });
@@ -120,16 +146,19 @@ function startProjectTransport(
 ): void {
   // Project creation/opening is local and does not wait for a remote host.
   // Surface immediate setup failures through the project's diagnostics.
-  void project.useTransportStore.getState().initialize(connectionId, inventory).catch((error: unknown) => {
-    project.useScenarioStore.getState().appendDiagnostic({
-      severity: 'error',
-      domain: 'transport',
-      source: 'project-source',
-      code: 'connection_setup_failed',
-      message: error instanceof Error ? error.message : String(error),
-      details: error,
+  void project.useTransportStore
+    .getState()
+    .initialize(connectionId, inventory)
+    .catch((error: unknown) => {
+      project.useScenarioStore.getState().appendDiagnostic({
+        severity: 'error',
+        domain: 'transport',
+        source: 'project-source',
+        code: 'connection_setup_failed',
+        message: error instanceof Error ? error.message : String(error),
+        details: error,
+      });
     });
-  });
 }
 
 /**
@@ -148,7 +177,8 @@ const omitUndefinedObjectProperties = (value: unknown): unknown => {
       return omitUndefinedObjectProperties(item);
     });
   }
-  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return value;
+  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
+    return value;
 
   const result: Record<string, unknown> = Object.create(null);
   for (const [key, item] of Object.entries(value)) {
@@ -198,7 +228,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   refreshActiveProject() {
     const { projects, activeIndex } = get();
     set({
-      tabs: projects.map(project => ({
+      tabs: projects.map((project) => ({
         id: project.id,
         name: projectTabName(project),
         title: project.filepath ?? projectSourceDisplayName(project.source),
@@ -212,7 +242,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects, refreshActiveProject } = get();
 
     if (index !== null && (!Number.isInteger(index) || index < 0 || index >= projects.length)) {
-      throw new Error("Invalid project index");
+      throw new Error('Invalid project index');
     }
 
     set({ activeIndex: index });
@@ -245,9 +275,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error(`File not found: ${filepath}`);
     }
 
-    const rawContent: unknown = typeof fileContent.content === 'string'
-      ? JSON.parse(fileContent.content)
-      : decode(new Uint8Array(fileContent.content));
+    const rawContent: unknown =
+      typeof fileContent.content === 'string'
+        ? JSON.parse(fileContent.content)
+        : decode(new Uint8Array(fileContent.content));
     let parsedContent: ProjectFileContent;
     let warnings: string[] = [];
     try {
@@ -267,7 +298,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     newProject.useScenarioStore.setState({ mainView, snapshots });
     if (source.kind === 'snapshot') {
       const snapshot = snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
-      if (!snapshot) throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
+      if (!snapshot)
+        throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
       newProject.snapshotPlayback = new SnapshotPlaybackSource(snapshot);
       newProject.useScenarioStore.getState().load(newProject.snapshotPlayback.scenario.dump());
     } else {
@@ -289,7 +321,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     setActive(targetIndex);
 
     const connectionId = projectSourceConnectionId(source);
-    if (connectionId) startProjectTransport(newProject, connectionId, createStateSyncInventoryFromSnapshot(scenario));
+    if (connectionId)
+      startProjectTransport(
+        newProject,
+        connectionId,
+        createStateSyncInventoryFromSnapshot(scenario),
+      );
     return { recovered: warnings.length > 0, warnings };
   },
 
@@ -297,8 +334,13 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects, activeIndex, refreshActiveProject } = get();
     const targetIndex = index ?? activeIndex;
 
-    if (targetIndex == null || !Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= projects.length) {
-      throw new Error("Invalid project index");
+    if (
+      targetIndex == null ||
+      !Number.isInteger(targetIndex) ||
+      targetIndex < 0 ||
+      targetIndex >= projects.length
+    ) {
+      throw new Error('Invalid project index');
     }
 
     const project = projects[targetIndex];
@@ -310,12 +352,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       scenario: scenarioStore.dump(),
       snapshots: scenarioStore.snapshots,
       source: project.source,
-      ...(scenarioStore.session.modelIdentity === null ? {} : { model_identity: scenarioStore.session.modelIdentity }),
+      ...(scenarioStore.session.modelIdentity === null
+        ? {}
+        : { model_identity: scenarioStore.session.modelIdentity }),
     };
 
     const basePath = saveAsPath ?? project.filepath;
     if (!basePath) {
-      throw new Error("No file path specified for saving the project");
+      throw new Error('No file path specified for saving the project');
     }
 
     const saveFormat = useSettingsStore.getState().saveFormat;
@@ -326,13 +370,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const archive = await archiveProjectFileContentInWorker(projectFile, saveFormat === 'json');
 
     const fileSystemState = getFileSystemState();
-    const content = saveFormat === 'msgpack'
-      ? (() => {
-        const serializableProject = omitUndefinedObjectProperties(archive);
-        checkMsgpackCompatibility(serializableProject);
-        return uint8ArrayToArrayBuffer(encode(serializableProject));
-      })()
-      : JSON.stringify(archive, null, 2);
+    const content =
+      saveFormat === 'msgpack'
+        ? (() => {
+            const serializableProject = omitUndefinedObjectProperties(archive);
+            checkMsgpackCompatibility(serializableProject);
+            return uint8ArrayToArrayBuffer(encode(serializableProject));
+          })()
+        : JSON.stringify(archive, null, 2);
 
     await fileSystemState.writeFile(filepath, content);
     scenarioStore.appendDiagnostic({
@@ -372,7 +417,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects } = get();
 
     if (!Number.isInteger(index) || index < 0 || index >= projects.length) {
-      throw new Error("Invalid project index");
+      throw new Error('Invalid project index');
     }
 
     const history = projects[index].useUndoRedoStore.getState();
@@ -403,21 +448,32 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects } = get();
 
     if (!Number.isInteger(index) || index < 0 || index >= projects.length) {
-      throw new Error("Invalid project index");
+      throw new Error('Invalid project index');
     }
 
     const project = projects[index];
     const source = ProjectSourceSchema.parse(nextSource) as ProjectSource;
-    if ((source.kind === 'websocket' && project.source.kind === 'websocket' && source.url === project.source.url)
-      || (source.kind === 'inmemory' && project.source.kind === 'inmemory' && source.model_id === project.source.model_id)
-      || (source.kind === 'snapshot' && project.source.kind === 'snapshot' && source.snapshot_id === project.source.snapshot_id)) {
+    if (
+      (source.kind === 'websocket' &&
+        project.source.kind === 'websocket' &&
+        source.url === project.source.url) ||
+      (source.kind === 'inmemory' &&
+        project.source.kind === 'inmemory' &&
+        source.model_id === project.source.model_id) ||
+      (source.kind === 'snapshot' &&
+        project.source.kind === 'snapshot' &&
+        source.snapshot_id === project.source.snapshot_id)
+    ) {
       return;
     }
     const scenarioStore = project.useScenarioStore.getState();
 
     if (source.kind === 'snapshot') {
-      const snapshot = scenarioStore.snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
-      if (!snapshot) throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
+      const snapshot = scenarioStore.snapshots.find(
+        (entry) => entry.metadata.id === source.snapshot_id,
+      );
+      if (!snapshot)
+        throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
       // Fully materialize the candidate before destroying the current source.
       // From here on every operation consumes a validated in-memory snapshot.
       const playback = new SnapshotPlaybackSource(snapshot);
@@ -431,11 +487,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       if (!connectionId) throw new Error('Project source has no transport connection.');
       // changeTransport connects and buffers the candidate before replacing
       // the current transport, so a failure leaves the old source untouched.
-      await project.useTransportStore.getState().changeTransport(
-        connectionId,
-        undefined,
-        { resetSimulatorIdentity: true },
-      );
+      await project.useTransportStore
+        .getState()
+        .changeTransport(connectionId, undefined, { resetSimulatorIdentity: true });
       project.snapshotPlayback = undefined;
     }
 
@@ -459,13 +513,14 @@ function closeProject(
   const nextProjects = [...projects];
   nextProjects.splice(index, 1);
 
-  const newActiveIndex = activeIndex === null || nextProjects.length === 0
-    ? null
-    : index < activeIndex
-      ? activeIndex - 1
-      : index === activeIndex
-        ? Math.min(index, nextProjects.length - 1)
-        : activeIndex;
+  const newActiveIndex =
+    activeIndex === null || nextProjects.length === 0
+      ? null
+      : index < activeIndex
+        ? activeIndex - 1
+        : index === activeIndex
+          ? Math.min(index, nextProjects.length - 1)
+          : activeIndex;
 
   set({ projects: nextProjects, pendingCloseProjectId: null });
   setActive(newActiveIndex);

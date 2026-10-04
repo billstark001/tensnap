@@ -3,7 +3,10 @@ import { ChartScene, downsampleSeries } from './ChartScene';
 
 describe('downsampleSeries', () => {
   it('retains extrema in every pixel bucket', () => {
-    const points = Array.from({ length: 1_000 }, (_, time) => ({ time, value: time === 500 ? 999 : 1 }));
+    const points = Array.from({ length: 1_000 }, (_, time) => ({
+      time,
+      value: time === 500 ? 999 : 1,
+    }));
     const sampled = downsampleSeries(points, 0, 999, 20);
     expect(sampled.some((point) => point.value === 999)).toBe(true);
     expect(sampled.length).toBeLessThan(points.length);
@@ -11,7 +14,10 @@ describe('downsampleSeries', () => {
   });
 
   it('accepts fractional pixel widths without allocating a fractional bucket array', () => {
-    const points = Array.from({ length: 1_000 }, (_, time) => ({ time, value: time === 500 ? 999 : 1 }));
+    const points = Array.from({ length: 1_000 }, (_, time) => ({
+      time,
+      value: time === 500 ? 999 : 1,
+    }));
     const sampled = downsampleSeries(points, 0, 999, 20.5);
     expect(sampled.some((point) => point.value === 999)).toBe(true);
     expect(sampled.length).toBeLessThanOrEqual(20 * 4);
@@ -28,8 +34,13 @@ describe('downsampleSeries', () => {
   });
 
   it('returns the nearest point coordinates for a hover tooltip', () => {
-    const scene = new ChartScene({ lines: [{ key: 'population', name: 'Population', color: '#0f0' }] });
-    scene.updateData([{ time: 0, population: 4 }, { time: 10, population: 9 }]);
+    const scene = new ChartScene({
+      lines: [{ key: 'population', name: 'Population', color: '#0f0' }],
+    });
+    scene.updateData([
+      { time: 0, population: 4 },
+      { time: 10, population: 9 },
+    ]);
 
     expect(scene.getTooltipAt(54, 400)).toEqual({
       x: 0,
@@ -51,7 +62,10 @@ describe('downsampleSeries', () => {
   });
 
   it('keeps smart-axis tick generation bounded at floating-point extremes', () => {
-    const scene = new ChartScene({ lines: [{ key: 'value', name: 'Value' }], smartAxisBounds: true });
+    const scene = new ChartScene({
+      lines: [{ key: 'value', name: 'Value' }],
+      smartAxisBounds: true,
+    });
     scene.updateData([
       { time: 0, value: 0 },
       { time: Number.MIN_VALUE, value: Number.MIN_VALUE },

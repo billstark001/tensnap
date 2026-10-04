@@ -16,7 +16,7 @@ import { BackgroundStorage, BackgroundData } from '../storages/BackgroundStorage
 import { Viewport, SceneBounds, OriginMode, IBoundedLayer } from '../types';
 
 export interface BackgroundLayerConfig {
-  /** 
+  /**
    * Scene bounds for this background layer.
    * If provided, the layer will report these bounds to EnvironmentView.
    */
@@ -29,7 +29,9 @@ export interface BackgroundLayerConfig {
   originMode?: OriginMode;
 }
 
-type ParsedBackgroundLayerConfig = Omit<BackgroundLayerConfig, 'sceneBounds'> & { sceneBounds: SceneBounds };
+type ParsedBackgroundLayerConfig = Omit<BackgroundLayerConfig, 'sceneBounds'> & {
+  sceneBounds: SceneBounds;
+};
 
 export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
   readonly defaultZIndex = 0;
@@ -39,14 +41,11 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
   private _interpolation: 'nearest' | 'linear' = 'nearest';
   private _smoothingTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(
-    storage?: BackgroundStorage,
-    config: BackgroundLayerConfig = {}
-  ) {
+  constructor(storage?: BackgroundStorage, config: BackgroundLayerConfig = {}) {
     super();
     this.config = config as ParsedBackgroundLayerConfig;
     this.setSceneBounds(config.sceneBounds || { x: 0, y: 0, width: 100, height: 100 });
-    
+
     const { minX, minY, maxX, maxY } = this.config.sceneBounds;
 
     this.bg = new Rect({
@@ -83,7 +82,7 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
         maxY: y + height,
       };
     } else {
-      this.config.sceneBounds = { ...bounds as SceneBounds };
+      this.config.sceneBounds = { ...(bounds as SceneBounds) };
     }
   }
 

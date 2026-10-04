@@ -8,7 +8,7 @@
 export function checkMsgpackCompatibility(
   obj: any,
   path: string = 'root',
-  seen: WeakSet<object> = new WeakSet()
+  seen: WeakSet<object> = new WeakSet(),
 ): void {
   // Allow null and undefined. msgpack supports undefined (in some versions).
   if (obj === null || obj === undefined) return;
@@ -63,7 +63,9 @@ export function checkMsgpackCompatibility(
     !(obj instanceof Uint8Array)
   ) {
     // Not a plain object/array/Uint8Array
-    console.warn(`[msgpack] Non-plain object (custom class instance) may not be directly serializable: ${path} [${obj.constructor.name}]`);
+    console.warn(
+      `[msgpack] Non-plain object (custom class instance) may not be directly serializable: ${path} [${obj.constructor.name}]`,
+    );
     return;
   }
 
@@ -84,7 +86,6 @@ export function checkMsgpackCompatibility(
   if (typeof obj === 'object' && obj !== null) seen.delete(obj);
 }
 
-
 export function arrayBufferToJsonString(buffer: ArrayBuffer): string {
   let binary = new TextDecoder('latin1').decode(new Uint8Array(buffer));
   return JSON.stringify(binary);
@@ -94,7 +95,7 @@ export function arrayBufferToJsonString(buffer: ArrayBuffer): string {
  * Converts a Uint8Array to an ArrayBuffer.
  * - If the Uint8Array covers the entire underlying buffer, returns the original ArrayBuffer.
  * - Otherwise, creates a new ArrayBuffer and copies the relevant bytes, minimizing memory usage.
- * 
+ *
  * @param uint8Array The source Uint8Array.
  * @returns An ArrayBuffer containing the same data.
  */

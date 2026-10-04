@@ -7,7 +7,7 @@ import type {
   DirectoryEntry,
   FileSystemStats,
   FilePickerOptions,
-  FileSystemPicker
+  FileSystemPicker,
 } from '@tensnap/web-common/types/file';
 
 export interface FileSystemState {
@@ -36,7 +36,11 @@ export interface FileSystemState {
   setPicker: (picker: FileSystemPicker | null) => void;
   pickFiles: (options?: FilePickerOptions) => Promise<FileMetadata[]>;
 
-  writeFile: (path: string, content: ArrayBuffer | string, metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>) => Promise<FileContent>;
+  writeFile: (
+    path: string,
+    content: ArrayBuffer | string,
+    metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
+  ) => Promise<FileContent>;
   readFile: (path: string) => Promise<FileContent | null>;
   deleteFile: (path: string) => Promise<void>;
 
@@ -49,226 +53,235 @@ export interface FileSystemState {
   refreshStats: () => Promise<void>;
 
   openFile: (dialogTitle?: string) => Promise<FileMetadata | null>;
-  saveFileAs: (options?: Omit<FilePickerOptions, 'mode' | 'multiSelect'>) => Promise<FileMetadata | null>;
+  saveFileAs: (
+    options?: Omit<FilePickerOptions, 'mode' | 'multiSelect'>,
+  ) => Promise<FileMetadata | null>;
 }
 
-export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: string) => create<FileSystemState>((set, get) => {
-  let pendingOperations = 0;
-  let initialization: Promise<void> | null = null;
-  // 统一的错误处理辅助函数
-  const handleError = (error: unknown) => {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    set({ error: errorMessage });
-    return errorMessage;
-  };
+export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: string) =>
+  create<FileSystemState>((set, get) => {
+    let pendingOperations = 0;
+    let initialization: Promise<void> | null = null;
+    // 统一的错误处理辅助函数
+    const handleError = (error: unknown) => {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      set({ error: errorMessage });
+      return errorMessage;
+    };
 
-  // 包装异步操作，统一处理加载状态和错误
-  const withLoading = async <T>(
-    operation: () => Promise<T>,
-    shouldRefresh = false
-  ): Promise<T> => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-    if (!get().initialized) {
-      await get().initialize();
-      if (!get().initialized) {
-        throw new Error(get().error ?? 'File system initialization failed');
-      }
-    }
-
-    pendingOperations += 1;
-    set({ loading: true, error: null });
-    try {
-      const result = await operation();
-      if (shouldRefresh) {
-        await get().refreshCurrentDirectory();
-      }
-      return result;
-    } catch (error) {
-      handleError(error);
-      throw error;
-    } finally {
-      pendingOperations -= 1;
-      set({ loading: pendingOperations > 0 });
-    }
-  };
-
-  // 包装只读操作，只处理错误不处理加载状态
-  const withErrorHandling = async <T>(operation: () => Promise<T>): Promise<T> => {
-    const { adapter } = get();
-    if (!adapter) throw new Error('File system not initialized');
-    if (!get().initialized) {
-      await get().initialize();
-      if (!get().initialized) {
-        throw new Error(get().error ?? 'File system initialization failed');
-      }
-    }
-
-    try {
-      return await operation();
-    } catch (error) {
-      handleError(error);
-      throw error;
-    }
-  };
-
-  return {
-    // Initial state
-    adapter,
-    adapterName,
-    picker: null,
-    initialized: false,
-    loading: false,
-    error: null,
-    currentDirectory: '/',
-    files: [],
-    directories: [],
-    directoryContents: [],
-    stats: null,
-
-    // Actions
-    initialize: () => {
-      if (initialization) return initialization;
-      if (get().initialized) return Promise.resolve();
-
-      const promise = (async () => {
-        set({ loading: true, error: null });
-        try {
-          await adapter.initialize();
-          set({ initialized: true, loading: pendingOperations > 0 });
-          await Promise.all([
-            get().refreshCurrentDirectory(),
-            get().refreshStats()
-          ]);
-        } catch (error) {
-          handleError(error);
-          set({ loading: pendingOperations > 0 });
-          throw error;
-        }
-      })();
-      initialization = promise;
-      void promise.then(
-        () => { initialization = null; },
-        () => { initialization = null; },
-      );
-      return promise;
-    },
-
-    cleanup: async () => {
+    // 包装异步操作，统一处理加载状态和错误
+    const withLoading = async <T>(
+      operation: () => Promise<T>,
+      shouldRefresh = false,
+    ): Promise<T> => {
       const { adapter } = get();
-      if (adapter) {
-        await adapter.cleanup();
+      if (!adapter) throw new Error('File system not initialized');
+      if (!get().initialized) {
+        await get().initialize();
+        if (!get().initialized) {
+          throw new Error(get().error ?? 'File system initialization failed');
+        }
       }
-      set({
-        adapter: null,
-        adapterName: 'none',
-        initialized: false,
-        currentDirectory: '/',
-        directoryContents: [],
-        stats: null
-      });
-    },
 
-    setError: (error: string | null) => set({ error }),
-    clearError: () => set({ error: null }),
+      pendingOperations += 1;
+      set({ loading: true, error: null });
+      try {
+        const result = await operation();
+        if (shouldRefresh) {
+          await get().refreshCurrentDirectory();
+        }
+        return result;
+      } catch (error) {
+        handleError(error);
+        throw error;
+      } finally {
+        pendingOperations -= 1;
+        set({ loading: pendingOperations > 0 });
+      }
+    };
 
-    setCurrentDirectory: async (path: string) => {
-      await withLoading(async () => {
+    // 包装只读操作，只处理错误不处理加载状态
+    const withErrorHandling = async <T>(operation: () => Promise<T>): Promise<T> => {
+      const { adapter } = get();
+      if (!adapter) throw new Error('File system not initialized');
+      if (!get().initialized) {
+        await get().initialize();
+        if (!get().initialized) {
+          throw new Error(get().error ?? 'File system initialization failed');
+        }
+      }
+
+      try {
+        return await operation();
+      } catch (error) {
+        handleError(error);
+        throw error;
+      }
+    };
+
+    return {
+      // Initial state
+      adapter,
+      adapterName,
+      picker: null,
+      initialized: false,
+      loading: false,
+      error: null,
+      currentDirectory: '/',
+      files: [],
+      directories: [],
+      directoryContents: [],
+      stats: null,
+
+      // Actions
+      initialize: () => {
+        if (initialization) return initialization;
+        if (get().initialized) return Promise.resolve();
+
+        const promise = (async () => {
+          set({ loading: true, error: null });
+          try {
+            await adapter.initialize();
+            set({ initialized: true, loading: pendingOperations > 0 });
+            await Promise.all([get().refreshCurrentDirectory(), get().refreshStats()]);
+          } catch (error) {
+            handleError(error);
+            set({ loading: pendingOperations > 0 });
+            throw error;
+          }
+        })();
+        initialization = promise;
+        void promise.then(
+          () => {
+            initialization = null;
+          },
+          () => {
+            initialization = null;
+          },
+        );
+        return promise;
+      },
+
+      cleanup: async () => {
         const { adapter } = get();
-
-        if (!await adapter!.directoryExists(path)) {
-          throw new Error(`Directory ${path} does not exist`);
+        if (adapter) {
+          await adapter.cleanup();
         }
+        set({
+          adapter: null,
+          adapterName: 'none',
+          initialized: false,
+          currentDirectory: '/',
+          directoryContents: [],
+          stats: null,
+        });
+      },
 
-        set({ currentDirectory: path });
-        await get().refreshCurrentDirectory();
-      });
-    },
+      setError: (error: string | null) => set({ error }),
+      clearError: () => set({ error: null }),
 
-    setPicker(picker) {
-      set({ picker });
-    },
+      setCurrentDirectory: async (path: string) => {
+        await withLoading(async () => {
+          const { adapter } = get();
 
-    pickFiles: async (options?: FilePickerOptions) => {
-      const picker = get().picker;
-      if (!picker) throw new Error('No file picker registered');
-      return withErrorHandling(() => picker.pickFiles(options));
-    },
+          if (!(await adapter!.directoryExists(path))) {
+            throw new Error(`Directory ${path} does not exist`);
+          }
 
-    // File operations
-    writeFile: async (path, content, metadata) => withLoading(async () => {
-      const { adapter } = get();
-      return await adapter!.writeFile(path, content, metadata);
-    }, true),
+          set({ currentDirectory: path });
+          await get().refreshCurrentDirectory();
+        });
+      },
 
-    readFile: (path: string) => withErrorHandling(() => get().adapter!.readFile(path)),
+      setPicker(picker) {
+        set({ picker });
+      },
 
-    deleteFile: (path: string) => withLoading(async () => {
-      await get().adapter!.deleteFile(path);
-    }, true),
+      pickFiles: async (options?: FilePickerOptions) => {
+        const picker = get().picker;
+        if (!picker) throw new Error('No file picker registered');
+        return withErrorHandling(() => picker.pickFiles(options));
+      },
 
-    // Directory operations
-    createDirectory: async (path, allowExist) => withLoading(async () => {
-      const { adapter } = get();
-      return await adapter!.createDirectory(path, allowExist);
-    }, true),
+      // File operations
+      writeFile: async (path, content, metadata) =>
+        withLoading(async () => {
+          const { adapter } = get();
+          return await adapter!.writeFile(path, content, metadata);
+        }, true),
 
-    deleteDirectory: (path: string, recursive?: boolean) => withLoading(async () => {
-      await get().adapter!.deleteDirectory(path, recursive);
-    }, true),
+      readFile: (path: string) => withErrorHandling(() => get().adapter!.readFile(path)),
 
-    // Utility operations
-    refreshCurrentDirectory: async () => {
-      const { adapter, currentDirectory } = get();
-      if (!adapter) return;
+      deleteFile: (path: string) =>
+        withLoading(async () => {
+          await get().adapter!.deleteFile(path);
+        }, true),
 
-      try {
-        const directoryContents = await adapter.list(currentDirectory);
-        // An older directory request may resolve after navigation or cleanup.
-        if (get().adapter === adapter && get().currentDirectory === currentDirectory) {
-          set({ directoryContents });
+      // Directory operations
+      createDirectory: async (path, allowExist) =>
+        withLoading(async () => {
+          const { adapter } = get();
+          return await adapter!.createDirectory(path, allowExist);
+        }, true),
+
+      deleteDirectory: (path: string, recursive?: boolean) =>
+        withLoading(async () => {
+          await get().adapter!.deleteDirectory(path, recursive);
+        }, true),
+
+      // Utility operations
+      refreshCurrentDirectory: async () => {
+        const { adapter, currentDirectory } = get();
+        if (!adapter) return;
+
+        try {
+          const directoryContents = await adapter.list(currentDirectory);
+          // An older directory request may resolve after navigation or cleanup.
+          if (get().adapter === adapter && get().currentDirectory === currentDirectory) {
+            set({ directoryContents });
+          }
+        } catch (error) {
+          if (get().adapter === adapter && get().currentDirectory === currentDirectory)
+            handleError(error);
         }
-      } catch (error) {
-        if (get().adapter === adapter && get().currentDirectory === currentDirectory) handleError(error);
-      }
-    },
+      },
 
-    refreshStats: async () => {
-      const { adapter } = get();
-      if (!adapter) return;
+      refreshStats: async () => {
+        const { adapter } = get();
+        if (!adapter) return;
 
-      try {
-        const stats = await adapter.getStats();
-        if (get().adapter === adapter) set({ stats });
-      } catch (error) {
-        if (get().adapter === adapter) handleError(error);
-      }
-    },
+        try {
+          const stats = await adapter.getStats();
+          if (get().adapter === adapter) set({ stats });
+        } catch (error) {
+          if (get().adapter === adapter) handleError(error);
+        }
+      },
 
-    openFile: async (dialogTitle?: string) => {
-      const { picker } = get();
-      if (!picker) throw new Error('No file picker registered');
+      openFile: async (dialogTitle?: string) => {
+        const { picker } = get();
+        if (!picker) throw new Error('No file picker registered');
 
-      const files = await picker.pickFiles({
-        title: dialogTitle,
-        mode: 'open',
-        multiSelect: false,
-      });
+        const files = await picker.pickFiles({
+          title: dialogTitle,
+          mode: 'open',
+          multiSelect: false,
+        });
 
-      return files.length > 0 ? files[0] : null;
-    },
+        return files.length > 0 ? files[0] : null;
+      },
 
-    saveFileAs: async (options = {}) => {
-      const { picker } = get();
-      if (!picker) throw new Error('No file picker registered');
+      saveFileAs: async (options = {}) => {
+        const { picker } = get();
+        if (!picker) throw new Error('No file picker registered');
 
-      const files = await picker.pickFiles({
-        ...options,
-        mode: 'save',
-        multiSelect: false,
-      });
+        const files = await picker.pickFiles({
+          ...options,
+          mode: 'save',
+          multiSelect: false,
+        });
 
-      return files.length > 0 ? files[0] : null;
-    },
-  }
-});
+        return files.length > 0 ? files[0] : null;
+      },
+    };
+  });

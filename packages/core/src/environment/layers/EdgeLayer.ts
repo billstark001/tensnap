@@ -38,10 +38,11 @@ import { resolveAgentSize } from '../utils/agent';
 // #region Types & Constants
 
 type SimNode = AgentRenderState & d3.SimulationNodeDatum;
-type SimLink = GraphEdge & d3.SimulationLinkDatum<SimNode> & {
-  sourceId: AgentId;
-  targetId: AgentId;
-};
+type SimLink = GraphEdge &
+  d3.SimulationLinkDatum<SimNode> & {
+    sourceId: AgentId;
+    targetId: AgentId;
+  };
 
 interface EdgeShapeEntry {
   line: Line;
@@ -58,7 +59,6 @@ const DEFAULT_GRAPH_CONFIG: Required<GraphEnvConfig> = {
   max_component_distance: 4,
   component_spacing: 5,
 };
-
 
 // #endregion
 
@@ -92,7 +92,7 @@ export class EdgeLayer extends BaseLayer {
   constructor(
     edgeStorage: EdgeStorage,
     agentStorage: AgentStorage,
-    config: GraphEnvConfig & { readOnlyLayout?: boolean } = {}
+    config: GraphEnvConfig & { readOnlyLayout?: boolean } = {},
   ) {
     super();
     this._agentStorage = agentStorage;
@@ -104,7 +104,9 @@ export class EdgeLayer extends BaseLayer {
       this._initSimulation();
     }
     this.registerStorage(edgeStorage, (data, delta) => this._onEdgeData(data, delta));
-    this.registerStorage(agentStorage, (_data, delta) => { if (!this._ticking && !delta?.positionsFlushed) this._onAgentData(); });
+    this.registerStorage(agentStorage, (_data, delta) => {
+      if (!this._ticking && !delta?.positionsFlushed) this._onAgentData();
+    });
     this._onEdgeData(edgeStorage.getData());
   }
 
@@ -120,7 +122,10 @@ export class EdgeLayer extends BaseLayer {
   }
 
   /** Returns partial AgentLayerConfig with drag handlers wired to the simulation. */
-  buildDragHandlers(): Pick<AgentLayerConfig, 'draggable' | 'onDragStart' | 'onDragMove' | 'onDragEnd'> {
+  buildDragHandlers(): Pick<
+    AgentLayerConfig,
+    'draggable' | 'onDragStart' | 'onDragMove' | 'onDragEnd'
+  > {
     return {
       draggable: true,
       onDragStart: (id, x, y) => this._handleDragStart(id, x, y),
@@ -233,16 +238,22 @@ export class EdgeLayer extends BaseLayer {
         const node = this._simNodeMap.get(agent.id)!;
         const { x, y, vx, vy, fx, fy } = node;
         Object.assign(node, agent);
-        node.x = agent.x ?? x; node.y = agent.y ?? y;
-        node.vx = vx ?? 0; node.vy = vy ?? 0;
-        node.fx = fx ?? null; node.fy = fy ?? null;
+        node.x = agent.x ?? x;
+        node.y = agent.y ?? y;
+        node.vx = vx ?? 0;
+        node.vy = vy ?? 0;
+        node.fx = fx ?? null;
+        node.fy = fy ?? null;
       }
     } else {
       // Slow path: rebuild node set; patch existing SimLink references in-place.
       this._rebuildSimNodes(agents);
       // Assign initial positions to new nodes before pushing them back, to prevent
       // a one-frame flicker where AgentLayer renders all agents at (0, 0).
-      this._assignInitialPositions(this._simNodes, this._simLinkMap as ReadonlyMap<string, GraphEdge>);
+      this._assignInitialPositions(
+        this._simNodes,
+        this._simLinkMap as ReadonlyMap<string, GraphEdge>,
+      );
       this._simulation?.nodes(this._simNodes);
       this._syncLinkForce();
       // Push positions synchronously so AgentLayer updates before the browser paints.
@@ -269,7 +280,13 @@ export class EdgeLayer extends BaseLayer {
     } = this._simConfig;
     this._simulation = d3
       .forceSimulation<SimNode>()
-      .force('link', d3.forceLink<SimNode, SimLink>().id((d: SimNode) => String(d.id)).distance(linkDistance))
+      .force(
+        'link',
+        d3
+          .forceLink<SimNode, SimLink>()
+          .id((d: SimNode) => String(d.id))
+          .distance(linkDistance),
+      )
       .force('charge', d3.forceManyBody<SimNode>().strength(chargeStrength))
       .force('x', d3.forceX<SimNode>(0).strength(centeringStrength))
       .force('y', d3.forceY<SimNode>(0).strength(centeringStrength))
@@ -364,7 +381,8 @@ export class EdgeLayer extends BaseLayer {
       const y2 = tgt.y - (dy / dist) * tgtRadius;
 
       line.set({ points: [x1, y1, x2, y2] });
-      if (arrowhead) arrowhead.set({ x: x2, y: y2, rotation: Math.atan2(dy, dx) * 180 / Math.PI });
+      if (arrowhead)
+        arrowhead.set({ x: x2, y: y2, rotation: (Math.atan2(dy, dx) * 180) / Math.PI });
     });
 
     const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
@@ -422,7 +440,7 @@ export class EdgeLayer extends BaseLayer {
   private _edgeKey(edge: GraphEdge): string {
     return EdgeStorage.edgeKey(
       EdgeStorage.resolveId(edge.source),
-      EdgeStorage.resolveId(edge.target)
+      EdgeStorage.resolveId(edge.target),
     );
   }
 
@@ -445,7 +463,7 @@ export class EdgeLayer extends BaseLayer {
    * preserving existing simulation dynamics (x/y/vx/vy/fx/fy) where possible.
    */
   private _rebuildSimNodes(agents: ReadonlyMap<AgentId, AgentRenderState>): void {
-    this._simNodes = [...agents.values()].map(agent => {
+    this._simNodes = [...agents.values()].map((agent) => {
       const prev = this._simNodeMap.get(agent.id);
       return {
         ...agent,
@@ -457,7 +475,7 @@ export class EdgeLayer extends BaseLayer {
         fy: prev?.fy ?? null,
       } as SimNode;
     });
-    this._simNodeMap = new Map(this._simNodes.map(n => [n.id, n]));
+    this._simNodeMap = new Map(this._simNodes.map((n) => [n.id, n]));
   }
 
   // #endregion
@@ -488,7 +506,7 @@ export class EdgeLayer extends BaseLayer {
     }
 
     if (components.length <= 1) {
-      nodes.forEach(n => {
+      nodes.forEach((n) => {
         if (n.x == null || n.y == null || overlapping) {
           n.x = (firstX ?? 0) + (Math.random() - 0.5) * scatter * 2;
           n.y = (firstY ?? 0) + (Math.random() - 0.5) * scatter * 2;
@@ -497,7 +515,8 @@ export class EdgeLayer extends BaseLayer {
       return;
     }
 
-    const cellSize = Math.max(scatter, this._simConfig.max_component_distance) + this._simConfig.component_spacing;
+    const cellSize =
+      Math.max(scatter, this._simConfig.max_component_distance) + this._simConfig.component_spacing;
     const cols = Math.ceil(Math.sqrt(components.length));
     const gridW = cols * cellSize;
     const gridH = Math.ceil(components.length / cols) * cellSize;
@@ -506,7 +525,7 @@ export class EdgeLayer extends BaseLayer {
       const cx = -gridW / 2 + (idx % cols) * cellSize + cellSize / 2;
       const cy = -gridH / 2 + Math.floor(idx / cols) * cellSize + cellSize / 2;
       const r = cellSize / 4;
-      comp.forEach(n => {
+      comp.forEach((n) => {
         if (n.x == null || n.y == null || overlapping) {
           const a = Math.random() * 2 * Math.PI;
           n.x = cx + Math.cos(a) * Math.random() * r;
@@ -525,7 +544,7 @@ export class EdgeLayer extends BaseLayer {
     const components: SimNode[][] = [];
 
     // Build undirected adjacency list in one O(E) pass.
-    const adj = new Map<AgentId, AgentId[]>(nodes.map(n => [n.id, []]));
+    const adj = new Map<AgentId, AgentId[]>(nodes.map((n) => [n.id, []]));
     for (const e of edges.values()) {
       const src = EdgeStorage.resolveId(e.source);
       const tgt = EdgeStorage.resolveId(e.target);
@@ -543,7 +562,7 @@ export class EdgeLayer extends BaseLayer {
         visited.add(id);
         const n = this._simNodeMap.get(id);
         if (n) comp.push(n);
-        for (const neighbor of (adj.get(id) ?? [])) {
+        for (const neighbor of adj.get(id) ?? []) {
           if (!visited.has(neighbor)) stack.push(neighbor);
         }
       }

@@ -6,11 +6,16 @@ function createEnvironment(layers: Array<Record<string, unknown>>): ScenarioEnvi
   return {
     id: 'env-1',
     type: '2d',
-    layers: new Map(layers.map((layer) => [layer.id as string, {
-      dependencyLayerIds: {},
-      metadata: {},
-      ...layer,
-    } as any])),
+    layers: new Map(
+      layers.map((layer) => [
+        layer.id as string,
+        {
+          dependencyLayerIds: {},
+          metadata: {},
+          ...layer,
+        } as any,
+      ]),
+    ),
     dependencyGraph: new Map(),
   };
 }
@@ -72,22 +77,34 @@ describe('render plan', () => {
   it('resolves trajectories when their linked edge and agent appear later', () => {
     const agents = { id: 'agents', layerType: 'agent', storage: { kind: 'agents' } };
     const edges = {
-      id: 'edges', layerType: 'edge', storage: { kind: 'edges' },
+      id: 'edges',
+      layerType: 'edge',
+      storage: { kind: 'edges' },
       dependencyLayerIds: { agent: 'agents' },
     };
     const trails = {
-      id: 'trails', layerType: 'trajectory', storage: { kind: 'trails' },
+      id: 'trails',
+      layerType: 'trajectory',
+      storage: { kind: 'trails' },
       dependencyLayerIds: { agent: 'agents' },
     };
 
-    for (const layers of [[agents, edges, trails], [trails, edges, agents], [edges, trails, agents]]) {
+    for (const layers of [
+      [agents, edges, trails],
+      [trails, edges, agents],
+      [edges, trails, agents],
+    ]) {
       const plan = createRenderPlan(createEnvironment(layers));
       expect(plan.edgeLayers).toHaveLength(1);
       expect(plan.trajectoryLayers[0]).toMatchObject({
-        agentLayerId: 'agents', coordOffset: 'float', worldBounds: undefined,
+        agentLayerId: 'agents',
+        coordOffset: 'float',
+        worldBounds: undefined,
       });
       expect(plan.agentLayers[0]).toMatchObject({
-        coordOffset: 'float', originMode: 'center', usesGraphInteraction: true,
+        coordOffset: 'float',
+        originMode: 'center',
+        usesGraphInteraction: true,
       });
     }
   });
@@ -157,7 +174,9 @@ describe('render plan', () => {
     });
 
     expect(aggregated.agentLayers).toHaveLength(2);
-    expect(aggregated.agentLayers.map((layer) => ({ id: layer.id, coordOffset: layer.coordOffset }))).toEqual([
+    expect(
+      aggregated.agentLayers.map((layer) => ({ id: layer.id, coordOffset: layer.coordOffset })),
+    ).toEqual([
       { id: 'agents-int', coordOffset: 'int' },
       { id: 'agents-float', coordOffset: 'float' },
     ]);
@@ -202,11 +221,17 @@ describe('render plan', () => {
       type: '2d',
       layers: [
         {
-          id: 'agents', layerType: 'agent', metadata: {}, dependencyLayerIds: {},
+          id: 'agents',
+          layerType: 'agent',
+          metadata: {},
+          dependencyLayerIds: {},
           storageSnapshot: { agents },
         },
         {
-          id: 'edges', layerType: 'edge', metadata: {}, dependencyLayerIds: { agent: 'agents' },
+          id: 'edges',
+          layerType: 'edge',
+          metadata: {},
+          dependencyLayerIds: { agent: 'agents' },
           storageSnapshot: { edges },
         },
       ],

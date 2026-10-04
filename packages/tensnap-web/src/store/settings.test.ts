@@ -23,17 +23,27 @@ describe('continuous run profile persistence', () => {
     const persistence = getSettingsPersistence();
     const original = useSettingsStore.getState().continuousRunProfiles;
     configureSettingsPersistence({
-      get: async (key) => key === 'continuousRunProfiles'
-        ? JSON.stringify({ broken: null, step: { maxSteps: 4, record: true }, toString: { maxSteps: 2 } })
-        : null,
+      get: async (key) =>
+        key === 'continuousRunProfiles'
+          ? JSON.stringify({
+              broken: null,
+              step: { maxSteps: 4, record: true },
+              toString: { maxSteps: 2 },
+            })
+          : null,
       set: async () => {},
     });
     try {
       await hydrateSettings();
       expect(useSettingsStore.getState().continuousRunProfiles.step).toEqual({
-        maxSteps: 4, stopWhen: undefined, maxWallTimeMs: undefined, record: true,
+        maxSteps: 4,
+        stopWhen: undefined,
+        maxWallTimeMs: undefined,
+        record: true,
       });
-      expect(useSettingsStore.getState().continuousRunProfiles.toString).toMatchObject({ maxSteps: 2 });
+      expect(useSettingsStore.getState().continuousRunProfiles.toString).toMatchObject({
+        maxSteps: 2,
+      });
       expect(useSettingsStore.getState().continuousRunProfiles.broken).toBeUndefined();
       useSettingsStore.getState().setContinuousRunProfile('step', { maxSteps: 5, record: false });
       expect(Object.getPrototypeOf(useSettingsStore.getState().continuousRunProfiles)).toBeNull();

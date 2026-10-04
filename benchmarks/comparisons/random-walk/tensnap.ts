@@ -1,7 +1,13 @@
 import { type AgentStorage } from '@tensnap/core/environment';
 import type { BenchmarkWorkload } from '@tensnap/benchmark/harness';
 import type { BrowserBenchmarkCase } from '@tensnap/benchmark/harness';
-import { applyRandomWalkDelta, canonicalRandomWalkState, cloneRandomWalkAgents, createRandomWalkTrace, traceExpectedRandomWalkState } from '../../shared/random-walk';
+import {
+  applyRandomWalkDelta,
+  canonicalRandomWalkState,
+  cloneRandomWalkAgents,
+  createRandomWalkTrace,
+  traceExpectedRandomWalkState,
+} from '../../shared/random-walk';
 import { createAgentScenario } from '../../shared/scenario';
 import { resolveRendererComparisonConfig, type RendererComparisonConfig } from './config';
 
@@ -11,7 +17,8 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
   version: 1,
   kind: 'browser',
   category: 'comparison',
-  description: 'TenSnap Scenario, storage, React, and Leafer renderer for the same deterministic random-walk trace.',
+  description:
+    'TenSnap Scenario, storage, React, and Leafer renderer for the same deterministic random-walk trace.',
   supportedSuites: ['browser'],
   resolveConfig: resolveRendererComparisonConfig,
   createBrowserCase({ config }): BrowserBenchmarkCase {
@@ -41,7 +48,10 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
             kind: 'component',
             tick(frameIndex) {
               const changed = trace.frames[frameIndex];
-              if (!changed) throw new Error(`Renderer profile needs trace frame ${frameIndex}; increase traceFrames.`);
+              if (!changed)
+                throw new Error(
+                  `Renderer profile needs trace frame ${frameIndex}; increase traceFrames.`,
+                );
               applyRandomWalkDelta(agents, changed);
               storage.updateAgents(changed.map(({ id, x, y }) => ({ id, x, y })));
             },
@@ -49,8 +59,12 @@ export const workload: BenchmarkWorkload<RendererComparisonConfig> = {
           };
         },
       },
-      snapshot() { return canonicalRandomWalkState(agents); },
-      expectedState(totalFrames) { return traceExpectedRandomWalkState(trace, totalFrames); },
+      snapshot() {
+        return canonicalRandomWalkState(agents);
+      },
+      expectedState(totalFrames) {
+        return traceExpectedRandomWalkState(trace, totalFrames);
+      },
     };
   },
 };

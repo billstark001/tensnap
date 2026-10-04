@@ -48,7 +48,15 @@ describe('msgpack utils', () => {
 
     checkMsgpackCompatibility(circular);
 
-    expect(warn.mock.calls.some(([message]) => String(message).includes('Cannot serialize function: root.nested.fn'))).toBe(true);
-    expect(warn.mock.calls.some(([message]) => String(message).includes('Circular reference: root.self'))).toBe(true);
+    expect(
+      warn.mock.calls.some(([message]) =>
+        String(message).includes('Cannot serialize function: root.nested.fn'),
+      ),
+    ).toBe(true);
+    expect(
+      warn.mock.calls.some(([message]) =>
+        String(message).includes('Circular reference: root.self'),
+      ),
+    ).toBe(true);
   });
 });

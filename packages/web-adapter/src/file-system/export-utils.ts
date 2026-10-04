@@ -1,6 +1,6 @@
 /**
  * Export utilities for filesystem
- * 
+ *
  * These utilities provide export functionality independent of the filesystem adapter.
  * They work by reading files/directories using the basic read operations.
  */
@@ -18,26 +18,23 @@ export interface ExportOptions {
 export async function exportDirectory(
   fileSystem: FileSystemAdapter,
   path: string,
-  options: ExportOptions = { format: 'json' }
+  options: ExportOptions = { format: 'json' },
 ): Promise<Blob> {
   const { format } = options;
-  
+
   if (format === 'json') {
     return await exportAsJSON(fileSystem, path);
   } else if (format === 'zip') {
     return await exportAsZip(fileSystem, path);
   }
-  
+
   throw new Error(`Unsupported export format: ${format}`);
 }
 
 /**
  * Export directory as JSON
  */
-async function exportAsJSON(
-  fileSystem: FileSystemAdapter,
-  path: string
-): Promise<Blob> {
+async function exportAsJSON(fileSystem: FileSystemAdapter, path: string): Promise<Blob> {
   const tree = await buildDirectoryTree(fileSystem, path);
   const json = JSON.stringify(tree, null, 2);
   return new Blob([json], { type: 'application/json' });
@@ -46,10 +43,7 @@ async function exportAsJSON(
 /**
  * Export directory as ZIP
  */
-async function exportAsZip(
-  fileSystem: FileSystemAdapter,
-  path: string
-): Promise<Blob> {
+async function exportAsZip(fileSystem: FileSystemAdapter, path: string): Promise<Blob> {
   const zip = new JSZip();
   await addDirectoryToZip(fileSystem, path, zip, '');
   return await zip.generateAsync({ type: 'blob' });
@@ -58,18 +52,15 @@ async function exportAsZip(
 /**
  * Build a directory tree structure
  */
-async function buildDirectoryTree(
-  fileSystem: FileSystemAdapter,
-  path: string
-): Promise<any> {
+async function buildDirectoryTree(fileSystem: FileSystemAdapter, path: string): Promise<any> {
   const contents = await fileSystem.list(path);
-  
+
   const tree: any = {
     path,
     files: [],
-    subdirectories: []
+    subdirectories: [],
   };
-  
+
   for (const entry of contents) {
     if (entry.type === 'file') {
       const fileContent = await fileSystem.readFile(entry.path);
@@ -79,7 +70,7 @@ async function buildDirectoryTree(
         tree.files.push({
           ...entry,
           content: contentBase64,
-          checksum: fileContent.checksum
+          checksum: fileContent.checksum,
         });
       }
     } else {
@@ -87,7 +78,7 @@ async function buildDirectoryTree(
       tree.subdirectories.push(subTree);
     }
   }
-  
+
   return tree;
 }
 
@@ -98,13 +89,13 @@ async function addDirectoryToZip(
   fileSystem: FileSystemAdapter,
   dirPath: string,
   zip: JSZip,
-  zipPath: string
+  zipPath: string,
 ): Promise<void> {
   const contents = await fileSystem.list(dirPath);
-  
+
   for (const entry of contents) {
     const entryZipPath = zipPath ? `${zipPath}/${entry.name}` : entry.name;
-    
+
     if (entry.type === 'file') {
       const fileContent = await fileSystem.readFile(entry.path);
       if (fileContent) {
@@ -123,7 +114,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer | string): string {
   if (typeof buffer === 'string') {
     return btoa(buffer);
   }
-  
+
   const bytes = new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) {

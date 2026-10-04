@@ -44,10 +44,12 @@ export type AgentIcon = z.infer<typeof AgentIconSchema>;
  * Common metadata accepted by all built-in layers. Dependencies are create-time
  * topology and live on `env_layer_create.dependency_layer_ids`, not in metadata.
  */
-export const BaseLayerMetadataSchema = z.object({
-  dependency_layer_ids: z.never().optional(),
-  z_index: z.number().optional(),
-}).loose();
+export const BaseLayerMetadataSchema = z
+  .object({
+    dependency_layer_ids: z.never().optional(),
+    z_index: z.number().optional(),
+  })
+  .loose();
 
 export type BaseLayerMetadata = z.infer<typeof BaseLayerMetadataSchema>;
 
@@ -67,27 +69,31 @@ export type AgentLayerMetadata = z.infer<typeof AgentLayerMetadataSchema>;
  * Agent items are keyed by `id`. They can represent grid agents or graph nodes;
  * graph-force fields (`vx`, `vy`, `fx`, `fy`) are renderer-maintained hints.
  */
-export const AgentItemSchema = z.object({
-  id: AgentIdSchema,
-  color: z.string().optional(),
-  icon: AgentIconSchema.optional(),
-  size: z.number().optional(),
-  x: z.number().optional(),
-  y: z.number().optional(),
-  vx: z.number().optional(),
-  vy: z.number().optional(),
-  fx: z.number().nullable().optional(),
-  fy: z.number().nullable().optional(),
-  heading: z.number().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
-}).loose();
+export const AgentItemSchema = z
+  .object({
+    id: AgentIdSchema,
+    color: z.string().optional(),
+    icon: AgentIconSchema.optional(),
+    size: z.number().optional(),
+    x: z.number().optional(),
+    y: z.number().optional(),
+    vx: z.number().optional(),
+    vy: z.number().optional(),
+    fx: z.number().nullable().optional(),
+    fy: z.number().nullable().optional(),
+    heading: z.number().optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
+  })
+  .loose();
 
 export type AgentItem = z.infer<typeof AgentItemSchema>;
 
 /** Agent item updates are keyed by `id` and may carry any changed fields. */
-export const AgentItemDiffSchema = z.object({
-  id: AgentIdSchema,
-}).loose();
+export const AgentItemDiffSchema = z
+  .object({
+    id: AgentIdSchema,
+  })
+  .loose();
 
 export type AgentItemDiff = z.infer<typeof AgentItemDiffSchema>;
 
@@ -108,22 +114,26 @@ export const EdgeLayerMetadataSchema = BaseLayerMetadataSchema.extend({
 export type EdgeLayerMetadata = z.infer<typeof EdgeLayerMetadataSchema>;
 
 /** Edge items are keyed by the ordered pair (`source`, `target`). */
-export const EdgeItemSchema = z.object({
-  source: AgentIdSchema,
-  target: AgentIdSchema,
-  directed: z.boolean().optional(),
-  style: z.enum(['solid', 'dashed', 'dotted']).optional(),
-  width: z.number().optional(),
-  color: z.string().optional(),
-}).loose();
+export const EdgeItemSchema = z
+  .object({
+    source: AgentIdSchema,
+    target: AgentIdSchema,
+    directed: z.boolean().optional(),
+    style: z.enum(['solid', 'dashed', 'dotted']).optional(),
+    width: z.number().optional(),
+    color: z.string().optional(),
+  })
+  .loose();
 
 export type EdgeItem = z.infer<typeof EdgeItemSchema>;
 
 /** Edge item updates are keyed by `source` and `target`. */
-export const EdgeItemDiffSchema = z.object({
-  source: AgentIdSchema,
-  target: AgentIdSchema,
-}).loose();
+export const EdgeItemDiffSchema = z
+  .object({
+    source: AgentIdSchema,
+    target: AgentIdSchema,
+  })
+  .loose();
 
 export type EdgeItemDiff = z.infer<typeof EdgeItemDiffSchema>;
 
@@ -159,19 +169,23 @@ export const TrajectoryLayerMetadataSchema = BaseLayerMetadataSchema.extend({
 export type TrajectoryLayerMetadata = z.infer<typeof TrajectoryLayerMetadataSchema>;
 
 /** Per-agent trajectory config items are keyed by agent `id`. */
-export const TrajectoryItemSchema = z.object({
-  id: AgentIdSchema,
-  length: z.number().optional(),
-  width: z.number().optional(),
-  color: z.string().optional(),
-}).loose();
+export const TrajectoryItemSchema = z
+  .object({
+    id: AgentIdSchema,
+    length: z.number().optional(),
+    width: z.number().optional(),
+    color: z.string().optional(),
+  })
+  .loose();
 
 export type TrajectoryItem = z.infer<typeof TrajectoryItemSchema>;
 
 /** Trajectory item updates are keyed by `id`. */
-export const TrajectoryItemDiffSchema = z.object({
-  id: AgentIdSchema,
-}).loose();
+export const TrajectoryItemDiffSchema = z
+  .object({
+    id: AgentIdSchema,
+  })
+  .loose();
 
 export type TrajectoryItemDiff = z.infer<typeof TrajectoryItemDiffSchema>;
 
@@ -233,9 +247,11 @@ export const BackgroundLayerMetadataSchema = BaseLayerMetadataSchema.extend({
 export type BackgroundLayerMetadata = z.infer<typeof BackgroundLayerMetadataSchema>;
 
 /** Dependency map shape used by edge and trajectory layers. */
-export const AgentDependencyLayerIdsSchema = z.object({
-  agent: z.string(),
-}).loose();
+export const AgentDependencyLayerIdsSchema = z
+  .object({
+    agent: z.string(),
+  })
+  .loose();
 
 export type AgentDependencyLayerIds = z.infer<typeof AgentDependencyLayerIdsSchema>;
 

@@ -30,11 +30,17 @@ export class TauriFilePicker extends FileSystemPicker {
         return path ? [this.newFileMetadata(path)] : [];
       }
 
-      const selection = await open({ title: title || 'Select File(s)', multiple: multiSelect, directory: false });
-      const paths = selection == null ? [] : (Array.isArray(selection) ? selection : [selection]);
+      const selection = await open({
+        title: title || 'Select File(s)',
+        multiple: multiSelect,
+        directory: false,
+      });
+      const paths = selection == null ? [] : Array.isArray(selection) ? selection : [selection];
       const results = await Promise.allSettled(paths.map((path) => this.getFileMetadata(path)));
       return results
-        .filter((result): result is PromiseFulfilledResult<FileMetadata> => result.status === 'fulfilled')
+        .filter(
+          (result): result is PromiseFulfilledResult<FileMetadata> => result.status === 'fulfilled',
+        )
         .map((result) => result.value);
     } catch (error) {
       console.error('Failed to pick files:', error);
@@ -79,12 +85,25 @@ export class TauriFilePicker extends FileSystemPicker {
     const parts = path.split('.');
     const extension = parts[parts.length - 1]?.toLowerCase();
     const mimeTypes: Record<string, string> = {
-      txt: 'text/plain', json: 'application/json', js: 'application/javascript',
-      ts: 'application/typescript', tsx: 'application/typescript', jsx: 'application/javascript',
-      html: 'text/html', css: 'text/css', png: 'image/png', jpg: 'image/jpeg',
-      jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', pdf: 'application/pdf',
-      zip: 'application/zip', npy: 'application/octet-stream', md: 'text/markdown',
-      xml: 'application/xml', csv: 'text/csv',
+      txt: 'text/plain',
+      json: 'application/json',
+      js: 'application/javascript',
+      ts: 'application/typescript',
+      tsx: 'application/typescript',
+      jsx: 'application/javascript',
+      html: 'text/html',
+      css: 'text/css',
+      png: 'image/png',
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      gif: 'image/gif',
+      svg: 'image/svg+xml',
+      pdf: 'application/pdf',
+      zip: 'application/zip',
+      npy: 'application/octet-stream',
+      md: 'text/markdown',
+      xml: 'application/xml',
+      csv: 'text/csv',
     };
     return mimeTypes[extension ?? ''] ?? 'application/octet-stream';
   }

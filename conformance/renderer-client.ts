@@ -1,6 +1,13 @@
 /** Drive a real binding WebSocket through the public renderer session. */
 import assert from 'node:assert/strict';
-import { decodeProtocolMessage, encodeProtocolMessage, type AnyProtocolMessage, type SimulatorInfoPayload, type SimulatorToRendererMessage, type RendererToSimulatorMessage } from '../packages/protocol/src/index.ts';
+import {
+  decodeProtocolMessage,
+  encodeProtocolMessage,
+  type AnyProtocolMessage,
+  type SimulatorInfoPayload,
+  type SimulatorToRendererMessage,
+  type RendererToSimulatorMessage,
+} from '../packages/protocol/src/index.ts';
 import { RendererSession } from '../packages/core/src/runtime/RendererSession.ts';
 import type { ISimulatorTransport } from '../packages/core/src/transport/index.ts';
 import { runLiveClient } from './renderer-live-client.ts';
@@ -77,13 +84,25 @@ async function closeSocket(socket: WebSocket): Promise<void> {
 
 function seedStaleState(session: RendererSession, label: string): void {
   session.scenario.apply({ type: 'env_create', payload: { id: label, type: '2d' } });
-  session.scenario.apply({ type: 'env_layer_create', payload: { env_id: label, layer_id: 'agents', layer_type: 'agent' } });
-  session.scenario.apply({ type: 'item_create', payload: { env_id: label, layer_id: 'agents', items: [{ id: `${label}-agent`, x: 1, y: 1 }] } });
+  session.scenario.apply({
+    type: 'env_layer_create',
+    payload: { env_id: label, layer_id: 'agents', layer_type: 'agent' },
+  });
+  session.scenario.apply({
+    type: 'item_create',
+    payload: { env_id: label, layer_id: 'agents', items: [{ id: `${label}-agent`, x: 1, y: 1 }] },
+  });
   session.scenario.apply({ type: 'chart_create', payload: { id: `${label}-chart`, label } });
-  session.scenario.apply({ type: 'chart_update', payload: { updates: [{ id: `${label}-chart`, time: 0, value: 1 }] } });
+  session.scenario.apply({
+    type: 'chart_update',
+    payload: { updates: [{ id: `${label}-chart`, time: 0, value: 1 }] },
+  });
 }
 
-async function handshake(session: RendererSession, queue: MessageQueue): Promise<SimulatorInfoPayload> {
+async function handshake(
+  session: RendererSession,
+  queue: MessageQueue,
+): Promise<SimulatorInfoPayload> {
   const first = await queue.next();
   assert.equal(first.type, 'simulator_info');
   session.handleIncoming(first as SimulatorToRendererMessage);
@@ -107,7 +126,10 @@ async function synchronize(
       assert.ok(session.scenario.getEnvironment(staleLabel));
       assert.equal(session.scenario.charts.getGroup(`${staleLabel}-chart`)?.data.length, 1);
       if (corruptEnd) {
-        session.handleIncoming({ ...message, payload: { ...message.payload, request_id: 'mismatched-end' } });
+        session.handleIncoming({
+          ...message,
+          payload: { ...message.payload, request_id: 'mismatched-end' },
+        });
         assert.ok(session.scenario.getEnvironment(staleLabel));
       } else {
         session.handleIncoming(message as SimulatorToRendererMessage);
@@ -176,10 +198,22 @@ async function main(): Promise<void> {
   session.detachTransport();
   await closeSocket(second.socket);
   const liveRows = await runLiveClient(Number(secondPort), encoding, binding, statePath);
-  process.stdout.write(JSON.stringify({ ...liveRows, atomic_sync: { status: 'pass', evidence: { mismatched_end: true, disconnect: true } },
-    reconnect: { status: 'pass', evidence: { ...liveRows.reconnect.evidence, previous_instance: firstInstance, same_instance_reconnect: sameInstance === firstInstance,
-      new_instance: secondInstance,
-      stale_items_and_chart_cleared: true } } }));
+  process.stdout.write(
+    JSON.stringify({
+      ...liveRows,
+      atomic_sync: { status: 'pass', evidence: { mismatched_end: true, disconnect: true } },
+      reconnect: {
+        status: 'pass',
+        evidence: {
+          ...liveRows.reconnect.evidence,
+          previous_instance: firstInstance,
+          same_instance_reconnect: sameInstance === firstInstance,
+          new_instance: secondInstance,
+          stale_items_and_chart_cleared: true,
+        },
+      },
+    }),
+  );
 }
 
 main().catch((error) => {

@@ -1,4 +1,4 @@
-import { formatter } from '@lingui/format-po'
+import { formatter } from '@lingui/format-po';
 
 /** @type {import('@lingui/conf').LinguiConfig} */
 export default {

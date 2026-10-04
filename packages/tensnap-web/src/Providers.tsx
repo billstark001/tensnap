@@ -11,22 +11,20 @@ import { ToastAnchor } from '@/store/toast';
 
 type ProvidersProps = PropsWithChildren;
 
-export function Providers({
-  children,
-}: ProvidersProps) {
-
+export function Providers({ children }: ProvidersProps) {
   const activeProject = useProjectStore((store) => store.activeProject);
 
-  const projectProvider = activeProject
-    ? <ScenarioStoreProvider value={activeProject.useScenarioStore}>
+  const projectProvider = activeProject ? (
+    <ScenarioStoreProvider value={activeProject.useScenarioStore}>
       <TransportStoreProvider value={activeProject.useTransportStore}>
         <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
           {children}
         </ScenarioUndoRedoStoreProvider>
       </TransportStoreProvider>
     </ScenarioStoreProvider>
-    : children;
-
+  ) : (
+    children
+  );
 
   return (
     <I18nProvider i18n={i18n}>
@@ -36,5 +34,4 @@ export function Providers({
       <ToastAnchor />
     </I18nProvider>
   );
-
 }

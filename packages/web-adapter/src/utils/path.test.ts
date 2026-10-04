@@ -24,7 +24,11 @@ describe('path utils', () => {
     expect(getParentPath('/projects/demo/model.json')).toBe('/projects/demo');
     expect(getBaseName('/projects/demo/model.json')).toBe('model.json');
     expect(getPathDepth('/projects/demo/model.json')).toBe(3);
-    expect(getPathComponents('/projects/demo/model.json')).toEqual(['projects', 'demo', 'model.json']);
+    expect(getPathComponents('/projects/demo/model.json')).toEqual([
+      'projects',
+      'demo',
+      'model.json',
+    ]);
   });
 
   it('validates supported paths', () => {
@@ -41,7 +45,8 @@ describe('path utils', () => {
   });
 
   it('hashes raw bytes without lossy text decoding', () => {
-    expect(calculateChecksum(new Uint8Array([0x80])))
-      .not.toBe(calculateChecksum(new Uint8Array([0x81])));
+    expect(calculateChecksum(new Uint8Array([0x80]))).not.toBe(
+      calculateChecksum(new Uint8Array([0x81])),
+    );
   });
 });

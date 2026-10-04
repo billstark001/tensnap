@@ -16,16 +16,15 @@ import {
 } from '@tensnap/protocol';
 import { WebSocketAbortedError, WebSocketConnectionError, WebSocketDestroyedError } from './errors';
 
-
 export class WebSocketManagerImpl implements ISimulatorTransport {
-
   readonly id: string;
   readonly transportKind = 'websocket';
 
   private ws: WebSocket | null = null;
   private manualDisconnect = false; // Indicates if disconnect was intentional
 
-  private messageHandlers: Map<keyof TransportEventMap, Set<TransportEventHandler<any>>> = new Map();
+  private messageHandlers: Map<keyof TransportEventMap, Set<TransportEventHandler<any>>> =
+    new Map();
   private reconnectTimer: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -37,10 +36,11 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private isDestroyed: boolean = false;
   private codec: ProtocolCodec | null = null;
   private codecValidationLevel: ProtocolValidationLevel = 'off';
-  private codecValidationDirection: 'any' | 'renderer-to-simulator' | 'simulator-to-renderer' = 'any';
+  private codecValidationDirection: 'any' | 'renderer-to-simulator' | 'simulator-to-renderer' =
+    'any';
   private handshakeTimer: ReturnType<typeof setTimeout> | null = null;
   private selectedProtocolMode: ProtocolCodecMode | null = null;
-  
+
   // Validation settings - can be set externally
   public clientMessageValidation: ProtocolValidationLevel = 'off';
   public serverMessageValidation: ProtocolValidationLevel = 'off';
@@ -60,7 +60,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     this.manualDisconnect = false;
     return new Promise((resolve, reject) => {
       let promiseSettled = false;
-      
+
       const settlePromise = (settler: () => void) => {
         if (!promiseSettled) {
           promiseSettled = true;
@@ -145,9 +145,9 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
           // Clean up AbortController after successful connection
           this.abortController = null;
           this.externalAbortHandler = null;
-          
+
           settlePromise(() => resolve());
-          
+
           if (!this.isDestroyed) {
             this.emit('open', undefined);
           }
@@ -231,26 +231,37 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private emit<K extends keyof TransportEventMap>(type: K, payload: TransportEventMap[K]) {
     const handlers = this.messageHandlers.get(type);
     if (handlers) {
-      handlers.forEach(handler => {
+      handlers.forEach((handler) => {
         try {
           handler(payload);
         } catch (error) {
           if (type !== 'diagnostic') {
-            this.emitDiagnostic('error', 'event_handler_error', `A ${String(type)} event handler failed.`, error);
+            this.emitDiagnostic(
+              'error',
+              'event_handler_error',
+              `A ${String(type)} event handler failed.`,
+              error,
+            );
           }
         }
       });
     }
   }
 
-  on<K extends keyof TransportEventMap>(type: K, handler: TransportEventHandler<TransportEventMap[K]>) {
+  on<K extends keyof TransportEventMap>(
+    type: K,
+    handler: TransportEventHandler<TransportEventMap[K]>,
+  ) {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, new Set());
     }
     this.messageHandlers.get(type)!.add(handler);
   }
 
-  off<K extends keyof TransportEventMap>(type: K, handler?: TransportEventHandler<TransportEventMap[K]>) {
+  off<K extends keyof TransportEventMap>(
+    type: K,
+    handler?: TransportEventHandler<TransportEventMap[K]>,
+  ) {
     if (handler) {
       // Remove specific handler
       const handlers = this.messageHandlers.get(type);
@@ -275,9 +286,14 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       const encoded = this.codec.encode(message as AnyProtocolMessage, this.encoding);
       this.ws.send(typeof encoded === 'string' ? encoded : new Uint8Array(encoded));
     } else {
-      this.emitDiagnostic('warning', 'send_while_disconnected', 'Skipped a protocol message because the WebSocket is not connected.', {
-        messageType: message.type,
-      });
+      this.emitDiagnostic(
+        'warning',
+        'send_while_disconnected',
+        'Skipped a protocol message because the WebSocket is not connected.',
+        {
+          messageType: message.type,
+        },
+      );
       throw new Error('WebSocket transport is not connected.');
     }
   }
@@ -300,8 +316,13 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (!this.isDestroyed && !this.manualDisconnect) {
-        this.connect().catch(error => {
-          this.emitDiagnostic('warning', 'reconnect_failed', `Reconnect attempt ${this.reconnectAttempts} failed.`, error);
+        this.connect().catch((error) => {
+          this.emitDiagnostic(
+            'warning',
+            'reconnect_failed',
+            `Reconnect attempt ${this.reconnectAttempts} failed.`,
+            error,
+          );
         });
       }
     }, delay);
@@ -388,11 +409,16 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     if (!this.ws) return 'closed';
 
     switch (this.ws.readyState) {
-      case WebSocket.CONNECTING: return 'connecting';
-      case WebSocket.OPEN: return 'open';
-      case WebSocket.CLOSING: return 'closing';
-      case WebSocket.CLOSED: return 'closed';
-      default: return 'closed';
+      case WebSocket.CONNECTING:
+        return 'connecting';
+      case WebSocket.OPEN:
+        return 'open';
+      case WebSocket.CLOSING:
+        return 'closing';
+      case WebSocket.CLOSED:
+        return 'closed';
+      default:
+        return 'closed';
     }
   }
 
@@ -401,7 +427,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       attempts: this.reconnectAttempts,
       maxAttempts: this.maxReconnectAttempts,
       isReconnecting: !!this.reconnectTimer,
-      manualDisconnect: this.manualDisconnect
+      manualDisconnect: this.manualDisconnect,
     };
   }
 
@@ -419,7 +445,12 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     this.codecValidationLevel = 'off';
     this.codecValidationDirection = 'any';
     this.emit('protocol-mode', { mode, reason });
-    this.emitDiagnostic('info', 'protocol_mode_selected', `Selected ${mode} protocol codec (${reason}).`, { mode, reason });
+    this.emitDiagnostic(
+      'info',
+      'protocol_mode_selected',
+      `Selected ${mode} protocol codec (${reason}).`,
+      { mode, reason },
+    );
   }
 
   private resetProtocolSession(): void {
@@ -441,8 +472,13 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     // With validation off, direction has no effect. Keep the default codec
     // configuration across the four incoming frames and the next send.
     const effectiveDirection = level === 'off' ? 'any' : direction;
-    if (this.codecValidationLevel === level && this.codecValidationDirection === effectiveDirection) return;
-    this.codec!.setValidation({ level, direction: effectiveDirection, onWarning: this.onValidationWarning });
+    if (this.codecValidationLevel === level && this.codecValidationDirection === effectiveDirection)
+      return;
+    this.codec!.setValidation({
+      level,
+      direction: effectiveDirection,
+      onWarning: this.onValidationWarning,
+    });
     this.codecValidationLevel = level;
     this.codecValidationDirection = effectiveDirection;
   }

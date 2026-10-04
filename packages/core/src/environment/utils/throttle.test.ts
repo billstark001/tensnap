@@ -21,6 +21,9 @@ describe('throttle', () => {
     receiver.call.call({ id: 'latest' }, 3);
     expect(calls).toEqual([['first', 1]]);
     vi.advanceTimersByTime(80);
-    expect(calls).toEqual([['first', 1], ['latest', 3]]);
+    expect(calls).toEqual([
+      ['first', 1],
+      ['latest', 3],
+    ]);
   });
 });

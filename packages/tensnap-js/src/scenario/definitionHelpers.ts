@@ -16,7 +16,10 @@ export function cloneChartGroupMetadata<T extends ChartGroupMetadata>(chart: T):
   };
 }
 
-export function layerCreatePayload(envId: string, layer: ScenarioLayerDefinition): EnvLayerCreatePayload {
+export function layerCreatePayload(
+  envId: string,
+  layer: ScenarioLayerDefinition,
+): EnvLayerCreatePayload {
   return {
     env_id: envId,
     layer_id: layer.layerId,

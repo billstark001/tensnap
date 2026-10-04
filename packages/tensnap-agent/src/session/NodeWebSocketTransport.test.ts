@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { encodeProtocolMessage, decodeProtocolMessage, type AnyProtocolMessage } from '@tensnap/protocol';
+import {
+  encodeProtocolMessage,
+  decodeProtocolMessage,
+  type AnyProtocolMessage,
+} from '@tensnap/protocol';
 import { NodeWebSocketTransport, normalizeRawData } from './NodeWebSocketTransport';
 
 describe('NodeWebSocketTransport', () => {
@@ -9,10 +13,7 @@ describe('NodeWebSocketTransport', () => {
       payload: { time: 7 },
     };
 
-    const normalized = normalizeRawData(
-      Buffer.from(JSON.stringify(payload), 'utf8'),
-      false,
-    );
+    const normalized = normalizeRawData(Buffer.from(JSON.stringify(payload), 'utf8'), false);
 
     expect(typeof normalized).toBe('string');
     expect(decodeProtocolMessage(normalized)).toEqual(payload);
@@ -25,26 +26,27 @@ describe('NodeWebSocketTransport', () => {
     };
     const encoded = encodeProtocolMessage(payload, 'msgpack') as Uint8Array;
 
-    const normalized = normalizeRawData(
-      Buffer.from(encoded),
-      true,
-    );
+    const normalized = normalizeRawData(Buffer.from(encoded), true);
 
     expect(normalized).toBeInstanceOf(Uint8Array);
     expect(decodeProtocolMessage(normalized)).toEqual(payload);
   });
 
   it('emits one warning and continues for invalid inbound messages in warning mode', () => {
-    const transport = new NodeWebSocketTransport('ws://test', 'json', { serverMessages: 'warning' });
+    const transport = new NodeWebSocketTransport('ws://test', 'json', {
+      serverMessages: 'warning',
+    });
     const warning = vi.fn();
     const message = vi.fn();
     transport.on('validation-warning', warning);
     transport.on('message', message);
 
-    (transport as unknown as { handleMessage(data: string): void }).handleMessage(JSON.stringify({
-      type: 'metadata_update',
-      payload: { time: 'invalid' },
-    }));
+    (transport as unknown as { handleMessage(data: string): void }).handleMessage(
+      JSON.stringify({
+        type: 'metadata_update',
+        payload: { time: 'invalid' },
+      }),
+    );
 
     expect(warning).toHaveBeenCalledTimes(1);
     expect(message).toHaveBeenCalledTimes(1);
@@ -57,10 +59,12 @@ describe('NodeWebSocketTransport', () => {
     transport.on('error', error);
     transport.on('message', message);
 
-    (transport as unknown as { handleMessage(data: string): void }).handleMessage(JSON.stringify({
-      type: 'metadata_update',
-      payload: { time: 'invalid' },
-    }));
+    (transport as unknown as { handleMessage(data: string): void }).handleMessage(
+      JSON.stringify({
+        type: 'metadata_update',
+        payload: { time: 'invalid' },
+      }),
+    );
 
     expect(error).toHaveBeenCalledTimes(1);
     expect(message).not.toHaveBeenCalled();

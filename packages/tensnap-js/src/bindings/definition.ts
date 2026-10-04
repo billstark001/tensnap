@@ -2,9 +2,7 @@ import type { ScenarioDefinition } from '../scenario';
 import { cloneChartGroupMetadata } from '../scenario/definitionHelpers';
 import { markCompiledTopology, orderLayers } from '../scenario/layerTopology';
 import { defineLifecycleActions } from './lifecycle';
-import type {
-  BoundModelDefinition,
-} from './types';
+import type { BoundModelDefinition } from './types';
 import { resolveMaybeFactory } from './utils';
 
 // Bound model topology is static. Cache only layer indices, leaving dynamic
@@ -29,9 +27,13 @@ function layerOrder<TConfig extends object, TModel>(
       type: layer.type,
       dependencyLayerIds: { ...(layer.dependencyLayerIds ?? {}) },
     }));
-    return orderLayers(environment.id, layers,
-      (layer) => layer.id, (layer) => layer.type,
-      (layer) => layer.dependencyLayerIds);
+    return orderLayers(
+      environment.id,
+      layers,
+      (layer) => layer.id,
+      (layer) => layer.type,
+      (layer) => layer.dependencyLayerIds,
+    );
   });
   topologyOrder.set(binding, ordered);
   return ordered;

@@ -36,11 +36,10 @@ interface UniformAgentRow {
   ref: AgentRef;
 }
 
-const matchesAgentSearch = (agent: UniformAgent, term: string) => (
-  String(agent.id).toLowerCase().includes(term)
-  || agent.color?.toLowerCase().includes(term)
-  || agent.icon?.toLowerCase().includes(term)
-);
+const matchesAgentSearch = (agent: UniformAgent, term: string) =>
+  String(agent.id).toLowerCase().includes(term) ||
+  agent.color?.toLowerCase().includes(term) ||
+  agent.icon?.toLowerCase().includes(term);
 
 // Agent card component
 const AgentCard = ({
@@ -59,9 +58,7 @@ const AgentCard = ({
 
   return (
     <div className={styles.agentCard} onClick={onClick}>
-      <div className={styles.agentIcon}>
-        {createIconElement(agent.icon, size, color, assetUrl)}
-      </div>
+      <div className={styles.agentIcon}>{createIconElement(agent.icon, size, color, assetUrl)}</div>
       <div className={styles.agentInfo}>
         <div className={styles.agentId}>#{agent.id}</div>
         <div className={styles.agentMeta}>
@@ -82,12 +79,14 @@ const EmptyAgentState = ({
 }) => (
   <EmptyState
     icon="🔍"
-    title={hasSearch
-      ? <Trans>No agents found matching your search</Trans>
-      : <Trans>No agents in this environment</Trans>}
-    actions={[
-      { label: <Trans>Clear search</Trans>, onClick: onClearSearch }
-    ]}
+    title={
+      hasSearch ? (
+        <Trans>No agents found matching your search</Trans>
+      ) : (
+        <Trans>No agents in this environment</Trans>
+      )
+    }
+    actions={[{ label: <Trans>Clear search</Trans>, onClick: onClearSearch }]}
   />
 );
 
@@ -112,13 +111,17 @@ export function UniformEnvironmentView({
       .map((layer) => ({ layerId: layer.id, storage: layer.storage as AgentStorage }));
   }, [environment, updateTrigger]);
 
-  const subscribeToAgents = useCallback((onStoreChange: () => void) => {
-    const unsubscribers = sources.map(({ storage }) => storage.subscribe(onStoreChange));
-    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
-  }, [sources]);
-  const getAgentsRevision = useCallback(() => (
-    sources.reduce((revision, { storage }) => revision + storage.revision, 0)
-  ), [sources]);
+  const subscribeToAgents = useCallback(
+    (onStoreChange: () => void) => {
+      const unsubscribers = sources.map(({ storage }) => storage.subscribe(onStoreChange));
+      return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+    },
+    [sources],
+  );
+  const getAgentsRevision = useCallback(
+    () => sources.reduce((revision, { storage }) => revision + storage.revision, 0),
+    [sources],
+  );
   const agentsRevision = useSyncExternalStore(
     subscribeToAgents,
     getAgentsRevision,
@@ -172,16 +175,17 @@ export function UniformEnvironmentView({
     void agentsRevision;
     if (!selectedAgentRef) return null;
     const source = sources.find(({ layerId }) => layerId === selectedAgentRef.layerId);
-    return source?.storage.getData().agents.get(selectedAgentRef.agentId) as UniformAgent | undefined ?? null;
+    return (
+      (source?.storage.getData().agents.get(selectedAgentRef.agentId) as
+        | UniformAgent
+        | undefined) ?? null
+    );
   }, [agentsRevision, selectedAgentRef, sources]);
 
-  const handleSearchChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setSearchTerm(e.target.value);
-      setCurrentPage(1);
-    },
-    []
-  );
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+    setCurrentPage(1);
+  }, []);
 
   const handleClearSearch = useCallback(() => {
     setSearchTerm('');
@@ -196,13 +200,17 @@ export function UniformEnvironmentView({
   }, []);
 
   const { _ } = useLingui();
-  
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <div className={styles.title}><Trans>Uniform Environment</Trans></div>
+        <div className={styles.title}>
+          <Trans>Uniform Environment</Trans>
+        </div>
         <div className={styles.agentCount}>
-          <Trans>{matchingAgentCount} / {totalAgentCount} agents</Trans>
+          <Trans>
+            {matchingAgentCount} / {totalAgentCount} agents
+          </Trans>
         </div>
       </div>
 
@@ -215,10 +223,7 @@ export function UniformEnvironmentView({
       />
 
       {matchingAgentCount === 0 ? (
-        <EmptyAgentState
-          hasSearch={!!searchTerm}
-          onClearSearch={handleClearSearch}
-        />
+        <EmptyAgentState hasSearch={!!searchTerm} onClearSearch={handleClearSearch} />
       ) : (
         <>
           <div className={styles.agentsList}>
@@ -226,7 +231,9 @@ export function UniformEnvironmentView({
               <AgentCard
                 key={key}
                 agent={agent}
-                resolveAssetUrl={(assetId) => assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)}
+                resolveAssetUrl={(assetId) =>
+                  assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)
+                }
                 onClick={() => handleAgentClick(ref)}
               />
             ))}

@@ -1,8 +1,21 @@
 import { ContainerView, AnyView } from '@/types/ui';
-import { Parameter, Action, NumberParameter, EnumParameter, BooleanParameter, StringParameter } from '@/types/model';
+import {
+  Parameter,
+  Action,
+  NumberParameter,
+  EnumParameter,
+  BooleanParameter,
+  StringParameter,
+} from '@/types/model';
 import { pack } from '@/utils/layout/pack';
 import type { PackingOptions, PackingResult, PlacedRectangle } from '@/utils/layout/pack';
-import { MAIN_VIEW_PADDING, LAYOUT_PADDING as PADDING, WINDOW_X_DELTA, WINDOW_Y_DELTA, preservedViewIds } from '@/components/view/constants';
+import {
+  MAIN_VIEW_PADDING,
+  LAYOUT_PADDING as PADDING,
+  WINDOW_X_DELTA,
+  WINDOW_Y_DELTA,
+  preservedViewIds,
+} from '@/components/view/constants';
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
 import type { MonitorMetadata } from '@tensnap/protocol';
 import { getEffectiveViewBox } from './geometry';
@@ -31,7 +44,6 @@ function _walk(
   state: WalkState,
   result: AnyView[],
 ): AnyView[] {
-
   if (found.has(view) || state.halted) {
     return result;
   }
@@ -54,8 +66,10 @@ function _walk(
   return result;
 }
 
-
-function walkAndFilter(view: AnyView | null | undefined, condition: (view: AnyView) => boolean): AnyView[] {
+function walkAndFilter(
+  view: AnyView | null | undefined,
+  condition: (view: AnyView) => boolean,
+): AnyView[] {
   if (!view) {
     return [];
   }
@@ -66,7 +80,10 @@ function walkAndFilter(view: AnyView | null | undefined, condition: (view: AnyVi
   return result;
 }
 
-function walkAndFind(view: AnyView | null | undefined, condition: (view: AnyView) => boolean): AnyView | undefined {
+function walkAndFind(
+  view: AnyView | null | undefined,
+  condition: (view: AnyView) => boolean,
+): AnyView | undefined {
   if (!view) {
     return undefined;
   }
@@ -77,7 +94,7 @@ function walkAndFind(view: AnyView | null | undefined, condition: (view: AnyView
   return result[0];
 }
 
-function getParameterSignature(param: { id: string, type?: string }): string {
+function getParameterSignature(param: { id: string; type?: string }): string {
   return `param:${param.type}:${param.id}`;
 }
 
@@ -105,10 +122,7 @@ type EffectivePackingRectangle = PlacedRectangle & {
   viewIndex: number;
 };
 
-function packViewsByEffectiveBox(
-  views: AnyView[],
-  options: PackingOptions,
-): PackingResult {
+function packViewsByEffectiveBox(views: AnyView[], options: PackingOptions): PackingResult {
   const rectangles = views.map((view, viewIndex) => {
     const box = getEffectiveViewBox(view);
     return {
@@ -178,27 +192,36 @@ export function createAutoLayout(
 ): ContainerView {
   const { inPlace = false, disableMissingViews = false } = options;
   const view = currentView
-    ? inPlace ? currentView : structuredClone(currentView)
+    ? inPlace
+      ? currentView
+      : structuredClone(currentView)
     : createDefaultRootLayout();
 
   const statesFound = new Map<string, boolean>();
 
-  actions.forEach(a => statesFound.set(getActionSignature(a), false));
-  parameters.forEach(p => statesFound.set(getParameterSignature(p), false));
-  environments.forEach(e => statesFound.set(getEnvironmentSignature(e), false));
-  charts.forEach(c => statesFound.set(getChartSignature(c), false));
-  monitors.forEach(m => statesFound.set(getMonitorSignature(m), false));
+  actions.forEach((a) => statesFound.set(getActionSignature(a), false));
+  parameters.forEach((p) => statesFound.set(getParameterSignature(p), false));
+  environments.forEach((e) => statesFound.set(getEnvironmentSignature(e), false));
+  charts.forEach((c) => statesFound.set(getChartSignature(c), false));
+  monitors.forEach((m) => statesFound.set(getMonitorSignature(m), false));
 
   // this maintains statesFound and viewsShouldDisable
   const viewsShouldDisable = walkAndFilter(view, (v) => {
     if (v.type === 'container' || !v.type) {
       return false;
     }
-    const sign = v.type === 'parameter' ? getParameterSignature(v.data) :
-      v.type === 'environment' ? getEnvironmentSignature(v.data as ObjectWithEnvironmentMetadata) :
-        v.type === 'chart' ? getChartSignature(v.data as ObjectWithChartMetadata) :
-          v.type === 'monitor' ? getMonitorSignature(v.data as MonitorMetadata) :
-          v.type === 'button' ? getActionSignature({ id: v.data.id }) : undefined;
+    const sign =
+      v.type === 'parameter'
+        ? getParameterSignature(v.data)
+        : v.type === 'environment'
+          ? getEnvironmentSignature(v.data as ObjectWithEnvironmentMetadata)
+          : v.type === 'chart'
+            ? getChartSignature(v.data as ObjectWithChartMetadata)
+            : v.type === 'monitor'
+              ? getMonitorSignature(v.data as MonitorMetadata)
+              : v.type === 'button'
+                ? getActionSignature({ id: v.data.id })
+                : undefined;
     if (!sign) {
       return false;
     }
@@ -212,8 +235,13 @@ export function createAutoLayout(
   });
 
   // Find existing containers
-  let buttonsContainer = walkAndFind(view, v => v.id === preservedViewIds.buttonsContainer) as ContainerView | undefined;
-  let parametersContainer = walkAndFind(view, v => v.id === preservedViewIds.parametersContainer) as ContainerView | undefined;
+  let buttonsContainer = walkAndFind(view, (v) => v.id === preservedViewIds.buttonsContainer) as
+    | ContainerView
+    | undefined;
+  let parametersContainer = walkAndFind(
+    view,
+    (v) => v.id === preservedViewIds.parametersContainer,
+  ) as ContainerView | undefined;
 
   const buttonsContainerIsNew = !buttonsContainer;
   const parametersContainerIsNew = !parametersContainer;
@@ -223,7 +251,7 @@ export function createAutoLayout(
       preservedViewIds.buttonsContainer,
       'Buttons',
       10,
-      10
+      10,
     );
     view.views.push(buttonsContainer);
   }
@@ -232,17 +260,17 @@ export function createAutoLayout(
       preservedViewIds.parametersContainer,
       'Parameters',
       10,
-      10
+      10,
     );
     view.views.push(parametersContainer);
   }
 
   // Actions (buttons) - now separate from parameters
-  const newActions = actions.filter(a => !statesFound.get(getActionSignature(a)));
+  const newActions = actions.filter((a) => !statesFound.get(getActionSignature(a)));
 
   // Parameters (no longer include actions)
   const newOtherParameters = parameters.filter(
-    param => !statesFound.get(getParameterSignature(param))
+    (param) => !statesFound.get(getParameterSignature(param)),
   ) as (NumberParameter | EnumParameter | BooleanParameter | StringParameter)[];
 
   let rootViewNeedsAdjust = false;
@@ -256,13 +284,16 @@ export function createAutoLayout(
   }
   // Re-layout buttons container if it has views (handles both new and existing overlapping views)
   if (buttonsContainer.views.length > 0) {
-    const { suggestedContainerWidth, suggestedContainerHeight } = packViewsByEffectiveBox(buttonsContainer.views, {
-      inPlace: true,
-      padding: PADDING,
-      paddingBorder: PADDING,
-      sortBy: 'position',
-      preservePosition: !buttonsContainerIsNew,
-    });
+    const { suggestedContainerWidth, suggestedContainerHeight } = packViewsByEffectiveBox(
+      buttonsContainer.views,
+      {
+        inPlace: true,
+        padding: PADDING,
+        paddingBorder: PADDING,
+        sortBy: 'position',
+        preservePosition: !buttonsContainerIsNew,
+      },
+    );
     // 确保容器尺寸是整数
     buttonsContainer.width = Math.ceil(suggestedContainerWidth + WINDOW_X_DELTA);
     buttonsContainer.height = Math.ceil(suggestedContainerHeight + WINDOW_Y_DELTA);
@@ -280,13 +311,16 @@ export function createAutoLayout(
   }
   // Re-layout parameters container if it has views (handles both new and existing overlapping views)
   if (parametersContainer.views.length > 0) {
-    const { suggestedContainerWidth, suggestedContainerHeight } = packViewsByEffectiveBox(parametersContainer.views, {
-      inPlace: true,
-      padding: PADDING,
-      paddingBorder: PADDING,
-      sortBy: 'position',
-      preservePosition: !parametersContainerIsNew,
-    });
+    const { suggestedContainerWidth, suggestedContainerHeight } = packViewsByEffectiveBox(
+      parametersContainer.views,
+      {
+        inPlace: true,
+        padding: PADDING,
+        paddingBorder: PADDING,
+        sortBy: 'position',
+        preservePosition: !parametersContainerIsNew,
+      },
+    );
     // 确保容器尺寸是整数
     parametersContainer.width = Math.ceil(suggestedContainerWidth + WINDOW_X_DELTA);
     parametersContainer.height = Math.ceil(suggestedContainerHeight + WINDOW_Y_DELTA);
@@ -296,7 +330,9 @@ export function createAutoLayout(
   }
 
   // Process environments
-  const newEnvironments = environments.filter(env => !statesFound.get(getEnvironmentSignature(env)));
+  const newEnvironments = environments.filter(
+    (env) => !statesFound.get(getEnvironmentSignature(env)),
+  );
   if (newEnvironments.length > 0) {
     const newEnvironmentViews = createEnvironmentViews(newEnvironments);
     view.views.push(...newEnvironmentViews);
@@ -304,7 +340,7 @@ export function createAutoLayout(
   }
 
   // Process charts
-  const newCharts = charts.filter(chart => !statesFound.get(getChartSignature(chart)));
+  const newCharts = charts.filter((chart) => !statesFound.get(getChartSignature(chart)));
   if (newCharts.length > 0) {
     const newChartViews = createChartViews(newCharts);
     view.views.push(...newChartViews);
@@ -313,7 +349,7 @@ export function createAutoLayout(
 
   // Process monitors. Like charts, monitors are simulator-owned values with
   // renderer-local view placement and display preferences.
-  const newMonitors = monitors.filter(monitor => !statesFound.get(getMonitorSignature(monitor)));
+  const newMonitors = monitors.filter((monitor) => !statesFound.get(getMonitorSignature(monitor)));
   if (newMonitors.length > 0) {
     const newMonitorViews = createMonitorViews(newMonitors);
     view.views.push(...newMonitorViews);
@@ -325,20 +361,22 @@ export function createAutoLayout(
     const viewsToRemoveSet = new Set(viewsShouldDisable);
 
     // Remove from root level
-    view.views = view.views.filter(v => !viewsToRemoveSet.has(v));
+    view.views = view.views.filter((v) => !viewsToRemoveSet.has(v));
 
     // Remove from containers
     if (buttonsContainer) {
-      buttonsContainer.views = buttonsContainer.views.filter(view => !viewsToRemoveSet.has(view));
+      buttonsContainer.views = buttonsContainer.views.filter((view) => !viewsToRemoveSet.has(view));
     }
     if (parametersContainer) {
-      parametersContainer.views = parametersContainer.views.filter(view => !viewsToRemoveSet.has(view));
+      parametersContainer.views = parametersContainer.views.filter(
+        (view) => !viewsToRemoveSet.has(view),
+      );
     }
 
     rootViewNeedsAdjust = true;
   } else if (disableMissingViews) {
     // Mark views as disabled instead of removing them
-    viewsShouldDisable.forEach(v => {
+    viewsShouldDisable.forEach((v) => {
       if (v.type !== 'container' && v.type) {
         v.disabled = true;
       }

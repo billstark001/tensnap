@@ -87,7 +87,10 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
       if (generation !== this._requestGeneration) return;
       const img = await loadImageAsync(url, interpolation);
       if (generation !== this._requestGeneration) return;
-      this._setResolved({ kind: 'image', url: img.src, isBlob: ownedUrl !== null, interpolation }, ownedUrl);
+      this._setResolved(
+        { kind: 'image', url: img.src, isBlob: ownedUrl !== null, interpolation },
+        ownedUrl,
+      );
     } finally {
       if (ownedUrl && this._blobUrl !== ownedUrl && !this._cleanupTimers.has(ownedUrl)) {
         URL.revokeObjectURL(ownedUrl);
@@ -124,7 +127,8 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
 
   private _setResolved(data: BackgroundData, ownedUrl: string | null = null): void {
     const oldBlobUrl = this._blobUrl;
-    this._blobUrl = ownedUrl ?? (data?.kind === 'image' && data.url === oldBlobUrl ? oldBlobUrl : null);
+    this._blobUrl =
+      ownedUrl ?? (data?.kind === 'image' && data.url === oldBlobUrl ? oldBlobUrl : null);
     this.setData(data);
     this._scheduleRevoke(oldBlobUrl);
   }

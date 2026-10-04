@@ -17,10 +17,8 @@ const ROOT = resolve(__dirname, '..');
 
 // Parse --logo override
 const logoArgIdx = process.argv.indexOf('--logo');
-const LOGO_SRC = logoArgIdx !== -1
-  ? resolve(process.argv[logoArgIdx + 1])
-  : join(ROOT, 'assets', 'logo.png');
-
+const LOGO_SRC =
+  logoArgIdx !== -1 ? resolve(process.argv[logoArgIdx + 1]) : join(ROOT, 'assets', 'logo.png');
 
 // #region Destination paths
 const TAURI_ICONS = join(ROOT, 'packages', 'tensnap-tauri', 'src-tauri', 'icons');
@@ -75,8 +73,8 @@ const ICO_SIZES = [16, 32, 48, 64, 128, 256];
  */
 function buildIco(entries) {
   const count = entries.length;
-  const headerSize = 6;          // ICONDIR
-  const dirEntrySize = 16;       // ICONDIRENTRY per image
+  const headerSize = 6; // ICONDIR
+  const dirEntrySize = 16; // ICONDIRENTRY per image
   const dataOffset = headerSize + dirEntrySize * count;
 
   // Calculate byte offsets for each image
@@ -98,10 +96,10 @@ function buildIco(entries) {
   // ICONDIRENTRY entries
   entries.forEach(({ size, buffer }, i) => {
     const base = headerSize + i * dirEntrySize;
-    buf.writeUInt8(size >= 256 ? 0 : size, base + 0);  // width  (0 = 256)
-    buf.writeUInt8(size >= 256 ? 0 : size, base + 1);  // height (0 = 256)
-    buf.writeUInt8(0, base + 2);  // color count (0 = no palette)
-    buf.writeUInt8(0, base + 3);  // reserved
+    buf.writeUInt8(size >= 256 ? 0 : size, base + 0); // width  (0 = 256)
+    buf.writeUInt8(size >= 256 ? 0 : size, base + 1); // height (0 = 256)
+    buf.writeUInt8(0, base + 2); // color count (0 = no palette)
+    buf.writeUInt8(0, base + 3); // reserved
     buf.writeUInt16LE(1, base + 4); // planes
     buf.writeUInt16LE(32, base + 6); // bit count
     buf.writeUInt32LE(buffer.length, base + 8);
@@ -120,7 +118,7 @@ const icoEntries = await Promise.all(
   ICO_SIZES.map(async (size) => ({
     size,
     buffer: await sharp(LOGO_SRC).resize(size, size).png().toBuffer(),
-  }))
+  })),
 );
 const icoPath = join(TAURI_ICONS, 'icon.ico');
 writeFileSync(icoPath, buildIco(icoEntries));
@@ -142,9 +140,15 @@ try {
     const icnsBaseSizes = [16, 32, 128, 256, 512];
     await Promise.all(
       icnsBaseSizes.flatMap((s) => [
-        sharp(LOGO_SRC).resize(s, s).png().toFile(join(iconsetDir, `icon_${s}x${s}.png`)),
-        sharp(LOGO_SRC).resize(s * 2, s * 2).png().toFile(join(iconsetDir, `icon_${s}x${s}@2x.png`)),
-      ])
+        sharp(LOGO_SRC)
+          .resize(s, s)
+          .png()
+          .toFile(join(iconsetDir, `icon_${s}x${s}.png`)),
+        sharp(LOGO_SRC)
+          .resize(s * 2, s * 2)
+          .png()
+          .toFile(join(iconsetDir, `icon_${s}x${s}@2x.png`)),
+      ]),
     );
 
     const icnsPath = join(TAURI_ICONS, 'icon.icns');

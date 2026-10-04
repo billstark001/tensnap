@@ -24,25 +24,27 @@ import type { GraphEdge } from '../types';
 // Delta / diff type
 // ---------------------------------------------------------------------------
 
-export type EdgeDelta = {
-  /** Newly added or updated edges. */
-  added: GraphEdge[];
-  /** Edges that were updated. */
-  updated: GraphEdge[];
-  /** Edges that were removed (snapshot at removal time). */
-  removed: GraphEdge[];
-  /**
-   * True when the entire edge set was replaced (setEdges / clearEdges).
-   * Consumers should treat `added` as the new full snapshot and discard
-   * any previously cached state.
-   */
-  replaced?: false;
-} | {
-  added?: undefined;
-  updated?: undefined;
-  removed?: undefined;
-  replaced: true;
-}
+export type EdgeDelta =
+  | {
+      /** Newly added or updated edges. */
+      added: GraphEdge[];
+      /** Edges that were updated. */
+      updated: GraphEdge[];
+      /** Edges that were removed (snapshot at removal time). */
+      removed: GraphEdge[];
+      /**
+       * True when the entire edge set was replaced (setEdges / clearEdges).
+       * Consumers should treat `added` as the new full snapshot and discard
+       * any previously cached state.
+       */
+      replaced?: false;
+    }
+  | {
+      added?: undefined;
+      updated?: undefined;
+      removed?: undefined;
+      replaced: true;
+    };
 
 export interface EdgeStorageData {
   edges: Map<string, GraphEdge>;
@@ -50,11 +52,10 @@ export interface EdgeStorageData {
 }
 
 export interface EdgeStorageSnapshot {
-  edges: Array<{ source: AgentId; target: AgentId;[key: string]: unknown }>;
+  edges: Array<{ source: AgentId; target: AgentId; [key: string]: unknown }>;
 }
 
 export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
-
   constructor(edges: GraphEdge[] = []) {
     super({ edges: new Map(), adjacentMap: new Map() });
     this._bulkInsert(edges);
@@ -118,7 +119,10 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     this._adjIndex(src).add(key);
     this._adjIndex(tgt).add(key);
     const delta: EdgeDelta = {
-      added: existed ? [] : [owned], updated: existed ? [owned] : [], removed: [], replaced: false,
+      added: existed ? [] : [owned],
+      updated: existed ? [owned] : [],
+      removed: [],
+      replaced: false,
     };
     this.notify(delta);
   }
@@ -274,7 +278,6 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
   // -------------------------------------------------------------------------
   // Internal helpers
   // -------------------------------------------------------------------------
-
 
   private _adjIndex(id: AgentId): Set<string> {
     let set = this._data.adjacentMap.get(id);

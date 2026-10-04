@@ -1,20 +1,17 @@
-import { DialogProps } from "@radix-ui/react-dialog";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { DialogProps } from '@radix-ui/react-dialog';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 /**
  * 返回一个始终调用最新回调的稳定函数引用
  */
 export function useCallbackRef<T extends (...args: any[]) => any>(
   callback: T | undefined | null,
-  deps: React.DependencyList = []
+  deps: React.DependencyList = [],
 ): T {
   const ref = useRef(callback);
   ref.current = callback;
 
-  return useCallback(
-    ((...args) => ref.current?.(...args)) as T,
-    deps
-  );
+  return useCallback(((...args) => ref.current?.(...args)) as T, deps);
 }
 
 export type DialogOpenProps = Pick<DialogProps, 'open' | 'onOpenChange'>;
@@ -24,8 +21,7 @@ export interface ThrottledFunction<T extends (...args: any[]) => any> {
   cancel(): void;
 }
 
-export interface DebouncedFunction<T extends (...args: any[]) => any> 
-  extends ThrottledFunction<T> {
+export interface DebouncedFunction<T extends (...args: any[]) => any> extends ThrottledFunction<T> {
   flush(): void;
 }
 
@@ -38,8 +34,8 @@ function createDelayedFunction<T extends (...args: any[]) => any, R>(
   createMethods: (
     timeoutRef: { current: ReturnType<typeof setTimeout> | null },
     argsRef: { current: Parameters<T> | null },
-    execute: () => void
-  ) => R
+    execute: () => void,
+  ) => R,
 ): R {
   const timeoutRef = { current: null as ReturnType<typeof setTimeout> | null };
   const argsRef = { current: null as Parameters<T> | null };
@@ -56,7 +52,7 @@ function createDelayedFunction<T extends (...args: any[]) => any, R>(
 
 export const debounce = <T extends (...args: any[]) => any>(
   fn: T,
-  delay: number
+  delay: number,
 ): DebouncedFunction<T> => {
   return createDelayedFunction(fn, delay, (timeoutRef, argsRef, execute) => {
     const debounced = ((...args: Parameters<T>) => {
@@ -90,10 +86,10 @@ export const debounce = <T extends (...args: any[]) => any>(
 
 export const throttle = <T extends (...args: any[]) => any>(
   fn: T,
-  delay: number
+  delay: number,
 ): ThrottledFunction<T> => {
   let lastExecTime = 0;
-  
+
   return createDelayedFunction(fn, delay, (timeoutRef, argsRef, execute) => {
     const throttled = ((...args: Parameters<T>) => {
       const now = Date.now();
@@ -133,14 +129,14 @@ export const throttle = <T extends (...args: any[]) => any>(
 function useDelayed<T extends (...args: any[]) => any, R>(
   callback: T,
   delay: number,
-  createFn: (fn: T, delay: number) => R & { cancel: () => void }
+  createFn: (fn: T, delay: number) => R & { cancel: () => void },
 ): R {
   const callbackRef = useRef(callback);
   callbackRef.current = callback;
 
   const delayed = useMemo(
     () => createFn(((...args) => callbackRef.current(...args)) as T, delay),
-    [delay]
+    [delay],
   );
 
   useEffect(() => () => delayed.cancel(), [delayed]);
@@ -150,14 +146,14 @@ function useDelayed<T extends (...args: any[]) => any, R>(
 
 export function useThrottled<T extends (...args: any[]) => any>(
   callback: T,
-  delay: number
+  delay: number,
 ): ThrottledFunction<T> {
   return useDelayed(callback, delay, throttle);
 }
 
 export function useDebounced<T extends (...args: any[]) => any>(
   callback: T,
-  delay: number
+  delay: number,
 ): DebouncedFunction<T> {
   return useDelayed(callback, delay, debounce);
 }

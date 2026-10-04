@@ -11,7 +11,7 @@ export interface CreateDialogProps extends DialogOpenProps {
 export const CreateDialog: React.FC<CreateDialogProps> = ({
   open: isOpen,
   onOpenChange: _onOpenChange,
-  onCreateItem
+  onCreateItem,
 }) => {
   const [newItemName, setNewItemName] = useState('');
   const [newItemType, setNewItemType] = useState<'file' | 'directory'>('file');
@@ -30,11 +30,14 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
     }
   }, [newItemName, newItemType, onCreateItem, onOpenChange]);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleCreateItem();
-    }
-  }, [handleCreateItem]);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        handleCreateItem();
+      }
+    },
+    [handleCreateItem],
+  );
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
@@ -66,11 +69,7 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
         <Dialog.Close asChild>
           <Dialog.Button>{t`Cancel`}</Dialog.Button>
         </Dialog.Close>
-        <Dialog.Button
-          variant="primary"
-          onClick={handleCreateItem}
-          disabled={!newItemName.trim()}
-        >
+        <Dialog.Button variant="primary" onClick={handleCreateItem} disabled={!newItemName.trim()}>
           {t`Create`}
         </Dialog.Button>
       </Dialog.Footer>

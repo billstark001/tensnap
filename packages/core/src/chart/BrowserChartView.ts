@@ -80,7 +80,10 @@ export class BrowserChartView {
   private render(): void {
     const ratio = canvasPixelRatio();
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    this.scene.render(this.context, this.canvas.width, this.canvas.height, { theme: this.theme, pixelRatio: ratio });
+    this.scene.render(this.context, this.canvas.width, this.canvas.height, {
+      theme: this.theme,
+      pixelRatio: ratio,
+    });
     this.drawTooltip();
   }
 
@@ -90,9 +93,22 @@ export class BrowserChartView {
     if (!tooltip) return;
 
     this.context.save();
-    const colors = this.theme === 'dark'
-      ? { background: 'rgba(15, 23, 42, 0.96)', border: '#334155', title: '#94a3b8', text: '#f8fafc', divider: '#334155' }
-      : { background: 'rgba(255, 255, 255, 0.98)', border: '#cbd5e1', title: '#64748b', text: '#0f172a', divider: '#e2e8f0' };
+    const colors =
+      this.theme === 'dark'
+        ? {
+            background: 'rgba(15, 23, 42, 0.96)',
+            border: '#334155',
+            title: '#94a3b8',
+            text: '#f8fafc',
+            divider: '#334155',
+          }
+        : {
+            background: 'rgba(255, 255, 255, 0.98)',
+            border: '#cbd5e1',
+            title: '#64748b',
+            text: '#0f172a',
+            divider: '#e2e8f0',
+          };
     const paddingX = 10;
     const paddingY = 8;
     const rowHeight = 20;
@@ -108,7 +124,10 @@ export class BrowserChartView {
     let valueWidth = 0;
     for (const value of tooltip.values) {
       labelWidth = Math.max(labelWidth, this.context.measureText(value.label).width);
-      valueWidth = Math.max(valueWidth, this.context.measureText(formatTooltipValue(value.value)).width);
+      valueWidth = Math.max(
+        valueWidth,
+        this.context.measureText(formatTooltipValue(value.value)).width,
+      );
     }
     const tooltipWidth = Math.max(
       titleWidth + timeWidth + paddingX * 2 + 20,
@@ -138,10 +157,19 @@ export class BrowserChartView {
     this.context.fillText('Time', left + paddingX, top + paddingY + headerHeight / 2);
     this.context.textAlign = 'right';
     this.context.fillStyle = colors.text;
-    this.context.fillText(timeText, left + tooltipWidth - paddingX, top + paddingY + headerHeight / 2);
+    this.context.fillText(
+      timeText,
+      left + tooltipWidth - paddingX,
+      top + paddingY + headerHeight / 2,
+    );
 
     this.context.fillStyle = colors.divider;
-    this.context.fillRect(left + paddingX, top + paddingY + headerHeight, tooltipWidth - paddingX * 2, 1);
+    this.context.fillRect(
+      left + paddingX,
+      top + paddingY + headerHeight,
+      tooltipWidth - paddingX * 2,
+      1,
+    );
 
     this.context.font = '12px system-ui, sans-serif';
     tooltip.values.forEach((value, index) => {
@@ -158,7 +186,14 @@ export class BrowserChartView {
   }
 }
 
-function drawRoundedRect(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number): void {
+function drawRoundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+): void {
   const r = Math.min(radius, width / 2, height / 2);
   context.beginPath();
   context.moveTo(x + r, y);

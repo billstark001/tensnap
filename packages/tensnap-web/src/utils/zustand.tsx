@@ -1,7 +1,7 @@
-import { DialogProps } from "@radix-ui/react-dialog";
-import { createContext, useContext } from "react";
-import { create, StoreApi, UseBoundStore } from "zustand";
-import { ToastContainer, ToastProps, ToastStatus } from "@tensnap/web-common/components/ui/Toast";
+import { DialogProps } from '@radix-ui/react-dialog';
+import { createContext, useContext } from 'react';
+import { create, StoreApi, UseBoundStore } from 'zustand';
+import { ToastContainer, ToastProps, ToastStatus } from '@tensnap/web-common/components/ui/Toast';
 
 export type CreateStoreFunction<T, TExternal = object> = (
   set: {
@@ -9,7 +9,7 @@ export type CreateStoreFunction<T, TExternal = object> = (
     (state: T | ((state: T) => T), replace: true): void;
   },
   get: () => T & TExternal,
-  store: StoreApi<T>
+  store: StoreApi<T>,
 ) => T;
 
 type FakeUseBoundStore<T> = {
@@ -18,7 +18,6 @@ type FakeUseBoundStore<T> = {
 };
 
 export const createStoreContext = <T,>() => {
-
   const context = createContext<UseBoundStore<StoreApi<T>> | undefined>(undefined);
 
   const Provider = context.Provider;
@@ -28,7 +27,7 @@ export const createStoreContext = <T,>() => {
     if (!ctx) {
       return undefined;
     }
-    return ctx(...args as []);
+    return ctx(...(args as []));
   }) as FakeUseBoundStore<T>;
 
   return { context, Provider, useStore };
@@ -51,7 +50,6 @@ export const createDialogStore = <T extends MinimalDialogProps, R = void>(
   resolver?: (resolve: (result: R) => void) => Partial<DialogStateOmitted<T>>,
   defaultResolvedValue?: R,
 ) => {
-
   const useDialogStore = create<DialogStore<T, R>>((set) => ({
     open: false,
     options: undefined,
@@ -60,17 +58,19 @@ export const createDialogStore = <T extends MinimalDialogProps, R = void>(
     invoke: (options) => {
       return new Promise<R>((resolve) => {
         set({
-          open: true, options: {
+          open: true,
+          options: {
             ...resolver?.(resolve),
             ...options,
-          } as any, resolve
+          } as any,
+          resolve,
         });
       });
     },
 
     closeDialog: (result?: R) => {
       set((state) => {
-        state.resolve?.(result ?? defaultResolvedValue as R);
+        state.resolve?.(result ?? (defaultResolvedValue as R));
         return { open: false, options: undefined, resolve: undefined };
       });
     },
@@ -86,13 +86,13 @@ export const createDialogStore = <T extends MinimalDialogProps, R = void>(
             closeDialog();
           }
         }}
-        {...options as any}
+        {...(options as any)}
       />
     );
   }
 
   return [useDialogStore, DialogAnchor] as const;
-}
+};
 
 // Toast Store
 export interface ToastOptions {
@@ -123,11 +123,12 @@ export const createToastStore = () => {
     toasts: [],
 
     toast: (options: ToastOptions) => {
-      const existing = get().toasts.find((toast) => (
-        toast.status === options.status
-        && toast.title === options.title
-        && toast.description === options.description
-      ));
+      const existing = get().toasts.find(
+        (toast) =>
+          toast.status === options.status &&
+          toast.title === options.title &&
+          toast.description === options.description,
+      );
       // Protocol and transport failures belong in project diagnostics. This
       // guard keeps explicit user-feedback toasts useful if a caller retries.
       if (existing) return existing.id;
@@ -140,11 +141,11 @@ export const createToastStore = () => {
           get().close(id);
         },
       };
-      
+
       set((state) => ({
         toasts: [...state.toasts, toast].slice(-MAX_VISIBLE_TOASTS),
       }));
-      
+
       return id;
     },
 

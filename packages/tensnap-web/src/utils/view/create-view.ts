@@ -1,10 +1,10 @@
 import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
+import { Parameter, Action, BooleanParameter } from '@/types/model';
 import {
-  Parameter,
-  Action,
-  BooleanParameter,
-} from '@/types/model';
-import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata, Point } from '@/components/view/types';
+  ObjectWithEnvironmentMetadata,
+  ObjectWithChartMetadata,
+  Point,
+} from '@/components/view/types';
 import type { MonitorMetadata } from '@tensnap/protocol';
 import {
   ENVIRONMENT_GRID_WIDTH,
@@ -64,7 +64,6 @@ export function createVerticalContainer(
   };
 }
 
-
 // #region View creation from objects
 
 /**
@@ -72,11 +71,7 @@ export function createVerticalContainer(
  * @param action The action object (required)
  * @param position The position for the view (optional, defaults to 0,0)
  */
-export function createButtonView(
-  action: Action,
-  position?: Point,
-  randomId = true,
-): ButtonView {
+export function createButtonView(action: Action, position?: Point, randomId = true): ButtonView {
   const { x = 0, y = 0 } = position || {};
   return {
     id: randomId ? generateUniqueId() : `button-${action.id}`,
@@ -190,8 +185,14 @@ export function createEnvironmentView(
     type: 'environment',
     left: x,
     top: y,
-    width: Math.ceil((environment.width ? environment.width * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_WIDTH) + WINDOW_X_DELTA),
-    height: Math.ceil((environment.height ? environment.height * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_HEIGHT) + WINDOW_Y_DELTA),
+    width: Math.ceil(
+      (environment.width ? environment.width * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_WIDTH) +
+        WINDOW_X_DELTA,
+    ),
+    height: Math.ceil(
+      (environment.height ? environment.height * ENVIRONMENT_GRID_WIDTH : ENVIRONMENT_CARD_HEIGHT) +
+        WINDOW_Y_DELTA,
+    ),
     expanded: true,
     disabled: false,
     data: {
@@ -203,7 +204,6 @@ export function createEnvironmentView(
 }
 
 // #endregion
-
 
 /**
  * Creates views for actions (buttons)
@@ -222,7 +222,9 @@ export function createParameterViews(parameters: Parameter[]): AnchoredView[] {
 /**
  * Creates views for environments
  */
-export function createEnvironmentViews(environments: ObjectWithEnvironmentMetadata[]): AnchoredView[] {
+export function createEnvironmentViews(
+  environments: ObjectWithEnvironmentMetadata[],
+): AnchoredView[] {
   return environments.map((env) => createEnvironmentView(env, undefined, false));
 }
 

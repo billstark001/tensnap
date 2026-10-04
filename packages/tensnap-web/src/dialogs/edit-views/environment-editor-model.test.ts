@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { ScenarioEnvironmentState, ScenarioLayerState, ScenarioLayerStorage } from '@tensnap/core/scenario';
-import { getEditableEnvironmentData, groupEnvironmentLayerMetadata } from './environment-editor-model';
+import type {
+  ScenarioEnvironmentState,
+  ScenarioLayerState,
+  ScenarioLayerStorage,
+} from '@tensnap/core/scenario';
+import {
+  getEditableEnvironmentData,
+  groupEnvironmentLayerMetadata,
+} from './environment-editor-model';
 
 const stubStorage: ScenarioLayerStorage = {
   dump: () => ({}),
@@ -38,24 +45,28 @@ describe('environment editor model', () => {
 
   it('separates dependencies from metadata in editable environment data', () => {
     const environments = new Map<string, ScenarioEnvironmentState>([
-      ['env-2d', {
-        id: 'env-2d',
-        type: '2d',
-        layers: new Map([
-          ['grid', createLayer('grid', 'grid', { width: 10, height: 12 })],
-          ['agents', createLayer('agents', 'agent', { coord_offset: 'float' })],
-          ['trails', createLayer('trails', 'trajectory', { length: 5 }, { agent: 'agents' })],
-        ]),
-        dependencyGraph: new Map(),
-      }],
-      ['env-uniform', {
-        id: 'env-uniform',
-        type: 'uniform',
-        layers: new Map([
-          ['agents', createLayer('agents', 'agent', {})],
-        ]),
-        dependencyGraph: new Map(),
-      }],
+      [
+        'env-2d',
+        {
+          id: 'env-2d',
+          type: '2d',
+          layers: new Map([
+            ['grid', createLayer('grid', 'grid', { width: 10, height: 12 })],
+            ['agents', createLayer('agents', 'agent', { coord_offset: 'float' })],
+            ['trails', createLayer('trails', 'trajectory', { length: 5 }, { agent: 'agents' })],
+          ]),
+          dependencyGraph: new Map(),
+        },
+      ],
+      [
+        'env-uniform',
+        {
+          id: 'env-uniform',
+          type: 'uniform',
+          layers: new Map([['agents', createLayer('agents', 'agent', {})]]),
+          dependencyGraph: new Map(),
+        },
+      ],
     ]);
 
     const env2d = getEditableEnvironmentData(environments, 'env-2d');
@@ -67,7 +78,11 @@ describe('environment editor model', () => {
       { title: 'Trajectory', entries: [{ key: 'length', value: 5, editable: true }] },
       { title: 'Dependencies', entries: [{ key: 'agent', value: 'agents', editable: false }] },
     ]);
-    expect(envUniform).toMatchObject({ id: 'env-uniform', type: 'uniform', displayType: 'uniform' });
+    expect(envUniform).toMatchObject({
+      id: 'env-uniform',
+      type: 'uniform',
+      displayType: 'uniform',
+    });
     expect(envUniform?.layers).toHaveLength(1);
   });
 });

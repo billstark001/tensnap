@@ -26,8 +26,13 @@ const ROOT = resolve(__dirname, '..');
 
 // #region Helpers
 
-function log(msg) { console.log(msg); }
-function die(msg) { console.error(`Error: ${msg}`); process.exit(1); }
+function log(msg) {
+  console.log(msg);
+}
+function die(msg) {
+  console.error(`Error: ${msg}`);
+  process.exit(1);
+}
 
 function git(...args) {
   execFileSync('git', args, { cwd: ROOT, stdio: 'inherit' });
@@ -107,10 +112,19 @@ function logTagPushInstructions(tagName) {
   log(`\nPush ${tagName} by itself after pushing the release commit:`);
   log('  git push origin main');
   log(`  git push origin ${tagName}`);
-  log('Do not batch tags: GitHub Actions does not create tag push events for pushes containing more than three tags.');
+  log(
+    'Do not batch tags: GitHub Actions does not create tag push events for pushes containing more than three tags.',
+  );
 }
 
-function finalizeRelease({ componentLabel, version, filePaths, commitMessage, tagName, tagMessage }) {
+function finalizeRelease({
+  componentLabel,
+  version,
+  filePaths,
+  commitMessage,
+  tagName,
+  tagMessage,
+}) {
   const committed = commitFilesIfNeeded(filePaths, commitMessage);
   if (!committed) {
     log(`  ${componentLabel} version files already match v${version}; tagging current HEAD.`);
@@ -163,7 +177,8 @@ function patchCargoLockVersion(filePath, version) {
 // #region Commands
 
 function releaseHelp() {
-  log(`
+  log(
+    `
 Usage: node scripts/release.mjs <component> [version]
 
 Components:
@@ -186,7 +201,8 @@ Examples:
   node scripts/release.mjs js     0.1.0
   node scripts/release.mjs agent  0.1.0
   node scripts/release.mjs app    0.1.0
-`.trim());
+`.trim(),
+  );
 }
 
 function releaseGo(version) {
@@ -413,15 +429,33 @@ if (!component) {
 }
 
 switch (component) {
-  case 'go': releaseGo(version); break;
-  case 'python': releasePython(version); break;
-  case 'julia': releaseJulia(version); break;
-  case 'protocol': releaseProtocol(version); break;
-  case 'core': releaseCore(version); break;
-  case 'js': releaseJs(version); break;
-  case 'agent': releaseAgent(version); break;
-  case 'app': releaseApp(version); break;
-  case 'web': releaseWeb(); break;
+  case 'go':
+    releaseGo(version);
+    break;
+  case 'python':
+    releasePython(version);
+    break;
+  case 'julia':
+    releaseJulia(version);
+    break;
+  case 'protocol':
+    releaseProtocol(version);
+    break;
+  case 'core':
+    releaseCore(version);
+    break;
+  case 'js':
+    releaseJs(version);
+    break;
+  case 'agent':
+    releaseAgent(version);
+    break;
+  case 'app':
+    releaseApp(version);
+    break;
+  case 'web':
+    releaseWeb();
+    break;
   default:
     console.error(`Error: Unknown component '${component}'\n`);
     releaseHelp();

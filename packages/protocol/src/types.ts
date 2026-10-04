@@ -61,8 +61,12 @@ export type ItemKey = z.infer<typeof ItemKeySchema>;
 export type PrimitiveItemKey = z.infer<typeof PrimitiveItemKeySchema>;
 export type ItemDeleteItems = z.infer<typeof ItemDeletePayloadSchema>['items'];
 
-export type SimulatorToRendererMessageType = z.infer<typeof SimulatorToRendererMessageSchema>['type'];
-export type RendererToSimulatorMessageType = z.infer<typeof RendererToSimulatorMessageSchema>['type'];
+export type SimulatorToRendererMessageType = z.infer<
+  typeof SimulatorToRendererMessageSchema
+>['type'];
+export type RendererToSimulatorMessageType = z.infer<
+  typeof RendererToSimulatorMessageSchema
+>['type'];
 export type ProtocolMessageType = SimulatorToRendererMessageType | RendererToSimulatorMessageType;
 
 export interface ProtocolMessage<TType extends string = string, TPayload = unknown> {
@@ -71,10 +75,12 @@ export interface ProtocolMessage<TType extends string = string, TPayload = unkno
   timestamp?: number;
 }
 
-export interface SimulatorToRendererMessage<TPayload = SimulatorToRendererPayload>
-  extends ProtocolMessage<SimulatorToRendererMessageType, TPayload> {}
-export interface RendererToSimulatorMessage<TPayload = RendererToSimulatorPayload>
-  extends ProtocolMessage<RendererToSimulatorMessageType, TPayload> {}
+export interface SimulatorToRendererMessage<
+  TPayload = SimulatorToRendererPayload,
+> extends ProtocolMessage<SimulatorToRendererMessageType, TPayload> {}
+export interface RendererToSimulatorMessage<
+  TPayload = RendererToSimulatorPayload,
+> extends ProtocolMessage<RendererToSimulatorMessageType, TPayload> {}
 
 export type ProtocolData = ProtocolValue;
 export type SimulatorInfoPayload = z.infer<typeof SimulatorInfoPayloadSchema>;
@@ -120,10 +126,11 @@ export type ScreenshotRequestPayload = z.infer<typeof ScreenshotRequestPayloadSc
 export type ScreenshotResponsePayload = z.infer<typeof ScreenshotResponsePayloadSchema>;
 export type StateSyncRequest = z.infer<typeof StateSyncRequestSchema>;
 
-export type NormalizedLogPayload = Required<Pick<LogPayload, 'message'>> & LogPayload & {
-  level: LogLevel;
-  timestamp: number;
-};
+export type NormalizedLogPayload = Required<Pick<LogPayload, 'message'>> &
+  LogPayload & {
+    level: LogLevel;
+    timestamp: number;
+  };
 
 export type SimulatorToRendererPayload =
   | SimulatorInfoPayload

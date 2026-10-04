@@ -15,12 +15,17 @@ import type {
   TrajectoryLayerMetadata,
 } from '@tensnap/protocol';
 import type { SimulatorEmitter, SimulatorSession } from '../runtime';
-import type { ScenarioDefinition, ScenarioEnvironmentDefinition, ScenarioRegistry } from '../scenario';
+import type {
+  ScenarioDefinition,
+  ScenarioEnvironmentDefinition,
+  ScenarioRegistry,
+} from '../scenario';
 
 export type MaybePromise<T> = T | Promise<T>;
 export type MaybeFactory<TModel, TValue> = TValue | ((model: TModel) => TValue);
 export type MaybeParameterFactory<TConfig extends object, TModel, TValue> =
-  TValue | ((model: TModel, config: TConfig) => TValue);
+  | TValue
+  | ((model: TModel, config: TConfig) => TValue);
 export type ItemRecord = Record<string, unknown>;
 export type PrimitiveItemKey = string | number;
 export type ItemDeleteKey = PrimitiveItemKey | ItemRecord;
@@ -75,10 +80,7 @@ export interface ModelSessionContext<TConfig extends object> {
   refreshParameters(ids?: string | readonly string[]): Promise<void>;
   setTime(time: number): Promise<void>;
   metadata(payload: MetadataUpdatePayload): Promise<void>;
-  setChartValues(
-    values: Readonly<Record<string, ChartValueInput>>,
-    time?: number,
-  ): Promise<void>;
+  setChartValues(values: Readonly<Record<string, ChartValueInput>>, time?: number): Promise<void>;
   updateCharts(payload: ChartUpdatePayload): Promise<void>;
   clearCharts(...chartIds: string[]): Promise<void>;
   clearAllCharts(): Promise<void>;
@@ -153,7 +155,11 @@ export interface ModelBuilderOptions<TConfig extends object, TModel> {
   /** Paired exact-state hooks; prefer this over separate legacy callbacks. */
   checkpoint?: {
     capture(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<CheckpointData>;
-    restore(model: TModel, data: CheckpointData, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+    restore(
+      model: TModel,
+      data: CheckpointData,
+      ctx: ModelSessionContext<TConfig>,
+    ): MaybePromise<void>;
   };
   /** Opt-in exact checkpoint restore. Called before projected state restoration. */
   restoreCheckpoint?(
@@ -162,23 +168,46 @@ export interface ModelBuilderOptions<TConfig extends object, TModel> {
     ctx: ModelSessionContext<TConfig>,
   ): MaybePromise<void>;
   /** Opt-in exact checkpoint capture. Return model data; the binding owns wire encoding. */
-  captureCheckpoint?(model: TModel, ctx: ModelSessionContext<TConfig>): MaybePromise<CheckpointData>;
+  captureCheckpoint?(
+    model: TModel,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<CheckpointData>;
   time?(model: TModel): number;
   lifecycleLabels?: LifecycleActionLabels;
 }
 
 export interface ImperativeSceneRestoreOptions<TConfig extends object, TModel> {
   mode: 'imperative';
-  validate?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
-  apply(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  validate?(
+    model: TModel,
+    payload: SceneRestorePayload,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<void>;
+  apply(
+    model: TModel,
+    payload: SceneRestorePayload,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<void>;
 }
 
 export interface ComposedSceneRestoreOptions<TConfig extends object, TModel> {
   mode: 'compose';
-  validate?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
-  beforeApply?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  validate?(
+    model: TModel,
+    payload: SceneRestorePayload,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<void>;
+  beforeApply?(
+    model: TModel,
+    payload: SceneRestorePayload,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<void>;
   restoreTime?(model: TModel, time: number, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
-  afterApply?(model: TModel, payload: SceneRestorePayload, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
+  afterApply?(
+    model: TModel,
+    payload: SceneRestorePayload,
+    ctx: ModelSessionContext<TConfig>,
+  ): MaybePromise<void>;
 }
 
 export type SceneRestoreOptions<TConfig extends object, TModel> =
@@ -200,15 +229,13 @@ export interface BaseParameterOptions<TConfig extends object, TModel, TValue> {
   label?: string;
   runtime?: boolean;
   get(model: TModel, config: TConfig): TValue;
-  set?(
-    model: TModel,
-    value: TValue,
-    ctx: ModelSessionContext<TConfig>,
-  ): MaybePromise<void>;
+  set?(model: TModel, value: TValue, ctx: ModelSessionContext<TConfig>): MaybePromise<void>;
 }
 
-export interface NumberParameterOptions<TConfig extends object, TModel>
-  extends BaseParameterOptions<TConfig, TModel, number> {
+export interface NumberParameterOptions<
+  TConfig extends object,
+  TModel,
+> extends BaseParameterOptions<TConfig, TModel, number> {
   min?: number;
   max?: number;
   step?: number;
@@ -216,11 +243,15 @@ export interface NumberParameterOptions<TConfig extends object, TModel>
   normalize?(value: number, model: TModel, config: TConfig): number;
 }
 
-export interface BooleanParameterOptions<TConfig extends object, TModel>
-  extends BaseParameterOptions<TConfig, TModel, boolean> {}
+export interface BooleanParameterOptions<
+  TConfig extends object,
+  TModel,
+> extends BaseParameterOptions<TConfig, TModel, boolean> {}
 
-export interface StringParameterOptions<TConfig extends object, TModel>
-  extends BaseParameterOptions<TConfig, TModel, string> {}
+export interface StringParameterOptions<
+  TConfig extends object,
+  TModel,
+> extends BaseParameterOptions<TConfig, TModel, string> {}
 
 export interface EnumParameterOptions<
   TConfig extends object,
@@ -267,8 +298,10 @@ export interface LayerChangeBatch {
   changes: readonly LayerRecordChange[];
 }
 
-export type LayerProjector<TModel, TItem extends object> =
-  (model: TModel, item: TItem) => ItemRecord;
+export type LayerProjector<TModel, TItem extends object> = (
+  model: TModel,
+  item: TItem,
+) => ItemRecord;
 
 /**
  * Declarative inverse for one complete restorable layer snapshot. The binding
@@ -281,8 +314,16 @@ export interface LayerRestoreOptions<TModel> {
   restoreMetadata?(model: TModel, metadata: Record<string, ProtocolValue>): MaybePromise<void>;
   /** Replace all model-owned items at once, for array-backed state. */
   replace?(model: TModel, items: readonly Record<string, ProtocolValue>[]): MaybePromise<void>;
-  create?(model: TModel, item: Record<string, ProtocolValue>, key: ItemDeleteKey): MaybePromise<void>;
-  update?(model: TModel, key: ItemDeleteKey, item: Record<string, ProtocolValue>): MaybePromise<void>;
+  create?(
+    model: TModel,
+    item: Record<string, ProtocolValue>,
+    key: ItemDeleteKey,
+  ): MaybePromise<void>;
+  update?(
+    model: TModel,
+    key: ItemDeleteKey,
+    item: Record<string, ProtocolValue>,
+  ): MaybePromise<void>;
   delete?(model: TModel, key: ItemDeleteKey): MaybePromise<void>;
 }
 
@@ -302,8 +343,10 @@ export interface LayerOptions<TModel, TItem extends object = ItemRecord> {
 }
 
 /** Typed first-class trajectory metadata normalized to canonical wire keys. */
-export interface TrajectoryLayerOptions<TModel, TItem extends object = ItemRecord>
-  extends Omit<LayerOptions<TModel, TItem>, 'type' | 'metadata'> {
+export interface TrajectoryLayerOptions<TModel, TItem extends object = ItemRecord> extends Omit<
+  LayerOptions<TModel, TItem>,
+  'type' | 'metadata'
+> {
   metadata?: MaybeFactory<TModel, TrajectoryLayerMetadata | undefined>;
   length?: number;
   width?: number;
@@ -314,8 +357,10 @@ export interface TrajectoryLayerOptions<TModel, TItem extends object = ItemRecor
   onReset?: TrajectoryLayerMetadata['on_reset'];
 }
 
-export interface LayerBinding<TModel, TItem extends object = ItemRecord>
-  extends LayerOptions<TModel, TItem> {
+export interface LayerBinding<TModel, TItem extends object = ItemRecord> extends LayerOptions<
+  TModel,
+  TItem
+> {
   id: string;
 }
 
@@ -381,10 +426,16 @@ export interface ActionBinding<TConfig extends object, TModel> {
 export interface AssetOptions<TConfig extends object, TModel> {
   mime: string;
   label?: string;
-  data: Uint8Array | string | ((model: TModel, config: TConfig) => MaybePromise<Uint8Array | string>);
+  data:
+    | Uint8Array
+    | string
+    | ((model: TModel, config: TConfig) => MaybePromise<Uint8Array | string>);
 }
 
-export interface AssetBinding<TConfig extends object, TModel> extends AssetOptions<TConfig, TModel> {
+export interface AssetBinding<TConfig extends object, TModel> extends AssetOptions<
+  TConfig,
+  TModel
+> {
   id: string;
 }
 
@@ -444,11 +495,7 @@ export type ConfigParamFieldMap<TSource extends object> = {
   [K in keyof TSource]?: ConfigParamField;
 };
 
-export interface ParamsFromConfigOptions<
-  TConfig extends object,
-  TModel,
-  TSource extends object,
-> {
+export interface ParamsFromConfigOptions<TConfig extends object, TModel, TSource extends object> {
   get(model: TModel, config: TConfig): TSource;
   set?(
     model: TModel,

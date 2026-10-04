@@ -11,7 +11,7 @@
  *
  * The layer transforms viewport coordinates (scene space) to pixel coordinates
  * by applying a scale transformation to its group.
- * 
+ *
  * Coordinate system: +x right, +y up (origin at bottom-left).
  */
 
@@ -22,7 +22,6 @@ import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, width: 1, height: 1 };
 
 export abstract class BaseLayer implements IResizableLayer {
-
   // #region Abstract members
 
   abstract readonly defaultZIndex: number;
@@ -140,7 +139,7 @@ export abstract class BaseLayer implements IResizableLayer {
    */
   protected calculateViewportScale(
     viewport: Viewport,
-    fitMode: EnvironmentViewFitMode = this._fitMode
+    fitMode: EnvironmentViewFitMode = this._fitMode,
   ): { scaleX: number; scaleY: number } {
     const container = this.getContainerSize();
     const rawX = container.width / viewport.width;
@@ -183,7 +182,7 @@ export abstract class BaseLayer implements IResizableLayer {
   /**
    * Apply viewport transformation to the layer's group.
    * This translates and scales the group to show the correct portion of the scene.
-   * 
+   *
    * Note: Leafer-UI uses top-left origin, so we need to flip Y.
    */
   protected applyViewportTransform(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
@@ -223,7 +222,7 @@ export abstract class BaseLayer implements IResizableLayer {
    */
   protected registerStorage<T, TDelta>(
     storage: IStorage<T, TDelta>,
-    handler: StorageListener<T, TDelta>
+    handler: StorageListener<T, TDelta>,
   ): Unsubscribe {
     const unsub = storage.subscribe(handler);
     this._unsubscribes.push(unsub);

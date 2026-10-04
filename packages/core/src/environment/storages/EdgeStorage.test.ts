@@ -151,7 +151,10 @@ describe('EdgeStorage – removeEdge / removeEdgePairs', () => {
       { source: 'c', target: 'd' },
       { source: 'e', target: 'f' },
     ]);
-    s.removeEdgePairs([{ source: 'a', target: 'b' }, { source: 'c', target: 'd' }]);
+    s.removeEdgePairs([
+      { source: 'a', target: 'b' },
+      { source: 'c', target: 'd' },
+    ]);
     expect(s.getEdgeCount()).toBe(1);
     expect(s.findEdge('e', 'f')).toBeDefined();
   });
@@ -166,7 +169,10 @@ describe('EdgeStorage – removeEdge / removeEdgePairs', () => {
 
 describe('EdgeStorage – clearEdges', () => {
   it('clears all edges', () => {
-    const s = new EdgeStorage([{ source: 'a', target: 'b' }, { source: 'c', target: 'd' }]);
+    const s = new EdgeStorage([
+      { source: 'a', target: 'b' },
+      { source: 'c', target: 'd' },
+    ]);
     s.clearEdges();
     expect(s.getEdgeCount()).toBe(0);
   });
@@ -237,7 +243,10 @@ describe('EdgeStorage – dump / load', () => {
   });
 
   it('load restores edges from snapshot', () => {
-    const s = new EdgeStorage([{ source: 'a', target: 'b' }, { source: 'c', target: 'd' }]);
+    const s = new EdgeStorage([
+      { source: 'a', target: 'b' },
+      { source: 'c', target: 'd' },
+    ]);
     const snap = s.dump();
 
     const s2 = new EdgeStorage();

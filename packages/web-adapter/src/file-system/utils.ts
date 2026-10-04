@@ -10,13 +10,7 @@ import {
  * 工具函数：文件系统相关的辅助功能
  */
 
-export {
-  calculateChecksum,
-  getBaseName,
-  getParentPath,
-  joinPath,
-  normalizePath,
-};
+export { calculateChecksum, getBaseName, getParentPath, joinPath, normalizePath };
 
 /**
  * 格式化文件大小
@@ -38,7 +32,7 @@ export function formatDate(date: Date): string {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   }).format(date);
 }
 
@@ -47,25 +41,23 @@ export function formatDate(date: Date): string {
  */
 export function parseBreadcrumbs(path: string): Array<{ name: string; path: string }> {
   const normalized = normalizePath(path);
-  
+
   if (normalized === '/') {
     return [{ name: '/', path: '/' }];
   }
-  
+
   const parts = normalized.split('/').filter(Boolean);
-  const breadcrumbs: Array<{ name: string; path: string }> = [
-    { name: '/', path: '/' }
-  ];
-  
+  const breadcrumbs: Array<{ name: string; path: string }> = [{ name: '/', path: '/' }];
+
   let currentPath = '';
   for (const part of parts) {
     currentPath += '/' + part;
     breadcrumbs.push({
       name: part,
-      path: currentPath
+      path: currentPath,
     });
   }
-  
+
   return breadcrumbs;
 }
 
@@ -76,19 +68,19 @@ export function validateName(name: string): { valid: boolean; error?: string } {
   if (!name || name.trim() === '') {
     return { valid: false, error: 'Name cannot be empty' };
   }
-  
+
   // 检查非法字符
   const invalidChars = /[<>:"|?*/\\]/;
   if (invalidChars.test(name)) {
     return { valid: false, error: 'Name contains invalid characters' };
   }
-  
+
   // 检查保留名称
   const reserved = ['.', '..'];
   if (reserved.includes(name.trim())) {
     return { valid: false, error: 'Name cannot be a reserved keyword' };
   }
-  
+
   return { valid: true };
 }
 
@@ -109,4 +101,3 @@ export function readFileContent(file: File): Promise<ArrayBuffer> {
     reader.readAsArrayBuffer(file);
   });
 }
-

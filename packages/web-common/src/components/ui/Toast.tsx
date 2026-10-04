@@ -81,11 +81,7 @@ export function Toast({
       </div>
 
       <div className={toastStyles.toastContent}>
-        {title && (
-          <RadixToast.Title className={toastStyles.toastTitle}>
-            {title}
-          </RadixToast.Title>
-        )}
+        {title && <RadixToast.Title className={toastStyles.toastTitle}>{title}</RadixToast.Title>}
         {description && (
           <RadixToast.Description className={toastStyles.toastDescription}>
             {description}

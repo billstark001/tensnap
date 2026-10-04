@@ -10,7 +10,9 @@ type RegisterLocaleCatalog = (registration: LocaleCatalogRegistration) => void;
 
 let registered = false;
 
-export function registerWebAdapterLocaleCatalog(registerLocaleCatalog: RegisterLocaleCatalog): void {
+export function registerWebAdapterLocaleCatalog(
+  registerLocaleCatalog: RegisterLocaleCatalog,
+): void {
   if (registered) {
     return;
   }

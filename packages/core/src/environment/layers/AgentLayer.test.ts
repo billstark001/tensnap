@@ -57,7 +57,9 @@ describe('AgentLayer inspection highlight', () => {
     const layer = new AgentLayer(agents);
     const entry = getEntry(layer, 'invalid-size') as AgentEntry & { size: number };
     expect(entry.size).toBe(1);
-    expect(layer.getSceneBounds()).toEqual(expect.objectContaining({ minX: expect.any(Number), maxX: expect.any(Number) }));
+    expect(layer.getSceneBounds()).toEqual(
+      expect.objectContaining({ minX: expect.any(Number), maxX: expect.any(Number) }),
+    );
     layer.destroy();
   });
 });
@@ -97,7 +99,9 @@ describe('AgentLayer incremental updates', () => {
     const agents = new AgentStorage();
     agents.setAgents([{ id: 'a', x: 1, y: 2, size: 1 }]);
     const layer = new AgentLayer(agents, { showLabel: true });
-    const entry = getEntry(layer, 'a') as AgentEntry & { label: { set: (...args: unknown[]) => unknown } };
+    const entry = getEntry(layer, 'a') as AgentEntry & {
+      label: { set: (...args: unknown[]) => unknown };
+    };
     const labelSet = vi.spyOn(entry.label, 'set');
 
     agents.updateAgent('a', { x: 4 });

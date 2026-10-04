@@ -23,15 +23,19 @@ function clone<T>(value: T): T {
 }
 
 /** Keep recorded wire semantics intact while making JSON project saves lossless. */
-function cloneRecordedMessage<T extends SimulatorToRendererMessage | RendererToSimulatorMessage>(message: T): T {
+function cloneRecordedMessage<T extends SimulatorToRendererMessage | RendererToSimulatorMessage>(
+  message: T,
+): T {
   const next = clone(message);
   if (next.type === 'asset_data') {
     const payload = next.payload as { data?: unknown; mime: string };
-    if (payload.data instanceof Uint8Array) payload.data = encodeBytesAsDataUrl(payload.data, payload.mime);
+    if (payload.data instanceof Uint8Array)
+      payload.data = encodeBytesAsDataUrl(payload.data, payload.mime);
   }
   if (next.type === 'screenshot_response') {
     const payload = next.payload as { data?: unknown; mime?: string };
-    if (payload.data instanceof Uint8Array) payload.data = encodeBytesAsDataUrl(payload.data, payload.mime ?? 'application/octet-stream');
+    if (payload.data instanceof Uint8Array)
+      payload.data = encodeBytesAsDataUrl(payload.data, payload.mime ?? 'application/octet-stream');
   }
   return next;
 }
@@ -48,11 +52,13 @@ function createId(): string {
 const byteLength = snapshotEncodedByteLength;
 
 function stableItemJson(item: Record<string, unknown>): string {
-  return JSON.stringify(item, (_key, value: unknown) => (
+  return JSON.stringify(item, (_key, value: unknown) =>
     value !== null && typeof value === 'object' && !Array.isArray(value)
-      ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)))
-      : value
-  ));
+      ? Object.fromEntries(
+          Object.entries(value).sort(([left], [right]) => left.localeCompare(right)),
+        )
+      : value,
+  );
 }
 
 function endpointId(endpoint: unknown): unknown {
@@ -86,7 +92,9 @@ type ItemChange = {
  * final Scenario state, while slider drags and repeated item patches do not
  * inflate recordings.
  */
-function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): SimulatorToRendererMessage[] {
+function coalesceMessageBatch(
+  messages: SimulatorToRendererMessage[],
+): SimulatorToRendererMessage[] {
   const passthrough: Array<{ order: number; message: SimulatorToRendererMessage }> = [];
   const latestMetadata: Record<string, unknown> = {};
   let metadataOrder: number | undefined;
@@ -104,7 +112,11 @@ function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): Simulator
       latestParamSync.set(payload.id, { order, message });
       return;
     }
-    if (message.type === 'item_create' || message.type === 'item_update' || message.type === 'item_delete') {
+    if (
+      message.type === 'item_create' ||
+      message.type === 'item_update' ||
+      message.type === 'item_delete'
+    ) {
       const payload = message.payload as {
         env_id: string;
         layer_id: string;
@@ -113,7 +125,9 @@ function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): Simulator
       for (const entry of payload.items) {
         const key = JSON.stringify([
           layerKey(payload),
-          typeof entry === 'object' && entry !== null ? itemKey(entry) : JSON.stringify(['id', entry]),
+          typeof entry === 'object' && entry !== null
+            ? itemKey(entry)
+            : JSON.stringify(['id', entry]),
         ]);
         const previous = itemChanges.get(key);
         if (message.type === 'item_create') {
@@ -123,9 +137,13 @@ function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): Simulator
             // the delete so strict replay does not create over the old item.
             passthrough.push({
               order: previous.order,
-              message: { type: 'item_delete', payload: {
-                ...previous.payload, items: [previous.item],
-              } } as SimulatorToRendererMessage,
+              message: {
+                type: 'item_delete',
+                payload: {
+                  ...previous.payload,
+                  items: [previous.item],
+                },
+              } as SimulatorToRendererMessage,
             });
           }
           if (previous?.kind === 'delete' || !previous) {
@@ -167,7 +185,14 @@ function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): Simulator
   }
   for (const entry of latestParamSync.values()) passthrough.push(entry);
 
-  const grouped = new Map<string, { order: number; type: 'item_create' | 'item_update' | 'item_delete'; payload: { env_id: string; layer_id: string; items: unknown[] } }>();
+  const grouped = new Map<
+    string,
+    {
+      order: number;
+      type: 'item_create' | 'item_update' | 'item_delete';
+      payload: { env_id: string; layer_id: string; items: unknown[] };
+    }
+  >();
   for (const change of itemChanges.values()) {
     const type = `item_${change.kind}` as 'item_create' | 'item_update' | 'item_delete';
     // Keep mutations at different positions separate: merging a later create
@@ -192,7 +217,10 @@ function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): Simulator
   return passthrough.sort((a, b) => a.order - b.order).map(({ message }) => message);
 }
 
-function coalesceMessages(messages: SimulatorToRendererMessage[], scenario: Scenario): SimulatorToRendererMessage[] {
+function coalesceMessages(
+  messages: SimulatorToRendererMessage[],
+  scenario: Scenario,
+): SimulatorToRendererMessage[] {
   const result: SimulatorToRendererMessage[] = [];
   let batch: SimulatorToRendererMessage[] = [];
   let dependencySources: Set<string> | null = null;
@@ -216,8 +244,12 @@ function coalesceMessages(messages: SimulatorToRendererMessage[], scenario: Scen
     batch = [];
   };
   for (const message of messages) {
-    if ((message.type === 'item_create' || message.type === 'item_update' || message.type === 'item_delete')
-      && isDependencySource(message.payload as { env_id: string; layer_id: string })) {
+    if (
+      (message.type === 'item_create' ||
+        message.type === 'item_update' ||
+        message.type === 'item_delete') &&
+      isDependencySource(message.payload as { env_id: string; layer_id: string })
+    ) {
       // A dependent layer can observe every source mutation (for example,
       // trajectories append a point per update). Final-item coalescing would
       // erase those derived state transitions.
@@ -225,8 +257,13 @@ function coalesceMessages(messages: SimulatorToRendererMessage[], scenario: Scen
       result.push(message);
       continue;
     }
-    if (message.type === 'metadata_update' || message.type === 'param_sync'
-      || message.type === 'item_create' || message.type === 'item_update' || message.type === 'item_delete') {
+    if (
+      message.type === 'metadata_update' ||
+      message.type === 'param_sync' ||
+      message.type === 'item_create' ||
+      message.type === 'item_update' ||
+      message.type === 'item_delete'
+    ) {
       batch.push(message);
     } else {
       // Other messages can change the object or layer that these mutations
@@ -260,17 +297,19 @@ function coalesceControls(controls: RendererToSimulatorMessage[]): RendererToSim
 }
 
 function isAppendOnlyStreamMessage(message: SimulatorToRendererMessage): boolean {
-  return message.type === 'chart_create'
-    || message.type === 'chart_update'
-    || message.type === 'chart_delete'
-    || message.type === 'monitor_create'
-    || message.type === 'monitor_update'
-    || message.type === 'monitor_delete'
-    || message.type === 'asset_metadata'
-    || message.type === 'asset_data'
-    || message.type === 'asset_delete'
-    || message.type === 'log'
-    || message.type === 'error';
+  return (
+    message.type === 'chart_create' ||
+    message.type === 'chart_update' ||
+    message.type === 'chart_delete' ||
+    message.type === 'monitor_create' ||
+    message.type === 'monitor_update' ||
+    message.type === 'monitor_delete' ||
+    message.type === 'asset_metadata' ||
+    message.type === 'asset_data' ||
+    message.type === 'asset_delete' ||
+    message.type === 'log' ||
+    message.type === 'error'
+  );
 }
 
 /** Rehydrate streams that were intentionally omitted from a compact keyframe. */
@@ -298,7 +337,10 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
 
 export function createSingleSnapshot(
   scenario: ScenarioSnapshot,
-  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint' | 'legacyCreateReplacement'> = {},
+  options: Pick<
+    RecordingOptions,
+    'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint' | 'legacyCreateReplacement'
+  > = {},
 ): Snapshot {
   const timestamp = options.timestamp ?? now();
   return {
@@ -310,7 +352,9 @@ export function createSingleSnapshot(
       label: options.label,
       protocol_version: PROTOCOL_VERSION,
       ...(options.legacyCreateReplacement ? { legacy_create_replacement: true } : {}),
-      ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
+      ...(options.modelIdentity === undefined
+        ? {}
+        : { model_identity: clone(options.modelIdentity) }),
       ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
     },
     initial: { frame: 0, timestamp, scenario: clone(scenario) },
@@ -339,7 +383,8 @@ export class SnapshotRecorder {
   private readonly frameByteLengths = new Map<number, number>();
   private readonly keyframeByteLengths = new Map<number, number>();
   private readonly keyframeScenarioByteLengths = new Map<number, number>();
-  private options: Required<Pick<RecordingOptions, 'keyframeEvery' | 'ringBuffer'>> & RecordingOptions = {
+  private options: Required<Pick<RecordingOptions, 'keyframeEvery' | 'ringBuffer'>> &
+    RecordingOptions = {
     keyframeEvery: DEFAULT_KEYFRAME_EVERY,
     ringBuffer: false,
   };
@@ -356,7 +401,10 @@ export class SnapshotRecorder {
 
   start(options: RecordingOptions = {}): Snapshot {
     this.stop();
-    if (options.maxBytes !== undefined && (!Number.isFinite(options.maxBytes) || options.maxBytes < 1)) {
+    if (
+      options.maxBytes !== undefined &&
+      (!Number.isFinite(options.maxBytes) || options.maxBytes < 1)
+    ) {
       throw new Error('RecordingOptions.maxBytes must be a positive finite number.');
     }
     const timestamp = options.timestamp ?? now();
@@ -380,12 +428,17 @@ export class SnapshotRecorder {
     this.keyframeByteLengths.clear();
     this.keyframeScenarioByteLengths.clear();
     this.initialByteLength = byteLength(this.snapshot.initial);
-    this.keyframeScenarioByteLengths.set(this.snapshot.initial.frame, byteLength(this.snapshot.initial.scenario));
-    this.estimatedByteLength = this.initialByteLength + byteLength({
-      version: this.snapshot.version,
-      metadata: this.snapshot.metadata,
-      layerCodecs: this.snapshot.layerCodecs,
-    });
+    this.keyframeScenarioByteLengths.set(
+      this.snapshot.initial.frame,
+      byteLength(this.snapshot.initial.scenario),
+    );
+    this.estimatedByteLength =
+      this.initialByteLength +
+      byteLength({
+        version: this.snapshot.version,
+        metadata: this.snapshot.metadata,
+        layerCodecs: this.snapshot.layerCodecs,
+      });
     this.snapshot.byteLength = this.estimatedByteLength;
     this.bytesSinceKeyframe = 0;
     this.awaitingActionResult = false;
@@ -470,7 +523,12 @@ export class SnapshotRecorder {
     const timestamp = now();
     let forceKeyframe = false;
     const messages = coalesceMessages(this.pendingMessages, this.scenario).filter((message) => {
-      if (message.type !== 'item_create' && message.type !== 'item_update' && message.type !== 'item_delete') return true;
+      if (
+        message.type !== 'item_create' &&
+        message.type !== 'item_update' &&
+        message.type !== 'item_delete'
+      )
+        return true;
       const payload = message.payload as { env_id: string; layer_id: string };
       const codec = this.resolveLayerCodec(payload);
       const implementation = this.resolveLayerCodecImplementation(codec);
@@ -478,12 +536,15 @@ export class SnapshotRecorder {
         forceKeyframe = true;
         return false;
       }
-      return implementation.retainItemDelta?.({
-        envId: payload.env_id,
-        layerId: payload.layer_id,
-        layerType: this.scenario.getEnvironment(payload.env_id)?.layers.get(payload.layer_id)?.layerType,
-        messageType: message.type,
-      }) ?? true;
+      return (
+        implementation.retainItemDelta?.({
+          envId: payload.env_id,
+          layerId: payload.layer_id,
+          layerType: this.scenario.getEnvironment(payload.env_id)?.layers.get(payload.layer_id)
+            ?.layerType,
+          messageType: message.type,
+        }) ?? true
+      );
     });
     const frame: SnapshotFrame = {
       index: this.nextFrameIndex++,
@@ -508,9 +569,9 @@ export class SnapshotRecorder {
     );
     const sinceKeyframe = frame.index - previousKeyframe.frame;
     if (
-      forceKeyframe
-      || sinceKeyframe >= this.options.keyframeEvery
-      || this.bytesSinceKeyframe >= adaptiveThreshold
+      forceKeyframe ||
+      sinceKeyframe >= this.options.keyframeEvery ||
+      this.bytesSinceKeyframe >= adaptiveThreshold
     ) {
       const keyframe = {
         frame: frame.index,
@@ -535,13 +596,17 @@ export class SnapshotRecorder {
 
   private resolveLayerCodec(payload: { env_id: string; layer_id: string }): SnapshotLayerCodec {
     const layer = this.scenario.getEnvironment(payload.env_id)?.layers.get(payload.layer_id);
-    return this.options.layerCodecs?.[`${payload.env_id}/${payload.layer_id}`]
-      ?? this.options.layerCodecs?.[payload.layer_id]
-      ?? (layer ? this.options.layerCodecs?.[layer.layerType] : undefined)
-      ?? 'adaptive';
+    return (
+      this.options.layerCodecs?.[`${payload.env_id}/${payload.layer_id}`] ??
+      this.options.layerCodecs?.[payload.layer_id] ??
+      (layer ? this.options.layerCodecs?.[layer.layerType] : undefined) ??
+      'adaptive'
+    );
   }
 
-  private resolveLayerCodecImplementation(codec: SnapshotLayerCodec): SnapshotLayerCodecImplementation {
+  private resolveLayerCodecImplementation(
+    codec: SnapshotLayerCodec,
+  ): SnapshotLayerCodecImplementation {
     const custom = this.options.layerCodecImplementations?.[codec];
     if (custom) return custom;
     if (codec === 'keyframe') return { id: codec, forceKeyframe: true };
@@ -552,15 +617,18 @@ export class SnapshotRecorder {
   private enforceRetention(): void {
     const target = this.snapshot;
     if (!target) return;
-    const exceedsBytes = (): boolean => (
-      this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes
-    );
+    const exceedsBytes = (): boolean =>
+      this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes;
     const exceeds = (): boolean => {
       const frames = target.frames;
       const first = frames[0];
-      return (this.options.maxSteps !== undefined && frames.length > this.options.maxSteps)
-        || (this.options.maxDurationMs !== undefined && first !== undefined && now() - first.timestamp > this.options.maxDurationMs)
-        || exceedsBytes();
+      return (
+        (this.options.maxSteps !== undefined && frames.length > this.options.maxSteps) ||
+        (this.options.maxDurationMs !== undefined &&
+          first !== undefined &&
+          now() - first.timestamp > this.options.maxDurationMs) ||
+        exceedsBytes()
+      );
     };
     if (!exceeds()) return;
     if (!this.options.ringBuffer) {
@@ -620,11 +688,13 @@ export class SnapshotRecorder {
     this.keyframeScenarioByteLengths.clear();
     this.initialByteLength = byteLength(target.initial);
     this.keyframeScenarioByteLengths.set(target.initial.frame, byteLength(target.initial.scenario));
-    this.estimatedByteLength = this.initialByteLength + byteLength({
-      version: target.version,
-      metadata: target.metadata,
-      layerCodecs: target.layerCodecs,
-    });
+    this.estimatedByteLength =
+      this.initialByteLength +
+      byteLength({
+        version: target.version,
+        metadata: target.metadata,
+        layerCodecs: target.layerCodecs,
+      });
     for (const frame of target.frames) {
       const length = byteLength(frame);
       this.frameByteLengths.set(frame.index, length);
@@ -644,13 +714,18 @@ export class SnapshotRecorder {
 }
 
 /** Reconstruct a Scenario state at any retained frame without a live simulator. */
-export function materializeSnapshot(snapshot: Snapshot, frame = snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame): ScenarioSnapshot {
+export function materializeSnapshot(
+  snapshot: Snapshot,
+  frame = snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame,
+): ScenarioSnapshot {
   const lastFrame = snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
   const bounded = Math.max(snapshot.initial.frame, Math.min(frame, lastFrame));
   const keyframe = [...snapshot.keyframes, snapshot.initial]
     .filter((candidate) => candidate.frame <= bounded)
     .sort((a, b) => b.frame - a.frame)[0];
-  const scenario = new Scenario({ mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict' });
+  const scenario = new Scenario({
+    mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict',
+  });
   loadKeyframe(scenario, snapshot, keyframe);
   for (const recordedFrame of snapshot.frames) {
     if (recordedFrame.index <= keyframe.frame || recordedFrame.index > bounded) continue;
@@ -683,7 +758,8 @@ export function applySnapshotFrame(
       // the remaining valid frame data instead of failing the whole snapshot.
     }
   }
-  const applyMessage = options.applyMessage ?? ((message: SimulatorToRendererMessage) => scenario.apply(message));
+  const applyMessage =
+    options.applyMessage ?? ((message: SimulatorToRendererMessage) => scenario.apply(message));
   for (const message of frame.messages) applyMessage(clone(message));
 }
 
@@ -700,7 +776,9 @@ export class SnapshotPlayer {
   private currentFrame: number;
 
   constructor(readonly snapshot: Snapshot) {
-    this.scenario = new Scenario({ mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict' });
+    this.scenario = new Scenario({
+      mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict',
+    });
     this.currentFrame = snapshot.initial.frame;
     loadKeyframe(this.scenario, snapshot, snapshot.initial);
   }
@@ -710,7 +788,8 @@ export class SnapshotPlayer {
   }
 
   seek(frame: number): Scenario {
-    const lastFrame = this.snapshot.frames[this.snapshot.frames.length - 1]?.index ?? this.snapshot.initial.frame;
+    const lastFrame =
+      this.snapshot.frames[this.snapshot.frames.length - 1]?.index ?? this.snapshot.initial.frame;
     const target = Math.max(this.snapshot.initial.frame, Math.min(frame, lastFrame));
     if (target === this.currentFrame) return this.scenario;
 
@@ -731,4 +810,10 @@ export class SnapshotPlayer {
   }
 }
 
-export type { Keyframe, RecordingOptions, Snapshot, SnapshotFrame, SnapshotLayerCodec } from './types';
+export type {
+  Keyframe,
+  RecordingOptions,
+  Snapshot,
+  SnapshotFrame,
+  SnapshotLayerCodec,
+} from './types';

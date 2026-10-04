@@ -15,20 +15,18 @@ export default defineConfig({
       plugins: [['@lingui/swc-plugin', {}]],
     }),
     lingui(),
-    vanillaExtractPlugin()
+    vanillaExtractPlugin(),
   ],
   resolve: {
-    alias: [
-      { find: /^@\/(.*)$/, replacement: path.resolve(__dirname, './src/$1') },
-    ],
+    alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(__dirname, './src/$1') }],
   },
   server: {
     port: 3200,
-    host: true
+    host: true,
   },
   preview: {
     port: 3210,
-    host: true
+    host: true,
   },
   build: {
     // Stable renderer/UI/runtime cache boundaries; retain the normal 500 KiB

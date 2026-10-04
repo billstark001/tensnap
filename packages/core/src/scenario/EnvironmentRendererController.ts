@@ -14,11 +14,7 @@ import { EnvironmentView } from '../environment/EnvironmentView';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { AgentRenderState, AgentStorage, Viewport } from '../environment';
 import { layerRegistry, type LayerCreateContext } from './layer-registry';
-import {
-  createRenderPlan,
-  type RenderLayerPlan,
-  type RenderPlan,
-} from './render-plan';
+import { createRenderPlan, type RenderLayerPlan, type RenderPlan } from './render-plan';
 import type { ScenarioEnvironmentState } from './types';
 
 export interface EnvironmentRendererControllerOptions {
@@ -163,8 +159,9 @@ export class EnvironmentRendererController {
     this.layerEntriesByRole.clear();
     nextByRole.forEach((entries, role) => this.layerEntriesByRole.set(role, entries));
 
-    this.agentStorages = [...(this.layerEntriesByRole.get('agent')?.values() ?? [])]
-      .flatMap((entry) => (entry.storage ? [{ layerId: entry.layerId, storage: entry.storage }] : []));
+    this.agentStorages = [...(this.layerEntriesByRole.get('agent')?.values() ?? [])].flatMap(
+      (entry) => (entry.storage ? [{ layerId: entry.layerId, storage: entry.storage }] : []),
+    );
 
     this.syncSceneBounds(plan);
 
@@ -193,8 +190,9 @@ export class EnvironmentRendererController {
     // correct handler set here.
     // usesGraphInteraction is now determined by the registry via render-plan,
     // not by role-specific branching in the controller.
-    const isGraphInteraction = 'usesGraphInteraction' in layerPlan
-      && (layerPlan as { usesGraphInteraction: boolean }).usesGraphInteraction;
+    const isGraphInteraction =
+      'usesGraphInteraction' in layerPlan &&
+      (layerPlan as { usesGraphInteraction: boolean }).usesGraphInteraction;
 
     const factoryContext: LayerCreateContext = {
       linkedEdgeLayers: this.layerFactoryContext.linkedEdgeLayers,
@@ -203,7 +201,10 @@ export class EnvironmentRendererController {
       showLabel: false,
       onAgentClick: (isGraphInteraction
         ? undefined
-        : (agent: unknown) => this.handleAgentSelect(agent as AgentRenderState, layerPlan.layerId)) as ((agent: unknown) => void) | undefined,
+        : (agent: unknown) =>
+            this.handleAgentSelect(agent as AgentRenderState, layerPlan.layerId)) as
+        | ((agent: unknown) => void)
+        | undefined,
       onAgentDoubleClick: (isGraphInteraction
         ? (agent: unknown) => this.handleAgentSelect(agent as AgentRenderState, layerPlan.layerId)
         : undefined) as ((agent: unknown) => void) | undefined,
@@ -232,9 +233,9 @@ export class EnvironmentRendererController {
     this.layerEntriesByRole.forEach((entries) => {
       entries.forEach((entry) => {
         if ('setSceneBounds' in entry.layer && typeof entry.layer.setSceneBounds === 'function') {
-          (entry.layer as { setSceneBounds(bounds: RenderPlan['sceneBounds']): void }).setSceneBounds(
-            plan.sceneBounds!,
-          );
+          (
+            entry.layer as { setSceneBounds(bounds: RenderPlan['sceneBounds']): void }
+          ).setSceneBounds(plan.sceneBounds!);
         }
       });
     });

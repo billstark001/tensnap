@@ -1,4 +1,3 @@
-
 /**
  * Fixed-capacity circular buffer.
  *

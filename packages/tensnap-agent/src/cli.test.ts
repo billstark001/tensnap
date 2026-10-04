@@ -24,16 +24,29 @@ describe('agent CLI', () => {
         response.end(JSON.stringify(value));
       };
       if (request.url === '/health') return send({});
-      if (request.url === '/v1/runtime/status') return send({ simulatorCapabilities: supportsProjectedRestore
-        ? ['scene.restore.checkpoint', 'scene.restore.projected']
-        : ['scene.restore.checkpoint'] });
-      if (request.url === '/v1/scene/capture') return send({ model_id: 'clocked', checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' } });
-      if (request.url === '/v1/scene/snapshot') return send({ snapshot: { metadata: { time: 3 } } });
+      if (request.url === '/v1/runtime/status')
+        return send({
+          simulatorCapabilities: supportsProjectedRestore
+            ? ['scene.restore.checkpoint', 'scene.restore.projected']
+            : ['scene.restore.checkpoint'],
+        });
+      if (request.url === '/v1/scene/capture')
+        return send({
+          model_id: 'clocked',
+          checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' },
+        });
+      if (request.url === '/v1/scene/snapshot')
+        return send({ snapshot: { metadata: { time: 3 } } });
       if (request.url === '/v1/scene/restore') {
         let body = '';
         request.setEncoding('utf8');
-        request.on('data', (chunk) => { body += chunk; });
-        request.on('end', () => { requests.push(JSON.parse(body)); send({ status: 'ok' }); });
+        request.on('data', (chunk) => {
+          body += chunk;
+        });
+        request.on('end', () => {
+          requests.push(JSON.parse(body));
+          send({ status: 'ok' });
+        });
         return;
       }
       response.writeHead(404);
@@ -42,32 +55,94 @@ describe('agent CLI', () => {
     server.listen(0, '127.0.0.1');
     await once(server, 'listening');
     const address = server.address();
-    if (address === null || typeof address === 'string') throw new Error('Expected an IP socket address.');
+    if (address === null || typeof address === 'string')
+      throw new Error('Expected an IP socket address.');
     const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-capture-'));
     tempDirs.push(rootDir);
     const context = resolveRuntimeContextPaths({ rootDir, contextName: 'capture-test' });
     const now = new Date().toISOString();
     const captureFile = join(rootDir, 'capture.json');
     await writeRuntimeControl(context, {
-      version: 1, contextName: context.contextName, contextDir: context.contextDir,
-      createdAt: now, updatedAt: now, host: '127.0.0.1', controlPort: address.port,
-      pid: process.pid, phase: 'ready', encoding: 'json',
-      clientMessageValidation: 'error', serverMessageValidation: 'error', maxRunStepsPolicy: 100,
-      render: { trigger: 'manual', backgroundColor: '#000000' }, painters: [], sceneRevision: 0, sceneDirty: false,
+      version: 1,
+      contextName: context.contextName,
+      contextDir: context.contextDir,
+      createdAt: now,
+      updatedAt: now,
+      host: '127.0.0.1',
+      controlPort: address.port,
+      pid: process.pid,
+      phase: 'ready',
+      encoding: 'json',
+      clientMessageValidation: 'error',
+      serverMessageValidation: 'error',
+      maxRunStepsPolicy: 100,
+      render: { trigger: 'manual', backgroundColor: '#000000' },
+      painters: [],
+      sceneRevision: 0,
+      sceneDirty: false,
     });
     vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
-      await main(['scene', 'capture', '--output', captureFile, '--context', context.contextName, '--context-dir', rootDir]);
+      await main([
+        'scene',
+        'capture',
+        '--output',
+        captureFile,
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
+      ]);
       expect(JSON.parse(await readFile(captureFile, 'utf8'))).toMatchObject({ time: 3 });
-      await main(['scene', 'restore', '--checkpoint', captureFile, '--context', context.contextName, '--context-dir', rootDir]);
-      await main(['scene', 'restore', '--checkpoint', captureFile, '--time', '5', '--context', context.contextName, '--context-dir', rootDir]);
+      await main([
+        'scene',
+        'restore',
+        '--checkpoint',
+        captureFile,
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
+      ]);
+      await main([
+        'scene',
+        'restore',
+        '--checkpoint',
+        captureFile,
+        '--time',
+        '5',
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
+      ]);
       supportsProjectedRestore = false;
       const checkpointOnlyFile = join(rootDir, 'checkpoint-only.json');
-      await main(['scene', 'capture', '--output', checkpointOnlyFile, '--context', context.contextName, '--context-dir', rootDir]);
+      await main([
+        'scene',
+        'capture',
+        '--output',
+        checkpointOnlyFile,
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
+      ]);
       expect(JSON.parse(await readFile(checkpointOnlyFile, 'utf8'))).not.toHaveProperty('time');
-      await main(['scene', 'restore', '--checkpoint', checkpointOnlyFile, '--context', context.contextName, '--context-dir', rootDir]);
+      await main([
+        'scene',
+        'restore',
+        '--checkpoint',
+        checkpointOnlyFile,
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
+      ]);
     } finally {
-      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
     }
     expect(requests).toEqual([
       { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' }, time: 3 },
@@ -151,24 +226,37 @@ describe('agent CLI', () => {
 
     try {
       await main([
-        'run', 'start', 'step',
-        '--max-steps', '7',
-        '--stop-when', 'time >= 3',
-        '--max-wall-time-ms', '1500',
+        'run',
+        'start',
+        'step',
+        '--max-steps',
+        '7',
+        '--stop-when',
+        'time >= 3',
+        '--max-wall-time-ms',
+        '1500',
         '--record',
-        '--context', context.contextName,
-        '--context-dir', rootDir,
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
       ]);
       await main([
-        'scene', 'render', 'test-chart',
-        '--chart', 'population',
-        '--output', '/tmp/population.png',
-        '--context', context.contextName,
-        '--context-dir', rootDir,
+        'scene',
+        'render',
+        'test-chart',
+        '--chart',
+        'population',
+        '--output',
+        '/tmp/population.png',
+        '--context',
+        context.contextName,
+        '--context-dir',
+        rootDir,
       ]);
     } finally {
       await new Promise<void>((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve());
+        server.close((error) => (error ? reject(error) : resolve()));
       });
     }
 

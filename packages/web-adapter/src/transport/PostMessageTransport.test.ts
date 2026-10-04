@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AnyProtocolMessage } from '@tensnap/protocol';
 import { ScenarioRegistry } from '@tensnap/js';
-import { defineActions, defineCharts, defineEnvironment, defineLayer, defineParameters, defineScenario } from '@tensnap/js/bindings';
+import {
+  defineActions,
+  defineCharts,
+  defineEnvironment,
+  defineLayer,
+  defineParameters,
+  defineScenario,
+} from '@tensnap/js/bindings';
 import { SimulatorSession } from '@tensnap/js/runtime';
 import { createPostMessageSimulatorHost } from '@tensnap/js/transport';
 import { createLinkedEndpoints } from './endpoints';
@@ -94,7 +101,10 @@ describe('browser-side transports', () => {
     });
     const registry = ScenarioRegistry.from(scenario);
     const { renderer, simulator } = createLinkedEndpoints();
-    const transport = createPostMessageTransport({ endpoint: renderer, connectionId: 'handshake-order' });
+    const transport = createPostMessageTransport({
+      endpoint: renderer,
+      connectionId: 'handshake-order',
+    });
     const host = createPostMessageSimulatorHost({
       endpoint: simulator,
       connectionId: 'handshake-order',
@@ -118,7 +128,11 @@ describe('browser-side transports', () => {
         payload: {
           request_id: 'handshake-sync',
           model_id: 'handshake-model',
-          parameters: [], actions: [], envs: [], charts: [], monitors: [],
+          parameters: [],
+          actions: [],
+          envs: [],
+          charts: [],
+          monitors: [],
         },
       });
     });
@@ -126,7 +140,12 @@ describe('browser-side transports', () => {
     await transport.connect();
     await vi.waitFor(() => {
       expect(transport.isConnected).toBe(true);
-      expect(messages).toContainEqual(expect.objectContaining({ type: 'action_create', payload: expect.objectContaining({ id: 'step' }) }));
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: 'action_create',
+          payload: expect.objectContaining({ id: 'step' }),
+        }),
+      );
     });
     await host.destroy();
     transport.destroy();
@@ -134,13 +153,16 @@ describe('browser-side transports', () => {
 
   it('buffers onConnect messages in the in-memory transport until open', async () => {
     const onMessage = vi.fn();
-    const transport = new InMemoryTransport({
-      async onConnect(send) {
-        send({ type: 'metadata_update', payload: { time: 1 } });
+    const transport = new InMemoryTransport(
+      {
+        async onConnect(send) {
+          send({ type: 'metadata_update', payload: { time: 1 } });
+        },
+        onMessage,
+        onDisconnect() {},
       },
-      onMessage,
-      onDisconnect() {},
-    }, 'inmemory-test');
+      'inmemory-test',
+    );
 
     const messages: AnyProtocolMessage[] = [];
     transport.on('message', (message) => {
@@ -150,17 +172,22 @@ describe('browser-side transports', () => {
     await transport.connect();
 
     expect(transport.isConnected).toBe(true);
-    expect(messages).toEqual([
-      { type: 'metadata_update', payload: { time: 1 } },
-    ]);
+    expect(messages).toEqual([{ type: 'metadata_update', payload: { time: 1 } }]);
 
     transport.send({ type: 'action_invoke', payload: { id: 'step', request_id: 'action-1' } });
-    expect(onMessage).toHaveBeenCalledWith({ type: 'action_invoke', payload: { id: 'step', request_id: 'action-1' } });
+    expect(onMessage).toHaveBeenCalledWith({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'action-1' },
+    });
   });
 
   it('routes action_invoke to the simulator session and returns action_result', async () => {
     const onActionInvoke = vi.fn(async (payload, session: SimulatorSession) => {
-      await session.emitter.actionResult({ id: payload.id, request_id: payload.request_id, should_continue: false });
+      await session.emitter.actionResult({
+        id: payload.id,
+        request_id: payload.request_id,
+        should_continue: false,
+      });
     });
 
     const { renderer, simulator } = createLinkedEndpoints();

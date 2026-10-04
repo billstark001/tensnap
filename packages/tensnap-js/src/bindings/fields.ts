@@ -1,9 +1,4 @@
-import type {
-  FieldSelector,
-  ItemRecord,
-  LayerProjector,
-  LiteralField,
-} from './types';
+import type { FieldSelector, ItemRecord, LayerProjector, LiteralField } from './types';
 import { readPath } from './utils';
 
 export function literal<TValue>(value: TValue): LiteralField<TValue> {
@@ -22,8 +17,13 @@ export function projectFields<TModel, TItem extends object>(
     for (const [key, selector] of Object.entries(fields)) {
       if (typeof selector === 'function') {
         out[key] = selector(item, model);
-      } else if (typeof selector === 'object' && selector !== null &&
-        'kind' in selector && selector.kind === 'literal' && 'value' in selector) {
+      } else if (
+        typeof selector === 'object' &&
+        selector !== null &&
+        'kind' in selector &&
+        selector.kind === 'literal' &&
+        'value' in selector
+      ) {
         out[key] = selector.value;
       } else if (typeof selector === 'string' || typeof selector === 'symbol') {
         out[key] = readPath(item, String(selector));

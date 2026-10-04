@@ -30,7 +30,9 @@ export function normalizeWebSocketRawData(
     }
 
     if (Array.isArray(data)) {
-      return Buffer.concat(data.map((part) => Buffer.isBuffer(part) ? part : Buffer.from(part))).toString('utf8');
+      return Buffer.concat(
+        data.map((part) => (Buffer.isBuffer(part) ? part : Buffer.from(part))),
+      ).toString('utf8');
     }
 
     return Buffer.from(data).toString('utf8');
@@ -45,7 +47,7 @@ export function normalizeWebSocketRawData(
   }
 
   if (Array.isArray(data)) {
-    return Buffer.concat(data.map((part) => Buffer.isBuffer(part) ? part : Buffer.from(part)));
+    return Buffer.concat(data.map((part) => (Buffer.isBuffer(part) ? part : Buffer.from(part))));
   }
 
   return data;
@@ -77,8 +79,14 @@ export class WebSocketTransportHost {
   private readonly simulatorMessageValidation: ProtocolValidationLevel;
   private readonly onValidationWarning?: (warning: ProtocolValidationWarning) => void;
   private readonly onValidationError?: (error: unknown) => void;
-  private readonly onSimulatorMessage?: (message: SimulatorToRendererMessage, encodedBytes: number) => void;
-  private readonly onRendererMessage?: (message: RendererToSimulatorMessage, encodedBytes: number) => void;
+  private readonly onSimulatorMessage?: (
+    message: SimulatorToRendererMessage,
+    encodedBytes: number,
+  ) => void;
+  private readonly onRendererMessage?: (
+    message: RendererToSimulatorMessage,
+    encodedBytes: number,
+  ) => void;
   private readonly sessions = new Map<WebSocket, SimulatorSession>();
   private closing = false;
 
@@ -118,7 +126,9 @@ export class WebSocketTransportHost {
       socket.close();
     }
 
-    await Promise.all([...this.sessions.values()].map((session) => session.close().catch(() => undefined)));
+    await Promise.all(
+      [...this.sessions.values()].map((session) => session.close().catch(() => undefined)),
+    );
     this.sessions.clear();
 
     await new Promise<void>((resolve, reject) => {
@@ -155,7 +165,11 @@ export class WebSocketTransportHost {
         this.onValidationError?.(error);
         throw error;
       }
-      this.observeFrame(this.onSimulatorMessage, message as SimulatorToRendererMessage, typeof encoded === 'string' ? Buffer.byteLength(encoded) : encoded.byteLength);
+      this.observeFrame(
+        this.onSimulatorMessage,
+        message as SimulatorToRendererMessage,
+        typeof encoded === 'string' ? Buffer.byteLength(encoded) : encoded.byteLength,
+      );
       socket.send(typeof encoded === 'string' ? encoded : Buffer.from(encoded));
     }, connectionId);
 
@@ -178,7 +192,11 @@ export class WebSocketTransportHost {
         });
         return;
       }
-      this.observeFrame(this.onRendererMessage, decoded, typeof normalized === 'string' ? Buffer.byteLength(normalized) : normalized.byteLength);
+      this.observeFrame(
+        this.onRendererMessage,
+        decoded,
+        typeof normalized === 'string' ? Buffer.byteLength(normalized) : normalized.byteLength,
+      );
       void session.dispatch(decoded).catch((error) => {
         void session.emitter.error({
           code: 'dispatch_failed',

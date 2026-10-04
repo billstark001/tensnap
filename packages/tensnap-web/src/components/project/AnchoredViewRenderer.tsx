@@ -11,15 +11,13 @@ import { ViewErrorBoundary } from '../view/ViewErrorBoundary';
 import { ValueInspector } from '../value-inspector';
 import { useCallback, useSyncExternalStore } from 'react';
 
-
 const AnchoredEnvironmentView = ({ id, view }: { id: string; view: AnchoredView }) => {
-
-  const environments = useScenarioStore((store) => store.environments) ?? new Map() as ScenarioStore['environments'];
+  const environments =
+    useScenarioStore((store) => store.environments) ?? (new Map() as ScenarioStore['environments']);
   const updateTrigger = useScenarioStore((store) => store.environmentUpdateTrigger.value);
 
   const environment = environments.get(id);
   if (!environment) return <div>Environment not found: {id}</div>;
-
 
   const displayType = getEnvironmentDisplayType(environment);
 
@@ -32,7 +30,11 @@ const AnchoredEnvironmentView = ({ id, view }: { id: string; view: AnchoredView 
   } else if (displayType === 'uniform') {
     return (
       <ViewErrorBoundary kind="environment" identifier={id} resetKey={updateTrigger}>
-        <UniformEnvironmentView environment={environment} updateTrigger={updateTrigger} view={view} />
+        <UniformEnvironmentView
+          environment={environment}
+          updateTrigger={updateTrigger}
+          view={view}
+        />
       </ViewErrorBoundary>
     );
   } else {
@@ -59,19 +61,26 @@ const AnchoredChartView = ({ id }: { id: string }) => {
       <ChartView chartGroup={chartGroup} updateTrigger={chartRevision} />
     </ViewErrorBoundary>
   );
-}
+};
 
 const AnchoredMonitorView = ({ id, view }: { id: string; view: AnchoredView }) => {
   const monitors = useScenarioStore((store) => store.scenario.monitors);
-  const subscribe = useCallback((listener: () => void) => monitors?.subscribe(id, listener) ?? (() => {}), [id, monitors]);
+  const subscribe = useCallback(
+    (listener: () => void) => monitors?.subscribe(id, listener) ?? (() => {}),
+    [id, monitors],
+  );
   const getSnapshot = useCallback(() => monitors?.getSnapshot(id), [id, monitors]);
   const monitor = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   if (!monitor) return <div>Monitor not found: {id}</div>;
-  return <ValueInspector value={monitor.value ?? null} renderHint={view.data.renderHint ?? monitor.render_hint ?? 'auto'} />;
+  return (
+    <ValueInspector
+      value={monitor.value ?? null}
+      renderHint={view.data.renderHint ?? monitor.render_hint ?? 'auto'}
+    />
+  );
 };
 
 export const AnchoredViewRenderer: AnchoredViewRendererType = ({ type, id, view }) => {
-
   const toast = useToast();
   switch (type) {
     case 'environment': {
@@ -80,7 +89,6 @@ export const AnchoredViewRenderer: AnchoredViewRendererType = ({ type, id, view 
 
     case 'parameter': {
       return <AnchoredParameterView id={id} />;
-
     }
     case 'chart': {
       return <AnchoredChartView id={id} />;

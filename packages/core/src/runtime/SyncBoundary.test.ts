@@ -55,7 +55,9 @@ describe('SyncBoundary – recordBoundary', () => {
     sb.requestSync('sync-1');
     sb.recordBoundary('begin', { request_id: 'sync-1' });
     let idleCalled = false;
-    const ok = sb.recordBoundary('end', { request_id: 'sync-1' }, () => { idleCalled = true; });
+    const ok = sb.recordBoundary('end', { request_id: 'sync-1' }, () => {
+      idleCalled = true;
+    });
     expect(ok).toBe(true);
     expect(sb.isIdle).toBe(true);
     expect(idleCalled).toBe(true);

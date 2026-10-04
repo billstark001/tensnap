@@ -1,9 +1,4 @@
-import type { 
-  CollisionDetection, 
-  ClientRect, 
-  DroppableContainer, 
-  Collision 
-} from '@dnd-kit/core';
+import type { CollisionDetection, ClientRect, DroppableContainer, Collision } from '@dnd-kit/core';
 
 /**
  * Calculate the overlap area between two rectangles
@@ -14,11 +9,11 @@ function getOverlapArea(rect1: ClientRect, rect2: ClientRect): number {
   const right = Math.min(rect1.right, rect2.right);
   const top = Math.max(rect1.top, rect2.top);
   const bottom = Math.min(rect1.bottom, rect2.bottom);
-  
+
   if (left >= right || top >= bottom) {
     return 0;
   }
-  
+
   return (right - left) * (bottom - top);
 }
 
@@ -45,7 +40,7 @@ function hasIntersection(rect1: ClientRect, rect2: ClientRect): boolean {
   // For zero-dimension rectangles, check if any corner point is inside the other rectangle
   const rect1Width = rect1.right - rect1.left;
   const rect1Height = rect1.bottom - rect1.top;
-  
+
   if (rect1Width === 0 || rect1Height === 0) {
     // Treat zero-dimension rectangle as a point or line
     if (rect1Width === 0 && rect1Height === 0) {
@@ -53,18 +48,28 @@ function hasIntersection(rect1: ClientRect, rect2: ClientRect): boolean {
       return isPointInRect(rect1.left, rect1.top, rect2);
     } else if (rect1Width === 0) {
       // Vertical line collision
-      return rect1.left >= rect2.left && rect1.left <= rect2.right &&
-             !(rect1.bottom < rect2.top || rect1.top > rect2.bottom);
+      return (
+        rect1.left >= rect2.left &&
+        rect1.left <= rect2.right &&
+        !(rect1.bottom < rect2.top || rect1.top > rect2.bottom)
+      );
     } else {
       // Horizontal line collision
-      return rect1.top >= rect2.top && rect1.top <= rect2.bottom &&
-             !(rect1.right < rect2.left || rect1.left > rect2.right);
+      return (
+        rect1.top >= rect2.top &&
+        rect1.top <= rect2.bottom &&
+        !(rect1.right < rect2.left || rect1.left > rect2.right)
+      );
     }
   }
-  
+
   // Standard rectangle intersection
-  return !(rect1.right < rect2.left || rect1.left > rect2.right ||
-           rect1.bottom < rect2.top || rect1.top > rect2.bottom);
+  return !(
+    rect1.right < rect2.left ||
+    rect1.left > rect2.right ||
+    rect1.bottom < rect2.top ||
+    rect1.top > rect2.bottom
+  );
 }
 
 /**
@@ -75,7 +80,7 @@ function getCenterDistance(rect1: ClientRect, rect2: ClientRect): number {
   const center1Y = (rect1.top + rect1.bottom) / 2;
   const center2X = (rect2.left + rect2.right) / 2;
   const center2Y = (rect2.top + rect2.bottom) / 2;
-  
+
   return Math.sqrt(Math.pow(center1X - center2X, 2) + Math.pow(center1Y - center2Y, 2));
 }
 
@@ -86,37 +91,34 @@ function getCenterDistance(rect1: ClientRect, rect2: ClientRect): number {
 function getZeroDimensionScore(collisionRect: ClientRect, containerRect: ClientRect): number {
   const distance = getCenterDistance(collisionRect, containerRect);
   const containerArea = getRectArea(containerRect);
-  
+
   // Use inverse distance normalized by container size as score
   // Smaller distance = higher score
   if (containerArea > 0) {
     const maxDimension = Math.max(
       containerRect.right - containerRect.left,
-      containerRect.bottom - containerRect.top
+      containerRect.bottom - containerRect.top,
     );
     return Math.max(0, maxDimension - distance) / maxDimension;
   }
-  
+
   return distance > 0 ? 1 / distance : 1;
 }
 
 /**
  * Check if one container is an ancestor of another
  */
-function isAncestor(
-  potentialAncestor: DroppableContainer, 
-  container: DroppableContainer
-): boolean {
+function isAncestor(potentialAncestor: DroppableContainer, container: DroppableContainer): boolean {
   let current = container.node.current?.parentElement;
   const ancestorNode = potentialAncestor.node.current;
-  
+
   while (current && ancestorNode) {
     if (current === ancestorNode) {
       return true;
     }
     current = current.parentElement;
   }
-  
+
   return false;
 }
 
@@ -124,17 +126,17 @@ function isAncestor(
  * Calculate the nesting depth of a container
  */
 function getContainerDepth(
-  container: DroppableContainer, 
-  allContainers: DroppableContainer[]
+  container: DroppableContainer,
+  allContainers: DroppableContainer[],
 ): number {
   let depth = 0;
-  
+
   for (const otherContainer of allContainers) {
     if (otherContainer.id !== container.id && isAncestor(otherContainer, container)) {
       depth++;
     }
   }
-  
+
   return depth;
 }
 
@@ -148,14 +150,16 @@ export const nestedOverlapCollisionDetection: CollisionDetection = ({
   droppableRects,
   droppableContainers,
 }) => {
-  const collisions: Array<Collision & { 
-    overlapArea: number; 
-    containerArea: number; 
-    depth: number;
-    overlapRatio: number;
-    score: number;
-    isZeroDimension: boolean;
-  }> = [];
+  const collisions: Array<
+    Collision & {
+      overlapArea: number;
+      containerArea: number;
+      depth: number;
+      overlapRatio: number;
+      score: number;
+      isZeroDimension: boolean;
+    }
+  > = [];
 
   // Check if the dragged object has zero dimensions
   const draggedWidth = collisionRect.right - collisionRect.left;
@@ -165,7 +169,7 @@ export const nestedOverlapCollisionDetection: CollisionDetection = ({
   // Iterate through all droppable containers
   for (const container of droppableContainers) {
     const { id, disabled } = container;
-    
+
     // Skip disabled containers and self
     if (disabled || id === active.id) {
       continue;
@@ -178,7 +182,7 @@ export const nestedOverlapCollisionDetection: CollisionDetection = ({
 
     // Check for intersection using appropriate method
     const hasCollision = hasIntersection(collisionRect, rect);
-    
+
     if (!hasCollision) {
       continue;
     }
@@ -198,7 +202,7 @@ export const nestedOverlapCollisionDetection: CollisionDetection = ({
       overlapArea = getOverlapArea(collisionRect, rect);
       const draggedArea = getRectArea(collisionRect);
       const containerArea = getRectArea(rect);
-      
+
       // Calculate overlap ratio based on the smaller area for better accuracy
       const referenceArea = Math.min(draggedArea, containerArea);
       overlapRatio = referenceArea > 0 ? overlapArea / referenceArea : 0;
@@ -246,11 +250,11 @@ export const nestedOverlapCollisionDetection: CollisionDetection = ({
 
   // Filter out containers that are completely contained by deeper containers
   const filteredCollisions: Collision[] = [];
-  
+
   for (let i = 0; i < collisions.length; i++) {
     const currentCollision = collisions[i];
-    const currentContainer = droppableContainers.find(c => c.id === currentCollision.id);
-    
+    const currentContainer = droppableContainers.find((c) => c.id === currentCollision.id);
+
     if (!currentContainer) continue;
 
     let isContainedByDeeper = false;
@@ -258,13 +262,16 @@ export const nestedOverlapCollisionDetection: CollisionDetection = ({
     // Check if contained by a deeper container
     for (let j = 0; j < i; j++) {
       const deeperCollision = collisions[j];
-      const deeperContainer = droppableContainers.find(c => c.id === deeperCollision.id);
-      
+      const deeperContainer = droppableContainers.find((c) => c.id === deeperCollision.id);
+
       if (!deeperContainer) continue;
 
       // If deeper container is an ancestor of current container and has sufficient overlap
       const minScoreThreshold = isZeroDimension ? 0.3 : 0.5;
-      if (isAncestor(currentContainer, deeperContainer) && deeperCollision.score > minScoreThreshold) {
+      if (
+        isAncestor(currentContainer, deeperContainer) &&
+        deeperCollision.score > minScoreThreshold
+      ) {
         isContainedByDeeper = true;
         break;
       }
@@ -295,21 +302,21 @@ export const createNestedCollisionDetection = (options?: {
     minOverlapRatio = 0.1,
     minZeroDimensionScore = 0.2,
     maxResults = 5,
-    usePointerPosition = false
+    usePointerPosition = false,
   } = options || {};
 
   const customCollisionDetection: CollisionDetection = (args) => {
     let collisions = nestedOverlapCollisionDetection(args);
-    
+
     // Apply minimum score/overlap ratio filtering
-    collisions = collisions.filter(collision => {
+    collisions = collisions.filter((collision) => {
       const rect = args.droppableRects.get(collision.id);
       if (!rect) return false;
-      
+
       const draggedWidth = args.collisionRect.right - args.collisionRect.left;
       const draggedHeight = args.collisionRect.bottom - args.collisionRect.top;
       const isZeroDimension = draggedWidth === 0 || draggedHeight === 0;
-      
+
       if (isZeroDimension) {
         const score = getZeroDimensionScore(args.collisionRect, rect);
         return score >= minZeroDimensionScore;
@@ -325,7 +332,7 @@ export const createNestedCollisionDetection = (options?: {
     if (usePointerPosition && args.pointerCoordinates && collisions.length === 0) {
       const draggedWidth = args.collisionRect.right - args.collisionRect.left;
       const draggedHeight = args.collisionRect.bottom - args.collisionRect.top;
-      
+
       if (draggedWidth === 0 || draggedHeight === 0) {
         // Fallback: check if pointer is inside any container
         for (const container of args.droppableContainers) {

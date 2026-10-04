@@ -7,7 +7,22 @@ describe('GridLayer', () => {
     const layer = new GridLayer(new GridEnvStorage());
     const internal = layer as unknown as {
       group: { children: unknown[]; clear(): void };
-      _drawLines: (...args: [number[], number, number, number, number, number, number, number, number, 'vertical', string, number]) => void;
+      _drawLines: (
+        ...args: [
+          number[],
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+          number,
+          'vertical',
+          string,
+          number,
+        ]
+      ) => void;
     };
 
     internal._drawLines([0], 0, 1, 1, 2, -5, 5, 0, 10, 'vertical', '#808080', 1);

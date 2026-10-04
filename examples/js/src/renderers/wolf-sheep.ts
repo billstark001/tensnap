@@ -104,9 +104,7 @@ function getAnimalId(runtime: WolfSheepRuntime, kind: 'sheep' | 'wolf', obj: obj
     return existing;
   }
 
-  const id = kind === 'sheep'
-    ? `sheep_${runtime.nextSheepId++}`
-    : `wolf_${runtime.nextWolfId++}`;
+  const id = kind === 'sheep' ? `sheep_${runtime.nextSheepId++}` : `wolf_${runtime.nextWolfId++}`;
   runtime.animalIdMap.set(obj, id);
   return id;
 }
@@ -137,55 +135,58 @@ function buildAnimalAgents(runtime: WolfSheepRuntime): GridAgentState[] {
   ];
 }
 
-const builder = modelBuilder({
-  id: 'wolf-sheep',
-  name: 'Wolf Sheep Predation Model',
-  description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
-  stateSchemaVersion: '1',
-}, {
-  defaults: DEFAULT_WOLF_SHEEP_CONFIG,
-  create(config): WolfSheepRuntime {
-    const world: World = {
-      width: config.gridWidth,
-      height: config.gridHeight,
-    };
+const builder = modelBuilder(
+  {
+    id: 'wolf-sheep',
+    name: 'Wolf Sheep Predation Model',
+    description: 'Predator-prey ecosystem with sheep, wolves, and renewable grass patches.',
+    stateSchemaVersion: '1',
+  },
+  {
+    defaults: DEFAULT_WOLF_SHEEP_CONFIG,
+    create(config): WolfSheepRuntime {
+      const world: World = {
+        width: config.gridWidth,
+        height: config.gridHeight,
+      };
 
-    return {
-      model: new WolfSheepModel(world, config),
-      initialConfig: { ...config },
-      animalIdMap: new WeakMap<object, string>(),
-      nextSheepId: 0,
-      nextWolfId: 0,
-      previousPatchColors: [],
-    };
+      return {
+        model: new WolfSheepModel(world, config),
+        initialConfig: { ...config },
+        animalIdMap: new WeakMap<object, string>(),
+        nextSheepId: 0,
+        nextWolfId: 0,
+        previousPatchColors: [],
+      };
+    },
+    getConfig(runtime) {
+      return getEffectiveConfig(runtime);
+    },
+    init(runtime) {
+      runtime.model.setup();
+      runtime.animalIdMap = new WeakMap();
+      runtime.nextSheepId = 0;
+      runtime.nextWolfId = 0;
+      capturePatchSnapshot(runtime);
+    },
+    dispose(runtime) {
+      runtime.model.destroy();
+    },
+    step(runtime) {
+      return runtime.model.go();
+    },
+    reset(runtime) {
+      runtime.model.reset();
+      runtime.animalIdMap = new WeakMap();
+      runtime.nextSheepId = 0;
+      runtime.nextWolfId = 0;
+      capturePatchSnapshot(runtime);
+    },
+    time(runtime) {
+      return runtime.model.getTicks();
+    },
   },
-  getConfig(runtime) {
-    return getEffectiveConfig(runtime);
-  },
-  init(runtime) {
-    runtime.model.setup();
-    runtime.animalIdMap = new WeakMap();
-    runtime.nextSheepId = 0;
-    runtime.nextWolfId = 0;
-    capturePatchSnapshot(runtime);
-  },
-  dispose(runtime) {
-    runtime.model.destroy();
-  },
-  step(runtime) {
-    return runtime.model.go();
-  },
-  reset(runtime) {
-    runtime.model.reset();
-    runtime.animalIdMap = new WeakMap();
-    runtime.nextSheepId = 0;
-    runtime.nextWolfId = 0;
-    capturePatchSnapshot(runtime);
-  },
-  time(runtime) {
-    return runtime.model.getTicks();
-  },
-});
+);
 
 builder
   .asset(SHEEP_ASSET_ID, {
@@ -221,7 +222,8 @@ builder.paramsFromConfig<WolfSheepConfig>({
   },
 });
 
-builder.env('main')
+builder
+  .env('main')
   .agentLayer(TERRAIN_LAYER, {
     metadata: (runtime) => {
       const config = getEffectiveConfig(runtime);

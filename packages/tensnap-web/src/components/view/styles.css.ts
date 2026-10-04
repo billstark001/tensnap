@@ -224,7 +224,7 @@ export const windowView = style({
 
     [`${draggingView} &`]: {
       border: `${viewConstants.windowBorderWidth}px dashed ${vars.color.primary}`,
-    }
+    },
   },
 });
 
@@ -307,8 +307,8 @@ export const windowViewContent = style({
   selectors: {
     [`${rootView} &`]: {
       height: '100%',
-    }
-  }
+    },
+  },
 });
 
 export const containerViewDragOver = style({

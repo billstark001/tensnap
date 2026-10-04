@@ -23,7 +23,9 @@ describe('protocol runtime validation', () => {
 
   it('is disabled by default', () => {
     expect(() => encodeProtocolMessage(invalidRendererMessage, 'json')).not.toThrow();
-    expect(decodeProtocolMessage(JSON.stringify(invalidRendererMessage))).toEqual(invalidRendererMessage);
+    expect(decodeProtocolMessage(JSON.stringify(invalidRendererMessage))).toEqual(
+      invalidRendererMessage,
+    );
   });
 
   it('reports one warning and continues in warning mode', () => {
@@ -45,32 +47,42 @@ describe('protocol runtime validation', () => {
   });
 
   it('keeps warning observers non-fatal', () => {
-    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json', {
-      validation: {
-        level: 'warning',
-        direction: 'renderer-to-simulator',
-        onWarning: () => { throw new Error('observer failed'); },
-      },
-    })).not.toThrow();
+    expect(() =>
+      encodeProtocolMessage(invalidRendererMessage, 'json', {
+        validation: {
+          level: 'warning',
+          direction: 'renderer-to-simulator',
+          onWarning: () => {
+            throw new Error('observer failed');
+          },
+        },
+      }),
+    ).not.toThrow();
   });
 
   it('throws a typed error in error mode', () => {
-    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json', {
-      validation: { level: 'error', direction: 'renderer-to-simulator' },
-    })).toThrow(ProtocolValidationError);
+    expect(() =>
+      encodeProtocolMessage(invalidRendererMessage, 'json', {
+        validation: { level: 'error', direction: 'renderer-to-simulator' },
+      }),
+    ).toThrow(ProtocolValidationError);
   });
 
   it('runs at most one envelope validation per message', () => {
     const validation = vi.spyOn(RendererToSimulatorMessageSchema, 'safeParse');
-    expect(() => encodeProtocolMessage(invalidRendererMessage, 'json', {
-      validation: { level: 'warning', direction: 'renderer-to-simulator' },
-    })).not.toThrow();
+    expect(() =>
+      encodeProtocolMessage(invalidRendererMessage, 'json', {
+        validation: { level: 'warning', direction: 'renderer-to-simulator' },
+      }),
+    ).not.toThrow();
     expect(validation).toHaveBeenCalledTimes(1);
 
     validation.mockClear();
-    expect(() => decodeProtocolMessage(JSON.stringify(invalidRendererMessage), {
-      validation: { level: 'warning', direction: 'renderer-to-simulator' },
-    })).not.toThrow();
+    expect(() =>
+      decodeProtocolMessage(JSON.stringify(invalidRendererMessage), {
+        validation: { level: 'warning', direction: 'renderer-to-simulator' },
+      }),
+    ).not.toThrow();
     expect(validation).toHaveBeenCalledTimes(1);
     validation.mockRestore();
   });
@@ -78,17 +90,21 @@ describe('protocol runtime validation', () => {
   it('does not re-parse binary payloads during semantic normalization', () => {
     const envelopeValidation = vi.spyOn(SimulatorToRendererMessageSchema, 'safeParse');
     const payloadValidation = vi.spyOn(AssetDataPayloadSchema, 'parse');
-    encodeProtocolMessage({
-      type: 'asset_data',
-      payload: {
-        id: 'asset-1',
-        hash: 'hash-1',
-        mime: 'image/png',
-        data: new Uint8Array([0, 1, 2, 3]),
+    encodeProtocolMessage(
+      {
+        type: 'asset_data',
+        payload: {
+          id: 'asset-1',
+          hash: 'hash-1',
+          mime: 'image/png',
+          data: new Uint8Array([0, 1, 2, 3]),
+        },
       },
-    }, 'json', {
-      validation: { level: 'error', direction: 'simulator-to-renderer' },
-    });
+      'json',
+      {
+        validation: { level: 'error', direction: 'simulator-to-renderer' },
+      },
+    );
 
     expect(envelopeValidation).toHaveBeenCalledTimes(1);
     expect(payloadValidation).not.toHaveBeenCalled();
@@ -110,9 +126,14 @@ describe('protocol binary semantic fields', () => {
         capability_details: undefined,
       },
     };
-    const options = { validation: { level: 'error' as const, direction: 'simulator-to-renderer' as const } };
+    const options = {
+      validation: { level: 'error' as const, direction: 'simulator-to-renderer' as const },
+    };
     const json = decodeProtocolMessage(encodeProtocolMessage(message, 'json', options), options);
-    const messagePack = decodeProtocolMessage(encodeProtocolMessage(message, 'msgpack', options), options);
+    const messagePack = decodeProtocolMessage(
+      encodeProtocolMessage(message, 'msgpack', options),
+      options,
+    );
     expect(messagePack).toEqual(json);
     expect(messagePack).toEqual({
       type: 'simulator_info',
@@ -190,14 +211,16 @@ describe('protocol binary semantic fields', () => {
   });
 
   it('normalizes base64 JSON binary payloads back into bytes on decode', () => {
-    const decoded = decodeProtocolMessage(JSON.stringify({
-      type: 'screenshot_response',
-      payload: {
-        request_id: 'req-1',
-        mime: 'image/png',
-        data: 'AAECAw==',
-      },
-    }));
+    const decoded = decodeProtocolMessage(
+      JSON.stringify({
+        type: 'screenshot_response',
+        payload: {
+          request_id: 'req-1',
+          mime: 'image/png',
+          data: 'AAECAw==',
+        },
+      }),
+    );
 
     expect(decoded.type).toBe('screenshot_response');
     if (decoded.type !== 'screenshot_response') {
@@ -212,30 +235,40 @@ describe('protocol binary semantic fields', () => {
 describe('legacy session codec', () => {
   it('keeps v0.2 state-sync correlation inside one codec session', () => {
     const codec = new ProtocolCodec({ mode: 'legacy', validation: { level: 'error' } });
-    const encoded = codec.encode({
-      type: 'state_sync',
-      payload: {
-        request_id: 'legacy-sync-1',
-        model_id: 'legacy',
-        instance_id: 'legacy-instance',
-        state_revision: 'old',
-        metadata_revision: 'old-metadata',
-        parameters: [],
-        actions: [],
-        envs: [],
-        charts: [],
-        monitors: [],
+    const encoded = codec.encode(
+      {
+        type: 'state_sync',
+        payload: {
+          request_id: 'legacy-sync-1',
+          model_id: 'legacy',
+          instance_id: 'legacy-instance',
+          state_revision: 'old',
+          metadata_revision: 'old-metadata',
+          parameters: [],
+          actions: [],
+          envs: [],
+          charts: [],
+          monitors: [],
+        },
       },
-    }, 'json') as string;
+      'json',
+    ) as string;
 
     expect(JSON.parse(encoded).payload).toEqual({
-      request_id: 'legacy-sync-1', parameters: [], actions: [], envs: [], charts: [],
+      request_id: 'legacy-sync-1',
+      parameters: [],
+      actions: [],
+      envs: [],
+      charts: [],
     });
 
     expect(codec.decode(JSON.stringify({ type: 'state_sync_begin', payload: {} }))).toEqual({
       type: 'state_sync_begin',
       payload: {
-        request_id: 'legacy-sync-1', model_id: 'legacy', instance_id: 'legacy', mode: 'replace',
+        request_id: 'legacy-sync-1',
+        model_id: 'legacy',
+        instance_id: 'legacy',
+        mode: 'replace',
       },
     });
     expect(codec.decode(JSON.stringify({ type: 'state_sync_end', payload: {} }))).toEqual({
@@ -245,20 +278,32 @@ describe('legacy session codec', () => {
   });
 
   it('normalizes the legacy error envelope without leaking its old shape', () => {
-    const codec = new ProtocolCodec({ mode: 'legacy', validation: { level: 'error', direction: 'simulator-to-renderer' } });
-    expect(codec.decode(JSON.stringify({ type: 'error', payload: { error: 'Model failed.' } }))).toEqual({
+    const codec = new ProtocolCodec({
+      mode: 'legacy',
+      validation: { level: 'error', direction: 'simulator-to-renderer' },
+    });
+    expect(
+      codec.decode(JSON.stringify({ type: 'error', payload: { error: 'Model failed.' } })),
+    ).toEqual({
       type: 'error',
       payload: { code: 'legacy_error', message: 'Model failed.' },
     });
   });
 
   it('decodes v0.2 chart clear operations as chart-group operations', () => {
-    const codec = new ProtocolCodec({ mode: 'legacy', validation: { level: 'error', direction: 'simulator-to-renderer' } });
+    const codec = new ProtocolCodec({
+      mode: 'legacy',
+      validation: { level: 'error', direction: 'simulator-to-renderer' },
+    });
 
-    expect(codec.decode(JSON.stringify({
-      type: 'chart_update',
-      payload: { operations: [{ operation: 'clear', id: 'attendance' }] },
-    }))).toEqual({
+    expect(
+      codec.decode(
+        JSON.stringify({
+          type: 'chart_update',
+          payload: { operations: [{ operation: 'clear', id: 'attendance' }] },
+        }),
+      ),
+    ).toEqual({
       type: 'chart_update',
       payload: { operations: [{ operation: 'clear', kind: 'group', id: 'attendance' }] },
     });

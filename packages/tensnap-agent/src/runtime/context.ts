@@ -36,7 +36,9 @@ export function sanitizeContextName(name?: string): string {
   return cleaned || 'default';
 }
 
-export function resolveRuntimeContextPaths(options: RuntimeContextOptions = {}): RuntimeContextPaths {
+export function resolveRuntimeContextPaths(
+  options: RuntimeContextOptions = {},
+): RuntimeContextPaths {
   const cwd = resolve(options.cwd ?? process.cwd());
   const rootDir = resolve(options.rootDir ?? join(cwd, '.tensnap'));
   const contextsDir = join(rootDir, 'contexts');
@@ -67,7 +69,9 @@ export async function ensureRuntimeContext(paths: RuntimeContextPaths): Promise<
   await mkdir(paths.logsDir, { recursive: true });
 }
 
-export async function readRuntimeControl(paths: RuntimeContextPaths): Promise<RuntimeControlFile | null> {
+export async function readRuntimeControl(
+  paths: RuntimeContextPaths,
+): Promise<RuntimeControlFile | null> {
   try {
     const raw = await readFile(paths.controlFile, 'utf8');
     return JSON.parse(raw) as RuntimeControlFile;
@@ -80,7 +84,10 @@ export async function readRuntimeControl(paths: RuntimeContextPaths): Promise<Ru
   }
 }
 
-export async function writeRuntimeControl(paths: RuntimeContextPaths, control: RuntimeControlFile): Promise<void> {
+export async function writeRuntimeControl(
+  paths: RuntimeContextPaths,
+  control: RuntimeControlFile,
+): Promise<void> {
   await ensureRuntimeContext(paths);
   const temporaryFile = `${paths.controlFile}.${process.pid}.${randomUUID()}.tmp`;
   try {
@@ -97,12 +104,18 @@ export async function writeRuntimeControl(paths: RuntimeContextPaths, control: R
   }
 }
 
-export async function appendRuntimeLog(paths: RuntimeContextPaths, entry: RuntimeLogEntry): Promise<void> {
+export async function appendRuntimeLog(
+  paths: RuntimeContextPaths,
+  entry: RuntimeLogEntry,
+): Promise<void> {
   await ensureRuntimeContext(paths);
   await appendFile(paths.logFile, `${JSON.stringify(entry)}\n`, 'utf8');
 }
 
-export async function writeSceneSnapshot(paths: RuntimeContextPaths, snapshot: ScenarioSnapshot): Promise<void> {
+export async function writeSceneSnapshot(
+  paths: RuntimeContextPaths,
+  snapshot: ScenarioSnapshot,
+): Promise<void> {
   await ensureRuntimeContext(paths);
   const temporaryFile = `${paths.snapshotFile}.${process.pid}.${randomUUID()}.tmp`;
   try {

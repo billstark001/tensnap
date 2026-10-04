@@ -12,8 +12,8 @@ import clsx from 'clsx';
 import { useViewContext } from './useViewContext';
 
 interface DraggableViewProps extends ViewProps<AnyView> {
-  relativeLeft?: number,
-  relativeTop?: number,
+  relativeLeft?: number;
+  relativeTop?: number;
   parentId?: string;
   siblings: AnyView[];
   isOverlay?: boolean;
@@ -33,18 +33,33 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
 
   const [node, setNode] = useState<HTMLElement | null>(null);
 
-  const data: DraggableViewData = { view, siblings, relativeLeft, relativeTop, parentView, parentId: parentView?.id };
+  const data: DraggableViewData = {
+    view,
+    siblings,
+    relativeLeft,
+    relativeTop,
+    parentView,
+    parentId: parentView?.id,
+  };
 
-  const { attributes, listeners, setNodeRef: _setNodeRef, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef: _setNodeRef,
+    isDragging,
+  } = useDraggable({
     id: view.id,
     data,
     disabled: isOverlay,
   });
 
-  const setNodeRef = useCallback((node: HTMLElement | null) => {
-    _setNodeRef(node);
-    setNode(node);
-  }, [_setNodeRef]);
+  const setNodeRef = useCallback(
+    (node: HTMLElement | null) => {
+      _setNodeRef(node);
+      setNode(node);
+    },
+    [_setNodeRef],
+  );
 
   const style: React.CSSProperties = {
     left: `${view.left}px`,
@@ -53,21 +68,15 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
     height: view.expanded ? `${view.height}px` : 'min-content',
   };
 
-  const handleResizeStart = useCallback((direction: string, e: React.MouseEvent) => {
-    if (!parentView || !onResizeStart) return;
-    onResizeStart(
-      view,
-      parentView,
-      direction,
-      relativeLeft,
-      relativeTop,
-      e.clientX,
-      e.clientY,
-    );
-  }, [view, parentView, relativeLeft, relativeTop, onResizeStart]);
+  const handleResizeStart = useCallback(
+    (direction: string, e: React.MouseEvent) => {
+      if (!parentView || !onResizeStart) return;
+      onResizeStart(view, parentView, direction, relativeLeft, relativeTop, e.clientX, e.clientY);
+    },
+    [view, parentView, relativeLeft, relativeTop, onResizeStart],
+  );
 
   const renderViewContent = () => {
-
     switch (view.type) {
       case 'button':
         return <ButtonViewComponent view={view as ButtonView} />;
@@ -103,17 +112,18 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       style={style}
       className={clsx(styles.draggableView, isDragging && !isOverlay && styles.draggingView)}
     >
-      {isAdjusting && <div
-        {...listeners}
-        {...attributes}
-        className={styles.dragHandle}
-      >
-        <Move className={styles.dragIcon} />
-      </div>}
+      {isAdjusting && (
+        <div {...listeners} {...attributes} className={styles.dragHandle}>
+          <Move className={styles.dragIcon} />
+        </div>
+      )}
       {renderViewContent()}
-      {isAdjusting && !isDragging && !isOverlay && <ResizeHandles onResizeStart={handleResizeStart} horizontalOnly={
-        view.type === 'container' && !view.expanded
-      } />}
+      {isAdjusting && !isDragging && !isOverlay && (
+        <ResizeHandles
+          onResizeStart={handleResizeStart}
+          horizontalOnly={view.type === 'container' && !view.expanded}
+        />
+      )}
     </div>
   );
 
@@ -130,5 +140,4 @@ export const DraggableView: React.FC<DraggableViewProps> = ({
       {body}
     </ViewContextMenuRenderer>
   );
-
 };

@@ -1,7 +1,9 @@
-
 // Custom exception classes for better error handling
 export class WebSocketError extends Error {
-  constructor(message: string, public readonly code?: string) {
+  constructor(
+    message: string,
+    public readonly code?: string,
+  ) {
     super(message);
     this.name = 'WebSocketError';
   }

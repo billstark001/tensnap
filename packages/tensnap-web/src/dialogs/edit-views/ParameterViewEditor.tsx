@@ -3,7 +3,14 @@ import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { AnchoredView } from '@/types/ui';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
-import { BooleanParameter, EnumParameter, NumberParameter, Parameter, ParameterType, StringParameter } from '@/types/model';
+import {
+  BooleanParameter,
+  EnumParameter,
+  NumberParameter,
+  Parameter,
+  ParameterType,
+  StringParameter,
+} from '@/types/model';
 import * as styles from './EditViews.css';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
@@ -24,12 +31,24 @@ const TypeSelector: React.FC<{
   onChange: (value: ParameterType) => void;
 }> = ({ value, onChange }) => (
   <Form.Field label={<Trans>Parameter Type</Trans>} htmlFor="param-type">
-    <Select.Root value={value} onValueChange={(nextValue) => onChange(nextValue as ParameterType)} triggerClassName={styles.selectTrigger}>
+    <Select.Root
+      value={value}
+      onValueChange={(nextValue) => onChange(nextValue as ParameterType)}
+      triggerClassName={styles.selectTrigger}
+    >
       <Select.Viewport>
-        <Select.Item value="number" indicator>Number</Select.Item>
-        <Select.Item value="enum" indicator>Enum</Select.Item>
-        <Select.Item value="boolean" indicator>Boolean</Select.Item>
-        <Select.Item value="string" indicator>String</Select.Item>
+        <Select.Item value="number" indicator>
+          Number
+        </Select.Item>
+        <Select.Item value="enum" indicator>
+          Enum
+        </Select.Item>
+        <Select.Item value="boolean" indicator>
+          Boolean
+        </Select.Item>
+        <Select.Item value="string" indicator>
+          String
+        </Select.Item>
       </Select.Viewport>
     </Select.Root>
   </Form.Field>
@@ -48,7 +67,9 @@ const ParameterValueFields: React.FC<{
             id="param-value-number"
             type="number"
             value={numberParam.value}
-            onChange={(e) => onObjectChange('value', parseFiniteNumberInput(e.target.value, numberParam.value))}
+            onChange={(e) =>
+              onObjectChange('value', parseFiniteNumberInput(e.target.value, numberParam.value))
+            }
           />
         </Form.Field>
       );
@@ -112,7 +133,9 @@ const NumberParameterFields: React.FC<{
         id="param-min"
         type="number"
         value={param.min ?? ''}
-        onChange={(e) => onObjectChange('min', parseFiniteNumberInput(e.target.value, param.min ?? 0))}
+        onChange={(e) =>
+          onObjectChange('min', parseFiniteNumberInput(e.target.value, param.min ?? 0))
+        }
       />
     </Form.Field>
     <Form.Field label={<Trans>Maximum Value</Trans>} htmlFor="param-max">
@@ -120,7 +143,9 @@ const NumberParameterFields: React.FC<{
         id="param-max"
         type="number"
         value={param.max ?? ''}
-        onChange={(e) => onObjectChange('max', parseFiniteNumberInput(e.target.value, param.max ?? 100))}
+        onChange={(e) =>
+          onObjectChange('max', parseFiniteNumberInput(e.target.value, param.max ?? 100))
+        }
       />
     </Form.Field>
     <Form.Field label={<Trans>Step</Trans>} htmlFor="param-step">
@@ -128,7 +153,9 @@ const NumberParameterFields: React.FC<{
         id="param-step"
         type="number"
         value={param.step ?? ''}
-        onChange={(e) => onObjectChange('step', parseFiniteNumberInput(e.target.value, param.step ?? 1))}
+        onChange={(e) =>
+          onObjectChange('step', parseFiniteNumberInput(e.target.value, param.step ?? 1))
+        }
       />
     </Form.Field>
   </Form.FieldGroup>
@@ -191,12 +218,7 @@ const EnumOptionItem: React.FC<{
   <div className={styles.seriesItem}>
     <div style={{ flex: 1, minWidth: 0 }}>
       {isEditing ? (
-        <EnumOptionEditor
-          option={option}
-          label={label}
-          onUpdate={onUpdate}
-          onCancel={onEdit}
-        />
+        <EnumOptionEditor option={option} label={label} onUpdate={onUpdate} onCancel={onEdit} />
       ) : (
         <span className={styles.seriesLabel}>
           {label || option}
@@ -221,7 +243,10 @@ const NewOptionForm: React.FC<{
   onConfirm: () => void;
   onCancel: () => void;
 }> = ({ value, label, onChange, onConfirm, onCancel }) => (
-  <div className={styles.seriesItem} style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}>
+  <div
+    className={styles.seriesItem}
+    style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}
+  >
     <Form.Input
       type="text"
       placeholder="Option Value"
@@ -270,7 +295,10 @@ const EnumParameterFields: React.FC<{
 
   const handleRemoveOption = (index: number) => {
     const optionValue = options[index];
-    onObjectChange('options', options.filter((_: string, i: number) => i !== index));
+    onObjectChange(
+      'options',
+      options.filter((_: string, i: number) => i !== index),
+    );
     if (labels[optionValue]) {
       const newLabels = { ...labels };
       delete newLabels[optionValue];
@@ -298,11 +326,23 @@ const EnumParameterFields: React.FC<{
 
   return (
     <Form.FieldSet>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '8px',
+        }}
+      >
         <Form.Label>
           <Trans>Enum Options</Trans> ({options.length})
         </Form.Label>
-        <button type="button" onClick={handleAddOption} className={styles.iconButton} title="Add option">
+        <button
+          type="button"
+          onClick={handleAddOption}
+          className={styles.iconButton}
+          title="Add option"
+        >
           <Plus size={16} />
         </button>
       </div>
@@ -371,39 +411,45 @@ export const ParameterViewEditor: React.FC<ParameterViewEditorProps> = ({
 
       {!param ? (
         <div className={styles.infoText}>
-          <Trans>This view can keep its binding, but there is no registered parameter to edit.</Trans>
+          <Trans>
+            This view can keep its binding, but there is no registered parameter to edit.
+          </Trans>
         </div>
       ) : (
         <>
-      <Form.FieldGroup columns={2}>
-        <TypeSelector value={param.type} onChange={onRequestTypeChange} />
-        <ParameterValueFields param={param} onObjectChange={onObjectChange} />
-      </Form.FieldGroup>
+          <Form.FieldGroup columns={2}>
+            <TypeSelector value={param.type} onChange={onRequestTypeChange} />
+            <ParameterValueFields param={param} onObjectChange={onObjectChange} />
+          </Form.FieldGroup>
 
-      <Form.Field label={<Trans>Parameter Label</Trans>} htmlFor="param-label">
-        <Form.Input
-          id="param-label"
-          type="text"
-          value={param.label}
-          onChange={(e) => onObjectChange('label', e.target.value)}
-        />
-      </Form.Field>
+          <Form.Field label={<Trans>Parameter Label</Trans>} htmlFor="param-label">
+            <Form.Input
+              id="param-label"
+              type="text"
+              value={param.label}
+              onChange={(e) => onObjectChange('label', e.target.value)}
+            />
+          </Form.Field>
 
-      {param.type === 'number' && <NumberParameterFields param={param} onObjectChange={onObjectChange} />}
-      {param.type === 'enum' && <EnumParameterFields param={param} onObjectChange={onObjectChange} />}
+          {param.type === 'number' && (
+            <NumberParameterFields param={param} onObjectChange={onObjectChange} />
+          )}
+          {param.type === 'enum' && (
+            <EnumParameterFields param={param} onObjectChange={onObjectChange} />
+          )}
 
-      <Form.FieldSet>
-        <Form.Label htmlFor="param-runtime-change" className={styles.checkboxLabel}>
-          <input
-            id="param-runtime-change"
-            type="checkbox"
-            checked={param.allow_runtime_change || false}
-            onChange={(e) => onObjectChange('allow_runtime_change', e.target.checked)}
-            className={styles.checkboxInput}
-          />
-          <Trans>Allow Runtime Change</Trans>
-        </Form.Label>
-      </Form.FieldSet>
+          <Form.FieldSet>
+            <Form.Label htmlFor="param-runtime-change" className={styles.checkboxLabel}>
+              <input
+                id="param-runtime-change"
+                type="checkbox"
+                checked={param.allow_runtime_change || false}
+                onChange={(e) => onObjectChange('allow_runtime_change', e.target.checked)}
+                className={styles.checkboxInput}
+              />
+              <Trans>Allow Runtime Change</Trans>
+            </Form.Label>
+          </Form.FieldSet>
         </>
       )}
     </>

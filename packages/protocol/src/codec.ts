@@ -61,7 +61,11 @@ export class ProtocolValidationError extends Error {
   readonly direction: ProtocolMessageDirection;
   readonly issues: ProtocolValidationIssue[];
 
-  constructor(direction: ProtocolMessageDirection, message: string, issues: ProtocolValidationIssue[]) {
+  constructor(
+    direction: ProtocolMessageDirection,
+    message: string,
+    issues: ProtocolValidationIssue[],
+  ) {
     super(message);
     this.name = 'ProtocolValidationError';
     this.direction = direction;
@@ -115,8 +119,8 @@ export function selectProtocolCodecMode(protocolVersion: string | undefined): Pr
 export class ProtocolCodec {
   readonly mode: ProtocolCodecMode;
   private readonly onWarning?: (warning: ProtocolCodecWarning) => void;
-  private validation: Required<Pick<ProtocolValidationOptions, 'level' | 'direction'>>
-    & Pick<ProtocolValidationOptions, 'onWarning'>;
+  private validation: Required<Pick<ProtocolValidationOptions, 'level' | 'direction'>> &
+    Pick<ProtocolValidationOptions, 'onWarning'>;
 
   constructor(options: ProtocolCodecOptions = {}) {
     this.mode = options.mode ?? 'strict';
@@ -149,49 +153,62 @@ export class ProtocolCodec {
     if (this.mode === 'legacy' && canonical.type === 'state_sync') {
       this.legacyStateSyncRequestId = (canonical.payload as { request_id: string }).request_id;
     }
-    const semantic = this.mode === 'legacy'
-      ? encodeLegacyMessage(canonical)
-      : canonical;
+    const semantic = this.mode === 'legacy' ? encodeLegacyMessage(canonical) : canonical;
     // JSON.stringify omits undefined object fields. Apply the same canonical
     // wire normalization to MessagePack so both encodings preserve one
     // protocol value, including optional schema fields that bindings leave
     // undefined in object literals.
-    const normalized = stripUndefined(normalizeBinarySemanticMessage(semantic, encoding)) as Record<string, unknown>;
+    const normalized = stripUndefined(normalizeBinarySemanticMessage(semantic, encoding)) as Record<
+      string,
+      unknown
+    >;
     return encoding === 'json' ? JSON.stringify(normalized) : encode(normalized);
   }
 
   decode(data: string | Uint8Array | ArrayBuffer): AnyProtocolMessage {
-    const decoded = typeof data === 'string'
-      ? JSON.parse(data) as unknown
-      : decode(data instanceof Uint8Array ? data : new Uint8Array(data));
-    const normalized = this.mode === 'legacy'
-      ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning), this.legacyStateSyncRequestId)
-      : decoded;
+    const decoded =
+      typeof data === 'string'
+        ? (JSON.parse(data) as unknown)
+        : decode(data instanceof Uint8Array ? data : new Uint8Array(data));
+    const normalized =
+      this.mode === 'legacy'
+        ? normalizeLegacyMessage(
+            decoded,
+            (warning) => this.onWarning?.(warning),
+            this.legacyStateSyncRequestId,
+          )
+        : decoded;
     // Both wire decoders produce defined values (JSON has no undefined and
     // MessagePack decodes nil as null). Only the legacy adapter can introduce
     // optional undefined fields while translating aliases. Avoid a deep copy
     // of every strict item batch after decoding it.
-    const canonical = this.validate(this.mode === 'legacy' ? stripUndefined(normalized) : normalized);
+    const canonical = this.validate(
+      this.mode === 'legacy' ? stripUndefined(normalized) : normalized,
+    );
     return normalizeDecodedBinarySemanticMessage(canonical);
   }
 
   private validate(message: unknown): AnyProtocolMessage {
     if (this.validation.level === 'off') return message as AnyProtocolMessage;
-    const schema = this.validation.direction === 'renderer-to-simulator'
-      ? RendererToSimulatorMessageSchema
-      : this.validation.direction === 'simulator-to-renderer'
-        ? SimulatorToRendererMessageSchema
-        : AnyProtocolMessageSchema;
+    const schema =
+      this.validation.direction === 'renderer-to-simulator'
+        ? RendererToSimulatorMessageSchema
+        : this.validation.direction === 'simulator-to-renderer'
+          ? SimulatorToRendererMessageSchema
+          : AnyProtocolMessageSchema;
     const result = schema.safeParse(message);
     if (result.success) return result.data as AnyProtocolMessage;
 
     const issues = result.error.issues.map((issue) => ({
       code: issue.code,
-      path: issue.path.map((segment) => typeof segment === 'symbol' ? String(segment) : segment),
+      path: issue.path.map((segment) => (typeof segment === 'symbol' ? String(segment) : segment)),
       message: issue.message,
     }));
     const detail = issues
-      .map((issue) => `${issue.path.length > 0 ? issue.path.join('.') : '<message>'}: ${issue.message}`)
+      .map(
+        (issue) =>
+          `${issue.path.length > 0 ? issue.path.join('.') : '<message>'}: ${issue.message}`,
+      )
       .join(', ');
     const validationMessage = `Protocol message validation failed (${this.validation.direction}): ${detail}`;
     if (this.validation.level === 'warning') {
@@ -240,7 +257,13 @@ function normalizeBinarySemanticMessage(
   switch (message.type) {
     case 'asset_data': {
       const payload = message.payload as AssetDataPayload;
-      return { ...message, payload: { ...payload, data: normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding) } };
+      return {
+        ...message,
+        payload: {
+          ...payload,
+          data: normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding),
+        },
+      };
     }
     case 'screenshot_response': {
       const payload = message.payload as ScreenshotResponsePayload;
@@ -248,7 +271,10 @@ function normalizeBinarySemanticMessage(
         ...message,
         payload: {
           ...payload,
-          data: payload.data === undefined ? undefined : normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding),
+          data:
+            payload.data === undefined
+              ? undefined
+              : normalizeBinaryDataForEncoding(payload.data, payload.mime, encoding),
         },
       };
     }
@@ -256,16 +282,33 @@ function normalizeBinarySemanticMessage(
       const payload = message.payload as SceneRestorePayload;
       return {
         ...message,
-        payload: payload.checkpoint === undefined
-          ? payload
-          : { ...payload, checkpoint: { ...payload.checkpoint, data: normalizeBinaryDataForEncoding(payload.checkpoint.data, undefined, encoding) } },
+        payload:
+          payload.checkpoint === undefined
+            ? payload
+            : {
+                ...payload,
+                checkpoint: {
+                  ...payload.checkpoint,
+                  data: normalizeBinaryDataForEncoding(
+                    payload.checkpoint.data,
+                    undefined,
+                    encoding,
+                  ),
+                },
+              },
       };
     }
     case 'scene_capture_result': {
       const payload = message.payload as SceneCaptureResultPayload;
       return {
         ...message,
-        payload: { ...payload, checkpoint: { ...payload.checkpoint, data: normalizeBinaryDataForEncoding(payload.checkpoint.data, undefined, encoding) } },
+        payload: {
+          ...payload,
+          checkpoint: {
+            ...payload.checkpoint,
+            data: normalizeBinaryDataForEncoding(payload.checkpoint.data, undefined, encoding),
+          },
+        },
       };
     }
     default:
@@ -278,7 +321,7 @@ function stripUndefined(value: unknown): unknown {
   if (Array.isArray(value)) {
     // JSON serializes undefined array entries as null; protocol schemas do not
     // use such entries, but preserving this behavior prevents codec divergence.
-    return value.map((entry) => entry === undefined ? null : stripUndefined(entry));
+    return value.map((entry) => (entry === undefined ? null : stripUndefined(entry)));
   }
   if (!isRecord(value)) return value;
   const normalized: Record<string, unknown> = {};
@@ -293,27 +336,45 @@ function normalizeDecodedBinarySemanticMessage(message: AnyProtocolMessage): Any
   switch (message.type) {
     case 'asset_data': {
       const payload = message.payload as AssetDataPayload;
-      return { ...message, payload: { ...payload, data: decodeBinaryValue(payload.data) } } as AnyProtocolMessage;
+      return {
+        ...message,
+        payload: { ...payload, data: decodeBinaryValue(payload.data) },
+      } as AnyProtocolMessage;
     }
     case 'screenshot_response': {
       const payload = message.payload as ScreenshotResponsePayload;
-      return { ...message, payload: { ...payload, data: payload.data === undefined ? undefined : decodeBinaryValue(payload.data) } } as AnyProtocolMessage;
+      return {
+        ...message,
+        payload: {
+          ...payload,
+          data: payload.data === undefined ? undefined : decodeBinaryValue(payload.data),
+        },
+      } as AnyProtocolMessage;
     }
     case 'scene_restore': {
       const payload = message.payload as SceneRestorePayload;
       return {
         ...message,
-        payload: payload.checkpoint === undefined ? payload : {
-          ...payload,
-          checkpoint: { ...payload.checkpoint, data: decodeBinaryValue(payload.checkpoint.data) },
-        },
+        payload:
+          payload.checkpoint === undefined
+            ? payload
+            : {
+                ...payload,
+                checkpoint: {
+                  ...payload.checkpoint,
+                  data: decodeBinaryValue(payload.checkpoint.data),
+                },
+              },
       } as AnyProtocolMessage;
     }
     case 'scene_capture_result': {
       const payload = message.payload as SceneCaptureResultPayload;
       return {
         ...message,
-        payload: { ...payload, checkpoint: { ...payload.checkpoint, data: decodeBinaryValue(payload.checkpoint.data) } },
+        payload: {
+          ...payload,
+          checkpoint: { ...payload.checkpoint, data: decodeBinaryValue(payload.checkpoint.data) },
+        },
       } as AnyProtocolMessage;
     }
     default:
@@ -348,7 +409,8 @@ function normalizeLegacyMessage(
   }
   const type = legacyMessageTypes[input.type] ?? input.type;
   const payload = cloneRecord(input.payload);
-  if (type !== input.type) warnLegacy(warn, 'legacy_alias', `Translated ${input.type} to ${type}.`, 'type');
+  if (type !== input.type)
+    warnLegacy(warn, 'legacy_alias', `Translated ${input.type} to ${type}.`, 'type');
 
   if (input.type === 'action_start') {
     renameKnownKey(payload, 'request_id', 'tick_id', 'payload', warn);
@@ -387,12 +449,21 @@ function normalizeLegacyMessage(
   if (type === 'chart_update') {
     normalizeLegacyChartUpdate(payload, warn);
   }
-  if (type === 'chart_delete' && Object.prototype.hasOwnProperty.call(payload, 'id') && !Object.prototype.hasOwnProperty.call(payload, 'kind')) {
+  if (
+    type === 'chart_delete' &&
+    Object.prototype.hasOwnProperty.call(payload, 'id') &&
+    !Object.prototype.hasOwnProperty.call(payload, 'kind')
+  ) {
     // v0.2 ChartStorage.delete(id) addressed chart groups. A series was never
     // independently deleted on that wire format, so this is a semantic
     // migration rather than a best-effort guess.
     payload.kind = 'group';
-    warnLegacy(warn, 'legacy_alias', 'Resolved legacy chart_delete as a chart group deletion.', 'payload.kind');
+    warnLegacy(
+      warn,
+      'legacy_alias',
+      'Resolved legacy chart_delete as a chart group deletion.',
+      'payload.kind',
+    );
   }
 
   return { ...input, type, payload };
@@ -404,7 +475,10 @@ const legacyMessageTypes: Record<string, string> = {
   asset_meta: 'asset_metadata',
 };
 
-function normalizeLegacyStateSync(payload: Record<string, unknown>, warn: (warning: ProtocolCodecWarning) => void): void {
+function normalizeLegacyStateSync(
+  payload: Record<string, unknown>,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
   if (typeof payload.request_id !== 'string') {
     payload.request_id = 'legacy-state-sync';
     warnLegacy(warn, 'legacy_alias', 'Added legacy state sync request_id.', 'payload.request_id');
@@ -453,11 +527,19 @@ function normalizeLegacyStateSyncEnd(
   }
   if (typeof payload.state_revision !== 'string') {
     payload.state_revision = 'legacy';
-    warnLegacy(warn, 'legacy_alias', 'Added opaque legacy state revision.', 'payload.state_revision');
+    warnLegacy(
+      warn,
+      'legacy_alias',
+      'Added opaque legacy state revision.',
+      'payload.state_revision',
+    );
   }
 }
 
-function normalizeLegacyError(payload: Record<string, unknown>, warn: (warning: ProtocolCodecWarning) => void): void {
+function normalizeLegacyError(
+  payload: Record<string, unknown>,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
   if (typeof payload.error !== 'string') return;
   if (typeof payload.message === 'string' || typeof payload.code === 'string') {
     throw new Error('Conflicting canonical and legacy error fields at payload.error.');
@@ -465,35 +547,66 @@ function normalizeLegacyError(payload: Record<string, unknown>, warn: (warning: 
   payload.code = 'legacy_error';
   payload.message = payload.error;
   delete payload.error;
-  warnLegacy(warn, 'legacy_alias', 'Translated legacy error string to code/message.', 'payload.error');
+  warnLegacy(
+    warn,
+    'legacy_alias',
+    'Translated legacy error string to code/message.',
+    'payload.error',
+  );
 }
 
-function normalizeParameterArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
+function normalizeParameterArray(
+  value: unknown,
+  path: string,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
   if (!Array.isArray(value)) return;
   value.forEach((entry, index) => {
-    if (isRecord(entry)) renameKnownKey(entry, 'allow_runtime_change', 'allowRuntimeChange', `${path}[${index}]`, warn);
+    if (isRecord(entry))
+      renameKnownKey(
+        entry,
+        'allow_runtime_change',
+        'allowRuntimeChange',
+        `${path}[${index}]`,
+        warn,
+      );
   });
 }
 
-function normalizeActionArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
+function normalizeActionArray(
+  value: unknown,
+  path: string,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
   if (!Array.isArray(value)) return;
   value.forEach((entry, index) => {
     if (isRecord(entry)) discardKnownKey(entry, 'allowRuntimeChange', `${path}[${index}]`, warn);
   });
 }
 
-function normalizeChartArray(value: unknown, path: string, warn: (warning: ProtocolCodecWarning) => void): void {
+function normalizeChartArray(
+  value: unknown,
+  path: string,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
   if (!Array.isArray(value)) return;
   value.forEach((entry, index) => {
     if (isRecord(entry)) renameKnownKey(entry, 'data_list', 'dataList', `${path}[${index}]`, warn);
   });
 }
 
-function normalizeLegacyChartUpdate(payload: Record<string, unknown>, warn: (warning: ProtocolCodecWarning) => void): void {
+function normalizeLegacyChartUpdate(
+  payload: Record<string, unknown>,
+  warn: (warning: ProtocolCodecWarning) => void,
+): void {
   if (!Array.isArray(payload.operations)) return;
   for (const [index, operation] of payload.operations.entries()) {
     if (!isRecord(operation)) continue;
-    if (operation.operation === 'clear' && typeof operation.id === 'string' && operation.kind === undefined) {
+    if (
+      operation.operation === 'clear' &&
+      typeof operation.id === 'string' &&
+      operation.kind === undefined
+    ) {
       operation.kind = 'group';
       warnLegacy(
         warn,
@@ -520,7 +633,8 @@ function encodeLegacyMessage(message: AnyProtocolMessage): Record<string, unknow
     }
     case 'action_result': {
       const result = payload as Record<string, unknown>;
-      if (result.error !== undefined) throw new UnsupportedLegacyMessageError('v0.2 cannot represent correlated action errors.');
+      if (result.error !== undefined)
+        throw new UnsupportedLegacyMessageError('v0.2 cannot represent correlated action errors.');
       renameKnownKey(result, 'tick_id', 'request_id', 'payload', () => undefined);
       renameKnownKey(result, 'continue', 'should_continue', 'payload', () => undefined);
       type = 'action_end';
@@ -532,15 +646,23 @@ function encodeLegacyMessage(message: AnyProtocolMessage): Record<string, unknow
     case 'state_sync': {
       const sync = payload as Record<string, unknown>;
       // v0.2 has no model, instance, revision, or monitor inventory fields.
-      for (const key of ['model_id', 'instance_id', 'state_revision', 'metadata_revision', 'monitors']) delete sync[key];
+      for (const key of [
+        'model_id',
+        'instance_id',
+        'state_revision',
+        'metadata_revision',
+        'monitors',
+      ])
+        delete sync[key];
       break;
     }
     case 'screenshot_response': {
       const response = payload as Record<string, unknown>;
       if (isRecord(response.error)) {
-        response.error = typeof response.error.message === 'string'
-          ? response.error.message
-          : 'Screenshot failed.';
+        response.error =
+          typeof response.error.message === 'string'
+            ? response.error.message
+            : 'Screenshot failed.';
       }
       break;
     }
@@ -558,9 +680,18 @@ function encodeLegacyMessage(message: AnyProtocolMessage): Record<string, unknow
       break;
   }
   if (isRecord(payload)) {
-    if (type === 'param_create' || type === 'param_update') renameKnownKey(payload, 'allowRuntimeChange', 'allow_runtime_change', 'payload', () => undefined);
-    if (type === 'chart_create') renameKnownKey(payload, 'dataList', 'data_list', 'payload', () => undefined);
-    if (type === 'env_layer_create' || type === 'env_layer_update') renameKnownKey(payload, 'data', 'metadata', 'payload', () => undefined);
+    if (type === 'param_create' || type === 'param_update')
+      renameKnownKey(
+        payload,
+        'allowRuntimeChange',
+        'allow_runtime_change',
+        'payload',
+        () => undefined,
+      );
+    if (type === 'chart_create')
+      renameKnownKey(payload, 'dataList', 'data_list', 'payload', () => undefined);
+    if (type === 'env_layer_create' || type === 'env_layer_update')
+      renameKnownKey(payload, 'data', 'metadata', 'payload', () => undefined);
   }
   return { ...message, type, payload };
 }
@@ -579,7 +710,12 @@ function renameKnownKey(
       throw new Error(`Conflicting canonical and legacy fields at ${path}.${canonical}.`);
     }
     delete object[legacy];
-    warnLegacy(warn, 'legacy_duplicate', `Discarded duplicate legacy ${legacy} field.`, `${path}.${legacy}`);
+    warnLegacy(
+      warn,
+      'legacy_duplicate',
+      `Discarded duplicate legacy ${legacy} field.`,
+      `${path}.${legacy}`,
+    );
     return;
   }
   object[canonical] = legacyValue;
@@ -608,7 +744,12 @@ function warnLegacy(
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Uint8Array);
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    !(value instanceof Uint8Array)
+  );
 }
 
 function cloneRecord(value: Record<string, unknown>): Record<string, unknown> {
@@ -628,13 +769,20 @@ function deepEqual(left: unknown, right: unknown): boolean {
     return left.length === right.length && left.every((value, index) => value === right[index]);
   }
   if (Array.isArray(left) && Array.isArray(right)) {
-    return left.length === right.length && left.every((value, index) => deepEqual(value, right[index]));
+    return (
+      left.length === right.length && left.every((value, index) => deepEqual(value, right[index]))
+    );
   }
   if (isRecord(left) && isRecord(right)) {
     const leftKeys = Object.keys(left);
     const rightKeys = Object.keys(right);
-    return leftKeys.length === rightKeys.length
-      && leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && deepEqual(left[key], right[key]));
+    return (
+      leftKeys.length === rightKeys.length &&
+      leftKeys.every(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(right, key) && deepEqual(left[key], right[key]),
+      )
+    );
   }
   return false;
 }

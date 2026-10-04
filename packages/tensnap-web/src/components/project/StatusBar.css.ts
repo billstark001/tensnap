@@ -1,6 +1,5 @@
-import { vars } from "@tensnap/web-common/styles/global.css";
-import { style } from "@vanilla-extract/css";
-
+import { vars } from '@tensnap/web-common/styles/global.css';
+import { style } from '@vanilla-extract/css';
 
 export const statusBar = style({
   padding: vars.space.sm,
@@ -13,7 +12,7 @@ export const statusBar = style({
     'body[data-theme="dark"] &': {
       borderBottomColor: vars.color.darkGridLine,
     },
-  }
+  },
 });
 
 export const statusBadge = style({
@@ -25,25 +24,37 @@ export const statusBadge = style({
   textTransform: 'uppercase',
 });
 
-export const statusConnected = style([statusBadge, {
-  backgroundColor: vars.color.success,
-  color: '#ffffff',
-}]);
+export const statusConnected = style([
+  statusBadge,
+  {
+    backgroundColor: vars.color.success,
+    color: '#ffffff',
+  },
+]);
 
-export const statusDisconnected = style([statusBadge, {
-  backgroundColor: vars.color.danger,
-  color: '#ffffff',
-}]);
+export const statusDisconnected = style([
+  statusBadge,
+  {
+    backgroundColor: vars.color.danger,
+    color: '#ffffff',
+  },
+]);
 
-export const statusConnecting = style([statusBadge, {
-  backgroundColor: vars.color.warning,
-  color: '#000000',
-}]);
+export const statusConnecting = style([
+  statusBadge,
+  {
+    backgroundColor: vars.color.warning,
+    color: '#000000',
+  },
+]);
 
-export const statusRejected = style([statusBadge, {
-  backgroundColor: vars.color.danger,
-  color: '#ffffff',
-}]);
+export const statusRejected = style([
+  statusBadge,
+  {
+    backgroundColor: vars.color.danger,
+    color: '#ffffff',
+  },
+]);
 
 export const statusMeta = style({
   marginLeft: vars.space.md,

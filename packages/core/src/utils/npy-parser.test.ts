@@ -4,7 +4,7 @@ describe('NPYParser', () => {
   // Helper function to create a minimal valid NPY buffer
   const createMinimalNPYBuffer = (
     data: Uint8Array | Int16Array | Int32Array | BigInt64Array | Float32Array | Float64Array,
-    shape: number[]
+    shape: number[],
   ): ArrayBuffer => {
     return NPYParser.toBuffer(data, shape);
   };
@@ -24,34 +24,34 @@ describe('NPYParser', () => {
   // Helper function to create buffer with custom header
   const createCustomHeaderBuffer = (headerDict: string, data: ArrayBuffer): ArrayBuffer => {
     const magic = '\x93NUMPY';
-    const paddingLength = (64 - (10 + headerDict.length) % 64) % 64;
+    const paddingLength = (64 - ((10 + headerDict.length) % 64)) % 64;
     const paddedHeader = headerDict + ' '.repeat(paddingLength) + '\n';
-    
+
     const totalSize = 10 + paddedHeader.length + data.byteLength;
     const buffer = new ArrayBuffer(totalSize);
     const view = new Uint8Array(buffer);
-    
+
     // Write magic
     for (let i = 0; i < magic.length; i++) {
       view[i] = magic.charCodeAt(i);
     }
-    
+
     // Write version
     view[6] = 1;
     view[7] = 0;
-    
+
     // Write header length
     new DataView(buffer, 8, 2).setUint16(0, paddedHeader.length, true);
-    
+
     // Write header
     const encoder = new TextEncoder();
     const headerBytes = encoder.encode(paddedHeader);
     view.set(headerBytes, 10);
-    
+
     // Write data
     const dataView = new Uint8Array(buffer, 10 + paddedHeader.length);
     dataView.set(new Uint8Array(data));
-    
+
     return buffer;
   };
 
@@ -60,9 +60,9 @@ describe('NPYParser', () => {
       const data = new Float32Array([1.0, 2.0, 3.0, 4.0]);
       const shape = [2, 2];
       const buffer = createMinimalNPYBuffer(data, shape);
-      
+
       const result = NPYParser.parseHeader(buffer);
-      
+
       expect(result.shape).toEqual(shape);
       expect(result.dtype).toBe('<f4');
       expect(result.fortranOrder).toBe(false);
@@ -76,9 +76,9 @@ describe('NPYParser', () => {
       const data = new Float32Array([42.0]);
       const shape: number[] = [];
       const buffer = createMinimalNPYBuffer(data, shape);
-      
+
       const result = NPYParser.parseHeader(buffer);
-      
+
       expect(result.shape).toEqual([]);
       expect(result.dtype).toBe('<f4');
     });
@@ -101,19 +101,21 @@ describe('NPYParser', () => {
 
     it('should throw error for invalid magic string', () => {
       const buffer = createInvalidMagicBuffer();
-      
-      expect(() => NPYParser.parseHeader(buffer)).toThrow('Invalid NPY file: incorrect magic string');
+
+      expect(() => NPYParser.parseHeader(buffer)).toThrow(
+        'Invalid NPY file: incorrect magic string',
+      );
     });
 
     it('should throw error for empty buffer', () => {
       const buffer = new ArrayBuffer(0);
-      
+
       expect(() => NPYParser.parseHeader(buffer)).toThrow('Invalid input: empty or null buffer');
     });
 
     it('should throw error for buffer too small', () => {
       const buffer = new ArrayBuffer(5);
-      
+
       expect(() => NPYParser.parseHeader(buffer)).toThrow('Invalid NPY file: buffer too small');
     });
 
@@ -121,14 +123,14 @@ describe('NPYParser', () => {
       const buffer = new ArrayBuffer(10);
       const view = new Uint8Array(buffer);
       const magic = '\x93NUMPY';
-      
+
       for (let i = 0; i < magic.length; i++) {
         view[i] = magic.charCodeAt(i);
       }
-      
+
       view[6] = 99; // Unsupported version
       view[7] = 0;
-      
+
       expect(() => NPYParser.parseHeader(buffer)).toThrow('Unsupported NPY version: 99.0');
     });
 
@@ -136,22 +138,24 @@ describe('NPYParser', () => {
       const buffer = new ArrayBuffer(8);
       const view = new Uint8Array(buffer);
       const magic = '\x93NUMPY';
-      
+
       for (let i = 0; i < magic.length; i++) {
         view[i] = magic.charCodeAt(i);
       }
-      
+
       view[6] = 1;
       view[7] = 0;
-      
-      expect(() => NPYParser.parseHeader(buffer)).toThrow('Invalid NPY file: insufficient data for version 1.0 header');
+
+      expect(() => NPYParser.parseHeader(buffer)).toThrow(
+        'Invalid NPY file: insufficient data for version 1.0 header',
+      );
     });
 
     it('should handle header with single quotes in dtype', () => {
       const headerDict = "{'descr': '<f4', 'fortran_order': False, 'shape': (2,), }";
       const dataBuffer = new Float32Array([1.0, 2.0]).buffer;
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
-      
+
       const result = NPYParser.parseHeader(buffer);
       expect(result.dtype).toBe('<f4');
       expect(result.shape).toEqual([2]);
@@ -161,7 +165,7 @@ describe('NPYParser', () => {
       const headerDict = '{"descr": "<f4", "fortran_order": False, "shape": (2,), }';
       const dataBuffer = new Float32Array([1.0, 2.0]).buffer;
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
-      
+
       const result = NPYParser.parseHeader(buffer);
       expect(result.dtype).toBe('<f4');
     });
@@ -172,9 +176,9 @@ describe('NPYParser', () => {
       const originalData = new Float32Array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
       const shape = [2, 3];
       const buffer = createMinimalNPYBuffer(originalData, shape);
-      
+
       const result = NPYParser.parse(buffer);
-      
+
       expect(result.shape).toEqual(shape);
       expect(result.dtype).toBe('<f4');
       expect(result.data).toBeInstanceOf(Float32Array);
@@ -187,41 +191,41 @@ describe('NPYParser', () => {
           data: new Uint8Array([255, 128, 0]),
           shape: [3],
           expectedType: Uint8Array,
-          expectedValues: [255, 128, 0]
+          expectedValues: [255, 128, 0],
         },
         {
           data: new Int16Array([-32768, 0, 32767]),
           shape: [3],
           expectedType: Int16Array,
-          expectedValues: [-32768, 0, 32767]
+          expectedValues: [-32768, 0, 32767],
         },
         {
           data: new Int32Array([-2147483648, 0, 2147483647]),
           shape: [3],
           expectedType: Int32Array,
-          expectedValues: [-2147483648, 0, 2147483647]
+          expectedValues: [-2147483648, 0, 2147483647],
         },
         {
           data: new Float32Array([3.14159, -2.71828, 0.0]),
           shape: [3],
           expectedType: Float32Array,
-          expectedValues: [3.14159, -2.71828, 0.0]
+          expectedValues: [3.14159, -2.71828, 0.0],
         },
         {
           data: new Float64Array([Math.PI, -Math.E, 0.0]),
           shape: [3],
           expectedType: Float64Array,
-          expectedValues: [Math.PI, -Math.E, 0.0]
-        }
+          expectedValues: [Math.PI, -Math.E, 0.0],
+        },
       ];
 
       testCases.forEach(({ data, shape, expectedType, expectedValues }) => {
         const buffer = createMinimalNPYBuffer(data, shape);
         const result = NPYParser.parse(buffer);
-        
+
         expect(result.data).toBeInstanceOf(expectedType);
         expect(result.shape).toEqual(shape);
-        
+
         const resultArray = Array.from(result.data as any);
         expectedValues.forEach((expectedValue, index) => {
           if (typeof expectedValue === 'number' && isNaN(expectedValue)) {
@@ -237,9 +241,9 @@ describe('NPYParser', () => {
       const data = new Float32Array([1, 2, 3, 4, 5]);
       const shape = [5];
       const buffer = createMinimalNPYBuffer(data, shape);
-      
+
       const result = NPYParser.parse(buffer);
-      
+
       expect(result.shape).toEqual([5]);
       expect(Array.from(result.data as Float32Array)).toEqual([1, 2, 3, 4, 5]);
     });
@@ -248,9 +252,9 @@ describe('NPYParser', () => {
       const data = new Float32Array([1, 2, 3, 4, 5, 6, 7, 8]);
       const shape = [2, 2, 2];
       const buffer = createMinimalNPYBuffer(data, shape);
-      
+
       const result = NPYParser.parse(buffer);
-      
+
       expect(result.shape).toEqual([2, 2, 2]);
       expect(result.data.length).toBe(8);
     });
@@ -259,9 +263,9 @@ describe('NPYParser', () => {
       const data = new Float32Array([42.0]);
       const shape: number[] = [];
       const buffer = createMinimalNPYBuffer(data, shape);
-      
+
       const result = NPYParser.parse(buffer);
-      
+
       expect(result.shape).toEqual([]);
       expect(result.data.length).toBe(1);
       expect((result.data as Float32Array)[0]).toBe(42.0);
@@ -271,7 +275,7 @@ describe('NPYParser', () => {
       const headerDict = "{'descr': '<c8', 'fortran_order': False, 'shape': (2,), }";
       const dataBuffer = new ArrayBuffer(16); // 2 complex64 numbers
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
-      
+
       expect(() => NPYParser.parse(buffer)).toThrow('Unsupported dtype: <c8');
     });
 
@@ -279,7 +283,7 @@ describe('NPYParser', () => {
       const headerDict = "{'descr': '<f4', 'fortran_order': False, 'shape': (10,), }";
       const dataBuffer = new ArrayBuffer(16); // Only 4 float32 values instead of 10
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
-      
+
       expect(() => NPYParser.parse(buffer)).toThrow('Insufficient data');
     });
 
@@ -287,24 +291,28 @@ describe('NPYParser', () => {
       const headerDict = "{'descr': '<f4', 'fortran_order': True, 'shape': (2, 2), }";
       const dataBuffer = new Float32Array([1, 2, 3, 4]).buffer;
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
-      
-      expect(() => NPYParser.parse(buffer)).toThrow('Fortran order arrays are not currently supported');
+
+      expect(() => NPYParser.parse(buffer)).toThrow(
+        'Fortran order arrays are not currently supported',
+      );
     });
 
     it('parses an empty array shape', () => {
       const headerDict = "{'descr': '<f4', 'fortran_order': False, 'shape': (0, 5), }";
       const dataBuffer = new ArrayBuffer(0);
       const buffer = createCustomHeaderBuffer(headerDict, dataBuffer);
-      
+
       expect(NPYParser.parse(buffer)).toMatchObject({ shape: [0, 5], data: new Float32Array(0) });
     });
 
     it('rejects malformed or unsafe shape dimensions', () => {
       const malformed = createCustomHeaderBuffer(
-        "{'descr': '<f4', 'fortran_order': False, 'shape': (2junk,), }", new ArrayBuffer(8),
+        "{'descr': '<f4', 'fortran_order': False, 'shape': (2junk,), }",
+        new ArrayBuffer(8),
       );
       const unsafe = createCustomHeaderBuffer(
-        "{'descr': '<f4', 'fortran_order': False, 'shape': (9007199254740992,), }", new ArrayBuffer(0),
+        "{'descr': '<f4', 'fortran_order': False, 'shape': (9007199254740992,), }",
+        new ArrayBuffer(0),
       );
       expect(() => NPYParser.parse(malformed)).toThrow(/Invalid dimension in shape/);
       expect(() => NPYParser.parse(unsafe)).toThrow(/Invalid dimension in shape/);
@@ -315,12 +323,12 @@ describe('NPYParser', () => {
     it('should create valid NPY buffer from typed array', () => {
       const data = new Float32Array([1.0, 2.0, 3.0, 4.0]);
       const shape = [2, 2];
-      
+
       const buffer = NPYParser.toBuffer(data, shape);
-      
+
       expect(buffer).toBeInstanceOf(ArrayBuffer);
       expect(buffer.byteLength).toBeGreaterThan(0);
-      
+
       // Verify by parsing back
       const parsed = NPYParser.parse(buffer);
       expect(parsed.shape).toEqual(shape);
@@ -339,7 +347,7 @@ describe('NPYParser', () => {
       testCases.forEach(({ data, shape }) => {
         const buffer = NPYParser.toBuffer(data, shape);
         const parsed = NPYParser.parse(buffer);
-        
+
         expect(parsed.shape).toEqual(shape);
         expect(parsed.data.constructor).toBe(data.constructor);
       });
@@ -348,10 +356,10 @@ describe('NPYParser', () => {
     it('should handle scalar arrays', () => {
       const data = new Float32Array([42.0]);
       const shape: number[] = [];
-      
+
       const buffer = NPYParser.toBuffer(data, shape);
       const parsed = NPYParser.parse(buffer);
-      
+
       expect(parsed.shape).toEqual([]);
       expect((parsed.data as Float32Array)[0]).toBe(42.0);
     });
@@ -359,10 +367,10 @@ describe('NPYParser', () => {
     it('should handle 1D arrays with single element', () => {
       const data = new Float32Array([42.0]);
       const shape = [1];
-      
+
       const buffer = NPYParser.toBuffer(data, shape);
       const parsed = NPYParser.parse(buffer);
-      
+
       expect(parsed.shape).toEqual([1]);
       expect((parsed.data as Float32Array)[0]).toBe(42.0);
     });
@@ -370,35 +378,39 @@ describe('NPYParser', () => {
     it('should throw error for unsupported array type', () => {
       const data = new Int8Array([1, 2, 3]) as any;
       const shape = [3];
-      
+
       expect(() => NPYParser.toBuffer(data, shape)).toThrow('Unsupported data type');
     });
 
     it('should throw error for negative dimensions', () => {
       const data = new Float32Array([1, 2, 3]);
       const shape = [3, -1];
-      
-      expect(() => NPYParser.toBuffer(data, shape)).toThrow('Shape must contain non-negative integers');
+
+      expect(() => NPYParser.toBuffer(data, shape)).toThrow(
+        'Shape must contain non-negative integers',
+      );
     });
 
     it('should throw error for non-integer dimensions', () => {
       const data = new Float32Array([1, 2, 3]);
       const shape = [3.5] as any;
-      
-      expect(() => NPYParser.toBuffer(data, shape)).toThrow('Shape must contain non-negative integers');
+
+      expect(() => NPYParser.toBuffer(data, shape)).toThrow(
+        'Shape must contain non-negative integers',
+      );
     });
 
     it('should throw error for mismatched data length and shape', () => {
       const data = new Float32Array([1, 2, 3]);
       const shape = [2, 2]; // Expects 4 elements, but data has 3
-      
+
       expect(() => NPYParser.toBuffer(data, shape)).toThrow("Data length (3) doesn't match shape");
     });
 
     it('should create properly aligned headers', () => {
       const data = new Float32Array([1.0]);
       const shape = [1];
-      
+
       const buffer = NPYParser.toBuffer(data, shape);
       expect(NPYParser.parseHeader(buffer).headerLength % 64).toBe(0);
       expect(() => NPYParser.parse(buffer)).not.toThrow();
@@ -429,13 +441,13 @@ describe('NPYParser', () => {
         const parsed1 = NPYParser.parse(buffer1);
         const buffer2 = NPYParser.toBuffer(parsed1.data, parsed1.shape);
         const parsed2 = NPYParser.parse(buffer2);
-        
+
         expect(parsed2.shape).toEqual(shape);
         expect(parsed2.data.constructor).toBe(data.constructor);
-        
+
         const original = Array.from(data);
         const final = Array.from(parsed2.data as any);
-        
+
         original.forEach((value, index) => {
           if (typeof value === 'number' && isNaN(value)) {
             expect(final[index]).toBeNaN();
@@ -470,8 +482,8 @@ describe('NPYParser', () => {
 
       it('should return null for unsupported dtypes', () => {
         const unsupportedDtypes = ['<c8', '>U10', '<M8', 'invalid'];
-        
-        unsupportedDtypes.forEach(dtype => {
+
+        unsupportedDtypes.forEach((dtype) => {
           expect(NPYParser.getDtypeInfo(dtype)).toBeNull();
         });
       });
@@ -480,16 +492,16 @@ describe('NPYParser', () => {
     describe('isSupportedDtype', () => {
       it('should return true for supported dtypes', () => {
         const supportedDtypes = ['<f4', '<f8', '|u1', '<i2', '<i4', '<i8', '>f4', '>i2'];
-        
-        supportedDtypes.forEach(dtype => {
+
+        supportedDtypes.forEach((dtype) => {
           expect(NPYParser.isSupportedDtype(dtype)).toBe(true);
         });
       });
 
       it('should return false for unsupported dtypes', () => {
         const unsupportedDtypes = ['<c8', '>U10', '<M8', 'invalid', ''];
-        
-        unsupportedDtypes.forEach(dtype => {
+
+        unsupportedDtypes.forEach((dtype) => {
           expect(NPYParser.isSupportedDtype(dtype)).toBe(false);
         });
       });
@@ -504,7 +516,7 @@ describe('NPYParser', () => {
         data[i] = Math.random();
       }
       const shape = [size];
-      
+
       expect(() => {
         const buffer = NPYParser.toBuffer(data, shape);
         const parsed = NPYParser.parse(buffer);
@@ -514,16 +526,23 @@ describe('NPYParser', () => {
 
     it('should handle special float values', () => {
       const data = new Float64Array([
-        0.0, -0.0, Infinity, -Infinity, NaN,
-        Number.MAX_VALUE, Number.MIN_VALUE,
-        Number.EPSILON, Math.PI, Math.E
+        0.0,
+        -0.0,
+        Infinity,
+        -Infinity,
+        NaN,
+        Number.MAX_VALUE,
+        Number.MIN_VALUE,
+        Number.EPSILON,
+        Math.PI,
+        Math.E,
       ]);
       const shape = [data.length];
-      
+
       const buffer = NPYParser.toBuffer(data, shape);
       const parsed = NPYParser.parse(buffer);
       const result = parsed.data as Float64Array;
-      
+
       expect(result[0]).toBe(0.0);
       expect(Object.is(result[1], -0.0)).toBe(true);
       expect(result[2]).toBe(Infinity);
@@ -540,7 +559,7 @@ describe('NPYParser', () => {
       // This should be rejected as invalid
       const data = new Float32Array([]);
       const shape = [0];
-      
+
       // Empty data with shape [0] should work
       expect(() => NPYParser.toBuffer(data, shape)).not.toThrow();
     });

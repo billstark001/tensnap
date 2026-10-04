@@ -20,12 +20,17 @@ function nonNegativeInteger(value: unknown, name: string, fallback: number): num
 export function resolveBrowserBenchmarkRunOptions(
   options: BrowserBenchmarkRunOptions | undefined,
 ): ResolvedBrowserBenchmarkRunOptions {
-  if (options !== undefined && (typeof options !== 'object' || options === null || Array.isArray(options))) {
+  if (
+    options !== undefined &&
+    (typeof options !== 'object' || options === null || Array.isArray(options))
+  ) {
     throw new Error('browserOptions must be an object.');
   }
   const renderTriggerMode = options?.renderTriggerMode ?? 'requestAnimationFrame';
   if (!RENDER_TRIGGER_MODES.has(renderTriggerMode)) {
-    throw new Error('browserOptions.renderTriggerMode must be auto, setTimeout, or requestAnimationFrame.');
+    throw new Error(
+      'browserOptions.renderTriggerMode must be auto, setTimeout, or requestAnimationFrame.',
+    );
   }
   return {
     renderTriggerMode,

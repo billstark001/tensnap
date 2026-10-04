@@ -1,12 +1,6 @@
 /* eslint-disable no-redeclare */
 import { useCallback, useRef, useState, useEffect } from 'react';
-import {
-  DragEndEvent,
-  DragStartEvent,
-  DragMoveEvent,
-  Active,
-  Over,
-} from '@dnd-kit/core';
+import { DragEndEvent, DragStartEvent, DragMoveEvent, Active, Over } from '@dnd-kit/core';
 import { ContainerView, AnyView } from '@/types/ui';
 import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
 import { Coordinates } from '@dnd-kit/core/dist/types';
@@ -17,7 +11,6 @@ import { moveViewInPlace, updateViewInPlace } from '@/utils/view/mutation';
 import { ViewUpdateHandler } from './useViewContext';
 import { DraggableViewData, DroppableViewData } from './types';
 import { useRecordViewHistory } from '@/store/view-history';
-
 
 type DragContent = {
   id: string;
@@ -97,43 +90,55 @@ const getCalibratedCoordinates = (
 export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
   const matcherRef = useRef<GuideLineMatcher | null>(null);
 
-  const initMatcher = useCallback((coord: ViewBox, views: ViewBox[]) => {
-    matcherRef.current = new GuideLineMatcher({ coord, views }, SNAP_THRESHOLD, mode, {
-      enableSize: true,
-      enableSpacing: true,
-    });
-  }, [mode]);
+  const initMatcher = useCallback(
+    (coord: ViewBox, views: ViewBox[]) => {
+      matcherRef.current = new GuideLineMatcher({ coord, views }, SNAP_THRESHOLD, mode, {
+        enableSize: true,
+        enableSpacing: true,
+      });
+    },
+    [mode],
+  );
 
   const updateViews = useCallback((views: ViewBox[]) => {
     matcherRef.current?.updateViews(views);
   }, []);
 
-  const match = useCallback((coord: ViewBox) => {
-    const result = matcherRef.current?.match(coord);
-    if (!result) return { guidelines: [], snap: null };
+  const match = useCallback(
+    (coord: ViewBox) => {
+      const result = matcherRef.current?.match(coord);
+      if (!result) return { guidelines: [], snap: null };
 
-    const { guidelines = [], snapX, snapY, snapWidth, snapHeight } = result;
+      const { guidelines = [], snapX, snapY, snapWidth, snapHeight } = result;
 
-    if (mode === 'resize') {
-      // Resize mode can snap by matching the right/bottom edge or by matching size.
-      const width = snapWidth ?? snapX;
-      const height = snapHeight ?? snapY;
-      const snap = (width != null || height != null) ? {
-        ...coord,
-        width: width ?? coord.width,
-        height: height ?? coord.height,
-      } : null;
-      return { guidelines, snap };
-    } else {
-      // Drag 模式：snapX 和 snapY 是 left 和 top
-      const snap = (snapX != null || snapY != null) ? {
-        ...coord,
-        left: snapX ?? coord.left,
-        top: snapY ?? coord.top,
-      } : null;
-      return { guidelines, snap };
-    }
-  }, [mode]);
+      if (mode === 'resize') {
+        // Resize mode can snap by matching the right/bottom edge or by matching size.
+        const width = snapWidth ?? snapX;
+        const height = snapHeight ?? snapY;
+        const snap =
+          width != null || height != null
+            ? {
+                ...coord,
+                width: width ?? coord.width,
+                height: height ?? coord.height,
+              }
+            : null;
+        return { guidelines, snap };
+      } else {
+        // Drag 模式：snapX 和 snapY 是 left 和 top
+        const snap =
+          snapX != null || snapY != null
+            ? {
+                ...coord,
+                left: snapX ?? coord.left,
+                top: snapY ?? coord.top,
+              }
+            : null;
+        return { guidelines, snap };
+      }
+    },
+    [mode],
+  );
 
   const clear = useCallback(() => {
     matcherRef.current = null;
@@ -153,7 +158,7 @@ export function useDragState() {
   });
 
   const updateState = useCallback((partial: Partial<DragState>) => {
-    setState(prev => ({ ...prev, ...partial }));
+    setState((prev) => ({ ...prev, ...partial }));
   }, []);
 
   const clearState = useCallback(() => {
@@ -180,7 +185,7 @@ export function useResizeState() {
   });
 
   const updateState = useCallback((partial: Partial<ResizeState>) => {
-    setState(prev => ({ ...prev, ...partial }));
+    setState((prev) => ({ ...prev, ...partial }));
   }, []);
 
   const clearState = useCallback(() => {
@@ -196,13 +201,12 @@ export function useResizeState() {
   return { state, updateState, clearState };
 }
 
-
 function getData(obj?: Active | null): DraggableViewData;
 function getData(obj?: Over | null): DroppableViewData;
 function getData(obj?: Active | Over | null | undefined): DraggableViewData | DroppableViewData {
   const data = obj?.data.current;
   if (!data) {
-    return { relativeLeft: 0, relativeTop: 0, };
+    return { relativeLeft: 0, relativeTop: 0 };
   }
   return data as any;
 }
@@ -221,106 +225,120 @@ export function useDragContent({
   const recordViewHistory = useRecordViewHistory();
   const transactionStart = useRef<ContainerView | null>(null);
 
-  const updateSnapState = useCallback((coord: ViewBox) => {
-    const { guidelines, snap } = match(coord);
-    updateState({ guideLines: guidelines, suggestedSnap: snap });
-    return snap;
-  }, [match, updateState]);
+  const updateSnapState = useCallback(
+    (coord: ViewBox) => {
+      const { guidelines, snap } = match(coord);
+      updateState({ guideLines: guidelines, suggestedSnap: snap });
+      return snap;
+    },
+    [match, updateState],
+  );
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { offsetX = 0, offsetY = 0 } = event.activatorEvent as PointerEvent;
-    const { view, parentView, relativeLeft, relativeTop } = getData(event.active);
-    const id = event.active.id as string;
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      const { offsetX = 0, offsetY = 0 } = event.activatorEvent as PointerEvent;
+      const { view, parentView, relativeLeft, relativeTop } = getData(event.active);
+      const id = event.active.id as string;
 
-    if (!view || !id) return;
-    transactionStart.current = structuredClone(rootView);
+      if (!view || !id) return;
+      transactionStart.current = structuredClone(rootView);
 
-    const mouseX = offsetX / window.devicePixelRatio;
-    const mouseY = offsetY / window.devicePixelRatio;
-    const coord = getEffectiveViewBox(view);
+      const mouseX = offsetX / window.devicePixelRatio;
+      const mouseY = offsetY / window.devicePixelRatio;
+      const coord = getEffectiveViewBox(view);
 
-    initMatcher(coord, getGuidelineReferenceViews(parentView?.views ?? [], view, coord));
+      initMatcher(coord, getGuidelineReferenceViews(parentView?.views ?? [], view, coord));
 
-    updateState({
-      content: { id, view, mouseX, mouseY },
-      container: parentView,
-      guideOrigin: { relativeLeft, relativeTop },
-    });
-
-    updateSnapState(coord);
-  }, [initMatcher, rootView, updateState, updateSnapState]);
-
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    const { view: activeView, parentId: sourceParentId } = getData(event.active);
-    const { view: overView, relativeLeft, relativeTop } = getData(event.over);
-    if (!activeView || !overView) {
-      return;
-    }
-
-    const coord = getCalibratedCoordinates(
-      getEffectiveViewBox(activeView),
-      getData(event.active),
-      getData(event.over),
-      event.delta,
-    );
-
-    if (overView.id !== state.container?.id) {
-      updateViews(getGuidelineReferenceViews(
-        (overView as ContainerView).views ?? [],
-        activeView,
-        overView.id === sourceParentId ? getEffectiveViewBox(activeView) : undefined,
-      ));
       updateState({
-        container: overView as ContainerView,
+        content: { id, view, mouseX, mouseY },
+        container: parentView,
         guideOrigin: { relativeLeft, relativeTop },
       });
-    }
 
-    updateSnapState(coord);
-  }, [state.container, updateViews, updateState, updateSnapState]);
+      updateSnapState(coord);
+    },
+    [initMatcher, rootView, updateState, updateSnapState],
+  );
+
+  const handleDragMove = useCallback(
+    (event: DragMoveEvent) => {
+      const { view: activeView, parentId: sourceParentId } = getData(event.active);
+      const { view: overView, relativeLeft, relativeTop } = getData(event.over);
+      if (!activeView || !overView) {
+        return;
+      }
+
+      const coord = getCalibratedCoordinates(
+        getEffectiveViewBox(activeView),
+        getData(event.active),
+        getData(event.over),
+        event.delta,
+      );
+
+      if (overView.id !== state.container?.id) {
+        updateViews(
+          getGuidelineReferenceViews(
+            (overView as ContainerView).views ?? [],
+            activeView,
+            overView.id === sourceParentId ? getEffectiveViewBox(activeView) : undefined,
+          ),
+        );
+        updateState({
+          container: overView as ContainerView,
+          guideOrigin: { relativeLeft, relativeTop },
+        });
+      }
+
+      updateSnapState(coord);
+    },
+    [state.container, updateViews, updateState, updateSnapState],
+  );
 
   const throttledHandleDragMove = useThrottled(handleDragMove, 16);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    const { active, over } = event;
-    const { view: draggedView, parentId: sourceParentId } = getData(active);
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      const { view: draggedView, parentId: sourceParentId } = getData(active);
 
-    if (!over || !draggedView) {
-      transactionStart.current = null;
+      if (!over || !draggedView) {
+        transactionStart.current = null;
+        clearState();
+        clearMatcher();
+        return;
+      }
+
+      const { containerId: targetContainerId } = getData(over);
+
+      const coords = getCalibratedCoordinates(
+        getEffectiveViewBox(draggedView),
+        getData(active),
+        getData(over),
+        event.delta,
+        true,
+      );
+
+      const snappedCoords = updateSnapState(coords) || coords;
+      moveViewInPlace({
+        rootView,
+        view: draggedView,
+        left: snappedCoords.left,
+        top: snappedCoords.top,
+        sourceParentId,
+        targetContainerId,
+        onViewUpdate,
+      });
+
+      if (transactionStart.current) {
+        recordViewHistory('Move view', 'layout', transactionStart.current, rootView);
+        transactionStart.current = null;
+      }
+
       clearState();
       clearMatcher();
-      return;
-    }
-
-    const { containerId: targetContainerId } = getData(over);
-
-    const coords = getCalibratedCoordinates(
-      getEffectiveViewBox(draggedView),
-      getData(active),
-      getData(over),
-      event.delta,
-      true,
-    );
-
-    const snappedCoords = updateSnapState(coords) || coords;
-    moveViewInPlace({
-      rootView,
-      view: draggedView,
-      left: snappedCoords.left,
-      top: snappedCoords.top,
-      sourceParentId,
-      targetContainerId,
-      onViewUpdate,
-    });
-
-    if (transactionStart.current) {
-      recordViewHistory('Move view', 'layout', transactionStart.current, rootView);
-      transactionStart.current = null;
-    }
-
-    clearState();
-    clearMatcher();
-  }, [rootView, clearState, clearMatcher, onViewUpdate, updateSnapState, recordViewHistory]);
+    },
+    [rootView, clearState, clearMatcher, onViewUpdate, updateSnapState, recordViewHistory],
+  );
 
   // cleanup
   useEffect(() => {
@@ -336,8 +354,7 @@ export function useDragContent({
     onDragMove: throttledHandleDragMove,
     onDragEnd: handleDragEnd,
   };
-
-};
+}
 
 // Resize 功能
 export function useResizeContent({
@@ -358,36 +375,38 @@ export function useResizeContent({
   const startPos = useRef<{ x: number; y: number } | undefined>(undefined);
   const lastUpdateTime = useRef<number>(0);
 
-  const onResizeStart = useCallbackRef((
-    view: AnyView,
-    parentView: ContainerView,
-    direction: string,
-    relativeLeft: number,
-    relativeTop: number,
-    clientX: number,
-    clientY: number,
-  ) => {
-    transactionStart.current = structuredClone(rootView);
-    isResizing.current = direction;
-    startPos.current = { x: clientX, y: clientY };
+  const onResizeStart = useCallbackRef(
+    (
+      view: AnyView,
+      parentView: ContainerView,
+      direction: string,
+      relativeLeft: number,
+      relativeTop: number,
+      clientX: number,
+      clientY: number,
+    ) => {
+      transactionStart.current = structuredClone(rootView);
+      isResizing.current = direction;
+      startPos.current = { x: clientX, y: clientY };
 
-    const coord = getEffectiveViewBox(view);
-    initMatcher(coord, getGuidelineReferenceViews(parentView.views ?? [], view, coord));
+      const coord = getEffectiveViewBox(view);
+      initMatcher(coord, getGuidelineReferenceViews(parentView.views ?? [], view, coord));
 
-    updateState({
-      content: {
-        view,
-        direction,
-        startWidth: view.width,
-        startHeight: view.height,
-      },
-      container: parentView,
-      guideOrigin: { relativeLeft, relativeTop },
-    });
+      updateState({
+        content: {
+          view,
+          direction,
+          startWidth: view.width,
+          startHeight: view.height,
+        },
+        container: parentView,
+        guideOrigin: { relativeLeft, relativeTop },
+      });
 
-    const { guidelines, snap } = match(coord);
-    updateState({ guideLines: guidelines, suggestedSnap: snap });
-  });
+      const { guidelines, snap } = match(coord);
+      updateState({ guideLines: guidelines, suggestedSnap: snap });
+    },
+  );
 
   const onResize = useCallbackRef((clientX: number, clientY: number) => {
     if (!startPos.current || !isResizing.current || !state.content) {
@@ -413,14 +432,14 @@ export function useResizeContent({
 
     switch (direction) {
       case 'se':
-        newWidth = Math.max(60, startWidth + deltaX | 0);
-        newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
+        newWidth = Math.max(60, (startWidth + deltaX) | 0);
+        newHeight = Math.max(view.type === 'button' ? 30 : 60, (startHeight + deltaY) | 0);
         break;
       case 'e':
-        newWidth = Math.max(60, startWidth + deltaX | 0);
+        newWidth = Math.max(60, (startWidth + deltaX) | 0);
         break;
       case 's':
-        newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
+        newHeight = Math.max(view.type === 'button' ? 30 : 60, (startHeight + deltaY) | 0);
         break;
     }
 
@@ -431,9 +450,8 @@ export function useResizeContent({
 
     const { guidelines, snap } = match(coord);
     const resizedWidth = snap?.width ?? newWidth;
-    const resizedHeight = view.type === 'container' && !view.expanded
-      ? newHeight
-      : snap?.height ?? newHeight;
+    const resizedHeight =
+      view.type === 'container' && !view.expanded ? newHeight : (snap?.height ?? newHeight);
     updateViewInPlace(
       {
         rootView,
@@ -472,14 +490,14 @@ export function useResizeContent({
 
     switch (direction) {
       case 'se':
-        newWidth = Math.max(60, startWidth + deltaX | 0);
-        newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
+        newWidth = Math.max(60, (startWidth + deltaX) | 0);
+        newHeight = Math.max(view.type === 'button' ? 30 : 60, (startHeight + deltaY) | 0);
         break;
       case 'e':
-        newWidth = Math.max(60, startWidth + deltaX | 0);
+        newWidth = Math.max(60, (startWidth + deltaX) | 0);
         break;
       case 's':
-        newHeight = Math.max(view.type === 'button' ? 30 : 60, startHeight + deltaY | 0);
+        newHeight = Math.max(view.type === 'button' ? 30 : 60, (startHeight + deltaY) | 0);
         break;
     }
 
@@ -489,9 +507,8 @@ export function useResizeContent({
     });
 
     const { snap } = match(coord);
-    const resizedHeight = view.type === 'container' && !view.expanded
-      ? newHeight
-      : snap?.height ?? newHeight;
+    const resizedHeight =
+      view.type === 'container' && !view.expanded ? newHeight : (snap?.height ?? newHeight);
     updateViewInPlace(
       {
         rootView,
@@ -511,15 +528,21 @@ export function useResizeContent({
     clearMatcher();
   });
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    onResize(e.clientX, e.clientY);
-  }, [onResize]);
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      onResize(e.clientX, e.clientY);
+    },
+    [onResize],
+  );
 
-  const handleMouseUp = useCallback((e: MouseEvent) => {
-    if (!isResizing.current) return;
-    onResizeEnd(e.clientX, e.clientY);
-  }, [onResizeEnd]);
+  const handleMouseUp = useCallback(
+    (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      onResizeEnd(e.clientX, e.clientY);
+    },
+    [onResizeEnd],
+  );
 
   useEffect(() => {
     document.addEventListener('mousemove', handleMouseMove, { passive: true });

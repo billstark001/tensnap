@@ -26,8 +26,12 @@ export class InMemoryTransport implements ISimulatorTransport {
   private readonly handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
   private destroyed = false;
 
-  constructor(private readonly simulation: InMemorySimulationHandler, connectionId?: string) {
-    this.connectionId = connectionId ?? simulation.connectionId ?? `inmemory-${crypto.randomUUID()}`;
+  constructor(
+    private readonly simulation: InMemorySimulationHandler,
+    connectionId?: string,
+  ) {
+    this.connectionId =
+      connectionId ?? simulation.connectionId ?? `inmemory-${crypto.randomUUID()}`;
   }
 
   async connect(signal?: AbortSignal): Promise<void> {
@@ -90,14 +94,20 @@ export class InMemoryTransport implements ISimulatorTransport {
     this.handlers.clear();
   }
 
-  on<K extends keyof TransportEventMap>(type: K, handler: TransportEventHandler<TransportEventMap[K]>): void {
+  on<K extends keyof TransportEventMap>(
+    type: K,
+    handler: TransportEventHandler<TransportEventMap[K]>,
+  ): void {
     if (!this.handlers.has(type)) {
       this.handlers.set(type, new Set());
     }
     this.handlers.get(type)!.add(handler);
   }
 
-  off<K extends keyof TransportEventMap>(type: K, handler?: TransportEventHandler<TransportEventMap[K]>): void {
+  off<K extends keyof TransportEventMap>(
+    type: K,
+    handler?: TransportEventHandler<TransportEventMap[K]>,
+  ): void {
     if (!handler) {
       this.handlers.delete(type);
       return;

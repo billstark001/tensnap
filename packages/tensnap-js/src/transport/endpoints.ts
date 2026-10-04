@@ -56,7 +56,10 @@ export function adaptWorker(worker: Worker): PostMessageEndpoint {
   return createEndpoint(worker);
 }
 
-export function createLinkedEndpoints(): { renderer: PostMessageEndpoint; simulator: PostMessageEndpoint } {
+export function createLinkedEndpoints(): {
+  renderer: PostMessageEndpoint;
+  simulator: PostMessageEndpoint;
+} {
   const rendererListeners = new Set<(message: unknown) => void>();
   const simulatorListeners = new Set<(message: unknown) => void>();
 

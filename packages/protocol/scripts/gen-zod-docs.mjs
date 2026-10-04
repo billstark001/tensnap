@@ -7,12 +7,7 @@ import { basename, dirname, relative, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 // zod-to-ts still produces nodes with the pre-v7 JavaScript compiler API.
 import ts from 'typescript-legacy-api';
-import {
-  createAuxiliaryTypeStore,
-  createTypeAlias,
-  printNode,
-  zodToTs,
-} from 'zod-to-ts';
+import { createAuxiliaryTypeStore, createTypeAlias, printNode, zodToTs } from 'zod-to-ts';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -31,13 +26,14 @@ const sourceFiles = [
 const outputArg = parseOutputArg(process.argv.slice(2));
 const packageMetadata = readJson(resolve(ROOT, 'package.json'));
 const generatedAt = new Date().toISOString();
-const typeTextOverrides = new Map([
-  ['AssetAgentIconSchema', '`asset:${string}`'],
-]);
+const typeTextOverrides = new Map([['AssetAgentIconSchema', '`asset:${string}`']]);
 
 const sourceInfo = collectSourceInfo(sourceFiles);
 const runtimeModule = await loadRuntimeModule();
-const typeNameBySchemaValue = collectRuntimeSchemaTypeNames(runtimeModule, sourceInfo.typeNameBySchemaName);
+const typeNameBySchemaValue = collectRuntimeSchemaTypeNames(
+  runtimeModule,
+  sourceInfo.typeNameBySchemaName,
+);
 const schemaDefinitions = renderSchemaDefinitions(runtimeModule, sourceInfo, typeNameBySchemaValue);
 
 const markdown = renderMarkdown({
@@ -202,7 +198,12 @@ function collectFieldDocs(declaration, sourceFile, schemaDeclarations, seen = ne
     const base = schemaDeclarations.get(baseSchemaName);
     if (base) {
       seen.add(baseSchemaName);
-      for (const [name, comment] of collectFieldDocs(base.declaration, base.sourceFile, schemaDeclarations, seen)) {
+      for (const [name, comment] of collectFieldDocs(
+        base.declaration,
+        base.sourceFile,
+        schemaDeclarations,
+        seen,
+      )) {
         fieldDocs.set(name, comment);
       }
     }
@@ -269,9 +270,9 @@ function findFirstZodObjectLiteral(node) {
 function isZodObjectCall(node) {
   const expression = node.expression;
   return (
-    ts.isPropertyAccessExpression(expression)
-    && expression.name.text === 'object'
-    && expression.expression.getText() === 'z'
+    ts.isPropertyAccessExpression(expression) &&
+    expression.name.text === 'object' &&
+    expression.expression.getText() === 'z'
   );
 }
 
@@ -309,7 +310,10 @@ function collectRuntimeSchemaTypeNames(module, explicitTypeNames) {
     if (!exportName.endsWith('Schema') || !isZodSchema(value)) {
       continue;
     }
-    typeNameBySchemaValue.set(value, explicitTypeNames.get(exportName) ?? exportName.slice(0, -'Schema'.length));
+    typeNameBySchemaValue.set(
+      value,
+      explicitTypeNames.get(exportName) ?? exportName.slice(0, -'Schema'.length),
+    );
   }
 
   return typeNameBySchemaValue;
@@ -317,10 +321,10 @@ function collectRuntimeSchemaTypeNames(module, explicitTypeNames) {
 
 function isZodSchema(value) {
   return (
-    typeof value === 'object'
-    && value !== null
-    && typeof value.safeParse === 'function'
-    && value._zod
+    typeof value === 'object' &&
+    value !== null &&
+    typeof value.safeParse === 'function' &&
+    value._zod
   );
 }
 
@@ -335,9 +339,16 @@ function renderSchemaDefinitions(module, sourceInfo, typeNameBySchemaValue) {
     .filter((schemaName) => availableSchemaNames.has(schemaName))
     .map((schemaName) => {
       const schema = module[schemaName];
-      const typeName = sourceInfo.typeNameBySchemaName.get(schemaName) ?? schemaName.slice(0, -'Schema'.length);
+      const typeName =
+        sourceInfo.typeNameBySchemaName.get(schemaName) ?? schemaName.slice(0, -'Schema'.length);
       const info = sourceInfo.schemaDocs.get(schemaName);
-      const definition = renderTypeAlias(schemaName, schema, typeName, typeNameBySchemaValue, info?.fieldDocs ?? new Map());
+      const definition = renderTypeAlias(
+        schemaName,
+        schema,
+        typeName,
+        typeNameBySchemaValue,
+        info?.fieldDocs ?? new Map(),
+      );
 
       return {
         comment: info?.comment ?? '',
@@ -398,13 +409,13 @@ function createTypeNode(typeText, typescript) {
 
 function usesUint8ArrayCustom(schemaName) {
   return (
-    schemaName === 'AssetDataPayloadSchema'
-    || schemaName === 'ScreenshotResponsePayloadSchema'
-    || schemaName === 'BackgroundSourceSchema'
-    || schemaName === 'BackgroundLayerMetadataSchema'
-    || schemaName === 'BackgroundLayerCreatePayloadSchema'
-    || schemaName === 'BuiltinLayerCreatePayloadSchema'
-    || schemaName === 'CheckpointSchema'
+    schemaName === 'AssetDataPayloadSchema' ||
+    schemaName === 'ScreenshotResponsePayloadSchema' ||
+    schemaName === 'BackgroundSourceSchema' ||
+    schemaName === 'BackgroundLayerMetadataSchema' ||
+    schemaName === 'BackgroundLayerCreatePayloadSchema' ||
+    schemaName === 'BuiltinLayerCreatePayloadSchema' ||
+    schemaName === 'CheckpointSchema'
   );
 }
 
@@ -439,34 +450,32 @@ function injectFieldComments(definition, fieldDocs) {
 }
 
 function renderMarkdown({ generatedAt, packageMetadata, schemaDefinitions, sourceInfo }) {
-  const payloadSchemas = schemaDefinitions.filter((entry) => (
-    entry.source === 'schemas.ts'
-    && (
-      entry.name.endsWith('PayloadSchema')
-      || entry.name === 'StateSyncRequestSchema'
-      || entry.name === 'TickTimingBreakdownSchema'
-    )
-  ));
-  const messageSchemas = schemaDefinitions.filter((entry) => (
-    entry.source === 'schemas.ts'
-    && (
-      entry.name === 'SimulatorToRendererMessageSchema'
-      || entry.name === 'RendererToSimulatorMessageSchema'
-      || entry.name === 'AnyProtocolMessageSchema'
-    )
-  ));
-  const componentSchemas = schemaDefinitions.filter((entry) => (
-    entry.source === 'asset.ts'
-    || entry.source === 'chart.ts'
-    || entry.source === 'controls.ts'
-  ));
+  const payloadSchemas = schemaDefinitions.filter(
+    (entry) =>
+      entry.source === 'schemas.ts' &&
+      (entry.name.endsWith('PayloadSchema') ||
+        entry.name === 'StateSyncRequestSchema' ||
+        entry.name === 'TickTimingBreakdownSchema'),
+  );
+  const messageSchemas = schemaDefinitions.filter(
+    (entry) =>
+      entry.source === 'schemas.ts' &&
+      (entry.name === 'SimulatorToRendererMessageSchema' ||
+        entry.name === 'RendererToSimulatorMessageSchema' ||
+        entry.name === 'AnyProtocolMessageSchema'),
+  );
+  const componentSchemas = schemaDefinitions.filter(
+    (entry) =>
+      entry.source === 'asset.ts' || entry.source === 'chart.ts' || entry.source === 'controls.ts',
+  );
   const layerSchemas = schemaDefinitions.filter((entry) => entry.source === 'layers.ts');
-  const supportingSchemas = schemaDefinitions.filter((entry) => (
-    !payloadSchemas.includes(entry)
-    && !messageSchemas.includes(entry)
-    && !componentSchemas.includes(entry)
-    && !layerSchemas.includes(entry)
-  ));
+  const supportingSchemas = schemaDefinitions.filter(
+    (entry) =>
+      !payloadSchemas.includes(entry) &&
+      !messageSchemas.includes(entry) &&
+      !componentSchemas.includes(entry) &&
+      !layerSchemas.includes(entry),
+  );
 
   return [
     '# TenSnap Protocol Type Definitions',
@@ -497,11 +506,7 @@ function renderSection(title, entries) {
     return [`## ${title}`, '', 'No schemas in this group.', ''];
   }
 
-  return [
-    `## ${title}`,
-    '',
-    ...entries.flatMap((entry) => renderSchemaSection(entry)),
-  ];
+  return [`## ${title}`, '', ...entries.flatMap((entry) => renderSchemaSection(entry))];
 }
 
 function renderSchemaSection(entry) {

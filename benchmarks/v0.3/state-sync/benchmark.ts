@@ -21,7 +21,13 @@ const defaults: StateSyncConfig = {
 };
 
 function integer(value: unknown, name: string, minimum: number, maximum?: number): number {
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < minimum || (maximum !== undefined && value > maximum)) throw new Error(`${name} must be an integer in range.`);
+  if (
+    typeof value !== 'number' ||
+    !Number.isInteger(value) ||
+    value < minimum ||
+    (maximum !== undefined && value > maximum)
+  )
+    throw new Error(`${name} must be an integer in range.`);
   return value;
 }
 
@@ -32,8 +38,14 @@ function resolveConfig(overrides: Partial<StateSyncConfig> = {}): StateSyncConfi
     ...config,
     agentCount,
     changedAgents: integer(config.changedAgents, 'changedAgents', 0, agentCount),
-    worldSize: typeof config.worldSize === 'number' && config.worldSize > 0 ? config.worldSize : defaults.worldSize,
-    stepSize: typeof config.stepSize === 'number' && config.stepSize >= 0 ? config.stepSize : defaults.stepSize,
+    worldSize:
+      typeof config.worldSize === 'number' && config.worldSize > 0
+        ? config.worldSize
+        : defaults.worldSize,
+    stepSize:
+      typeof config.stepSize === 'number' && config.stepSize >= 0
+        ? config.stepSize
+        : defaults.stepSize,
     seed: integer(config.seed, 'seed', 0, 0xffff_ffff),
   };
 }
@@ -75,23 +87,68 @@ function createNodeCase(config: StateSyncConfig): NodeBenchmarkCase {
       stepRandomWalk(agents, config, random, iteration);
       const requestId = `sync-${iteration}`;
       session.requestStateSync(requestId);
-      session.handleIncoming({ type: 'state_sync_begin', payload: { request_id: requestId, model_id: 'benchmark.v0.3.state-sync', instance_id: 'benchmark-instance', mode: 'replace' } });
+      session.handleIncoming({
+        type: 'state_sync_begin',
+        payload: {
+          request_id: requestId,
+          model_id: 'benchmark.v0.3.state-sync',
+          instance_id: 'benchmark-instance',
+          mode: 'replace',
+        },
+      });
       session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
       session.handleIncoming({
         type: 'env_layer_create',
-        payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent', metadata: { width: config.worldSize, height: config.worldSize, coord_offset: 'float' } },
+        payload: {
+          env_id: 'main',
+          layer_id: 'agents',
+          layer_type: 'agent',
+          metadata: { width: config.worldSize, height: config.worldSize, coord_offset: 'float' },
+        },
       });
-      session.handleIncoming({ type: 'item_create', payload: { env_id: 'main', layer_id: 'agents', items: structuredClone(agents) as unknown as Array<Record<string, never>> } });
-      session.handleIncoming({ type: 'chart_create', payload: { id: 'population', label: 'Population' } });
-      session.handleIncoming({ type: 'chart_update', payload: { updates: [{ id: 'population', time: iteration, value: config.agentCount }] } });
+      session.handleIncoming({
+        type: 'item_create',
+        payload: {
+          env_id: 'main',
+          layer_id: 'agents',
+          items: structuredClone(agents) as unknown as Array<Record<string, never>>,
+        },
+      });
+      session.handleIncoming({
+        type: 'chart_create',
+        payload: { id: 'population', label: 'Population' },
+      });
+      session.handleIncoming({
+        type: 'chart_update',
+        payload: { updates: [{ id: 'population', time: iteration, value: config.agentCount }] },
+      });
       session.handleIncoming({ type: 'monitor_create', payload: { id: 'sync', label: 'Sync' } });
-      session.handleIncoming({ type: 'monitor_update', payload: { id: 'sync', revision: iteration + 1, value: { agentCount: config.agentCount, iteration } } });
-      session.handleIncoming({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: String(iteration + 1) } });
+      session.handleIncoming({
+        type: 'monitor_update',
+        payload: {
+          id: 'sync',
+          revision: iteration + 1,
+          value: { agentCount: config.agentCount, iteration },
+        },
+      });
+      session.handleIncoming({
+        type: 'state_sync_end',
+        payload: { request_id: requestId, state_revision: String(iteration + 1) },
+      });
       state = canonicalRandomWalkState(agents);
-      return { metrics: { synchronizedItems: config.agentCount, snapshotBytes: JSON.stringify(session.scenario.dump()).length } };
+      return {
+        metrics: {
+          synchronizedItems: config.agentCount,
+          snapshotBytes: JSON.stringify(session.scenario.dump()).length,
+        },
+      };
     },
-    snapshot() { return state; },
-    expectedState(actions) { return expectedRandomWalkState(config, actions); },
+    snapshot() {
+      return state;
+    },
+    expectedState(actions) {
+      return expectedRandomWalkState(config, actions);
+    },
   };
 }
 
@@ -101,7 +158,8 @@ export const workload: BenchmarkWorkload<StateSyncConfig> = {
   version: 1,
   kind: 'node',
   category: 'core',
-  description: 'Cold v0.3 replacement state synchronization: Scenario transaction, agent payload, chart, and monitor state.',
+  description:
+    'Cold v0.3 replacement state synchronization: Scenario transaction, agent payload, chart, and monitor state.',
   supportedSuites: ['node'],
   resolveConfig,
   createNodeCase,

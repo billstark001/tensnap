@@ -2,7 +2,12 @@ import React, { useCallback, useState, useRef, ReactNode } from 'react';
 import { Dialog } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import { FileMetadata, DirectoryEntry, FilePickerOptions, FileSystemAdapter } from '@tensnap/web-common/types/file';
+import {
+  FileMetadata,
+  DirectoryEntry,
+  FilePickerOptions,
+  FileSystemAdapter,
+} from '@tensnap/web-common/types/file';
 import { FilePickerContext, FilePickerContextValue } from './FilePickerContext';
 import { joinPath, validateName } from './utils';
 import * as styles from './FileSystemBrowser.css';
@@ -20,7 +25,7 @@ interface PickerState {
 export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children, fileSystem }) => {
   const [pickerState, setPickerState] = useState<PickerState>({
     isOpen: false,
-    options: {}
+    options: {},
   });
 
   const [selectedItems, setSelectedItems] = useState<DirectoryEntry[]>([]);
@@ -38,7 +43,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       setBrowserKey((prev) => prev + 1);
       setPickerState({
         isOpen: true,
-        options
+        options,
       });
     });
   }, []);
@@ -50,7 +55,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     }
     setPickerState({
       isOpen: false,
-      options: {}
+      options: {},
     });
     setSelectedItems([]);
     setInputFileName('');
@@ -61,38 +66,44 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     closePicker([]);
   }, [closePicker]);
 
-  const handleFileSelect = useCallback((entry: DirectoryEntry) => {
-    const { multiSelect } = pickerState.options;
+  const handleFileSelect = useCallback(
+    (entry: DirectoryEntry) => {
+      const { multiSelect } = pickerState.options;
 
-    // 只允许选择文件，不允许选择目录
-    if (entry.type === 'directory') {
-      return;
-    }
+      // 只允许选择文件，不允许选择目录
+      if (entry.type === 'directory') {
+        return;
+      }
 
-    if (multiSelect) {
-      // 多选模式：切换选择状态
-      setSelectedItems(prev => {
-        const exists = prev.find(item => item.path === entry.path);
-        if (exists) {
-          return prev.filter(item => item.path !== entry.path);
-        } else {
-          return [...prev, entry];
-        }
-      });
-    } else {
-      // 单选模式：只更新选择状态，不关闭对话框
-      setSelectedItems([entry]);
-      // 更新输入框文件名
-      setInputFileName(entry.name);
-    }
-  }, [pickerState.options]);
+      if (multiSelect) {
+        // 多选模式：切换选择状态
+        setSelectedItems((prev) => {
+          const exists = prev.find((item) => item.path === entry.path);
+          if (exists) {
+            return prev.filter((item) => item.path !== entry.path);
+          } else {
+            return [...prev, entry];
+          }
+        });
+      } else {
+        // 单选模式：只更新选择状态，不关闭对话框
+        setSelectedItems([entry]);
+        // 更新输入框文件名
+        setInputFileName(entry.name);
+      }
+    },
+    [pickerState.options],
+  );
 
-  const handleFileDoubleClick = useCallback((entry: DirectoryEntry) => {
-    // 双击文件时直接确认并关闭
-    if (entry.type === 'file') {
-      closePicker([entry as FileMetadata]);
-    }
-  }, [closePicker]);
+  const handleFileDoubleClick = useCallback(
+    (entry: DirectoryEntry) => {
+      // 双击文件时直接确认并关闭
+      if (entry.type === 'file') {
+        closePicker([entry as FileMetadata]);
+      }
+    },
+    [closePicker],
+  );
 
   const handleConfirm = useCallback(() => {
     const { mode, multiSelect } = pickerState.options;
@@ -126,44 +137,55 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     }
   }, [pickerState.options, selectedItems, inputFileName, currentDirectory, closePicker]);
 
-  const pickFiles = useCallback((options?: FilePickerOptions): Promise<FileMetadata[]> => {
-    return openPicker(options);
-  }, [openPicker]);
+  const pickFiles = useCallback(
+    (options?: FilePickerOptions): Promise<FileMetadata[]> => {
+      return openPicker(options);
+    },
+    [openPicker],
+  );
 
   const contextValue: FilePickerContextValue = {
     pickFiles,
   };
 
-  const dialogTitle = pickerState.options.title || 
-    (pickerState.options.mode === 'save' ? t`Save File` : 
-     pickerState.options.multiSelect ? t`Select Files` : t`Open File`);
+  const dialogTitle =
+    pickerState.options.title ||
+    (pickerState.options.mode === 'save'
+      ? t`Save File`
+      : pickerState.options.multiSelect
+        ? t`Select Files`
+        : t`Open File`);
 
   const { mode, multiSelect } = pickerState.options;
-  const saveNameError = mode === 'save' && inputFileName.trim().length > 0
-    ? validateName(inputFileName.trim()).error
-    : undefined;
-  const dialogDescription = mode === 'save'
-    ? (saveNameError ?? t`Current directory: ${currentDirectory}`)
-    : (pickerState.options.multiSelect ? t`Selected ${selectedItems.length} files` : undefined);
+  const saveNameError =
+    mode === 'save' && inputFileName.trim().length > 0
+      ? validateName(inputFileName.trim()).error
+      : undefined;
+  const dialogDescription =
+    mode === 'save'
+      ? (saveNameError ?? t`Current directory: ${currentDirectory}`)
+      : pickerState.options.multiSelect
+        ? t`Selected ${selectedItems.length} files`
+        : undefined;
   const showSelectionBar = !multiSelect; // 单选模式下显示选择栏
-  const canConfirm = multiSelect 
-    ? selectedItems.length > 0 
-    : (mode === 'save'
-        ? inputFileName.trim().length > 0 && validateName(inputFileName.trim()).valid
-        : selectedItems.length > 0);
+  const canConfirm = multiSelect
+    ? selectedItems.length > 0
+    : mode === 'save'
+      ? inputFileName.trim().length > 0 && validateName(inputFileName.trim()).valid
+      : selectedItems.length > 0;
 
   return (
     <FilePickerContext.Provider value={contextValue}>
       {children}
 
       {/* 文件选择器对话框 */}
-      <Dialog.Root open={pickerState.isOpen} onOpenChange={(open) => !open && handleCancel()} size='full'>
-        <Dialog.Title>
-          {dialogTitle}
-        </Dialog.Title>
-        <Dialog.Description>
-          {dialogDescription}
-        </Dialog.Description>
+      <Dialog.Root
+        open={pickerState.isOpen}
+        onOpenChange={(open) => !open && handleCancel()}
+        size="full"
+      >
+        <Dialog.Title>{dialogTitle}</Dialog.Title>
+        <Dialog.Description>{dialogDescription}</Dialog.Description>
 
         <Dialog.Body>
           <FileSystemBrowser
@@ -197,16 +219,14 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           )}
           <div className={styles.selectionBarButtons}>
             <Dialog.Close asChild>
-              <Dialog.Button onClick={handleCancel}>
-                {t`Cancel`}
-              </Dialog.Button>
+              <Dialog.Button onClick={handleCancel}>{t`Cancel`}</Dialog.Button>
             </Dialog.Close>
-            <Dialog.Button 
-              variant="primary" 
-              onClick={handleConfirm}
-              disabled={!canConfirm}
-            >
-              {mode === 'save' ? t`Save` : multiSelect ? t`Confirm Selection (${selectedItems.length})` : t`Open`}
+            <Dialog.Button variant="primary" onClick={handleConfirm} disabled={!canConfirm}>
+              {mode === 'save'
+                ? t`Save`
+                : multiSelect
+                  ? t`Confirm Selection (${selectedItems.length})`
+                  : t`Open`}
             </Dialog.Button>
           </div>
         </Dialog.Footer>

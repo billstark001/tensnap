@@ -4,10 +4,7 @@ import * as dialogStyles from './AboutDialog.css';
 import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
-export const AboutDialog: React.FC<DialogOpenProps> = ({
-  open,
-  onOpenChange,
-}) => {
+export const AboutDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Title>
@@ -18,9 +15,7 @@ export const AboutDialog: React.FC<DialogOpenProps> = ({
       <div className={dialogStyles.aboutContainer}>
         <div className={dialogStyles.aboutHeader}>
           <img src="/logo192.png" alt="TenSnap Logo" className={dialogStyles.aboutLogo} />
-          <h2 className={dialogStyles.aboutTitle}>
-            TenSnap
-          </h2>
+          <h2 className={dialogStyles.aboutTitle}>TenSnap</h2>
           <p className={dialogStyles.aboutVersion}>
             <Trans>Version</Trans> {__APP_VERSION__}
           </p>
@@ -29,16 +24,18 @@ export const AboutDialog: React.FC<DialogOpenProps> = ({
         <div className={dialogStyles.aboutDescription}>
           <p className={dialogStyles.aboutText}>
             <Trans>
-              TenSnap is an interactive simulation toolset for agent-based models,
-              designed to help researchers and students understand complex systems through
-              interactive simulations and visualizations.
+              TenSnap is an interactive simulation toolset for agent-based models, designed to help
+              researchers and students understand complex systems through interactive simulations
+              and visualizations.
             </Trans>
           </p>
         </div>
 
         <div className={dialogStyles.aboutLinks}>
           <div className={dialogStyles.aboutLinkItem}>
-            <strong><Trans>Repository:</Trans></strong>{' '}
+            <strong>
+              <Trans>Repository:</Trans>
+            </strong>{' '}
             <a
               href="https://github.com/billstark001/tensnap"
               target="_blank"
@@ -50,7 +47,9 @@ export const AboutDialog: React.FC<DialogOpenProps> = ({
           </div>
 
           <div className={dialogStyles.aboutLinkItem}>
-            <strong><Trans>Documentation:</Trans></strong>{' '}
+            <strong>
+              <Trans>Documentation:</Trans>
+            </strong>{' '}
             <a
               href="https://github.com/billstark001/tensnap/tree/main/docs"
               target="_blank"
@@ -62,7 +61,10 @@ export const AboutDialog: React.FC<DialogOpenProps> = ({
           </div>
 
           <div className={dialogStyles.aboutLinkItem}>
-            <strong><Trans>License:</Trans></strong> MIT
+            <strong>
+              <Trans>License:</Trans>
+            </strong>{' '}
+            MIT
           </div>
         </div>
 

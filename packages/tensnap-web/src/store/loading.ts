@@ -3,19 +3,16 @@ import { create } from 'zustand';
 interface LoadingState {
   // Public loading state - true if any loading process is active
   loading: boolean;
-  
+
   // Private state for tracking loading processes
   loadingCount: number;
   /** Reference counts allow overlapping work to share a process ID safely. */
   loadingProcesses: Map<string, number>;
-  
+
   // Actions
   startLoading: (processId?: string) => void;
   stopLoading: (processId?: string) => void;
-  withLoading: <T>(
-    fn: () => Promise<T>, 
-    processId?: string
-  ) => Promise<T>;
+  withLoading: <T>(fn: () => Promise<T>, processId?: string) => Promise<T>;
 }
 
 export const useLoadingStore = create<LoadingState>((set, get) => ({
@@ -25,61 +22,57 @@ export const useLoadingStore = create<LoadingState>((set, get) => ({
 
   startLoading: (processId?: string) => {
     const state = get();
-    
+
     if (processId !== undefined) {
       const next = new Map(state.loadingProcesses);
       next.set(processId, (next.get(processId) ?? 0) + 1);
       set({
         loadingProcesses: next,
-        loading: true
+        loading: true,
       });
     } else {
       // No process ID provided, increment counter
       set({
         loadingCount: state.loadingCount + 1,
-        loading: true
+        loading: true,
       });
     }
   },
 
   stopLoading: (processId?: string) => {
     const state = get();
-    
+
     if (processId !== undefined) {
       const newProcesses = new Map(state.loadingProcesses);
       const count = newProcesses.get(processId) ?? 0;
       if (count <= 1) newProcesses.delete(processId);
       else newProcesses.set(processId, count - 1);
-      
+
       set({
         loadingProcesses: newProcesses,
-        loading: state.loadingCount > 0 || newProcesses.size > 0
+        loading: state.loadingCount > 0 || newProcesses.size > 0,
       });
     } else {
       // Decrement counter, but don't go below 0
       const newCount = Math.max(0, state.loadingCount - 1);
-      
+
       set({
         loadingCount: newCount,
-        loading: newCount > 0 || state.loadingProcesses.size > 0
+        loading: newCount > 0 || state.loadingProcesses.size > 0,
       });
     }
   },
 
-  withLoading: async <T>(
-    fn: () => Promise<T>, 
-    processId?: string,
-  ): Promise<T> => {
+  withLoading: async <T>(fn: () => Promise<T>, processId?: string): Promise<T> => {
     const { startLoading, stopLoading } = get();
-    
+
     try {
       startLoading(processId);
       return await fn();
     } finally {
       stopLoading(processId);
     }
-  }
+  },
 }));
 
-
-export const useWithLoading = () => useLoadingStore(x => x.withLoading);
+export const useWithLoading = () => useLoadingStore((x) => x.withLoading);

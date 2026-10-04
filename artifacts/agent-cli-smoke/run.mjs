@@ -58,16 +58,33 @@ async function reservePort() {
     throw new Error('Unable to reserve a TCP port.');
   }
   await new Promise((resolvePromise, reject) => {
-    server.close((error) => error ? reject(error) : resolvePromise());
+    server.close((error) => (error ? reject(error) : resolvePromise()));
   });
   return address.port;
 }
 
 function startSimulator(port) {
   const args = [
-    '--filter', '@tensnap/examples-js', 'demo:ws', 'schelling',
-    '--width', '20', '--height', '16', '--density', '0.7', '--balance', '0.5',
-    '--threshold', '0.6', '--seed', '7', '--port', String(port), '--encoding', 'msgpack',
+    '--filter',
+    '@tensnap/examples-js',
+    'demo:ws',
+    'schelling',
+    '--width',
+    '20',
+    '--height',
+    '16',
+    '--density',
+    '0.7',
+    '--balance',
+    '0.5',
+    '--threshold',
+    '0.6',
+    '--seed',
+    '7',
+    '--port',
+    String(port),
+    '--encoding',
+    'msgpack',
   ];
   const detached = process.platform !== 'win32';
   const child = spawn('pnpm', args, {
@@ -196,23 +213,40 @@ async function main() {
   const port = await reservePort();
   const simulator = startSimulator(port);
   const contextArgs = ['--context', contextName, '--context-dir', runtimeRoot];
-  const cli = async (args) => JSON.parse(await execute(process.execPath, [cliPath, ...args, ...contextArgs]));
-  const cliDiscard = async (args) => executeDiscard(process.execPath, [cliPath, ...args, ...contextArgs]);
+  const cli = async (args) =>
+    JSON.parse(await execute(process.execPath, [cliPath, ...args, ...contextArgs]));
+  const cliDiscard = async (args) =>
+    executeDiscard(process.execPath, [cliPath, ...args, ...contextArgs]);
   let runtimeStarted = false;
 
   try {
     await simulator.ready;
     const status = await cli([
-      'runtime', 'up', '--simulator-url', `ws://127.0.0.1:${port}`, '--encoding', 'msgpack',
-      '--client-message-validation', 'error', '--server-message-validation', 'error',
+      'runtime',
+      'up',
+      '--simulator-url',
+      `ws://127.0.0.1:${port}`,
+      '--encoding',
+      'msgpack',
+      '--client-message-validation',
+      'error',
+      '--server-message-validation',
+      'error',
     ]);
     runtimeStarted = true;
     const initialInspection = await cli(['scene', 'inspect']);
     const initial = initialInspection.scene;
     await cli(['param', 'set', 'similarityThreshold', '0.75']);
     await cli([
-      'run', 'start', 'start', '--max-steps', '20', '--stop-when', 'time >= 5',
-      '--max-wall-time-ms', '5000',
+      'run',
+      'start',
+      'start',
+      '--max-steps',
+      '20',
+      '--stop-when',
+      'time >= 5',
+      '--max-wall-time-ms',
+      '5000',
     ]);
 
     let run;
@@ -226,8 +260,17 @@ async function main() {
     await cliDiscard(['scene', 'capture', '--output', checkpointPath]);
     const capturedScene = await cli(['scene', 'snapshot']);
     await cliDiscard([
-      'scene', 'render', 'artifact-evidence', '--env', 'main', '--width', '640', '--height', '480',
-      '--output', renderPath,
+      'scene',
+      'render',
+      'artifact-evidence',
+      '--env',
+      'main',
+      '--width',
+      '640',
+      '--height',
+      '480',
+      '--output',
+      renderPath,
     ]);
     await cli(['action', 'run', 'step']);
     const advancedScene = await cli(['scene', 'snapshot']);
@@ -242,15 +285,15 @@ async function main() {
       .split('\n')
       .filter(Boolean)
       .map((line) => JSON.parse(line))
-      .filter((entry) => entry.level === 'warn' || entry.level === 'error')
-      .length;
+      .filter((entry) => entry.level === 'warn' || entry.level === 'error').length;
 
     const capturedHash = modelStateHash(capturedScene);
     const advancedHash = modelStateHash(advancedScene);
     const restoredHash = modelStateHash(restoredScene);
     const render = await readPng(renderPath);
-    const threshold = capturedScene.snapshot.parameters
-      .find((parameter) => parameter.id === 'similarityThreshold')?.value;
+    const threshold = capturedScene.snapshot.parameters.find(
+      (parameter) => parameter.id === 'similarityThreshold',
+    )?.value;
     const agentCount = capturedScene.snapshot.environments
       .flatMap((environment) => environment.layers)
       .find((layer) => layer.id === 'agents')?.storageSnapshot.agents?.length;
@@ -268,10 +311,15 @@ async function main() {
           environmentCount: initial.environments.length,
         })}`,
       ),
-      runtimeParameterChanged: requireCheck(threshold === 0.75, 'Runtime parameter change was not retained.'),
+      runtimeParameterChanged: requireCheck(
+        threshold === 0.75,
+        'Runtime parameter change was not retained.',
+      ),
       boundedConditionStop: requireCheck(
-        run.spec.mode === 'bounded' && run.completedSteps === 5
-          && run.stopReason === 'condition' && run.conditionValue === true,
+        run.spec.mode === 'bounded' &&
+          run.completedSteps === 5 &&
+          run.stopReason === 'condition' &&
+          run.conditionValue === true,
         `Bounded run did not stop on the declared condition: ${JSON.stringify({
           spec: run.spec,
           completedSteps: run.completedSteps,
@@ -280,8 +328,8 @@ async function main() {
         })}`,
       ),
       exactCheckpointVersioned: requireCheck(
-        checkpoint.state_schema_version === '2'
-          && checkpoint.checkpoint.encoding === 'application/msgpack',
+        checkpoint.state_schema_version === '2' &&
+          checkpoint.checkpoint.encoding === 'application/msgpack',
         'Checkpoint metadata was unexpected.',
       ),
       advanceChangedState: requireCheck(
@@ -289,8 +337,9 @@ async function main() {
         'One step did not change canonical model state.',
       ),
       restoreRecoveredState: requireCheck(
-        restore.status === 'ok' && restoredScene.snapshot.metadata.time === 5
-          && restoredHash === capturedHash,
+        restore.status === 'ok' &&
+          restoredScene.snapshot.metadata.time === 5 &&
+          restoredHash === capturedHash,
         'Restore did not recover canonical model state.',
       ),
       offscreenRenderCreated: requireCheck(

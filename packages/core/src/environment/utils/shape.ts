@@ -33,40 +33,65 @@ const starPoints = (outerRadius: number, innerRadius: number): number[] => {
 // ---------------------------------------------------------------------------
 
 export const SHAPE_CONFIGS: Record<BuiltinAgentIcon, (size: number) => Record<string, unknown>> = {
-  arrow:    (s) => ({ points: [s, 0, -s / 2, -s / 2, -s / 2, s / 2] }),
-  square:   (s) => ({ width: s, height: s, x: -s / 2, y: -s / 2 }),
-  circle:   (s) => ({ width: s, height: s, x: -s / 2, y: -s / 2 }),
+  arrow: (s) => ({ points: [s, 0, -s / 2, -s / 2, -s / 2, s / 2] }),
+  square: (s) => ({ width: s, height: s, x: -s / 2, y: -s / 2 }),
+  circle: (s) => ({ width: s, height: s, x: -s / 2, y: -s / 2 }),
   triangle: (s) => ({ points: [0, -s / 2, -s / 2, s / 2, s / 2, s / 2] }),
-  diamond:  (s) => ({ points: [0, -s / 2, s / 2, 0, 0, s / 2, -s / 2, 0] }),
-  star:     (s) => ({ points: starPoints(s / 2, s / 4) }),
-  hexagon:  (s) => ({ points: polygonPoints(6, s / 2, -90) }),
+  diamond: (s) => ({ points: [0, -s / 2, s / 2, 0, 0, s / 2, -s / 2, 0] }),
+  star: (s) => ({ points: starPoints(s / 2, s / 4) }),
+  hexagon: (s) => ({ points: polygonPoints(6, s / 2, -90) }),
   pentagon: (s) => ({ points: polygonPoints(5, s / 2, -90) }),
-  plus:     (s) => {
+  plus: (s) => {
     const w = s / 2;
     const t = s / 6;
     return {
       points: [-t, -w, t, -w, t, -t, w, -t, w, t, t, t, t, w, -t, w, -t, t, -w, t, -w, -t, -t, -t],
     };
   },
-  cross:    (s) => {
+  cross: (s) => {
     const w = s / 2;
     const t = s / 6;
     return {
-      points: [-w, -w, -w + t, -w, 0, -t, w - t, -w, w, -w, t, 0, w, w, w - t, w, 0, t, -w + t, w, -w, w, -t, 0],
+      points: [
+        -w,
+        -w,
+        -w + t,
+        -w,
+        0,
+        -t,
+        w - t,
+        -w,
+        w,
+        -w,
+        t,
+        0,
+        w,
+        w,
+        w - t,
+        w,
+        0,
+        t,
+        -w + t,
+        w,
+        -w,
+        w,
+        -t,
+        0,
+      ],
     };
   },
 };
 
 export const SHAPE_CLASSES: Record<BuiltinAgentIcon, new (props?: any) => UI> = {
-  arrow:    Polygon,
-  square:   Rect,
+  arrow: Polygon,
+  square: Rect,
   triangle: Polygon,
-  circle:   Ellipse,
-  diamond:  Polygon,
-  star:     Polygon,
-  hexagon:  Polygon,
-  cross:    Polygon,
-  plus:     Polygon,
+  circle: Ellipse,
+  diamond: Polygon,
+  star: Polygon,
+  hexagon: Polygon,
+  cross: Polygon,
+  plus: Polygon,
   pentagon: Polygon,
 };
 
@@ -77,7 +102,7 @@ export const SHAPE_CLASSES: Record<BuiltinAgentIcon, new (props?: any) => UI> = 
 export function createAgentShape(
   icon: BuiltinAgentIcon = 'circle',
   size: number,
-  color: string
+  color: string,
 ): UI {
   const Cls = SHAPE_CLASSES[icon];
   return new Cls({ ...SHAPE_CONFIGS[icon](size), fill: color });
@@ -110,7 +135,7 @@ export function createArrowhead(color: string, size: number = 1): Polygon {
 export function createEdgeLine(
   color: string,
   width: number,
-  style?: 'solid' | 'dashed' | 'dotted'
+  style?: 'solid' | 'dashed' | 'dotted',
 ): Line {
   let dashPattern: number[] | undefined;
   if (style === 'dashed') dashPattern = [5, 5];

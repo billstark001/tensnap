@@ -19,11 +19,20 @@ interface Environment2DViewProps {
   scenario?: Scenario;
 }
 
-export function Environment2DView({ environment, updateTrigger, view, assets, scenario: scenarioOverride }: Environment2DViewProps) {
+export function Environment2DView({
+  environment,
+  updateTrigger,
+  view,
+  assets,
+  scenario: scenarioOverride,
+}: Environment2DViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<EnvironmentRendererController | null>(null);
 
-  const [selectedAgent, setSelectedAgent] = useState<{ agent: AgentRenderState; ref: AgentRef } | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<{
+    agent: AgentRenderState;
+    ref: AgentRef;
+  } | null>(null);
   const liveScenario = useScenarioStore((store) => store.scenario);
   const scenario = scenarioOverride ?? liveScenario;
   const toast = useToast();
@@ -50,15 +59,17 @@ export function Environment2DView({ environment, updateTrigger, view, assets, sc
       return;
     }
     const controller = new EnvironmentRendererController(containerRef.current, {
-      resolveAssetUrl: (assetId) => assets?.getUrl(assetId) ?? scenarioRef.current?.assets.getUrl(assetId),
-      onAgentSelect: (agent, layerId) => setSelectedAgent({
-        agent,
-        ref: {
-          environmentId: environmentIdRef.current,
-          layerId: layerId ?? '',
-          agentId: agent.id,
-        },
-      }),
+      resolveAssetUrl: (assetId) =>
+        assets?.getUrl(assetId) ?? scenarioRef.current?.assets.getUrl(assetId),
+      onAgentSelect: (agent, layerId) =>
+        setSelectedAgent({
+          agent,
+          ref: {
+            environmentId: environmentIdRef.current,
+            layerId: layerId ?? '',
+            agentId: agent.id,
+          },
+        }),
       onRenderError: (title, detail) => toastErrorRef.current(title, detail),
     });
     controllerRef.current = controller;

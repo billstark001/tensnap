@@ -13,9 +13,19 @@ import type {
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
-import { RendererClient, RendererSession, type BoundedRunSpec, type SceneRestoreOptions } from '@tensnap/core/runtime';
+import {
+  RendererClient,
+  RendererSession,
+  type BoundedRunSpec,
+  type SceneRestoreOptions,
+} from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
-import type { AgentInspection, AgentInspectionOptions, AgentRef, ScenarioSnapshot } from '@tensnap/core/scenario';
+import type {
+  AgentInspection,
+  AgentInspectionOptions,
+  AgentRef,
+  ScenarioSnapshot,
+} from '@tensnap/core/scenario';
 import { AgentStorage } from '@tensnap/core/environment';
 import { NodeWebSocketTransport } from '../session/NodeWebSocketTransport';
 import type {
@@ -40,7 +50,13 @@ import {
   writeRuntimeControl,
   writeSceneSnapshot,
 } from './context';
-import { normalizeRenderBackgroundColor, type RenderArtifact, type RenderAssetSource, type RenderRequest, type ScenePainter } from './painter';
+import {
+  normalizeRenderBackgroundColor,
+  type RenderArtifact,
+  type RenderAssetSource,
+  type RenderRequest,
+  type ScenePainter,
+} from './painter';
 import { appendImageOutputSuffix } from './image-output';
 
 export interface AgentRuntimeOptions {
@@ -81,7 +97,10 @@ export class AgentRuntime extends EventEmitter {
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
   private statusWriteChain: Promise<void> = Promise.resolve();
-  private readonly checkpointWriter: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
+  private readonly checkpointWriter: (
+    context: RuntimeContextPaths,
+    snapshot: ScenarioSnapshot,
+  ) => Promise<void>;
 
   constructor(
     readonly context: RuntimeContextPaths,
@@ -96,7 +115,8 @@ export class AgentRuntime extends EventEmitter {
       },
     });
     this.renderer = this.client.renderer;
-    const requestedCheckpointInterval = options.checkpointIntervalMs ?? DEFAULT_CHECKPOINT_INTERVAL_MS;
+    const requestedCheckpointInterval =
+      options.checkpointIntervalMs ?? DEFAULT_CHECKPOINT_INTERVAL_MS;
     this.checkpointIntervalMs = Number.isFinite(requestedCheckpointInterval)
       ? Math.min(5_000, Math.max(1_000, requestedCheckpointInterval))
       : DEFAULT_CHECKPOINT_INTERVAL_MS;
@@ -132,7 +152,9 @@ export class AgentRuntime extends EventEmitter {
   async initialize(): Promise<void> {
     await ensureRuntimeContext(this.context);
     await this.persistStatus();
-    await this.log('info', 'runtime', 'Runtime initialized.', { context: this.context.contextName });
+    await this.log('info', 'runtime', 'Runtime initialized.', {
+      context: this.context.contextName,
+    });
   }
 
   /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
@@ -140,8 +162,10 @@ export class AgentRuntime extends EventEmitter {
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
     this.control.encoding = options.encoding ?? this.control.encoding;
-    this.control.clientMessageValidation = options.clientMessageValidation ?? this.control.clientMessageValidation;
-    this.control.serverMessageValidation = options.serverMessageValidation ?? this.control.serverMessageValidation;
+    this.control.clientMessageValidation =
+      options.clientMessageValidation ?? this.control.clientMessageValidation;
+    this.control.serverMessageValidation =
+      options.serverMessageValidation ?? this.control.serverMessageValidation;
     this.completedStateSyncCount = 0;
     await this.persistStatus();
 
@@ -149,10 +173,12 @@ export class AgentRuntime extends EventEmitter {
       this.client.disconnect();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
-      await this.client.connect(new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
-        clientMessages: this.control.clientMessageValidation,
-        serverMessages: this.control.serverMessageValidation,
-      }));
+      await this.client.connect(
+        new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
+          clientMessages: this.control.clientMessageValidation,
+          serverMessages: this.control.serverMessageValidation,
+        }),
+      );
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
@@ -163,7 +189,9 @@ export class AgentRuntime extends EventEmitter {
     } catch (error) {
       this.control.lastError = error instanceof Error ? error.message : String(error);
       this.setPhase('error');
-      await this.log('error', 'runtime', 'Failed to connect to simulator.', { error: this.control.lastError });
+      await this.log('error', 'runtime', 'Failed to connect to simulator.', {
+        error: this.control.lastError,
+      });
       throw error;
     }
   }
@@ -265,7 +293,11 @@ export class AgentRuntime extends EventEmitter {
       return { environmentId, layerId, agentId: rawAgentId };
     }
     const numericId = Number(rawAgentId);
-    if (Number.isFinite(numericId) && String(numericId) === rawAgentId && layer.storage.hasAgent(numericId)) {
+    if (
+      Number.isFinite(numericId) &&
+      String(numericId) === rawAgentId &&
+      layer.storage.hasAgent(numericId)
+    ) {
       return { environmentId, layerId, agentId: numericId };
     }
     return undefined;
@@ -283,16 +315,20 @@ export class AgentRuntime extends EventEmitter {
     inspection: Exclude<AgentInspection, { kind: 'none' }>,
     options: SceneRenderOptions = {},
   ): Promise<RenderArtifact[]> {
-    const request = this.createRenderRequest({
-      ...options,
-      envId: inspection.environmentId,
-      viewport: options.viewport ?? inspection.viewport,
-      includeData: options.includeData ?? true,
-      persist: options.persist ?? false,
-      // Inspection renders are always snapshots; never calculate a second
-      // force layout in a headless painter.
-      readOnlyGraphLayout: true,
-    }, `agent-inspection:${inspection.environmentId}/${inspection.layerId}/${inspection.ref.agentId}`, 'explicit');
+    const request = this.createRenderRequest(
+      {
+        ...options,
+        envId: inspection.environmentId,
+        viewport: options.viewport ?? inspection.viewport,
+        includeData: options.includeData ?? true,
+        persist: options.persist ?? false,
+        // Inspection renders are always snapshots; never calculate a second
+        // force layout in a headless painter.
+        readOnlyGraphLayout: true,
+      },
+      `agent-inspection:${inspection.environmentId}/${inspection.layerId}/${inspection.ref.agentId}`,
+      'explicit',
+    );
     request.snapshot = inspection.renderSnapshot;
     return this.runPainters(request);
   }
@@ -354,7 +390,10 @@ export class AgentRuntime extends EventEmitter {
   }
 
   /** Restore an exact and/or projected scene through the normal protocol transaction. */
-  async restoreScene(input: unknown, options: SceneRestoreOptions = {}): Promise<SceneRestoreEndPayload> {
+  async restoreScene(
+    input: unknown,
+    options: SceneRestoreOptions = {},
+  ): Promise<SceneRestoreEndPayload> {
     this.assertConnected();
     if (typeof input !== 'object' || input === null || Array.isArray(input)) {
       throw new Error('scene restore payload must be an object.');
@@ -366,11 +405,19 @@ export class AgentRuntime extends EventEmitter {
       ...(input as Record<string, unknown>),
       request_id: requestId,
       model_id: info.model.id,
-      expected_instance_id: (input as Partial<SceneRestorePayload>).expected_instance_id ?? info.instance_id,
-      state_schema_version: (input as Partial<SceneRestorePayload>).state_schema_version ?? info.model.state_schema_version,
+      expected_instance_id:
+        (input as Partial<SceneRestorePayload>).expected_instance_id ?? info.instance_id,
+      state_schema_version:
+        (input as Partial<SceneRestorePayload>).state_schema_version ??
+        info.model.state_schema_version,
     });
     const result = await this.renderer.restoreScene(parsed, options);
-    await this.log(result.status === 'ok' ? 'info' : 'warn', 'scene', 'Scene restore completed.', result);
+    await this.log(
+      result.status === 'ok' ? 'info' : 'warn',
+      'scene',
+      'Scene restore completed.',
+      result,
+    );
     this.emitRuntimeEvent('scene.restore.completed', { requestId, result });
     return result;
   }
@@ -432,7 +479,10 @@ export class AgentRuntime extends EventEmitter {
     return status;
   }
 
-  async requestRender(options: SceneRenderOptions = {}, reason = 'manual'): Promise<RenderArtifact[]> {
+  async requestRender(
+    options: SceneRenderOptions = {},
+    reason = 'manual',
+  ): Promise<RenderArtifact[]> {
     if (options.envId && options.chartId) {
       throw new Error('A render request may target either an environment or a chart, not both.');
     }
@@ -463,25 +513,25 @@ export class AgentRuntime extends EventEmitter {
   private async runPainters(request: RenderRequest): Promise<RenderArtifact[]> {
     const artifacts: RenderArtifact[] = [];
     const disambiguateOutput = Boolean(
-      request.options.outputPath
-      && !request.options.envId
-      && !request.options.chartId
-      && this.painters.size > 1,
+      request.options.outputPath &&
+      !request.options.envId &&
+      !request.options.chartId &&
+      this.painters.size > 1,
     );
     for (const painter of this.painters.values()) {
       try {
         const painterRequest = disambiguateOutput
           ? {
-            ...request,
-            options: {
-              ...request.options,
-              outputPath: appendImageOutputSuffix(
-                request.options.outputPath!,
-                painter.id,
-                request.options.format ?? 'png',
-              ),
-            },
-          }
+              ...request,
+              options: {
+                ...request.options,
+                outputPath: appendImageOutputSuffix(
+                  request.options.outputPath!,
+                  painter.id,
+                  request.options.format ?? 'png',
+                ),
+              },
+            }
           : request;
         const result = await painter.render(painterRequest);
         if (result?.length) {
@@ -489,7 +539,10 @@ export class AgentRuntime extends EventEmitter {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        await this.log('error', 'render', 'Painter render failed.', { painterId: painter.id, error: message });
+        await this.log('error', 'render', 'Painter render failed.', {
+          painterId: painter.id,
+          error: message,
+        });
         this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
       }
     }
@@ -502,7 +555,10 @@ export class AgentRuntime extends EventEmitter {
     reason: string,
     trigger: RenderTriggerMode | 'explicit',
   ): RenderRequest {
-    const backgroundColor = normalizeRenderBackgroundColor(options.backgroundColor, this.control.render.backgroundColor);
+    const backgroundColor = normalizeRenderBackgroundColor(
+      options.backgroundColor,
+      this.control.render.backgroundColor,
+    );
     return {
       at: new Date().toISOString(),
       reason,
@@ -554,10 +610,12 @@ export class AgentRuntime extends EventEmitter {
       }
     });
     this.renderer.addEventListener('message', (event) => {
-      const { message, origin } = (event as CustomEvent<{
-        message: SimulatorToRendererMessage;
-        origin: 'live' | 'state-sync' | 'scene-restore' | 'replay';
-      }>).detail;
+      const { message, origin } = (
+        event as CustomEvent<{
+          message: SimulatorToRendererMessage;
+          origin: 'live' | 'state-sync' | 'scene-restore' | 'replay';
+        }>
+      ).detail;
       void this.handleProtocolMessage(message, origin);
       if (message.type === 'action_result') {
         const payload = message.payload as ActionResultPayload;
@@ -633,20 +691,33 @@ export class AgentRuntime extends EventEmitter {
   private async handleScreenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
     if (payload.chart_id) {
       try {
-        const artifacts = await this.requestRender({
-          chartId: payload.chart_id,
-          format: payload.format ?? 'png',
-          quality: payload.quality,
-          includeData: true,
-          persist: false,
-        }, `screenshot-request:${payload.request_id}`);
-        const artifact = artifacts.find((candidate) => candidate.kind === 'chart' && candidate.data?.length);
-        if (!artifact?.data?.length) throw new Error(`No chart render artifact was produced for ${payload.chart_id}.`);
-        this.renderer.sendScreenshotResponse({ request_id: payload.request_id, data: new Uint8Array(artifact.data), mime: artifact.mime });
+        const artifacts = await this.requestRender(
+          {
+            chartId: payload.chart_id,
+            format: payload.format ?? 'png',
+            quality: payload.quality,
+            includeData: true,
+            persist: false,
+          },
+          `screenshot-request:${payload.request_id}`,
+        );
+        const artifact = artifacts.find(
+          (candidate) => candidate.kind === 'chart' && candidate.data?.length,
+        );
+        if (!artifact?.data?.length)
+          throw new Error(`No chart render artifact was produced for ${payload.chart_id}.`);
+        this.renderer.sendScreenshotResponse({
+          request_id: payload.request_id,
+          data: new Uint8Array(artifact.data),
+          mime: artifact.mime,
+        });
       } catch (error) {
         this.renderer.sendScreenshotResponse({
           request_id: payload.request_id,
-          error: { code: 'render_failed', message: error instanceof Error ? error.message : String(error) },
+          error: {
+            code: 'render_failed',
+            message: error instanceof Error ? error.message : String(error),
+          },
         });
       }
       return;
@@ -664,11 +735,16 @@ export class AgentRuntime extends EventEmitter {
         `screenshot-request:${payload.request_id}`,
       );
 
-      const artifact = artifacts.find((candidate) => candidate.kind === 'environment' && candidate.data?.length);
+      const artifact = artifacts.find(
+        (candidate) => candidate.kind === 'environment' && candidate.data?.length,
+      );
       if (!artifact?.data?.length) {
         this.renderer.sendScreenshotResponse({
           request_id: payload.request_id,
-          error: { code: 'render_missing', message: 'No environment render artifact was produced for screenshot_request.' },
+          error: {
+            code: 'render_missing',
+            message: 'No environment render artifact was produced for screenshot_request.',
+          },
         });
         return;
       }
@@ -702,13 +778,14 @@ export class AgentRuntime extends EventEmitter {
         id: meta.id,
         hash: meta.hash,
         mime: meta.mime,
-        source: typeof resolved.source === 'string'
-          ? resolved.source
-          : resolved.source instanceof Uint8Array
-            ? new Uint8Array(resolved.source)
-            : typeof resolved.url === 'string'
-              ? resolved.url
-              : new Uint8Array(resolved.url),
+        source:
+          typeof resolved.source === 'string'
+            ? resolved.source
+            : resolved.source instanceof Uint8Array
+              ? new Uint8Array(resolved.source)
+              : typeof resolved.url === 'string'
+                ? resolved.url
+                : new Uint8Array(resolved.url),
       };
     }
     return assets;
@@ -720,9 +797,9 @@ export class AgentRuntime extends EventEmitter {
   ): Promise<RuntimeStatus> {
     const evaluate = (): RuntimeStatus | undefined => {
       if (
-        this.renderer.isConnected
-        && this.control.phase === 'ready'
-        && this.completedStateSyncCount >= minimumCompletedCount
+        this.renderer.isConnected &&
+        this.control.phase === 'ready' &&
+        this.completedStateSyncCount >= minimumCompletedCount
       ) {
         return this.getStatus();
       }
@@ -755,12 +832,13 @@ export class AgentRuntime extends EventEmitter {
         reject(error instanceof Error ? error : new Error(String(error)));
       };
 
-      const timeoutId = typeof timeoutMs === 'number'
-        ? setTimeout(() => {
-            cleanup();
-            reject(new Error('Timed out waiting for runtime readiness.'));
-          }, timeoutMs)
-        : null;
+      const timeoutId =
+        typeof timeoutMs === 'number'
+          ? setTimeout(() => {
+              cleanup();
+              reject(new Error('Timed out waiting for runtime readiness.'));
+            }, timeoutMs)
+          : null;
 
       const cleanup = (): void => {
         if (timeoutId) {
@@ -779,9 +857,11 @@ export class AgentRuntime extends EventEmitter {
 
   private setPhase(phase: RuntimePhase): void {
     this.control.phase = phase;
-    void this.persistStatus().catch((error) => this.emitRuntimeEvent('runtime.status-write-failed', {
-      error: error instanceof Error ? error.message : String(error),
-    }));
+    void this.persistStatus().catch((error) =>
+      this.emitRuntimeEvent('runtime.status-write-failed', {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
   }
 
   private markSceneDirty(): void {

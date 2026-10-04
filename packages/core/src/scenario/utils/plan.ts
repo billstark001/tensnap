@@ -10,10 +10,10 @@
 
 import { layerRegistry } from '../layer-registry';
 import type {
-	ScenarioEnvironmentSnapshot,
-	ScenarioEnvironmentState,
-	ScenarioLayerSnapshot,
-	ScenarioLayerState,
+  ScenarioEnvironmentSnapshot,
+  ScenarioEnvironmentState,
+  ScenarioLayerSnapshot,
+  ScenarioLayerState,
 } from '../types';
 import { createRenderPlan, type RenderPlan } from '../render-plan';
 
@@ -25,53 +25,54 @@ import { createRenderPlan, type RenderPlan } from '../render-plan';
  * in the layer registry.
  */
 export class UnknownLayerStorage {
-	private data: Record<string, unknown> = {};
+  private data: Record<string, unknown> = {};
 
-	dump(): Record<string, unknown> {
-		return { ...this.data };
-	}
+  dump(): Record<string, unknown> {
+    return { ...this.data };
+  }
 
-	load(snapshot: unknown): void {
-		this.data = typeof snapshot === 'object' && snapshot !== null
-			? structuredClone(snapshot as Record<string, unknown>)
-			: {};
-	}
+  load(snapshot: unknown): void {
+    this.data =
+      typeof snapshot === 'object' && snapshot !== null
+        ? structuredClone(snapshot as Record<string, unknown>)
+        : {};
+  }
 }
 // #endregion
 
 function cloneValue<T>(value: T): T {
-	if (value === null || value === undefined || typeof value !== 'object') {
-		return value;
-	}
-	return structuredClone(value);
+  if (value === null || value === undefined || typeof value !== 'object') {
+    return value;
+  }
+  return structuredClone(value);
 }
 
 type LayerStorage = ScenarioLayerState['storage'];
 
 function createLayerState(layer: ScenarioLayerSnapshot): ScenarioLayerState {
-	return {
-		id: layer.id,
-		layerType: layer.layerType,
-		metadata: cloneValue(layer.metadata ?? {}),
-		dependencyLayerIds: cloneValue(layer.dependencyLayerIds ?? {}),
-		storage: createLayerStorage(layer),
-	};
+  return {
+    id: layer.id,
+    layerType: layer.layerType,
+    metadata: cloneValue(layer.metadata ?? {}),
+    dependencyLayerIds: cloneValue(layer.dependencyLayerIds ?? {}),
+    storage: createLayerStorage(layer),
+  };
 }
 
 function createLayerStorage(layer: ScenarioLayerSnapshot): LayerStorage {
-	// Registry-based fromSnapshot is the single source of truth.
-	// All five built-in types register fromSnapshot, so this path covers them.
-	const fromSnapshot = layerRegistry.get(layer.layerType)?.fromSnapshot;
-	if (fromSnapshot) {
-		return fromSnapshot(layer);
-	}
+  // Registry-based fromSnapshot is the single source of truth.
+  // All five built-in types register fromSnapshot, so this path covers them.
+  const fromSnapshot = layerRegistry.get(layer.layerType)?.fromSnapshot;
+  if (fromSnapshot) {
+    return fromSnapshot(layer);
+  }
 
-	// For unregistered/unknown layer types, use UnknownLayerStorage
-	// instead of falling back to a built-in storage type. This ensures
-	// the registry remains the single source of truth for layer type
-	// handling, and unknown types do not silently masquerade as
-	// BackgroundStorage.
-	return new UnknownLayerStorage();
+  // For unregistered/unknown layer types, use UnknownLayerStorage
+  // instead of falling back to a built-in storage type. This ensures
+  // the registry remains the single source of truth for layer type
+  // handling, and unknown types do not silently masquerade as
+  // BackgroundStorage.
+  return new UnknownLayerStorage();
 }
 
 /**
@@ -81,17 +82,19 @@ function createLayerStorage(layer: ScenarioLayerSnapshot): LayerStorage {
  * engine. Both browser and headless hosts should use this helper (or
  * `collectRenderData`) rather than re-implementing snapshot-to-plan logic.
  */
-export function createRenderPlanFromSnapshot(snapshotEnvironment: ScenarioEnvironmentSnapshot): RenderPlan {
-	const environmentState: ScenarioEnvironmentState = {
-		id: snapshotEnvironment.id,
-		type: snapshotEnvironment.type,
-		layers: new Map(),
-		dependencyGraph: new Map(),
-	};
+export function createRenderPlanFromSnapshot(
+  snapshotEnvironment: ScenarioEnvironmentSnapshot,
+): RenderPlan {
+  const environmentState: ScenarioEnvironmentState = {
+    id: snapshotEnvironment.id,
+    type: snapshotEnvironment.type,
+    layers: new Map(),
+    dependencyGraph: new Map(),
+  };
 
-	for (const layer of snapshotEnvironment.layers) {
-		environmentState.layers.set(layer.id, createLayerState(layer));
-	}
+  for (const layer of snapshotEnvironment.layers) {
+    environmentState.layers.set(layer.id, createLayerState(layer));
+  }
 
-	return createRenderPlan(environmentState);
+  return createRenderPlan(environmentState);
 }

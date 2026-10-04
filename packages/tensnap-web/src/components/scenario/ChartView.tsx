@@ -22,7 +22,7 @@ const CHART_COLORS = [
   '#ffeaa7',
   '#dda0dd',
   '#98d8c8',
-  '#6c5ce7'
+  '#6c5ce7',
 ] as const;
 
 // 简单的字符串哈希函数
@@ -30,7 +30,7 @@ const hashString = (str: string): number => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash = hash & hash; // 转换为32位整数
   }
   return Math.abs(hash);
@@ -59,9 +59,7 @@ export function ChartView(props: ChartViewProps) {
     updateNowLengthThreshold = 8,
     maxDataPoints = undefined,
   } = props;
-  const {
-    data: rawData,
-  } = chartGroup;
+  const { data: rawData } = chartGroup;
 
   // 显示数据和缓存
   const [displayData, setDisplayData] = useState<Array<ChartSeriesPoint>>([]);
@@ -78,38 +76,45 @@ export function ChartView(props: ChartViewProps) {
   } | null>(null);
 
   // 优化的数据处理函数 - 使用ref避免闭包泄漏
-  const processData = useCallback((data: Array<ChartSeriesPoint>, max: number | undefined, revision: number | undefined): Array<ChartSeriesPoint> => {
-    // 检查缓存是否有效
-    const cached = lastProcessedDataRef.current;
-    if (cached &&
-      cached.source === data &&
-      cached.sourceLength === data.length &&
-      cached.maxPoints === max &&
-      cached.updateTrigger === revision &&
-      cached.result.length > 0) {
-      return cached.result;
-    }
+  const processData = useCallback(
+    (
+      data: Array<ChartSeriesPoint>,
+      max: number | undefined,
+      revision: number | undefined,
+    ): Array<ChartSeriesPoint> => {
+      // 检查缓存是否有效
+      const cached = lastProcessedDataRef.current;
+      if (
+        cached &&
+        cached.source === data &&
+        cached.sourceLength === data.length &&
+        cached.maxPoints === max &&
+        cached.updateTrigger === revision &&
+        cached.result.length > 0
+      ) {
+        return cached.result;
+      }
 
-    // 处理新数据
-    const result = max !== undefined && data.length > max
-      ? data.slice(-max)
-      : data;
+      // 处理新数据
+      const result = max !== undefined && data.length > max ? data.slice(-max) : data;
 
-    // 更新缓存
-    lastProcessedDataRef.current = {
-      source: data,
-      sourceLength: data.length,
-      maxPoints: max,
-      updateTrigger: revision,
-      result,
-    };
+      // 更新缓存
+      lastProcessedDataRef.current = {
+        source: data,
+        sourceLength: data.length,
+        maxPoints: max,
+        updateTrigger: revision,
+        result,
+      };
 
-    return result;
-  }, []); // 移除不必要的依赖，使用ref保证数据新鲜度
+      return result;
+    },
+    [],
+  ); // 移除不必要的依赖，使用ref保证数据新鲜度
 
   // 使用throttle创建节流更新函数
   const throttledUpdateRef = useRef<ReturnType<typeof throttle> | null>(null);
-  
+
   // 使用ref存储最新的maxDataPoints避免闭包问题
   const maxDataPointsRef = useRef(maxDataPoints);
   useEffect(() => {
@@ -161,7 +166,14 @@ export function ChartView(props: ChartViewProps) {
     }
     throttledUpdateRef.current?.(rawData, updateTrigger);
     return undefined;
-  }, [rawData, rawData.length, updateNowLengthThreshold, maxDataPoints, processData, updateTrigger]);
+  }, [
+    rawData,
+    rawData.length,
+    updateNowLengthThreshold,
+    maxDataPoints,
+    processData,
+    updateTrigger,
+  ]);
 
   // Build chart configuration from metadata (稳定化依赖)
   const chartConfig: ChartConfig = useMemo(() => {

@@ -31,7 +31,7 @@ export const menuBar = style({
     },
     '&.mac': {
       paddingLeft: '70px',
-    }
+    },
   },
 });
 
@@ -134,11 +134,14 @@ export const toolButton = style({
 });
 
 export const toolButtonVariants = styleVariants({
-  active: [toolButton, {
-    backgroundColor: vars.color.primary,
-    color: '#ffffff',
-    borderColor: vars.color.primary,
-  }],
+  active: [
+    toolButton,
+    {
+      backgroundColor: vars.color.primary,
+      color: '#ffffff',
+      borderColor: vars.color.primary,
+    },
+  ],
   default: [toolButton],
 });
 
@@ -224,19 +227,22 @@ export const tabLabel = style({
   whiteSpace: 'nowrap',
 });
 
-export const activeTab = style([tab, {
-  backgroundColor: vars.color.background,
-  borderColor: vars.color.primary,
-  color: vars.color.primary,
+export const activeTab = style([
+  tab,
+  {
+    backgroundColor: vars.color.background,
+    borderColor: vars.color.primary,
+    color: vars.color.primary,
 
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkBackground,
-      borderColor: vars.color.primary,
-      color: vars.color.primary,
+    selectors: {
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.darkBackground,
+        borderColor: vars.color.primary,
+        color: vars.color.primary,
+      },
     },
   },
-}]);
+]);
 
 export const tabCloseButton = style({
   flexShrink: 0,
@@ -331,8 +337,8 @@ export const dropdownContent = style({
       backgroundColor: vars.color.darkBackground,
       borderColor: vars.color.darkGridLine,
       boxShadow: vars.shadow.sm,
-    }
-  }
+    },
+  },
 });
 
 export const dropdownItem = style({

@@ -17,9 +17,15 @@ describe('WebSocketManagerImpl', () => {
         capabilities: [],
       },
     });
-    session.scenario.apply({ type: 'param_create', payload: {
-      id: 'speed', type: 'number', label: 'Speed', value: 1,
-    } });
+    session.scenario.apply({
+      type: 'param_create',
+      payload: {
+        id: 'speed',
+        type: 'number',
+        label: 'Speed',
+        value: 1,
+      },
+    });
 
     expect(() => session.setParameter('speed', 2)).toThrow(/not connected/);
     expect(session.scenario.parameters.get('speed')?.value).toBe(1);

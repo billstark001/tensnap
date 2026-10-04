@@ -8,7 +8,8 @@ import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentPainter } from './HeadlessEnvironmentPainter';
 
 const tempPaths: string[] = [];
-const onePixelPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
+const onePixelPngBase64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==';
 const svgDataUrl = `data:image/svg+xml;base64,${Buffer.from(
   '<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="#ef4444"/></svg>',
   'utf8',
@@ -80,10 +81,24 @@ describe('HeadlessEnvironmentPainter', () => {
               storageSnapshot: {
                 agents: [
                   { id: 'bird-1', x: 1, y: 2, color: '#ef4444', icon: 'circle', size: 0.8 },
-                  { id: 'bird-2', x: 5, y: 4, color: '#2563eb', icon: 'triangle', heading: Math.PI / 4, size: 0.9 },
+                  {
+                    id: 'bird-2',
+                    x: 5,
+                    y: 4,
+                    color: '#2563eb',
+                    icon: 'triangle',
+                    heading: Math.PI / 4,
+                    size: 0.9,
+                  },
                 ],
                 trajectories: [
-                  { id: 'bird-1', points: [{ x: 0.5, y: 1.5, time: 1 }, { x: 1, y: 2, time: 2 }] },
+                  {
+                    id: 'bird-1',
+                    points: [
+                      { x: 0.5, y: 1.5, time: 1 },
+                      { x: 1, y: 2, time: 2 },
+                    ],
+                  },
                 ],
               },
             },
@@ -105,7 +120,12 @@ describe('HeadlessEnvironmentPainter', () => {
     expect(artifacts?.[0].mime).toBe('image/png');
     expect(artifacts?.[0].data).toBeInstanceOf(Uint8Array);
     expect((artifacts?.[0].data as Uint8Array).byteLength).toBeGreaterThan(0);
-    expect(artifacts?.[0].metadata).toMatchObject({ width: 320, height: 240, envId: 'main', format: 'png' });
+    expect(artifacts?.[0].metadata).toMatchObject({
+      width: 320,
+      height: 240,
+      envId: 'main',
+      format: 'png',
+    });
     expect(typeof artifacts?.[0].path).toBe('string');
     expect(await exists(artifacts?.[0].path as string)).toBe(true);
   });
@@ -215,14 +235,16 @@ describe('HeadlessEnvironmentPainter', () => {
       ],
     };
 
-    await expect(painter.render({
-      at: new Date().toISOString(),
-      reason: 'bare-base64-background',
-      trigger: 'explicit',
-      snapshot,
-      options: { envId: 'main', width: 64, height: 64, includeData: true },
-      assets: {},
-    })).rejects.toThrow();
+    await expect(
+      painter.render({
+        at: new Date().toISOString(),
+        reason: 'bare-base64-background',
+        trigger: 'explicit',
+        snapshot,
+        options: { envId: 'main', width: 64, height: 64, includeData: true },
+        assets: {},
+      }),
+    ).rejects.toThrow();
   });
 
   it('defaults the canvas background to black and allows per-render overrides', async () => {
@@ -255,35 +277,39 @@ describe('HeadlessEnvironmentPainter', () => {
       ],
     };
 
-    const [defaultArtifact] = await painter.render({
-      at: new Date().toISOString(),
-      reason: 'default-background',
-      trigger: 'explicit',
-      snapshot,
-      options: { envId: 'main', width: 32, height: 32, includeData: true, persist: false },
-      assets: {},
-    }) ?? [];
+    const [defaultArtifact] =
+      (await painter.render({
+        at: new Date().toISOString(),
+        reason: 'default-background',
+        trigger: 'explicit',
+        snapshot,
+        options: { envId: 'main', width: 32, height: 32, includeData: true, persist: false },
+        assets: {},
+      })) ?? [];
 
     const defaultContext = await createContextFromArtifactBytes(defaultArtifact.data as Uint8Array);
     expect([...defaultContext.context.getImageData(16, 16, 1, 1).data]).toEqual([0, 0, 0, 255]);
 
-    const [overrideArtifact] = await painter.render({
-      at: new Date().toISOString(),
-      reason: 'override-background',
-      trigger: 'explicit',
-      snapshot,
-      options: {
-        envId: 'main',
-        width: 32,
-        height: 32,
-        includeData: true,
-        persist: false,
-        backgroundColor: '#123456',
-      },
-      assets: {},
-    }) ?? [];
+    const [overrideArtifact] =
+      (await painter.render({
+        at: new Date().toISOString(),
+        reason: 'override-background',
+        trigger: 'explicit',
+        snapshot,
+        options: {
+          envId: 'main',
+          width: 32,
+          height: 32,
+          includeData: true,
+          persist: false,
+          backgroundColor: '#123456',
+        },
+        assets: {},
+      })) ?? [];
 
-    const overrideContext = await createContextFromArtifactBytes(overrideArtifact.data as Uint8Array);
+    const overrideContext = await createContextFromArtifactBytes(
+      overrideArtifact.data as Uint8Array,
+    );
     expect([...overrideContext.context.getImageData(16, 16, 1, 1).data]).toEqual([18, 52, 86, 255]);
   });
 
@@ -317,21 +343,22 @@ describe('HeadlessEnvironmentPainter', () => {
       ],
     };
 
-    const [artifact] = await painter.render({
-      at: new Date().toISOString(),
-      reason: 'grid-render',
-      trigger: 'explicit',
-      snapshot,
-      options: {
-        envId: 'main',
-        width: 400,
-        height: 400,
-        includeData: true,
-        persist: false,
-        backgroundColor: '#000000',
-      },
-      assets: {},
-    }) ?? [];
+    const [artifact] =
+      (await painter.render({
+        at: new Date().toISOString(),
+        reason: 'grid-render',
+        trigger: 'explicit',
+        snapshot,
+        options: {
+          envId: 'main',
+          width: 400,
+          height: 400,
+          includeData: true,
+          persist: false,
+          backgroundColor: '#000000',
+        },
+        assets: {},
+      })) ?? [];
 
     const { context } = await createContextFromArtifactBytes(artifact.data as Uint8Array);
     expect(hasNonBlackPixelAround(context, 200, 200)).toBe(true);
@@ -447,7 +474,9 @@ describe('HeadlessEnvironmentPainter', () => {
     const aggregated = collectRenderData(snapshot.environments[0]);
 
     expect(aggregated.agentLayers).toHaveLength(2);
-    expect(aggregated.agentLayers.map((layer) => ({ id: layer.id, coordOffset: layer.coordOffset }))).toEqual([
+    expect(
+      aggregated.agentLayers.map((layer) => ({ id: layer.id, coordOffset: layer.coordOffset })),
+    ).toEqual([
       { id: 'agents-int', coordOffset: 'int' },
       { id: 'agents-float', coordOffset: 'float' },
     ]);

@@ -1,7 +1,4 @@
-import type {
-  RendererToSimulatorMessage,
-  SimulatorToRendererMessage,
-} from '@tensnap/protocol';
+import type { RendererToSimulatorMessage, SimulatorToRendererMessage } from '@tensnap/protocol';
 
 export type PostMessageTransfer = Transferable;
 
@@ -62,5 +59,9 @@ export function isPostMessageEnvelope(value: unknown): value is PostMessageEnvel
   }
 
   const candidate = value as Partial<PostMessageEnvelope>;
-  return candidate.source === '@tensnap/js' && candidate.protocol === 'postmessage/v1' && typeof candidate.kind === 'string';
+  return (
+    candidate.source === '@tensnap/js' &&
+    candidate.protocol === 'postmessage/v1' &&
+    typeof candidate.kind === 'string'
+  );
 }

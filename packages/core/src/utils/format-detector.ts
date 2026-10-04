@@ -15,24 +15,24 @@ interface FileSignature {
 const FILE_SIGNATURES: FileSignature[] = [
   {
     format: 'png',
-    signature: [[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]
+    signature: [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]],
   },
   {
     format: 'jpeg',
-    signature: [[0xFF, 0xD8, 0xFF]] // SOI followed by any JPEG marker
+    signature: [[0xff, 0xd8, 0xff]], // SOI followed by any JPEG marker
   },
   {
     format: 'bmp',
-    signature: [[0x42, 0x4D]] // "BM"
+    signature: [[0x42, 0x4d]], // "BM"
   },
   {
     format: 'pdf',
-    signature: [[0x25, 0x50, 0x44, 0x46]] // "%PDF"
+    signature: [[0x25, 0x50, 0x44, 0x46]], // "%PDF"
   },
   {
     format: 'npy',
-    signature: [[0x93, 0x4E, 0x55, 0x4D, 0x50, 0x59]] // "\x93NUMPY"
-  }
+    signature: [[0x93, 0x4e, 0x55, 0x4d, 0x50, 0x59]], // "\x93NUMPY"
+  },
 ];
 
 /**
@@ -42,19 +42,17 @@ function matchesSignature(bytes: Uint8Array, signature: number[], offset: number
   if (bytes.length < offset + signature.length) {
     return false;
   }
-  
+
   for (let i = 0; i < signature.length; i++) {
     if (bytes[offset + i] !== signature[i]) {
       return false;
     }
   }
-  
+
   return true;
 }
 
-export function detectFileFormat(
-  input: Uint8Array,
-): string | null {
+export function detectFileFormat(input: Uint8Array): string | null {
   for (const { format, signature, offset = 0 } of FILE_SIGNATURES) {
     for (const sig of signature) {
       if (matchesSignature(input, sig, offset)) {

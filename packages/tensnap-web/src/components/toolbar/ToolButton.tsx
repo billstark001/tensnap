@@ -20,7 +20,7 @@ export const ToolButton: React.FC<ToolButtonProps> = ({
   tooltip,
   isActive = false,
   disabled,
-  onClick
+  onClick,
 }) => {
   const buttonClass = isActive
     ? styles.toolButtonVariants?.active || styles.toolButton
@@ -34,9 +34,7 @@ export const ToolButton: React.FC<ToolButtonProps> = ({
         </button>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className={styles.tooltipContent}>
-          {tooltip}
-        </Tooltip.Content>
+        <Tooltip.Content className={styles.tooltipContent}>{tooltip}</Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
   );

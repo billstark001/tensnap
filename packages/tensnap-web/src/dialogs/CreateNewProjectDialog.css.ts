@@ -1,6 +1,5 @@
-import { vars } from "@tensnap/web-common/styles/global.css";
-import { style } from "@vanilla-extract/css";
-
+import { vars } from '@tensnap/web-common/styles/global.css';
+import { style } from '@vanilla-extract/css';
 
 export const fakeModelCardContainer = style({
   border: `1px solid ${vars.color.border}`,
@@ -23,7 +22,7 @@ export const fakeModelCardContainer = style({
       backgroundColor: vars.color.darkCardHoverBackground,
       borderColor: vars.color.darkTextPrimary,
     },
-  }
+  },
 });
 
 export const fakeModelTitle = style({

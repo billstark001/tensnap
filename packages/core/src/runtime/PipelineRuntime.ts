@@ -54,10 +54,7 @@ export class PipelineRuntime {
     return this.syncBoundary.requestSync(requestId);
   }
 
-  recordStateSyncBoundary(
-    phase: 'begin' | 'end',
-    payload: { request_id: string },
-  ): boolean {
+  recordStateSyncBoundary(phase: 'begin' | 'end', payload: { request_id: string }): boolean {
     return this.syncBoundary.recordBoundary(phase, payload, () => {
       this.q.maybeDispatchNext();
     });

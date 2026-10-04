@@ -1,6 +1,11 @@
 import type { Leafer } from '@leafer-ui/core';
 import type { IBoundedLayer, SceneBounds, Viewport } from './types';
-import type { EnvironmentLayerHost, EnvironmentSurfaceSize, EnvironmentViewFitMode, IResizableLayer } from './host';
+import type {
+  EnvironmentLayerHost,
+  EnvironmentSurfaceSize,
+  EnvironmentViewFitMode,
+  IResizableLayer,
+} from './host';
 
 export interface FitToSceneOptions {
   /** Non-negative margin around the layer bounds; defaults to 10% per side. */
@@ -166,9 +171,15 @@ export abstract class BaseEnvironmentView implements EnvironmentLayerHost {
       }
 
       const bounds = (layer as IResizableLayer & IBoundedLayer).getSceneBounds();
-      if (!bounds || !Number.isFinite(bounds.minX) || !Number.isFinite(bounds.maxX)
-        || !Number.isFinite(bounds.minY) || !Number.isFinite(bounds.maxY)
-        || bounds.minX > bounds.maxX || bounds.minY > bounds.maxY) {
+      if (
+        !bounds ||
+        !Number.isFinite(bounds.minX) ||
+        !Number.isFinite(bounds.maxX) ||
+        !Number.isFinite(bounds.minY) ||
+        !Number.isFinite(bounds.maxY) ||
+        bounds.minX > bounds.maxX ||
+        bounds.minY > bounds.maxY
+      ) {
         continue;
       }
 

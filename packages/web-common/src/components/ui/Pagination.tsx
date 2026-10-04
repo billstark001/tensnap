@@ -75,10 +75,7 @@ export const Pagination = memo(function Pagination({
         return (
           <button
             key={pageNum}
-            className={clsx(
-              styles.pageButton,
-              pageNum === currentPage && styles.pageButtonActive
-            )}
+            className={clsx(styles.pageButton, pageNum === currentPage && styles.pageButtonActive)}
             onClick={() => onPageChange(pageNum)}
             aria-label={_(msg`Page ${pageNum}`)}
             aria-current={pageNum === currentPage ? 'page' : undefined}

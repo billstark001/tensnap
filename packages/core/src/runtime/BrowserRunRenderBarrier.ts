@@ -41,18 +41,17 @@ class RafCadenceEstimator {
 
   observe(intervalMs: number, now: number): void {
     if (
-      !Number.isFinite(intervalMs)
-      || intervalMs <= 0
-      || intervalMs > RAF_OBSERVATION_MAX_INTERVAL_MS
+      !Number.isFinite(intervalMs) ||
+      intervalMs <= 0 ||
+      intervalMs > RAF_OBSERVATION_MAX_INTERVAL_MS
     ) {
       return;
     }
     if (this.estimateMs !== null && Math.abs(intervalMs - this.estimateMs) > 50) {
       return;
     }
-    this.estimateMs = this.estimateMs === null
-      ? intervalMs
-      : (this.estimateMs * 3 + intervalMs) / 4;
+    this.estimateMs =
+      this.estimateMs === null ? intervalMs : (this.estimateMs * 3 + intervalMs) / 4;
     this.updatedAt = now;
   }
 
@@ -160,9 +159,7 @@ export class BrowserRunRenderBarrier implements RunRenderBarrier {
     const estimate = this.rafEstimator.estimate;
     if (estimate === null) return 'setTimeout';
 
-    const maxRenderIntervalMs = options.maxRenderFps <= 0
-      ? 0
-      : 1_000 / options.maxRenderFps;
+    const maxRenderIntervalMs = options.maxRenderFps <= 0 ? 0 : 1_000 / options.maxRenderFps;
     const rafAlignedIntervalMs = Math.max(estimate, maxRenderIntervalMs);
     return intervalMs + RAF_SELECTION_EPSILON_MS >= rafAlignedIntervalMs
       ? 'requestAnimationFrame'

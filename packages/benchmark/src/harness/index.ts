@@ -29,4 +29,8 @@ export type {
   ExternalBrowserObservation,
   ExternalBrowserStateOracle,
 } from './types';
-export type { BenchmarkCase, BrowserBenchmarkCase, BrowserBenchmarkRunOptions } from '../browser-types';
+export type {
+  BenchmarkCase,
+  BrowserBenchmarkCase,
+  BrowserBenchmarkRunOptions,
+} from '../browser-types';
