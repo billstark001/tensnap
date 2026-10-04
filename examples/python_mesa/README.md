@@ -9,14 +9,7 @@ This directory contains Python examples for TenSnap that use the Mesa agent-base
 - **mushroom** - Mushroom foraging simulation
 - **schelling** - Schelling segregation model with TenSnap, Solara, and a headless scientific sweep
 
-`cgol.py` binds its NumPy board directly with `@matrix_agent_layer` and uses
-`@layer_restore(replace=...)` for projected board restore,
-`@scene_restore(time=mesa_clock_restore)` for projected clock restore, and paired
-`@checkpoint` hooks for exact RNG and collector state. Its cells use stable
-coordinate IDs. `mushroom.py` binds its keyed patch map with `@map_agent_layer`.
-The grid examples import typed cell-space classes from
-`_mesa_space.py` in this directory, which routes to `mesa.discrete_space` on Mesa
-3.2+/4.0 and the experimental `mesa.experimental.cell_space` on Mesa 3.0/3.1.
+`cgol.py` binds its NumPy board directly with `@matrix_agent_layer` and uses `@layer_restore(replace=...)` for projected board restore, `@scene_restore(time=mesa_clock_restore)` for projected clock restore, and paired `@checkpoint` hooks for exact RNG and collector state. Its cells use stable coordinate IDs. `mushroom.py` binds its keyed patch map with `@map_agent_layer`. The grid examples import typed cell-space classes from `_mesa_space.py` in this directory, which routes to `mesa.discrete_space` on Mesa 3.2+/4.0 and the experimental `mesa.experimental.cell_space` on Mesa 3.0/3.1.
 
 ## Running Examples
 
@@ -92,21 +85,14 @@ Most examples consist of:
 - `{name}.py` - The Mesa model definition
 - `{name}_viz.py` - The visualization setup and TenSnap integration
 
-Schelling is partially split because both the teaching commands and the
-publication harness reuse it:
+Schelling is partially split because both the teaching commands and the publication harness reuse it:
 
 - `schelling.py` owns model dynamics and generally useful parameters;
-- `schelling_tensnap.py` owns reusable TenSnap binding/reset setup, while
-  `schelling_viz.py` is the user launcher;
-- `schelling_study.py` owns reusable trials and sweeps, while
-  `schelling_standalone.py` is the user CLI;
-- `netlogo_study.py` similarly serves the NetLogo standalone CLI and its thin
-  benchmark adapter.
+- `schelling_tensnap.py` owns reusable TenSnap binding/reset setup, while `schelling_viz.py` is the user launcher;
+- `schelling_study.py` owns reusable trials and sweeps, while `schelling_standalone.py` is the user CLI;
+- `netlogo_study.py` similarly serves the NetLogo standalone CLI and its thin benchmark adapter.
 
-This is not the minimum file structure required to bind a Mesa model. The
-split prevents the example and harness from copying reset behavior or
-scientific trial loops and then drifting apart; a one-off example can keep
-those pieces together.
+This is not the minimum file structure required to bind a Mesa model. The split prevents the example and harness from copying reset behavior or scientific trial loops and then drifting apart; a one-off example can keep those pieces together.
 
 ## Schelling Solara
 
@@ -120,18 +106,11 @@ solara run schelling_viz_solara.py
 pnpm dev:py:schelling:solara
 ```
 
-It exposes grid width/height, density, balance, similarity threshold, and random
-seed controls.
+It exposes grid width/height, density, balance, similarity threshold, and random seed controls.
 
 ## Schelling Standalone Scientific Task
 
-The standalone scripts run the same heavy threshold-sweep task used by the
-Julia, NetLogo, and Go examples: multiple seeds per similarity threshold, fixed
-grid parameters, and CSV output for final satisfaction, segregation, movement,
-and convergence. After all scientific rows are computed, they print a separate
-performance row with `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`. Timing is
-wrapped around each trial's step loop only, so there is no per-tick timing work
-inside the model hot path.
+The standalone scripts run the same heavy threshold-sweep task used by the Julia, NetLogo, and Go examples: multiple seeds per similarity threshold, fixed grid parameters, and CSV output for final satisfaction, segregation, movement, and convergence. After all scientific rows are computed, they print a separate performance row with `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`. Timing is wrapped around each trial's step loop only, so there is no per-tick timing work inside the model hot path.
 
 ```bash
 cd examples/python_mesa
@@ -141,14 +120,9 @@ python schelling_standalone.py --steps 1000 --seeds 8
 pnpm standalone:py:schelling
 ```
 
-Mesa data collection is part of the teaching model, not a harness patch. It is
-enabled by default and can be removed from a timing-oriented study with
-`--no-collect-data`; the reusable model constructor accepts
-`collect_data=False` directly. `--mode steady` runs exactly the requested
-steps, while `--mode convergence` stops after a no-movement step.
+Mesa data collection is part of the teaching model, not a harness patch. It is enabled by default and can be removed from a timing-oriented study with `--no-collect-data`; the reusable model constructor accepts `collect_data=False` directly. `--mode steady` runs exactly the requested steps, while `--mode convergence` stops after a no-movement step.
 
-The NetLogo version uses the same model defaults and can be run headlessly with
-PyNetLogo installed:
+The NetLogo version uses the same model defaults and can be run headlessly with PyNetLogo installed:
 
 ```bash
 cd examples/python_mesa
@@ -160,11 +134,4 @@ pnpm standalone:netlogo:schelling
 
 ## Benchmark separation
 
-These files are runnable teaching and scientific-task examples. The model,
-study loop and TenSnap binding/server are shared deliberately so a learner sees
-one source of scientific truth. Publication profiles use thin versioned
-subjects in
-`../../benchmarks/schelling/v1/subjects/mesa/` and
-`../../benchmarks/schelling/v1/subjects/netlogo/`. Profile environment parsing,
-canonical-state/revision probes, JSON records and artifact timing adapters
-belong there and are not prerequisites for the examples above.
+These files are runnable teaching and scientific-task examples. The model, study loop and TenSnap binding/server are shared deliberately so a learner sees one source of scientific truth. Publication profiles use thin versioned subjects in `../../benchmarks/schelling/v1/subjects/mesa/` and `../../benchmarks/schelling/v1/subjects/netlogo/`. Profile environment parsing, canonical-state/revision probes, JSON records and artifact timing adapters belong there and are not prerequisites for the examples above.

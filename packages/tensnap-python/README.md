@@ -108,30 +108,15 @@ class Aviary:
 
 `register_model_handler(model_init=None, model_step=None, model_reset=None)` lets you keep `reset` distinct from `init`. If `model_reset` is omitted, the default handler falls back to `model_init`.
 
-Reset reconciles declarations with strict CRUD, deletes the previous agent set
-before creating reset state, clears chart history, and preserves stable
-trajectory configuration so the renderer can apply `on_reset`.
+Reset reconciles declarations with strict CRUD, deletes the previous agent set before creating reset state, clears chart history, and preserves stable trajectory configuration so the renderer can apply `on_reset`.
 
 `add_all(..., dry_run=True)` and the targeted `add_*` dry-run modes report registry ids without mutating the scenario. Mesa lifecycle helpers use this to unregister and rebuild model-owned registrations cleanly.
 
-Trajectory layers expose `length`, `width`, `color`, `z_index`,
-`on_agent_delete`, `on_state_sync`, and `on_reset` as first-class decorator
-arguments. See the Python API reference for their lifecycle semantics.
+Trajectory layers expose `length`, `width`, `color`, `z_index`, `on_agent_delete`, `on_state_sync`, and `on_reset` as first-class decorator arguments. See the Python API reference for their lifecycle semantics.
 
-Model-owned mappings, matrices, and indexed columns can use
-`map_agent_layer`, `matrix_agent_layer`, and `indexed_agent_layer` without
-creating visual agent wrappers. Built-in layer metadata goes in direct
-decorator keywords; custom metadata goes in `metadata={...}`. Source layers
-also accept direct `color`, `icon`, and `size` shortcuts. See the
-[Python API reference](../../docs/api-reference/python-api.md#layer-declaration-conventions)
-for the conflict rules, projection forms, and restore behavior.
+Model-owned mappings, matrices, and indexed columns can use `map_agent_layer`, `matrix_agent_layer`, and `indexed_agent_layer` without creating visual agent wrappers. Built-in layer metadata goes in direct decorator keywords; custom metadata goes in `metadata={...}`. Source layers also accept direct `color`, `icon`, and `size` shortcuts. See the [Python API reference](../../docs/api-reference/python-api.md#layer-declaration-conventions) for the conflict rules, projection forms, and restore behavior.
 
-Monitors use explicit create/update/delete protocol operations. Scene checkpoint
-callbacks work with model data only: provide both `checkpoint_capture` and
-`checkpoint_restore`, and the binding infers the wire encoding. Pass
-`restore=None` to `@scene_restore(...)` for checkpoint-only models. Every connection
-starts with a `simulator_info` handshake containing stable model identity,
-per-instance identity, schema compatibility, and declared capabilities.
+Monitors use explicit create/update/delete protocol operations. Scene checkpoint callbacks work with model data only: provide both `checkpoint_capture` and `checkpoint_restore`, and the binding infers the wire encoding. Pass `restore=None` to `@scene_restore(...)` for checkpoint-only models. Every connection starts with a `simulator_info` handshake containing stable model identity, per-instance identity, schema compatibility, and declared capabilities.
 
 For Mesa models, prefer `BoundModelReinitializer` from `tensnap` or `tensnap.bindings.lifecycle`. Use `bind_kwargs(...)` to expose constructor keyword arguments as resettable parameters when needed. When a constructor kwarg and a model-owned parameter publish the same source field during `register_model()`, the model parameter keeps UI ownership and the reinitializer aliases its reset value from the model field instead of registering a duplicate kwarg parameter. `configure_reinit(...)` now applies the default Mesa cleanup automatically when no explicit cleanup callback is provided.
 

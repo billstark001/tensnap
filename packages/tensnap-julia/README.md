@@ -2,7 +2,7 @@
 
 Julia bindings for TenSnap's WebSocket visualization protocol.
 
-The package mirrors the Python and Go bindings at the protocol level while using Julia-friendly, explicit builders instead of macro-heavy APIs.  Models can be plain Julia mutable structs, dictionaries, or models from packages such as `Agents.jl`; the binding only needs functions that initialize, step, reset, and project model state into TenSnap items.
+The package mirrors the Python and Go bindings at the protocol level while using Julia-friendly, explicit builders instead of macro-heavy APIs. Models can be plain Julia mutable structs, dictionaries, or models from packages such as `Agents.jl`; the binding only needs functions that initialize, step, reset, and project model state into TenSnap items.
 
 For the full API surface, see [../../docs/api-reference/julia-api.md](../../docs/api-reference/julia-api.md).
 
@@ -48,7 +48,6 @@ run!(scenario)
 
 `autoagentprojector()` understands common `Agents.jl` conventions including `id` and tuple/vector `pos` fields, but it does not require `Agents.jl` to be installed.
 
-
 ## Runtime features
 
 TenSnap.jl now covers the core protocol helpers available in the Python and Go bindings:
@@ -58,16 +57,11 @@ TenSnap.jl now covers the core protocol helpers available in the Python and Go b
 - asset cache helpers with `publish_asset!` / `delete_asset!`, including renderer `asset_sync` handling;
 - screenshot request plumbing with `request_screenshot!` for connected renderers that support `screenshot_response`.
 - monitor create/value/delete helpers and strict delete-then-create metadata replacement;
-- reset replay with declaration updates, old-agent deletion, chart clearing,
-  and current monitor values;
-- chart-free scene restore with projected hooks, model-data checkpoint hooks,
-  request-id caching, and checkpoint rollback;
-- first-class trajectory `length`, `width`, `color`, `z_index`,
-  `on_agent_delete`, `on_state_sync`, and `on_reset` keywords.
+- reset replay with declaration updates, old-agent deletion, chart clearing, and current monitor values;
+- chart-free scene restore with projected hooks, model-data checkpoint hooks, request-id caching, and checkpoint rollback;
+- first-class trajectory `length`, `width`, `color`, `z_index`, `on_agent_delete`, `on_state_sync`, and `on_reset` keywords.
 
-Every connection starts with `simulator_info`. Use stable `model_id` and
-`state_schema_version` values for compatible restores; `instance_id` is managed
-per `Scenario` and survives reconnect/reset.
+Every connection starts with `simulator_info`. Use stable `model_id` and `state_schema_version` values for compatible restores; `instance_id` is managed per `Scenario` and survives reconnect/reset.
 
 ## Transport
 
@@ -91,10 +85,7 @@ Release preparation is wired through the repository release helper:
 pnpm run release:julia -- X.Y.Z
 ```
 
-The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia
-package tests, commits the version bump if needed, and creates an annotated
-`tensnap-julia-vX.Y.Z` tag. For Julia General registration from this monorepo
-layout, use Registrator with:
+The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia package tests, commits the version bump if needed, and creates an annotated `tensnap-julia-vX.Y.Z` tag. For Julia General registration from this monorepo layout, use Registrator with:
 
 ```text
 @JuliaRegistrator register subdir=packages/tensnap-julia

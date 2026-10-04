@@ -9,10 +9,7 @@ The recommended workflow is:
 3. Attach custom action behavior with `abm.ActionRouter`.
 4. Let `abm.Base` replay the scenario during `Setup` and `state_sync`.
 
-For a more declarative workflow, use `binding` to generate those `abm` and
-`protocol` objects from Go functions and builders. The package boundary is
-one-way: `binding` depends on `abm`, while `abm` remains the imperative runtime
-layer and never imports `binding`.
+For a more declarative workflow, use `binding` to generate those `abm` and `protocol` objects from Go functions and builders. The package boundary is one-way: `binding` depends on `abm`, while `abm` remains the imperative runtime layer and never imports `binding`.
 
 ## Quick Start
 
@@ -109,8 +106,7 @@ Important types:
 
 ### `binding`
 
-Optional declarative builders that translate model state into `abm`/`protocol`
-registrations and runtime updates.
+Optional declarative builders that translate model state into `abm`/`protocol` registrations and runtime updates.
 
 Important helpers:
 
@@ -119,34 +115,18 @@ Important helpers:
 - `binding.MustParamsFromTags`: parameter builder from scoped struct tags.
 - `binding.NewEnv`: environment builder.
 - `binding.NewGridLayer`: grid layer metadata builder.
-- `binding.NewAgentLayer`: agent layer builder with replay and diff support.
-  Use `Field(name, fn)` for a computed field, `Select(name, path)` for a struct
-  field or indexed path, and `Const(name, value)` for a fixed field.
-- `binding.NewMapAgentLayer[M,K,V]`: project model-owned map entries in stable
-  encoded-ID order. `Source` reads the map; `Field`, `Select`, and `Const`
-  declare individual visual fields, while `Project` supplies a full record.
-  `Changed` enables sparse projection through the existing tracker, and
-  `RestoreSource(nil,nil)` installs a validated inverse for `data.value`.
-- `binding.NewMatrixAgentLayer[M,V]`: bind `[][]V` with `Source`, or flat
-  storage with `Flat(shape,at)`. Shape is `(height,width)`; item IDs are
-  `cell:row:col`, and renderer coordinates are `(col,height-1-row)`.
-  `Field`, `Select`, and `Const` work as on the ordinary agent builder;
-  matrix callbacks receive `(model,row,col,value)`.
-  `RestoreSource` validates a complete dense snapshot and accepts a replacement
-  callback for flat storage or changed dimensions.
+- `binding.NewAgentLayer`: agent layer builder with replay and diff support. Use `Field(name, fn)` for a computed field, `Select(name, path)` for a struct field or indexed path, and `Const(name, value)` for a fixed field.
+- `binding.NewMapAgentLayer[M,K,V]`: project model-owned map entries in stable encoded-ID order. `Source` reads the map; `Field`, `Select`, and `Const` declare individual visual fields, while `Project` supplies a full record. `Changed` enables sparse projection through the existing tracker, and `RestoreSource(nil,nil)` installs a validated inverse for `data.value`.
+- `binding.NewMatrixAgentLayer[M,V]`: bind `[][]V` with `Source`, or flat storage with `Flat(shape,at)`. Shape is `(height,width)`; item IDs are `cell:row:col`, and renderer coordinates are `(col,height-1-row)`. `Field`, `Select`, and `Const` work as on the ordinary agent builder; matrix callbacks receive `(model,row,col,value)`. `RestoreSource` validates a complete dense snapshot and accepts a replacement callback for flat storage or changed dimensions.
 - `binding.NewTrajectoryLayer`: trajectory items plus typed metadata/lifecycle methods.
 - `binding.NewMonitor`: current-value monitor metadata and getter.
 - `binding.ProjectTags` and `AgentLayer.ProjectTagsRequired`: item projectors from scoped struct tags.
 - `binding.MustMetadataFromTags`: environment/layer metadata projector from scoped struct tags.
 - `binding.NewChart`: single-series chart metadata plus getter.
-- `binding.NewChartSeries` and `binding.NewChartGroup`: grouped chart metadata
-  plus per-series getters.
-- `binding.WithTypedCheckpoint`: pair typed snapshot and restore methods while
-  the binding handles the decoded checkpoint's JSON conversion.
+- `binding.NewChartSeries` and `binding.NewChartGroup`: grouped chart metadata plus per-series getters.
+- `binding.WithTypedCheckpoint`: pair typed snapshot and restore methods while the binding handles the decoded checkpoint's JSON conversion.
 
-Use `binding` when you want Python-style declarations. Use `abm` directly when
-you want full imperative control. Mixed models are expected: an agent layer can
-be declarative while actions remain hand-written.
+Use `binding` when you want Python-style declarations. Use `abm` directly when you want full imperative control. Mixed models are expected: an agent layer can be declarative while actions remain hand-written.
 
 ### `server`
 
@@ -181,9 +161,7 @@ Attach a scenario with `model.SetScenario(scenario)`.
 Default behavior:
 
 - `Base.Setup` replays the registered `Scenario`.
-- `Base.OnStateSync` sends a `replace` `state_sync_begin`, replays the registered
-  `Scenario`, then sends `state_sync_end`. The base replay is create-only and
-  therefore never labels it as reconcile or treats creates as upserts.
+- `Base.OnStateSync` sends a `replace` `state_sync_begin`, replays the registered `Scenario`, then sends `state_sync_end`. The base replay is create-only and therefore never labels it as reconcile or treats creates as upserts.
 
 If you need to do work before replay, override `Setup` or `OnStateSync`, then call `ReplayScenario` or `Base.OnStateSync`.
 
@@ -211,12 +189,7 @@ When a `Scenario` is registered, `Base.OnParamChange` uses its `ParamMetadata` e
 
 ## `abm.ActionRouter`
 
-`ActionRouter` is the low-level `Dispatch(Emitter, *ActionInvokePayload)`
-interface. `Base.OnAction` checks an installed router first, then falls back to
-the built-in `init` and `step` actions. Most models should use
-`binding.NewAction`, `binding.NewContinuousAction`, or the lifecycle options on
-`binding.NewModel`; implement `ActionRouter` directly only for an imperative
-dispatcher that needs full access to targets, kwargs, and request IDs.
+`ActionRouter` is the low-level `Dispatch(Emitter, *ActionInvokePayload)` interface. `Base.OnAction` checks an installed router first, then falls back to the built-in `init` and `step` actions. Most models should use `binding.NewAction`, `binding.NewContinuousAction`, or the lifecycle options on `binding.NewModel`; implement `ActionRouter` directly only for an imperative dispatcher that needs full access to targets, kwargs, and request IDs.
 
 ## `binding.NewModel`
 
@@ -265,8 +238,7 @@ bound := binding.NewModel(
 )
 ```
 
-The same configuration can be moved into tags when you want a more declarative
-shape:
+The same configuration can be moved into tags when you want a more declarative shape:
 
 ```go
 type Agent struct {
@@ -309,14 +281,7 @@ The adapter owns only the pieces registered through its options:
 - monitors: optional `WithMonitors`
 - projected/checkpoint restore: layer `Restore` and `WithCheckpoint` (or the existing individual hooks)
 
-By default it registers continuous `start` plus one-shot `step` and `reset`,
-replays owned scenario pieces during setup/state-sync, computes item diffs for
-declared agent layers, updates charts, emits metadata time, and sends
-`action_result`. Reset keeps stable environment/layer definitions, updates
-mutable declarations, clears chart history, and strictly deletes the previous
-agent set before creating the reset state.
-The reserved `init` invocation remains routable but is intentionally absent
-from action metadata, so it never creates a toolbar button.
+By default it registers continuous `start` plus one-shot `step` and `reset`, replays owned scenario pieces during setup/state-sync, computes item diffs for declared agent layers, updates charts, emits metadata time, and sends `action_result`. Reset keeps stable environment/layer definitions, updates mutable declarations, clears chart history, and strictly deletes the previous agent set before creating the reset state. The reserved `init` invocation remains routable but is intentionally absent from action metadata, so it never creates a toolbar button.
 
 For mixed imperative code, embed or store the bound model and call small helpers:
 
@@ -332,13 +297,9 @@ func (m *VizModel) Step(e abm.Emitter) error {
 
 ### Tag Scope Rules
 
-TenSnap tags use the same comma-separated args/kwargs parser as the lower-level
-`binding.ParseTag` helper. A field without a `tensnap` tag is ignored; there is
-no PascalCase/camelCase auto-binding fallback.
+TenSnap tags use the same comma-separated args/kwargs parser as the lower-level `binding.ParseTag` helper. A field without a `tensnap` tag is ignored; there is no PascalCase/camelCase auto-binding fallback.
 
-Within a tag, `scope=...` is optional. If it is absent, the compiler's default
-scope is used. For example, `ProjectTags` defaults unscoped item fields to the
-`agent` scope, while `ParamsFromTags` defaults unscoped fields to `param`.
+Within a tag, `scope=...` is optional. If it is absent, the compiler's default scope is used. For example, `ProjectTags` defaults unscoped item fields to the `agent` scope, while `ParamsFromTags` defaults unscoped fields to `param`.
 
 Multiple scoped entries can live on one Go field by separating them with `;`:
 
@@ -346,8 +307,7 @@ Multiple scoped entries can live on one Go field by separating them with `;`:
 Width int `tensnap:"id=width,scope=param,min=10,max=200; width,scope=space"`
 ```
 
-This lets one model field feed both a renderer parameter and layer metadata.
-When a tag root must be mutated by param changes, pass a pointer root:
+This lets one model field feed both a renderer parameter and layer metadata. When a tag root must be mutated by param changes, pass a pointer root:
 
 ```go
 binding.MustParamsFromTags(
@@ -356,11 +316,7 @@ binding.MustParamsFromTags(
 )
 ```
 
-Use `fixed=true` on a parameter that must keep its construction-time value.
-The binding marks it as unavailable for runtime edits and accepts that value
-when a projected snapshot restores the parameter list. A different value is
-rejected. An item field tagged with `scope=data` is projected inside the
-agent's `data` record:
+Use `fixed=true` on a parameter that must keep its construction-time value. The binding marks it as unavailable for runtime edits and accepts that value when a projected snapshot restores the parameter list. A different value is rejected. An item field tagged with `scope=data` is projected inside the agent's `data` record:
 
 ```go
 type Person struct {
@@ -380,10 +336,7 @@ Use this when your model can cheaply answer:
 - item identity
 - whether an item changed this step
 
-It only projects new or changed items.
-Declarative `binding.AgentLayer` uses this tracker when both
-`ItemID(func(T, I) any)` and `Changed(func(T, I) bool)` are configured. If either
-is omitted, `AgentLayer` keeps the default `NaiveItemDiffTracker` path.
+It only projects new or changed items. Declarative `binding.AgentLayer` uses this tracker when both `ItemID(func(T, I) any)` and `Changed(func(T, I) bool)` are configured. If either is omitted, `AgentLayer` keeps the default `NaiveItemDiffTracker` path.
 
 ### `NaiveItemDiffTracker`
 
@@ -399,8 +352,7 @@ Call `Seed(...)` after an initial `ItemCreate(...)` replay so the next `Compute(
 
 ## Trajectory layers
 
-All v0.3 trajectory fields are available without building an untyped metadata
-map:
+All v0.3 trajectory fields are available without building an untyped metadata map:
 
 ```go
 trails := binding.NewEmptyTrajectoryLayer[*Model]("trails").
@@ -414,24 +366,15 @@ trails := binding.NewEmptyTrajectoryLayer[*Model]("trails").
     OnReset(protocol.TrajectoryResetClear)
 ```
 
-Defaults are agent-delete `delete`, state-sync `preserve`, and reset `clear`.
-`Data(...)` remains available for model-derived or extension metadata; explicit
-fluent fields take precedence.
+Defaults are agent-delete `delete`, state-sync `preserve`, and reset `clear`. `Data(...)` remains available for model-derived or extension metadata; explicit fluent fields take precedence.
 
 ## Monitors and scene restore
 
-Binding ownership, layer dependency direction, and one-time topology
-validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+Binding ownership, layer dependency direction, and one-time topology validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
 
-`WithMonitors(...)` declares current values with `monitor_create` and
-`monitor_update`. Low-level `Emitter` methods provide the complete
-`MonitorCreate`, `MonitorUpdate`, and `MonitorDelete` surface. Metadata
-replacement is delete-then-create; create is not an upsert.
+`WithMonitors(...)` declares current values with `monitor_create` and `monitor_update`. Low-level `Emitter` methods provide the complete `MonitorCreate`, `MonitorUpdate`, and `MonitorDelete` surface. Metadata replacement is delete-then-create; create is not an upsert.
 
-The default reset replay follows the same rule for related objects: it uses
-action/parameter/layer updates for stable definitions, clears chart groups,
-publishes monitor values, and emits `item_delete` for every previous agent
-before the new agent snapshot is created.
+The default reset replay follows the same rule for related objects: it uses action/parameter/layer updates for stable definitions, clears chart groups, publishes monitor values, and emits `item_delete` for every previous agent before the new agent snapshot is created.
 
 Checkpoint callbacks operate only on model data:
 
@@ -443,14 +386,7 @@ bound := binding.NewModel(raw,
 )
 ```
 
-For a declarative projected inverse, call `Restore` on the layer builder.
-The binding reads current records through that layer's `Items` and `Project`
-functions and uses its built-in item key fields. `Replace` handles an
-array-backed layer; grid and background layers can restore metadata alone.
-Model-wide hooks are `WithRestoreTime`, `WithRestoreValidation`,
-`WithBeforeRestore`, and `WithAfterRestore`. The before/after hooks receive the
-model and restore payload. They run around parameter, layer, and time mutation,
-after the complete payload has been validated.
+For a declarative projected inverse, call `Restore` on the layer builder. The binding reads current records through that layer's `Items` and `Project` functions and uses its built-in item key fields. `Replace` handles an array-backed layer; grid and background layers can restore metadata alone. Model-wide hooks are `WithRestoreTime`, `WithRestoreValidation`, `WithBeforeRestore`, and `WithAfterRestore`. The before/after hooks receive the model and restore payload. They run around parameter, layer, and time mutation, after the complete payload has been validated.
 
 ```go
 agents := binding.NewAgentLayer[*Model, Agent]("agents").
@@ -468,26 +404,13 @@ bound := binding.NewModel(raw,
 )
 ```
 
-Keep a stable `state_schema_version` for checkpoint compatibility. The older
-`WithSceneRestore` whole-payload callback remains available.
+Keep a stable `state_schema_version` for checkpoint compatibility. The older `WithSceneRestore` whole-payload callback remains available.
 
-The JSON binding infers `application/octet-stream` for `[]byte` and
-`application/json` for other values, then owns base64 encoding/decoding. A
-restore validates model/schema/instance guards, applies checkpoint data before
-projected state, emits a complete chart-free final replay, caches request IDs,
-and rolls the model back through the checkpoint hooks if later restore work
-fails. `scene.restore.checkpoint` is advertised only when both checkpoint hooks
-are present; projected restore is independent and optional.
+The JSON binding infers `application/octet-stream` for `[]byte` and `application/json` for other values, then owns base64 encoding/decoding. A restore validates model/schema/instance guards, applies checkpoint data before projected state, emits a complete chart-free final replay, caches request IDs, and rolls the model back through the checkpoint hooks if later restore work fails. `scene.restore.checkpoint` is advertised only when both checkpoint hooks are present; projected restore is independent and optional.
 
 ## `simulator_info` handshake
 
-`WithSimulatorInfo(...)` configures the immutable first frame on every
-connection. `protocol_version` and binding defaults are filled automatically;
-provide a stable `Model.ID`, optional model version/name/description, and a
-`Model.StateSchemaVersion` whenever restore data has a compatibility boundary.
-`InstanceID` stays stable for reconnect/reset of one bound model and must change
-for a replacement instance. Capabilities are sorted after binding-owned monitor,
-action, and restore capabilities are added.
+`WithSimulatorInfo(...)` configures the immutable first frame on every connection. `protocol_version` and binding defaults are filled automatically; provide a stable `Model.ID`, optional model version/name/description, and a `Model.StateSchemaVersion` whenever restore data has a compatibility boundary. `InstanceID` stays stable for reconnect/reset of one bound model and must change for a replacement instance. Capabilities are sorted after binding-owned monitor, action, and restore capabilities are added.
 
 ## Detached Execution
 
@@ -504,9 +427,7 @@ _ = model.Step(emitter)
 
 - The current frontend uses `start`, `step`, and `reset` as its reserved toolbar actions.
 - `server.RunFactory` is usually the safer entry point because it isolates model state per renderer session.
-- The bundled codecs are `protocol.JSONCodec` (default, text frames) and
-  `protocol.MsgPackCodec` (binary frames). Select one through
-  `server.Options.Codec`; both use the canonical JSON-tagged field names.
+- The bundled codecs are `protocol.JSONCodec` (default, text frames) and `protocol.MsgPackCodec` (binary frames). Select one through `server.Options.Codec`; both use the canonical JSON-tagged field names.
 - A declarative `Scenario` only covers stable protocol surface plus replay callbacks. It is not the same object as the browser-side Scenario runtime in `packages/core`.
 
 ## References

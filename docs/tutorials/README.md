@@ -86,7 +86,7 @@ The `examples/` directory contains complete, working examples:
 - **flock.py / flock_viz.py** - Flocking/boids simulation
 - **hk.py / hk_viz.py** - Hegselmann-Krause opinion dynamics
 - **predator_prey.py / predator_prey_viz.py** - Predator-prey ecosystem with grass regrowth
-- **sirs.py / sirs_viz_*.py** - SIRS epidemic model
+- **sirs.py / sirs_viz\_*.py** - SIRS epidemic model
 
 **Mesa-Based Examples** (`examples/python_mesa/`):
 

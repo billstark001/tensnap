@@ -4,8 +4,7 @@ Go bindings for the simulator side of the TenSnap protocol v0.3.
 
 This module is intentionally small. It gives Go simulators four pieces:
 
-- `protocol`: wire-level message types, constants, and JSON/MessagePack codecs
-  (JSON is the default).
+- `protocol`: wire-level message types, constants, and JSON/MessagePack codecs (JSON is the default).
 - `abm`: a small model interface, `Base`, `TickCounter`, declarative `Scenario`, `ActionRouter`, `ParamMetadata`, and the `Emitter`/`Sink` abstraction.
 - `binding`: optional declarative builders that translate Go model state into `abm`/`protocol` registrations and runtime diffs.
 - `server`: a WebSocket server that binds a model to a TenSnap renderer session.
@@ -24,9 +23,7 @@ For local development against this monorepo, use a `replace` directive in your o
 replace github.com/billstark001/tensnap/packages/tensnap-go => ../tensnap/packages/tensnap-go
 ```
 
-This repository uses a nested Go module. From the repository root, use the
-release helper to update the binding version and create the required
-`packages/tensnap-go/vX.Y.Z` tag:
+This repository uses a nested Go module. From the repository root, use the release helper to update the binding version and create the required `packages/tensnap-go/vX.Y.Z` tag:
 
 ```bash
 pnpm run release -- go X.Y.Z
@@ -114,14 +111,7 @@ model := binding.NewModel(
 )
 ```
 
-`binding.NewModel` supplies continuous `start` plus one-shot `step` and `reset`
-actions, handles setup/state-sync replay, computes item diffs, updates charts,
-and emits metadata time. Reset preserves stable definitions, clears chart
-history, and deletes the old agent snapshot before creating the reset state. If
-you need more control, use the smaller registries directly; for example, keep
-your own `OnAction` method and call `bound.PushEnvDiffs(e)` after an imperative
-step. The reserved `init` lifecycle invocation stays dispatchable but is not
-declared as a renderer action, so it does not create a button.
+`binding.NewModel` supplies continuous `start` plus one-shot `step` and `reset` actions, handles setup/state-sync replay, computes item diffs, updates charts, and emits metadata time. Reset preserves stable definitions, clears chart history, and deletes the old agent snapshot before creating the reset state. If you need more control, use the smaller registries directly; for example, keep your own `OnAction` method and call `bound.PushEnvDiffs(e)` after an imperative step. The reserved `init` lifecycle invocation stays dispatchable but is not declared as a renderer action, so it does not create a button.
 
 Boundary rule: `binding` translates declarative Go configuration into `abm` and `protocol` objects. It should not redefine wire payloads, and `abm` should remain usable without importing `binding`.
 
@@ -199,17 +189,10 @@ The `Emitter` exposes the simulator-to-renderer families used by protocol v0.3, 
 - `ParamMetadata.Normalize` is the default place to clamp or coerce renderer-provided values; `ParamMetadata.OnSet` is where you attach runtime side effects.
 - `ActionRouter` is consulted before the built-in `init` / `step` fallback in `Base.OnAction`.
 - `ItemDiffTracker` and `NaiveItemDiffTracker` cover the two incremental diff modes also exposed by the Python bindings.
-- The bundled codecs are `protocol.JSONCodec` (default, text frames) and
-  `protocol.MsgPackCodec` (binary frames). Select one with `server.Options.Codec`;
-  both use the canonical JSON-tagged wire field names.
+- The bundled codecs are `protocol.JSONCodec` (default, text frames) and `protocol.MsgPackCodec` (binary frames). Select one with `server.Options.Codec`; both use the canonical JSON-tagged wire field names.
 - `server.Run` shares one model instance across connections. `server.RunFactory` is the safer default because it creates one model per renderer session.
 
-Trajectory builders expose typed lifecycle methods for agent deletion,
-state-sync, and reset. Checkpoint hooks exchange model data only; the binding
-infers and owns the `{encoding,data}` wire envelope, replays a chart-free final
-state on restore, caches request IDs, and rolls back when paired hooks are
-available. The first frame is always `simulator_info`; configure stable model
-identity and schema compatibility with `WithSimulatorInfo`.
+Trajectory builders expose typed lifecycle methods for agent deletion, state-sync, and reset. Checkpoint hooks exchange model data only; the binding infers and owns the `{encoding,data}` wire envelope, replays a chart-free final state on restore, caches request IDs, and rolls back when paired hooks are available. The first frame is always `simulator_info`; configure stable model identity and schema compatibility with `WithSimulatorInfo`.
 
 ## Runnable Examples
 
@@ -223,11 +206,7 @@ make run-standalone
 
 `run-schelling` starts a WebSocket simulator on `:8765`.
 
-`run-standalone` runs the Schelling model headlessly as a heavy threshold-sweep
-scientific task and prints CSV metrics comparable with the Python, NetLogo, and
-Julia standalone examples. The final performance row reports `total_ticks`,
-`elapsed_ms`, `tpms`, and `mspt`; timing wraps each trial's step loop only, so
-there is no per-tick timing work in the model hot path.
+`run-standalone` runs the Schelling model headlessly as a heavy threshold-sweep scientific task and prints CSV metrics comparable with the Python, NetLogo, and Julia standalone examples. The final performance row reports `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`; timing wraps each trial's step loop only, so there is no per-tick timing work in the model hot path.
 
 ## Validation
 

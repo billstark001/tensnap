@@ -1,7 +1,6 @@
 # TenSnap JavaScript Examples
 
-This workspace package is the home for runnable JavaScript examples and built-in
-local simulator manifests.
+This workspace package is the home for runnable JavaScript examples and built-in local simulator manifests.
 
 Current scope:
 
@@ -11,17 +10,9 @@ Current scope:
 - expose bundled in-memory and postMessage transports for browser consumers
 - host declarative example definitions built on native `@tensnap/js` sessions
 
-The Axelrod example binds its native `agents[row][col]` matrix through
-`.matrixAgentLayer(...)`, including validated scene restore of cell values and
-`total_updates` metadata. It also uses paired `checkpoint: { capture, restore }`
-hooks. The checkpoint includes the private random generator state, so stepping
-after restore follows the same cultural update path.
+The Axelrod example binds its native `agents[row][col]` matrix through `.matrixAgentLayer(...)`, including validated scene restore of cell values and `total_updates` metadata. It also uses paired `checkpoint: { capture, restore }` hooks. The checkpoint includes the private random generator state, so stepping after restore follows the same cultural update path.
 
-The package contains model sources, declarative renderer definitions, and
-manifest registration used by the main Web workspace. Publication-only kernel
-and server adapters live in
-`../../benchmarks/schelling/v1/subjects/js/`; benchmark environment parsing and
-JSON output are not part of the examples.
+The package contains model sources, declarative renderer definitions, and manifest registration used by the main Web workspace. Publication-only kernel and server adapters live in `../../benchmarks/schelling/v1/subjects/js/`; benchmark environment parsing and JSON output are not part of the examples.
 
 ## Schelling entry points
 
@@ -40,58 +31,47 @@ pnpm --filter @tensnap/examples-js demo:ws schelling \
   --threshold 0.7 --seed 7 --port 8765 --encoding json
 ```
 
-`src/standalone/schelling-study.ts` owns the reusable trial/sweep logic. The
-entry point only parses user options and prints threshold-summary CSV. Benchmark
-subjects import that same helper and add the publication JSON record.
+`src/standalone/schelling-study.ts` owns the reusable trial/sweep logic. The entry point only parses user options and prints threshold-summary CSV. Benchmark subjects import that same helper and add the publication JSON record.
 
-The split between `entries/`, `standalone/`, `models/`, and `renderers/` is a
-reuse choice for this repository, not required TenSnap boilerplate. The
-user-facing entry files stay thin so the benchmark kernel can reuse the study
-without its JSON adapter entering the example, and the benchmark WebSocket
-subject can reuse the production example session/host without copying binding
-logic. A small standalone application may combine these responsibilities.
+The split between `entries/`, `standalone/`, `models/`, and `renderers/` is a reuse choice for this repository, not required TenSnap boilerplate. The user-facing entry files stay thin so the benchmark kernel can reuse the study without its JSON adapter entering the example, and the benchmark WebSocket subject can reuse the production example session/host without copying binding logic. A small standalone application may combine these responsibilities.
 
 ## Authoring Style
 
-Each renderer exports a single example object produced by `modelBuilder(...).build()`.
-The builder owns session, registry, lifecycle actions, parameter updates, layer
-diffs, chart updates, and asset sync.
+Each renderer exports a single example object produced by `modelBuilder(...).build()`. The builder owns session, registry, lifecycle actions, parameter updates, layer diffs, chart updates, and asset sync.
 
-Each example declares a stable `stateSchemaVersion` and speaks only canonical
-v0.3 protocol messages; no renderer compatibility conversion is embedded in
-the models.
+Each example declares a stable `stateSchemaVersion` and speaks only canonical v0.3 protocol messages; no renderer compatibility conversion is embedded in the models.
 
 ```ts
-import {
-  modelBuilder,
-  numberField,
-} from '@tensnap/js/bindings';
+import { modelBuilder, numberField } from '@tensnap/js/bindings';
 
 interface Config {
   speed: number;
 }
 
-const builder = modelBuilder<Config, { tick: number; config: Config }>({
-  id: 'demo',
-  name: 'Demo',
-  description: 'Example description.',
-  stateSchemaVersion: '1',
-}, {
-  defaults: { speed: 1 },
-  create(config) {
-    return { tick: 0, config: { ...config } };
+const builder = modelBuilder<Config, { tick: number; config: Config }>(
+  {
+    id: 'demo',
+    name: 'Demo',
+    description: 'Example description.',
+    stateSchemaVersion: '1',
   },
-  getConfig(model) {
-    return model.config;
+  {
+    defaults: { speed: 1 },
+    create(config) {
+      return { tick: 0, config: { ...config } };
+    },
+    getConfig(model) {
+      return model.config;
+    },
+    step(model) {
+      model.tick += 1;
+      return true;
+    },
+    time(model) {
+      return model.tick;
+    },
   },
-  step(model) {
-    model.tick += 1;
-    return true;
-  },
-  time(model) {
-    return model.tick;
-  },
-});
+);
 
 builder.paramsFromConfig<Config>({
   get: (model) => model.config,
@@ -116,7 +96,4 @@ builder.chart('count', {
 export const MY_EXAMPLE = builder.build();
 ```
 
-Renderer authors should declare metadata, parameters, environments, layers,
-charts, optional actions, and optional assets. The exported object exposes
-`createScenario(...)` and `createSession(...)` for manifests and transports, so
-renderer files do not need wrapper session code.
+Renderer authors should declare metadata, parameters, environments, layers, charts, optional actions, and optional assets. The exported object exposes `createScenario(...)` and `createSession(...)` for manifests and transports, so renderer files do not need wrapper session code.

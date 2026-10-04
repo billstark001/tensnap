@@ -30,10 +30,8 @@ Shared protocol package.
 
 Owns:
 
-- protocol v0.3 message types, schemas, codecs, and transport-independent
-  observable behavior
-- the field-level contract in schema/code comments and the cross-message
-  contract in `SPECIFICATION.md`
+- protocol v0.3 message types, schemas, codecs, and transport-independent observable behavior
+- the field-level contract in schema/code comments and the cross-message contract in `SPECIFICATION.md`
 
 ### `packages/core`
 
@@ -42,20 +40,15 @@ Shared runtime and rendering package.
 Owns:
 
 - `Scenario` state model and snapshot logic
-- `RendererSession`: transport binding, protocol application, state-sync commit
-  transaction, asset sync, screenshot replies, and outbound controls
-- `RendererClient`: shared transport handshake, replacement, and correlated
-  sync/action waits around a `RendererSession`
-- `RunController`: renderer-driven bounded and manual action runs, render
-  barriers, and safe stop conditions
+- `RendererSession`: transport binding, protocol application, state-sync commit transaction, asset sync, screenshot replies, and outbound controls
+- `RendererClient`: shared transport handshake, replacement, and correlated sync/action waits around a `RendererSession`
+- `RunController`: renderer-driven bounded and manual action runs, render barriers, and safe stop conditions
 - layer registry, dependency graph, and render-plan helpers
 - shared environment storages and built-in render layers
 - shared runtime pipeline helpers
 - project-level `AssetStore`
 
-The protocol package owns wire payloads and cross-runtime lifecycle behavior.
-Core owns the renderer-side state and reference implementation, plus
-renderer-local rendering semantics built on top of that contract.
+The protocol package owns wire payloads and cross-runtime lifecycle behavior. Core owns the renderer-side state and reference implementation, plus renderer-local rendering semantics built on top of that contract.
 
 ## Rendering Contract Ownership
 
@@ -67,8 +60,7 @@ The core-owned rendering contract includes:
 - scene-bound discovery and view metadata resolution
 - render-plan generation and snapshot render-data collection
 - shared environment and chart rendering semantics
-- the renderer-side implementation of the protocol-defined
-  dispatch/apply/render pipeline
+- the renderer-side implementation of the protocol-defined dispatch/apply/render pipeline
 - asset, icon, background, and trajectory interpretation rules needed to render a `Scenario`
 
 All other packages must treat this contract as read-only infrastructure.
@@ -171,9 +163,7 @@ Owns:
 
 ## Protocol v0.3 Ownership
 
-`packages/protocol` owns the canonical wire contract and its behavior
-definition. `packages/core` is the reference renderer implementation of that
-contract; it must not redefine protocol behavior.
+`packages/protocol` owns the canonical wire contract and its behavior definition. `packages/core` is the reference renderer implementation of that contract; it must not redefine protocol behavior.
 
 Important message families:
 
@@ -253,11 +243,8 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 1. `RendererSession` sends `state_sync` with the current read-only inventory.
 2. Simulator replies with `state_sync_begin`.
-3. The session applies replayed `*_create`, `*_update`, and `*_delete`
-   messages to an isolated staging `Scenario`; the committed scene remains
-   visible throughout the transaction.
-4. On a matching `state_sync_end`, the session swaps in the staged state and
-   publishes one `state-sync` commit. Failure or disconnect discards the stage.
+3. The session applies replayed `*_create`, `*_update`, and `*_delete` messages to an isolated staging `Scenario`; the committed scene remains visible throughout the transaction.
+4. On a matching `state_sync_end`, the session swaps in the staged state and publishes one `state-sync` commit. Failure or disconnect discards the stage.
 5. The renderer continues from that state.
 
 ### Continuous execution
@@ -266,102 +253,37 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 2. Simulator executes one step.
 3. Simulator emits state mutations.
 4. Simulator ends the tick with `action_result`.
-5. `RunController` evaluates its optional stop expression, checks the finite
-   step/deadline policy, waits for the host render barrier, then decides whether
-   to start the next tick.
+5. `RunController` evaluates its optional stop expression, checks the finite step/deadline policy, waits for the host render barrier, then decides whether to start the next tick.
 
 This keeps loop ownership in the renderer and avoids server-owned hidden timers in the protocol contract.
 
-Bounded runs have a positive `maxSteps`, with a default policy limit of
-1,000,000. Manual runs continue until paused or stopped and do not require
-`maxSteps`. A bounded run's `stopWhen` expression is parsed once and runs only
-before the first dispatch and after an `action_result`. It has a read-only incremental scope:
-`steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`.
-It cannot invoke arbitrary host functions or rely on a full scenario dump.
-The agent CLI can explicitly raise its policy while starting a runtime with
-`--max-steps-policy <n>`; the configured limit is included in runtime status.
+Bounded runs have a positive `maxSteps`, with a default policy limit of 1,000,000. Manual runs continue until paused or stopped and do not require `maxSteps`. A bounded run's `stopWhen` expression is parsed once and runs only before the first dispatch and after an `action_result`. It has a read-only incremental scope: `steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`. It cannot invoke arbitrary host functions or rely on a full scenario dump. The agent CLI can explicitly raise its policy while starting a runtime with `--max-steps-policy <n>`; the configured limit is included in runtime status.
 
 `action_result` is the action transaction boundary. A simulator must not send it until all state messages caused by the action have been written to the transport in order. This applies to reserved actions as well: `step` and one `start` dispatch both advance exactly one tick, while `reset` publishes the rebuilt time-0 state before completing.
 
-The render barrier is a host boundary, not a best-effort Promise. A rejection
-is caught by `RunController`, reported through its host-error callback, and
-ends the affected run with `render-error`; the pipeline is then released. A
-later run is not stopped by an old barrier rejection because the controller
-matches the original task id.
+The render barrier is a host boundary, not a best-effort Promise. A rejection is caught by `RunController`, reported through its host-error callback, and ends the affected run with `render-error`; the pipeline is then released. A later run is not stopped by an old barrier rejection because the controller matches the original task id.
 
 ## Recording, Replay, and Project Persistence
 
-`SnapshotRecorder` records protocol activity as atomic frames. It coalesces
-repeated item changes only when no dependent layer needs intermediate updates;
-layer replacement starts a new coalescing batch. It also coalesces eligible
-metadata/parameter updates, inserts adaptive keyframes, and enforces frame,
-duration, and byte budgets. Replays use the
-same `Scenario`/layer registry as a live session; they are offline copies and
-must not be treated as a restore of a still-connected simulator.
+`SnapshotRecorder` records protocol activity as atomic frames. It coalesces repeated item changes only when no dependent layer needs intermediate updates; layer replacement starts a new coalescing batch. It also coalesces eligible metadata/parameter updates, inserts adaptive keyframes, and enforces frame, duration, and byte budgets. Replays use the same `Scenario`/layer registry as a live session; they are offline copies and must not be treated as a restore of a still-connected simulator.
 
-Projects select an explicit `websocket`, `inmemory`, or `snapshot` source. A
-snapshot source is an offline renderer event source, not a simulated live
-connection: `start` plays frames, `step` advances one atomic frame, `stop`
-pauses, and `reset` seeks to the initial frame. Custom simulator actions and
-parameter mutation are unavailable. Recorded messages are applied through the
-normal replay path without fabricating a state-sync transaction. Restoring the
-same snapshot into a compatible live simulator is a separate scene-restore
-operation.
+Projects select an explicit `websocket`, `inmemory`, or `snapshot` source. A snapshot source is an offline renderer event source, not a simulated live connection: `start` plays frames, `step` advances one atomic frame, `stop` pauses, and `reset` seeks to the initial frame. Custom simulator actions and parameter mutation are unavailable. Recorded messages are applied through the normal replay path without fabricating a state-sync transaction. Restoring the same snapshot into a compatible live simulator is a separate scene-restore operation.
 
-For persistence, core turns a `Snapshot` into independently decodable
-MessagePack segments. Each segment carries a base keyframe and lossless
-compression metadata, enabling worker-based encoding and random access without
-requiring an earlier segment. Project files use format version 3: the live
-scenario and all recordings reference one project-level asset table by hash.
-The browser encoder runs in a Worker when available and has a synchronous
-fallback for tests and unsupported hosts. Project-file migration is a
-persistence compatibility promise: unversioned version-0 files and explicit
-version-1/version-2 files must remain readable, are upgraded to version 3 in
-memory, and are written as version 3 on the next save. Unknown future versions
-are rejected. Best-effort recovery of damaged files is separate from this
-promise and may discard invalid sections with explicit warnings.
+For persistence, core turns a `Snapshot` into independently decodable MessagePack segments. Each segment carries a base keyframe and lossless compression metadata, enabling worker-based encoding and random access without requiring an earlier segment. Project files use format version 3: the live scenario and all recordings reference one project-level asset table by hash. The browser encoder runs in a Worker when available and has a synchronous fallback for tests and unsupported hosts. Project-file migration is a persistence compatibility promise: unversioned version-0 files and explicit version-1/version-2 files must remain readable, are upgraded to version 3 in memory, and are written as version 3 on the next save. Unknown future versions are rejected. Best-effort recovery of damaged files is separate from this promise and may discard invalid sections with explicit warnings.
 
-`layerCodecs` remain recording policies (`delta`, `keyframe`, `adaptive`, and
-`derived`). A concrete `SnapshotLayerCodecImplementation` can override the
-delta/keyframe behavior for a host-specific layer; the policy label is not a
-claim that the data already has a custom binary codec.
+`layerCodecs` remain recording policies (`delta`, `keyframe`, `adaptive`, and `derived`). A concrete `SnapshotLayerCodecImplementation` can override the delta/keyframe behavior for a host-specific layer; the policy label is not a claim that the data already has a custom binary codec.
 
-`packages/benchmark` has node, WebSocket, and browser suites. Browser model
-cases mount the production host exported by `packages/tensnap-web`; direct
-renderer controls remain explicitly labelled and use the same generated state
-trace. Profiles declare feature level, dimensions, primary metric, and paired
-comparisons so unlike layers cannot silently enter one result table.
+`packages/benchmark` has node, WebSocket, and browser suites. Browser model cases mount the production host exported by `packages/tensnap-web`; direct renderer controls remain explicitly labelled and use the same generated state trace. Profiles declare feature level, dimensions, primary metric, and paired comparisons so unlike layers cannot silently enter one result table.
 
-Publication-specific adapters, oracles and probes belong under `benchmarks/`.
-Reusable scientific models, configuration, study loops and UI/server factories
-belong under `examples/` and are imported by thin subjects. The resulting thin
-`viz` and `standalone` launchers are a reuse boundary between examples and the
-publication harness, not a binding API requirement; one-off examples may keep
-those responsibilities together. External UIs expose a render revision and
-canonical state oracle; the harness measures action dispatch to the next paint
-after the declared revision, captures screenshots outside the timed interval,
-and checks exact cross-renderer hashes where a profile declares semantic
-equivalence.
+Publication-specific adapters, oracles and probes belong under `benchmarks/`. Reusable scientific models, configuration, study loops and UI/server factories belong under `examples/` and are imported by thin subjects. The resulting thin `viz` and `standalone` launchers are a reuse boundary between examples and the publication harness, not a binding API requirement; one-off examples may keep those responsibilities together. External UIs expose a render revision and canonical state oracle; the harness measures action dispatch to the next paint after the declared revision, captures screenshots outside the timed interval, and checks exact cross-renderer hashes where a profile declares semantic equivalence.
 
-Every replicate is journaled for resume/shard/merge. Complete artifacts include
-raw samples plus regenerated reports, CSV data, figure data, and checksums.
-Verification rebuilds summaries and randomized-block paired comparisons from
-raw samples. The complete workflow and the example/subject ownership boundary
-are documented in `benchmarks/README.md`.
+Every replicate is journaled for resume/shard/merge. Complete artifacts include raw samples plus regenerated reports, CSV data, figure data, and checksums. Verification rebuilds summaries and randomized-block paired comparisons from raw samples. The complete workflow and the example/subject ownership boundary are documented in `benchmarks/README.md`.
 
 ## Inspection and Trajectory Semantics
 
-`ScenarioInspector` resolves an `AgentRef` against current Scenario state for
-every inspection. Spatial inspections compute a viewport, target overlay,
-neighbors, edges, and trajectories from shared core semantics; graph
-inspections reuse a read-only layout and must not start another force
-simulation that writes agent positions.
+`ScenarioInspector` resolves an `AgentRef` against current Scenario state for every inspection. Spatial inspections compute a viewport, target overlay, neighbors, edges, and trajectories from shared core semantics; graph inspections reuse a read-only layout and must not start another force simulation that writes agent positions.
 
-Trajectory layers declare lifecycle metadata: state-sync may preserve or clear
-trails, reset may preserve or clear them, and agent deletion may delete or
-retain an old segment. State-sync replay must never append movement points.
-When a retained id reappears, a new segment begins instead of drawing a line
-from the deleted agent to its replacement.
+Trajectory layers declare lifecycle metadata: state-sync may preserve or clear trails, reset may preserve or clear them, and agent deletion may delete or retain an old segment. State-sync replay must never append movement points. When a retained id reappears, a new segment begins instead of drawing a line from the deleted agent to its replacement.
 
 ## Python Runtime Architecture
 
@@ -403,64 +325,28 @@ The web app composes:
 
 Live environment rendering is layer/storage driven. Current render paths read `ScenarioEnvironmentState.layers` directly rather than reconstructing environment views from full agent dumps on every tick.
 
-The primary click of a continuous button starts an explicit manual run and
-continues until the user pauses it. The button's context menu keeps the normal
-edit/delete entries and adds a separate continuous-run configuration item. That
-dialog records a bounded profile (`maxSteps`, optional stop expression/deadline,
-and recording flag) per action; while active, the same menu exposes stop and
-single-step actions. Changing a button away from continuous mode stops and
-hides its matching run. Button-visible run state is deliberately compact (step
-count plus a stop glyph); the full reason and condition value are available
-from its hover title so narrow action buttons do not wrap.
+The primary click of a continuous button starts an explicit manual run and continues until the user pauses it. The button's context menu keeps the normal edit/delete entries and adds a separate continuous-run configuration item. That dialog records a bounded profile (`maxSteps`, optional stop expression/deadline, and recording flag) per action; while active, the same menu exposes stop and single-step actions. Changing a button away from continuous mode stops and hides its matching run. Button-visible run state is deliberately compact (step count plus a stop glyph); the full reason and condition value are available from its hover title so narrow action buttons do not wrap.
 
 ### Tauri renderer
 
-The Tauri app reuses the web renderer and adds desktop-specific integration.
-It injects `SettingsPersistence` backed by `plugin-store`; the browser host uses
-the guarded localStorage implementation. Files are selected with the official
-dialog plugin and accessed through the scoped fs plugin. The official
-`persisted-scope` Rust plugin restores dialog-granted file scopes across desktop
-restarts. The single `main` capability deliberately avoids wildcard filesystem
-scope and global Tauri APIs; the CSP explicitly permits the application origin,
-assets, and WebSocket connections used by simulator transports. The renderer
-build must stay aligned with the web package's Lingui/SWC transform setup.
-When its locale changes, the renderer invokes `set_menu_locale_handler`, which
-rebuilds the native menu from the Rust label table. This table covers every
-renderer locale (`en`, `zh`, and `ja`); adding a locale requires updating that
-table and its unit test, rather than relying on the renderer's Lingui catalog.
+The Tauri app reuses the web renderer and adds desktop-specific integration. It injects `SettingsPersistence` backed by `plugin-store`; the browser host uses the guarded localStorage implementation. Files are selected with the official dialog plugin and accessed through the scoped fs plugin. The official `persisted-scope` Rust plugin restores dialog-granted file scopes across desktop restarts. The single `main` capability deliberately avoids wildcard filesystem scope and global Tauri APIs; the CSP explicitly permits the application origin, assets, and WebSocket connections used by simulator transports. The renderer build must stay aligned with the web package's Lingui/SWC transform setup. When its locale changes, the renderer invokes `set_menu_locale_handler`, which rebuilds the native menu from the Rust label table. This table covers every renderer locale (`en`, `zh`, and `ja`); adding a locale requires updating that table and its unit test, rather than relying on the renderer's Lingui catalog.
 
-For Save As, the web toolbar provides the selected project extension and file
-filter to the native dialog *before* it opens. The dialog-returned final path
-is passed unchanged to scoped fs; project saving does not append an extension
-after authorization or run a redundant `mkdir` on the selected parent.
+For Save As, the web toolbar provides the selected project extension and file filter to the native dialog _before_ it opens. The dialog-returned final path is passed unchanged to scoped fs; project saving does not append an extension after authorization or run a redundant `mkdir` on the selected parent.
 
 ### Frontend bundle boundaries
 
-`scripts/vite-chunks.mjs` is the shared Rolldown code-splitting policy for the
-browser renderer, Tauri webview, and benchmark app. It assigns external
-dependencies before workspace packages so a workspace chunk cannot absorb a
-large dependency closure. Stable React/UI/i18n/data, Leafer, and D3 dependencies
-are cacheable independently from the core environment, chart, runtime,
-scenario, snapshot, asset, utility, parameter, and transport modules. The
-snapshot archive worker remains lazy-loaded in its own chunk. All three builds
-retain Vite's 500 KiB warning budget for eager code: solve a genuine over-budget
-entry point by adjusting boundaries or loading behavior instead of raising the
-warning limit.
+`scripts/vite-chunks.mjs` is the shared Rolldown code-splitting policy for the browser renderer, Tauri webview, and benchmark app. It assigns external dependencies before workspace packages so a workspace chunk cannot absorb a large dependency closure. Stable React/UI/i18n/data, Leafer, and D3 dependencies are cacheable independently from the core environment, chart, runtime, scenario, snapshot, asset, utility, parameter, and transport modules. The snapshot archive worker remains lazy-loaded in its own chunk. All three builds retain Vite's 500 KiB warning budget for eager code: solve a genuine over-budget entry point by adjusting boundaries or loading behavior instead of raising the warning limit.
 
 ### Headless agent runtime
 
-`packages/tensnap-agent` hosts the same `RendererSession` and `RunController`
-used by the browser for:
+`packages/tensnap-agent` hosts the same `RendererSession` and `RunController` used by the browser for:
 
 - offscreen rendering
 - automation
 - capture workflows
 - agent/session orchestration
 
-Its control API exposes a shared bounded-run resource: `POST /v1/runs`,
-`GET /v1/runs`, and `DELETE /v1/runs`. The CLI maps these to `run start`,
-`run status`, and `run stop`; it has no compatibility aliases for the retired
-wait/experiment or reserved scene-action interfaces.
+Its control API exposes a shared bounded-run resource: `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. The CLI maps these to `run start`, `run status`, and `run stop`; it has no compatibility aliases for the retired wait/experiment or reserved scene-action interfaces.
 
 ## Asset and Screenshot Flow
 

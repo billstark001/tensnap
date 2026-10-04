@@ -1,15 +1,8 @@
 # Grid Evacuation Demo (Mesa / NetLogo + PyTorch)
 
-This directory contains the runnable entry points for a Mesa + PyTorch DQN
-example, with TenSnap, Solara, and NetLogo routes. See [MODEL.md](MODEL.md) for
-the normative model description, ODD specification, reinforcement-learning
-formulation, validation evidence, and limitations.
+This directory contains the runnable entry points for a Mesa + PyTorch DQN example, with TenSnap, Solara, and NetLogo routes. See [MODEL.md](MODEL.md) for the normative model description, ODD specification, reinforcement-learning formulation, validation evidence, and limitations.
 
-TenSnap (`evac_viz.py`), Solara (`evac_viz_solara.py`), and NetLogo
-(`netlogo/evac_dqn_netlogo.nlogox`) views are available for comparing the same
-evacuation task across implementations. The TenSnap and Solara visualizations
-use the Mesa model; the training CLI can choose Mesa or NetLogo as the data
-environment.
+TenSnap (`evac_viz.py`), Solara (`evac_viz_solara.py`), and NetLogo (`netlogo/evac_dqn_netlogo.nlogox`) views are available for comparing the same evacuation task across implementations. The TenSnap and Solara visualizations use the Mesa model; the training CLI can choose Mesa or NetLogo as the data environment.
 
 ## Install
 
@@ -41,8 +34,7 @@ python -m python_dqn.main --mode train --episodes 500 --seed 7
 python -m python_dqn.main --mode train --env netlogo --episodes 500 --seed 7
 ```
 
-Checkpoints are written to `examples/python_dqn/checkpoints` by default. You can
-override this with `--checkpoint-dir`.
+Checkpoints are written to `examples/python_dqn/checkpoints` by default. You can override this with `--checkpoint-dir`.
 
 ## Evaluate a saved checkpoint
 
@@ -56,10 +48,7 @@ python -m python_dqn.main --mode eval --env netlogo --episodes 20 --checkpoint p
 
 ## Reproduce the publication evidence
 
-The archival evidence command retrains seeds 7, 11, 23, 37, and 53, evaluates
-them on a common 500-episode holdout, evaluates the four-policy reference
-comparison on 100 holdout episodes, and writes checkpoints plus per-episode
-rows through an atomic staging directory:
+The archival evidence command retrains seeds 7, 11, 23, 37, and 53, evaluates them on a common 500-episode holdout, evaluates the four-policy reference comparison on 100 holdout episodes, and writes checkpoints plus per-episode rows through an atomic staging directory:
 
 ```bash
 # From examples/, with the Python dependencies installed.
@@ -71,26 +60,13 @@ pnpm evidence:fire:run
 pnpm evidence:fire:verify
 ```
 
-The generated artifact lives under `python_dqn/artifacts/fire-dqn-v2`. Its
-`summary.json` is derived entirely from `episodes.jsonl`; `manifest.json`
-records the source commit, full configurations, runtime versions, and SHA-256
-checksums for every retained checkpoint and evidence file. The verifier checks
-the planned matrix, population conservation, seed mapping, checksums, and exact
-summary reconstruction. A run requires a clean Git tree so `sourceCommit`
-identifies the implementation that produced the retained rows and checkpoints.
+The generated artifact lives under `python_dqn/artifacts/fire-dqn-v2`. Its `summary.json` is derived entirely from `episodes.jsonl`; `manifest.json` records the source commit, full configurations, runtime versions, and SHA-256 checksums for every retained checkpoint and evidence file. The verifier checks the planned matrix, population conservation, seed mapping, checksums, and exact summary reconstruction. A run requires a clean Git tree so `sourceCommit` identifies the implementation that produced the retained rows and checkpoints.
 
-The verified reference result is 27.64 evacuated people for DQN, versus 14.28
-for no guide and 18.65 for random over 100 common holdout scenarios. The
-safe-exit heuristic reaches 27.87 and is interpreted as a transparent ceiling.
-Across five training seeds and 500 common holdout scenarios per seed, DQN
-reaches 27.6524 mean evacuations with 0.1656 sample standard deviation. The
-simple binary map therefore demonstrates an auditable RL integration; it is
-not evidence that the scenario needs a learned controller.
+The verified reference result is 27.64 evacuated people for DQN, versus 14.28 for no guide and 18.65 for random over 100 common holdout scenarios. The safe-exit heuristic reaches 27.87 and is interpreted as a transparent ceiling. Across five training seeds and 500 common holdout scenarios per seed, DQN reaches 27.6524 mean evacuations with 0.1656 sample standard deviation. The simple binary map therefore demonstrates an auditable RL integration; it is not evidence that the scenario needs a learned controller.
 
 ## Compare against reference policies
 
-`compare` runs the learned policy, no-guide, random, and oracle-like safe-exit
-heuristic on the same episode seeds:
+`compare` runs the learned policy, no-guide, random, and oracle-like safe-exit heuristic on the same episode seeds:
 
 ```bash
 # From the examples/ directory
@@ -102,8 +78,7 @@ python -m python_dqn.main --mode compare --env netlogo --episodes 20 \
   --checkpoint python_dqn/checkpoints/dqn_latest.pt --seed 4000
 ```
 
-Interpretation of the reference policies and the expected evidence threshold is
-documented in [MODEL.md](MODEL.md#fitness-for-purpose-and-validation).
+Interpretation of the reference policies and the expected evidence threshold is documented in [MODEL.md](MODEL.md#fitness-for-purpose-and-validation).
 
 ## TenSnap Visualization
 
@@ -117,8 +92,7 @@ python -m python_dqn.evac_viz
 pnpm dev:py:evac-dqn
 ```
 
-The server listens on `ws://localhost:8765` by default. Connect the TenSnap renderer
-at <https://tensnap.netlify.app> or run `pnpm dev:web` locally.
+The server listens on `ws://localhost:8765` by default. Connect the TenSnap renderer at <https://tensnap.netlify.app> or run `pnpm dev:web` locally.
 
 ## Solara Visualization
 
@@ -132,22 +106,17 @@ solara run python_dqn/evac_viz_solara.py
 pnpm dev:py:evac-dqn:solara
 ```
 
-The Solara view exposes the same core map layers, DQN guide model selection,
-environment sliders, evacuation outcome chart, and fire-size chart as the
-TenSnap example.
+The Solara view exposes the same core map layers, DQN guide model selection, environment sliders, evacuation outcome chart, and fire-size chart as the TenSnap example.
 
 ### Guide model control
 
 `evac_viz.py` exposes a TenSnap enum parameter named `Guide Model`.
 
-- The options are scanned at startup from `examples/python_dqn/checkpoints` by
-  default, or from `DQN_GUIDE_MODEL_DIR` when that environment variable is set.
+- The options are scanned at startup from `examples/python_dqn/checkpoints` by default, or from `DQN_GUIDE_MODEL_DIR` when that environment variable is set.
 - `.pt` and `.pth` files appear as selectable guide policies.
 - `untrained` is always available and creates deterministic untrained DQN weights.
-- Changing `Guide Model` records the pending model but does not immediately
-  reload the policy.
-- The built-in `Reset` action rebuilds the environment and reloads the selected
-  guide model.
+- Changing `Guide Model` records the pending model but does not immediately reload the policy.
+- The built-in `Reset` action rebuilds the environment and reloads the selected guide model.
 - The `Reset Guide Model` action reloads only the selected guide policy.
 
 ### Taking a screenshot with agent-cli
@@ -168,20 +137,20 @@ pnpm --filter @tensnap/agent dev -- scene render snapshot --context evac-dqn
 
 ### Visualization layers
 
-| Layer | Description |
-|---|---|
-| **cells** | Static map: walls (dark gray), exits (green), fire (red, expands) |
-| **evacuees** | Civilians: amber = alive, green = evacuated, gray = dead |
-| **guide** | DQN-controlled guide agent (blue) |
+| Layer        | Description                                                       |
+| ------------ | ----------------------------------------------------------------- |
+| **cells**    | Static map: walls (dark gray), exits (green), fire (red, expands) |
+| **evacuees** | Civilians: amber = alive, green = evacuated, gray = dead          |
+| **guide**    | DQN-controlled guide agent (blue)                                 |
 
 ### Charts
 
-| Chart | Description |
-|---|---|
-| `alive` | Number of civilians still moving |
-| `evacuated` | Cumulative evacuations |
-| `dead` | Cumulative casualties |
-| `fire_size` | Number of burning cells |
+| Chart       | Description                      |
+| ----------- | -------------------------------- |
+| `alive`     | Number of civilians still moving |
+| `evacuated` | Cumulative evacuations           |
+| `dead`      | Cumulative casualties            |
+| `fire_size` | Number of burning cells          |
 
 ## NetLogo Comparison
 
@@ -191,15 +160,9 @@ A NetLogo 7 version is available at:
 examples/python_dqn/netlogo/evac_dqn_netlogo.nlogox
 ```
 
-It uses NetLogo's bundled `py` extension to initialize Python once, import
-`python_dqn.netlogo_policy`, pass the 16-value guide state with `py:set`, and
-read the DQN action with `py:runresult`.
+It uses NetLogo's bundled `py` extension to initialize Python once, import `python_dqn.netlogo_policy`, pass the 16-value guide state with `py:set`, and read the DQN action with `py:runresult`.
 
-For training with `--env netlogo`, the Python adapter disables
-`use-python-policy?`, writes `training-action`, calls `go`, and reads the same
-16-value state vector, reward, done flag, and count metrics back from NetLogo.
-The cross-runtime state, action, reward, and scheduling contract is documented
-in [MODEL.md](MODEL.md#process-overview-and-scheduling).
+For training with `--env netlogo`, the Python adapter disables `use-python-policy?`, writes `training-action`, calls `go`, and reads the same 16-value state vector, reward, done flag, and count metrics back from NetLogo. The cross-runtime state, action, reward, and scheduling contract is documented in [MODEL.md](MODEL.md#process-overview-and-scheduling).
 
 Open it from the repository root with:
 
@@ -207,15 +170,9 @@ Open it from the repository root with:
 pnpm dev:netlogo:evac-dqn
 ```
 
-If NetLogo cannot find the repository or Python environment, set the model's
-`repo-root` and `python-executable` inputs before pressing `setup`.
-`python-executable` defaults to `auto`, which tries common project, conda, and
-Homebrew Python paths before falling back to `python3`.
+If NetLogo cannot find the repository or Python environment, set the model's `repo-root` and `python-executable` inputs before pressing `setup`. `python-executable` defaults to `auto`, which tries common project, conda, and Homebrew Python paths before falling back to `python3`.
 
-The NetLogo GUI keeps `use-python-policy?` on by default. Its bundled
-BehaviorSpace smoke experiment turns that switch off because NetLogo's
-`py:setup` can stop silently in headless BehaviorSpace on this machine; the
-Python policy bridge is validated separately with `python_dqn.netlogo_policy`.
+The NetLogo GUI keeps `use-python-policy?` on by default. Its bundled BehaviorSpace smoke experiment turns that switch off because NetLogo's `py:setup` can stop silently in headless BehaviorSpace on this machine; the Python policy bridge is validated separately with `python_dqn.netlogo_policy`.
 
 ## Files
 
@@ -235,15 +192,9 @@ Python policy bridge is validated separately with `python_dqn.netlogo_policy`.
 
 - The Mesa path avoids extra dependencies beyond `mesa`, `torch`, `tensnap`, and the Python standard library. NetLogo training additionally needs `pynetlogo` and a local NetLogo installation.
 - The environment is intentionally small and readable rather than fully optimized.
-- Model interpretation and limitations are centralized in
-  [MODEL.md](MODEL.md#scope-and-interpretation).
+- Model interpretation and limitations are centralized in [MODEL.md](MODEL.md#scope-and-interpretation).
 
 ## TenSnap design notes
 
-- Parameter option lists are static after state sync. The guide model directory is
-  scanned when the server starts; adding checkpoint files while the server is
-  running requires restarting the simulator to refresh the enum choices.
-- A custom action can reload Python-side policy state, but the Python binding does
-  not currently provide a compact helper for "run this action and immediately
-  push a full visual refresh." The `Reset Guide Model` action therefore reloads
-  the policy and the visible effect appears on the next step or reset.
+- Parameter option lists are static after state sync. The guide model directory is scanned when the server starts; adding checkpoint files while the server is running requires restarting the simulator to refresh the enum choices.
+- A custom action can reload Python-side policy state, but the Python binding does not currently provide a compact helper for "run this action and immediately push a full visual refresh." The `Reset Guide Model` action therefore reloads the policy and the visible effect appears on the next step or reset.

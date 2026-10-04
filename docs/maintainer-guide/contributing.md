@@ -60,18 +60,19 @@ When submitting a bug report, include:
 ### Bug: WebSocket connection fails on macOS
 
 **Environment:**
+
 - OS: macOS 13.0
 - Python: 3.10.5
 - TenSnap: 0.3.0
 - Browser: Chrome 120.0
 
 **Steps to Reproduce:**
+
 1. Run `python flock_viz.py`
 2. Open http://localhost:3200
 3. Observe connection error in console
 
-**Expected:** WebSocket connects successfully
-**Actual:** Connection refused error
+**Expected:** WebSocket connects successfully **Actual:** Connection refused error
 
 **Error Message:**
 ```
@@ -79,6 +80,7 @@ When submitting a bug report, include:
 WebSocket connection to 'ws://localhost:8765' failed: Connection refused
 
 ```
+
 ```
 
 ### Suggesting Enhancements
@@ -254,9 +256,9 @@ mypy tensnap/
 
 ### TypeScript/React Code Style
 
-- **Formatter**: Prettier (integrated with ESLint)
-- **Linter**: ESLint
-- **Style Guide**: Airbnb React/TypeScript
+- **Formatter**: Oxfmt, configured at the repository root
+- **Linter**: Oxlint plus TypeScript typechecks
+- **Style Guide**: Follow the repository's Oxfmt and Oxlint configuration
 - **Component Style**: Functional components with hooks
 
 **Example**:
@@ -287,13 +289,13 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
   onChange,
 }) => {
   const [localValue, setLocalValue] = useState(value);
-  
+
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseFloat(e.target.value);
     setLocalValue(newValue);
     onChange(newValue);
   }, [onChange]);
-  
+
   return (
     <div className="parameter-slider">
       <label htmlFor={id}>{label}</label>
@@ -328,7 +330,7 @@ pnpm lint --fix  # Auto-fix issues
 - **Naming conventions**:
   - Python: `snake_case` for functions/variables, `PascalCase` for classes
   - TypeScript: `camelCase` for functions/variables, `PascalCase` for classes/interfaces
-- **Comments**: Explain *why*, not *what*
+- **Comments**: Explain _why_, not _what_
 - **Error handling**: Handle errors gracefully with informative messages
 
 ## Commit Guidelines
@@ -382,11 +384,7 @@ refactor(web): extract chart component logic
 
 ## Versioning and Releases
 
-The current package release line is `0.3`: affected packages are at either
-`0.3.0` or `0.3.1`, and the strict wire protocol is `0.3`. See the
-[versioning guide](versioning.md) for the exact package versions, the single
-source to edit for each language binding, and the release checks. Update the
-package-specific `CHANGELOG.md` entry when bumping a package.
+The current package release line is `0.3`: affected packages are at either `0.3.0` or `0.3.1`, and the strict wire protocol is `0.3`. See the [versioning guide](versioning.md) for the exact package versions, the single source to edit for each language binding, and the release checks. Update the package-specific `CHANGELOG.md` entry when bumping a package.
 
 ## Pull Request Process
 
@@ -407,22 +405,26 @@ package-specific `CHANGELOG.md` entry when bumping a package.
 
 ```markdown
 ## Description
+
 Brief description of changes
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
 
 ## Testing
+
 Describe tests performed
 
 ## Related Issues
-Closes #123
-Related to #456
+
+Closes #123 Related to #456
 
 ## Checklist
+
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
 - [ ] Comments added for complex code
@@ -469,16 +471,16 @@ Use Google-style docstrings:
 ```python
 def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
     """Calculate Euclidean distance between two points.
-    
+
     Args:
         x1: X coordinate of first point
         y1: Y coordinate of first point
         x2: X coordinate of second point
         y2: Y coordinate of second point
-    
+
     Returns:
         Distance between the two points
-    
+
     Examples:
         >>> calculate_distance(0, 0, 3, 4)
         5.0
@@ -552,7 +554,7 @@ import { ParameterSlider } from './ParameterSlider';
 
 describe('ParameterSlider', () => {
   const mockOnChange = vi.fn();
-  
+
   it('renders with correct label', () => {
     render(
       <ParameterSlider
@@ -565,10 +567,10 @@ describe('ParameterSlider', () => {
         onChange={mockOnChange}
       />
     );
-    
+
     expect(screen.getByText('Test Parameter')).toBeInTheDocument();
   });
-  
+
   it('calls onChange when value changes', () => {
     render(
       <ParameterSlider
@@ -581,10 +583,10 @@ describe('ParameterSlider', () => {
         onChange={mockOnChange}
       />
     );
-    
+
     const slider = screen.getByRole('number');
     fireEvent.change(slider, { target: { value: '75' } });
-    
+
     expect(mockOnChange).toHaveBeenCalledWith(75);
   });
 });

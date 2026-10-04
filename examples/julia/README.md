@@ -2,11 +2,7 @@
 
 Runnable Julia simulator entry points live here, separate from the Julia binding package in `packages/tensnap-julia`.
 
-`el_farol_viz.jl` demonstrates a layer-local `restore=(replace=...,)` inverse
-for patrons and paired `restore_hooks` for an exact checkpoint of history and
-random state. The visualization registers its parameter, chart, monitor, and
-layer with the Julia binding builders; state inverse functions are in
-`el_farol_state.jl`.
+`el_farol_viz.jl` demonstrates a layer-local `restore=(replace=...,)` inverse for patrons and paired `restore_hooks` for an exact checkpoint of history and random state. The visualization registers its parameter, chart, monitor, and layer with the Julia binding builders; state inverse functions are in `el_farol_state.jl`.
 
 ## Commands
 
@@ -28,34 +24,15 @@ pnpm run dev:julia:schelling:makie
 pnpm run standalone:julia:schelling
 ```
 
-The publication adapters and their locked environment are separate, under
-`../../benchmarks/schelling/v1/subjects/julia/` and
-`../../benchmarks/schelling/v1/environments/julia/`. The examples do not expose
-hidden browser revision/state signals or benchmark JSON output, and they do not
-require the benchmark `Manifest.toml`.
+The publication adapters and their locked environment are separate, under `../../benchmarks/schelling/v1/subjects/julia/` and `../../benchmarks/schelling/v1/environments/julia/`. The examples do not expose hidden browser revision/state signals or benchmark JSON output, and they do not require the benchmark `Manifest.toml`.
 
-The example code is split by responsibility: `schelling.jl` owns scientific
-dynamics and `SchellingConfig`; `schelling_study.jl` owns reusable trials and
-sweeps; `schelling_tensnap.jl` builds a configurable TenSnap scenario; and
-`schelling_makie_app.jl` builds the native teaching UI. Benchmark entry points
-call these factories instead of copying the model or app.
+The example code is split by responsibility: `schelling.jl` owns scientific dynamics and `SchellingConfig`; `schelling_study.jl` owns reusable trials and sweeps; `schelling_tensnap.jl` builds a configurable TenSnap scenario; and `schelling_makie_app.jl` builds the native teaching UI. Benchmark entry points call these factories instead of copying the model or app.
 
-This file split is a repository reuse choice, not a requirement of the Julia
-binding. `schelling_viz.jl`, `schelling_viz_makie.jl`, and
-`schelling_standalone.jl` remain the user-facing launchers; they are thin so the
-publication adapters can reuse the same scenario, native app and study loop
-without adding benchmark JSON or hidden DOM probes to the examples. A one-off
-Julia example can combine these pieces in a single file.
+This file split is a repository reuse choice, not a requirement of the Julia binding. `schelling_viz.jl`, `schelling_viz_makie.jl`, and `schelling_standalone.jl` remain the user-facing launchers; they are thin so the publication adapters can reuse the same scenario, native app and study loop without adding benchmark JSON or hidden DOM probes to the examples. A one-off Julia example can combine these pieces in a single file.
 
 ## Schelling Standalone Scientific Task
 
-`schelling_standalone.jl` runs the same heavy threshold-sweep task as the
-Python, NetLogo, and Go standalone scripts. For each similarity threshold it
-runs several seeds and prints CSV columns for final satisfaction, segregation,
-last-step movement, steps used, and convergence count. After all scientific rows
-are computed, it prints a separate performance row with `total_ticks`,
-`elapsed_ms`, `tpms`, and `mspt`; timing is wrapped around each trial's step
-loop only, with no per-tick instrumentation in the model hot path.
+`schelling_standalone.jl` runs the same heavy threshold-sweep task as the Python, NetLogo, and Go standalone scripts. For each similarity threshold it runs several seeds and prints CSV columns for final satisfaction, segregation, last-step movement, steps used, and convergence count. After all scientific rows are computed, it prints a separate performance row with `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`; timing is wrapped around each trial's step loop only, with no per-tick instrumentation in the model hot path.
 
 ```bash
 cd examples/julia
@@ -63,9 +40,7 @@ julia --project=. schelling_standalone.jl --steps 1000 --warmup-steps 25 \
   --seeds 8 --thresholds 0.30,0.50,0.70,0.90 --mode convergence
 ```
 
-The WGLMakie UI exposes live similarity and speed controls plus density and
-group-balance settings that take effect on reset. TenSnap exposes grid size,
-density, balance and similarity parameters through its normal parameter API.
+The WGLMakie UI exposes live similarity and speed controls plus density and group-balance settings that take effect on reset. TenSnap exposes grid size, density, balance and similarity parameters through its normal parameter API.
 
 ## Environment
 

@@ -131,11 +131,7 @@ These helpers accept classes, instances, modules, or plain dictionaries where th
 class Model: ...
 ```
 
-The lifecycle defaults are `delete`, `preserve`, and `clear`, respectively.
-`retain` closes an agent's current segment when the agent is deleted; reusing
-that id starts a separate segment. `on_state_sync="preserve"` retains renderer
-history across an authoritative state sync, while `on_reset="preserve"` keeps
-old segments but closes them before the reset state is replayed.
+The lifecycle defaults are `delete`, `preserve`, and `clear`, respectively. `retain` closes an agent's current segment when the agent is deleted; reusing that id starts a separate segment. `on_state_sync="preserve"` retains renderer history across an authoritative state sync, while `on_reset="preserve"` keeps old segments but closes them before the reset state is replayed.
 
 ### Projector field forms
 
@@ -150,14 +146,7 @@ Default layer source discovery follows the same idea: `agent_layer("birds")` rea
 
 ### Layer declaration conventions
 
-Use a direct keyword for a built-in layer metadata field, such as
-`@grid_layer("grid", width=20)` or `@map_agent_layer("patches", z_index=3)`.
-Use `metadata={...}` for custom metadata, or when metadata is assembled as a
-mapping. This is the same layer metadata namespace: declaring one key in both
-places raises `TypeError`. Unknown direct options are rejected; custom keys
-belong inside `metadata`. The existing same-name field inference still applies
-to omitted built-in metadata fields. For example, `@grid_layer("grid")` can
-read `model.width` and `model.height`.
+Use a direct keyword for a built-in layer metadata field, such as `@grid_layer("grid", width=20)` or `@map_agent_layer("patches", z_index=3)`. Use `metadata={...}` for custom metadata, or when metadata is assembled as a mapping. This is the same layer metadata namespace: declaring one key in both places raises `TypeError`. Unknown direct options are rejected; custom keys belong inside `metadata`. The existing same-name field inference still applies to omitted built-in metadata fields. For example, `@grid_layer("grid")` can read `model.width` and `model.height`.
 
 ```python
 @map_agent_layer("patches", z_index=3, metadata={"temperature": 21})
@@ -165,17 +154,7 @@ read `model.width` and `model.height`.
 class Model: ...
 ```
 
-Layer metadata describes the layer; visual item fields belong in `fields`,
-`project`, or the source layer's direct `color`, `icon`, and `size` shortcuts.
-Shortcut strings are literal values; strings in `fields` are selectors. A
-fixed string in `fields` can be written as `value("square")`, while numeric
-and boolean constants can be used directly. `attr("value.color")` is an
-explicit selector. This is the same distinction used for ordinary agent
-projector fields.
-shortcut can also be a callback receiving `(model, key, value)` for map and
-indexed layers, or `(model, row, col, value)` for matrix layers. A field cannot
-appear in both `fields` and a shortcut, and `project` cannot be combined with
-either `fields` or a shortcut. These conflicts fail when the layer is declared.
+Layer metadata describes the layer; visual item fields belong in `fields`, `project`, or the source layer's direct `color`, `icon`, and `size` shortcuts. Shortcut strings are literal values; strings in `fields` are selectors. A fixed string in `fields` can be written as `value("square")`, while numeric and boolean constants can be used directly. `attr("value.color")` is an explicit selector. This is the same distinction used for ordinary agent projector fields. shortcut can also be a callback receiving `(model, key, value)` for map and indexed layers, or `(model, row, col, value)` for matrix layers. A field cannot appear in both `fields` and a shortcut, and `project` cannot be combined with either `fields` or a shortcut. These conflicts fail when the layer is declared.
 
 ### Model-owned keyed sources
 
@@ -221,35 +200,13 @@ scenario = SimulationScenario(model_id="example.keyed-sources")
 scenario.add_all(model)
 ```
 
-Map and matrix layers read a model attribute named by the layer id when
-`source` is omitted; supply `source=` when the names differ. Matrix cells
-default to `icon="square"` and `size=1.0`; a projector or direct shortcut can
-override either. Map IDs default to string or JSON-safe integer keys. For
-integer `(x, y)` mapping keys, `key_codec=xy_key_codec("patch")` provides stable
-`patch:x:y` IDs and a checked inverse for restore. Other key types can use a
-`SourceKeyCodec(encode, decode)` or the `encode_key` / `decode_key` pair. An
-entry with value `False` remains an item; only a missing key is absent.
-Matrix IDs have the form `cell:row:col`, where row zero is the top row. Cell
-`x` is the column and cell `y` is `height - 1 - row`. Matrix layer metadata
-derives `width`, `height`, and `coord_offset="int"` from the source; callers
-cannot override these fields. `sparse_default=...` omits cells equal to that
-value; it is distinct from a present cell whose value happens to be false
-unless false is explicitly chosen as the sparse default. A shape change falls
-back to a full scan.
+Map and matrix layers read a model attribute named by the layer id when `source` is omitted; supply `source=` when the names differ. Matrix cells default to `icon="square"` and `size=1.0`; a projector or direct shortcut can override either. Map IDs default to string or JSON-safe integer keys. For integer `(x, y)` mapping keys, `key_codec=xy_key_codec("patch")` provides stable `patch:x:y` IDs and a checked inverse for restore. Other key types can use a `SourceKeyCodec(encode, decode)` or the `encode_key` / `decode_key` pair. An entry with value `False` remains an item; only a missing key is absent. Matrix IDs have the form `cell:row:col`, where row zero is the top row. Cell `x` is the column and cell `y` is `height - 1 - row`. Matrix layer metadata derives `width`, `height`, and `coord_offset="int"` from the source; callers cannot override these fields. `sparse_default=...` omits cells equal to that value; it is distinct from a present cell whose value happens to be false unless false is explicitly chosen as the sparse default. A shape change falls back to a full scan.
 
 The initial state and reset use full projections; restore consumes a complete projected layer snapshot. Incremental updates use `revision` and `changes` together when available. The change method receives the last published cursor and returns a non-consuming `SourceBatch` of `SourceChange(operation, key)` entries, where `operation` is `"create"`, `"update"`, or `"delete"`. Return `None` if the log no longer covers that cursor; the binding then scans and compares the current source. Without a change method, it always scans and compares. An unchanged item emits no update, and the cursor advances only after item messages are sent. Change logs must record in-place value mutations too.
 
 `map_agent_layer` and `matrix_agent_layer` include `data.value` by default, allowing projected restore to reconstruct the owned mapping or matrix. Use `encode_value` and `decode_value` for values that need a wire representation. Their default inverse replaces a simple model attribute named by `source`; pass `replace=` for a custom setter or `restore=False` for display-only state. A custom visual `project` or `fields` definition can add fields but should not replace `id`, matrix `x`/`y`, or `data.value`. Projected restore validates keys, matrix dimensions, coordinates, duplicates, and missing dense cells before replacing either container. The model must also declare `@scene_restore(validate=...)` to opt into scene restore. `indexed_agent_layer` is display-only by default; use an explicit `@layer_restore` when its storage has an inverse. Exact checkpoint restore for private state such as RNG remains separate.
 
-Field selectors, literal values, and eligible expression lambdas are compiled
-into one projection function. A lambda is inlined only when its source is
-unambiguous and its body uses fixed positional arguments without external
-names, defaults, inner scopes, or assignment expressions. Other callables run
-normally. The generated function's `inline_diagnostics` dictionary gives the
-reason for each callable field. Literal objects are bound in the compiler's
-environment rather than reconstructed from `repr`. Same-line lambda ambiguity
-falls back on Python 3.10; newer interpreters use code-position metadata when
-it is present.
+Field selectors, literal values, and eligible expression lambdas are compiled into one projection function. A lambda is inlined only when its source is unambiguous and its body uses fixed positional arguments without external names, defaults, inner scopes, or assignment expressions. Other callables run normally. The generated function's `inline_diagnostics` dictionary gives the reason for each callable field. Literal objects are bound in the compiler's environment rather than reconstructed from `repr`. Same-line lambda ambiguity falls back on Python 3.10; newer interpreters use code-position metadata when it is present.
 
 Layer constructor keyword arguments use `Unpack[TypedDict]` typing (PEP 692). Concrete built-in layer option sets are closed and their item projector fields retain the layer's item-key type. Extensible metadata uses a PEP 728 `extra_items` TypedDict; its `Mapping[str, ProjectorFieldForInit]` alternative keeps custom keys usable with mypy until mypy supports `extra_items`. Shared splitters keep same-name metadata inference while rejecting unknown direct options at runtime. Python 3.10 or later is required; `typing-extensions>=4.13.0` provides the PEP 728 runtime support before Python 3.15.
 
@@ -270,13 +227,7 @@ scenario = SimulationScenario(
 )
 ```
 
-Before any other simulator frame, each connection receives `simulator_info`
-with protocol/binding versions, the stable `model_id`, a per-process
-`instance_id`, optional model metadata/schema version, and the sorted declared
-capabilities. Keep `model_id` stable across releases of the same model and
-change `state_schema_version` when projected restore/checkpoint data becomes
-incompatible. The `instance_id` remains stable across reconnects and resets but
-changes for a replacement simulator instance.
+Before any other simulator frame, each connection receives `simulator_info` with protocol/binding versions, the stable `model_id`, a per-process `instance_id`, optional model metadata/schema version, and the sorted declared capabilities. Keep `model_id` stable across releases of the same model and change `state_schema_version` when projected restore/checkpoint data becomes incompatible. The `instance_id` remains stable across reconnects and resets but changes for a replacement simulator instance.
 
 ### State stores
 
@@ -285,11 +236,7 @@ changes for a replacement simulator instance.
 - `scenario.actions`: registered action metadata keyed by action id.
 - `scenario.charts`: registered chart getters keyed by chart id.
 
-`SimulationScenario` registers the built-in renderer-driven actions `start`, `step`, and `reset` during construction.
-Reset reconciles action, parameter, environment, layer, chart, and monitor
-definitions with strict CRUD; stable agents are deleted before the reset
-snapshot is created, while stable trajectory configs are diffed so renderer
-`on_reset` policy remains authoritative.
+`SimulationScenario` registers the built-in renderer-driven actions `start`, `step`, and `reset` during construction. Reset reconciles action, parameter, environment, layer, chart, and monitor definitions with strict CRUD; stable agents are deleted before the reset snapshot is created, while stable trajectory configs are diffed so renderer `on_reset` policy remains authoritative.
 
 ### Combined registration
 
@@ -331,8 +278,7 @@ Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in
 
 ### Monitors and scene restore
 
-Binding ownership, layer dependency direction, and one-time topology
-validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
+Binding ownership, layer dependency direction, and one-time topology validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).
 
 - `add_monitors(target, dry_run=False)` / `remove_monitors(ids)`
 - `broadcast_monitors(ws=None)`
@@ -342,30 +288,13 @@ validation follow the [binding ownership contract](../maintainer-guide/binding-o
 - `@scene_restore(time=...)` and `@checkpoint(capture=..., restore=...)`
 - `@scene_restore(time=RestoreValue(apply=..., validate=...))` for a model-aware time inverse
 
-Monitor values are replace-only current state. Metadata changes use
-`monitor_delete` followed by `monitor_create`; `monitor_update` changes only the
-value/revision. Use charts when history is required.
+Monitor values are replace-only current state. Metadata changes use `monitor_delete` followed by `monitor_create`; `monitor_update` changes only the value/revision. Use charts when history is required.
 
-Projected restore is opt-in through `restore(payload)`. Exact checkpoint support
-is advertised only when both checkpoint callbacks are configured. Capture
-returns model data and restore receives decoded model data; TenSnap infers
-`application/octet-stream` for bytes and MessagePack for other protocol data.
-The wire `{encoding, data}` object is never passed to model callbacks.
-Use `restore=None` (for example `@scene_restore(None,
-checkpoint_capture="capture", checkpoint_restore="restore_checkpoint")`) when
-the model supports exact checkpoints but has no projected-state inverse.
+Projected restore is opt-in through `restore(payload)`. Exact checkpoint support is advertised only when both checkpoint callbacks are configured. Capture returns model data and restore receives decoded model data; TenSnap infers `application/octet-stream` for bytes and MessagePack for other protocol data. The wire `{encoding, data}` object is never passed to model callbacks. Use `restore=None` (for example `@scene_restore(None, checkpoint_capture="capture", checkpoint_restore="restore_checkpoint")`) when the model supports exact checkpoints but has no projected-state inverse.
 
-Restore validates identity/schema/instance guards before mutation, applies the
-checkpoint before projected fields, replays the complete final declarations,
-environment items, monitor values and time without chart messages, caches each
-`request_id`, and uses a pre-restore checkpoint for rollback when both hooks are
-available.
+Restore validates identity/schema/instance guards before mutation, applies the checkpoint before projected fields, replays the complete final declarations, environment items, monitor values and time without chart messages, caches each `request_id`, and uses a pre-restore checkpoint for rollback when both hooks are available.
 
-For a declarative inverse, attach `@layer_restore` to the class that declares
-the layer. The binding uses that layer's ID, item projection, item keys, and
-dependencies to validate and reconcile complete snapshots. If a class declares
-multiple layers, specify `layer_id`. `delete` receives a key record such as `{"id": "a"}`;
-`create` and `update` receive complete projected item records.
+For a declarative inverse, attach `@layer_restore` to the class that declares the layer. The binding uses that layer's ID, item projection, item keys, and dependencies to validate and reconcile complete snapshots. If a class declares multiple layers, specify `layer_id`. `delete` receives a key record such as `{"id": "a"}`; `create` and `update` receive complete projected item records.
 
 ```python
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
@@ -377,25 +306,7 @@ class Model:
     ...
 ```
 
-Use `@layer_restore(replace="restore_items")` for an array-backed layer and
-`@layer_restore(metadata="restore_metadata")` for a metadata-only layer.
-`time` may be omitted when only the scenario owns time. A checkpoint includes
-private RNG, scheduler, and collector state when exact continuation is required.
-`RestoreValue` gives a time inverse access to the model and an optional
-pre-apply validator. Both callbacks receive `(model, value)` and may be async.
-For a Mesa model using its default one-step schedule, import
-`mesa_clock_restore` from `tensnap.bindings.mesa` and pass it as `time=`. TenSnap validates
-that the projected time is a nonnegative integer and moves Mesa's next step
-event to the following tick. This works with Mesa 3.0 through 4.0.0a0; Mesa
-3.0–3.3 use `steps`, Mesa 3.4 uses `steps` and `time`, and event-backed Mesa
-3.5/4.0 uses `time` plus its default schedule. Models with a separate simulator,
-other pending events, or additional recurring event generators need a model-owned
-checkpoint that restores the complete scheduler state. The generic clock
-adapter rejects those event-backed cases before changing the model.
-If checkpoint import replaces the object registered as a layer target, set
-`target="get_new_target"` on `@layer_restore` so the binding refreshes it.
-The existing whole-payload callback remains available.
-available.
+Use `@layer_restore(replace="restore_items")` for an array-backed layer and `@layer_restore(metadata="restore_metadata")` for a metadata-only layer. `time` may be omitted when only the scenario owns time. A checkpoint includes private RNG, scheduler, and collector state when exact continuation is required. `RestoreValue` gives a time inverse access to the model and an optional pre-apply validator. Both callbacks receive `(model, value)` and may be async. For a Mesa model using its default one-step schedule, import `mesa_clock_restore` from `tensnap.bindings.mesa` and pass it as `time=`. TenSnap validates that the projected time is a nonnegative integer and moves Mesa's next step event to the following tick. This works with Mesa 3.0 through 4.0.0a0; Mesa 3.0–3.3 use `steps`, Mesa 3.4 uses `steps` and `time`, and event-backed Mesa 3.5/4.0 uses `time` plus its default schedule. Models with a separate simulator, other pending events, or additional recurring event generators need a model-owned checkpoint that restores the complete scheduler state. The generic clock adapter rejects those event-backed cases before changing the model. If checkpoint import replaces the object registered as a layer target, set `target="get_new_target"` on `@layer_restore` so the binding refreshes it. The existing whole-payload callback remains available. available.
 
 ### Handlers and runtime
 
@@ -449,9 +360,7 @@ Typical constructor fields:
 - `source`
 - `dependency_layer_ids`
 
-`item_id_getter` and `item_changed_getter` are optional. Define them together
-with `iterable_getter` and an item projector to avoid projecting unchanged
-items. Leaving them unset keeps the default full-list diff behavior.
+`item_id_getter` and `item_changed_getter` are optional. Define them together with `iterable_getter` and an item projector to avoid projecting unchanged items. Leaving them unset keeps the default full-list diff behavior.
 
 ### `LayerRegistration`
 
@@ -491,9 +400,7 @@ scenario.add_layer_binding(
 
 ## Mesa Integration
 
-The Mesa integration lives under `tensnap.bindings.mesa`, while the generic
-constructor-driven lifecycle helpers, including `default_cleanup_for_model(...)`,
-now live under `tensnap.bindings.lifecycle`.
+The Mesa integration lives under `tensnap.bindings.mesa`, while the generic constructor-driven lifecycle helpers, including `default_cleanup_for_model(...)`, now live under `tensnap.bindings.lifecycle`.
 
 ### `BoundModelReinitializer`
 
@@ -540,8 +447,7 @@ Mesa-specific cleanup helpers that remain under `tensnap.bindings.mesa`:
 - `cleanup_mesa_model_step(...)`
 - `mesa_clock_restore` for `@scene_restore(time=...)`
 - `mesa_model_time(model)` to read the version-appropriate public clock
-- `validate_mesa_model_time_restore(model, time)` and
-  `restore_mesa_model_time(model, time)` for the default step schedule
+- `validate_mesa_model_time_restore(model, time)` and `restore_mesa_model_time(model, time)` for the default step schedule
 
 `default_cleanup_for_model(...)` is still exported from `tensnap.bindings.lifecycle` and re-exported from the deprecated Mesa compatibility surface for cases where you want to compose it with additional cleanup callbacks explicitly.
 

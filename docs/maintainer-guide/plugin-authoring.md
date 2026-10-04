@@ -1,17 +1,12 @@
 # TenSnap Layer Plugin Authoring Guide
 
-This guide explains how to create custom layer types for TenSnap and register
-them with the Layer Registry so Scenario, snapshot replay, and browser/headless
-hosts can validate, store, and render them.
+This guide explains how to create custom layer types for TenSnap and register them with the Layer Registry so Scenario, snapshot replay, and browser/headless hosts can validate, store, and render them.
 
 ---
 
 ## Overview
 
-The TenSnap layer system is extensible via a single **Layer Registry**. Each
-layer type has a string identifier (for example `"agent"`, `"edge"`,
-`"grid"`, `"background"`, or `"mypkg.heatmap"`) and can register one or more
-of the following capabilities:
+The TenSnap layer system is extensible via a single **Layer Registry**. Each layer type has a string identifier (for example `"agent"`, `"edge"`, `"grid"`, `"background"`, or `"mypkg.heatmap"`) and can register one or more of the following capabilities:
 
 | Registration field | Used for |
 | --- | --- |
@@ -24,13 +19,9 @@ of the following capabilities:
 | `view` | Provide scene bounds and preferred view-metadata sources |
 | `renderer` | Participate in render planning, snapshot extraction, and live layer creation |
 
-Layer schemas are **advisory**: unknown or invalid metadata/item fields produce
-a warning. Strict protocol identity and transaction rules still reject invalid
-mutations before the controller runs.
+Layer schemas are **advisory**: unknown or invalid metadata/item fields produce a warning. Strict protocol identity and transaction rules still reject invalid mutations before the controller runs.
 
-If you only need validation, the schema fields are enough. If you want your
-layer to support `item_*`, snapshot replay, or rendering, register the
-corresponding runtime hooks too.
+If you only need validation, the schema fields are enough. If you want your layer to support `item_*`, snapshot replay, or rendering, register the corresponding runtime hooks too.
 
 ---
 
@@ -59,13 +50,12 @@ class HeatmapStorage implements LayerStorage {
   load(snapshot: unknown): void {
     this.cells.clear();
 
-    const cells = (
-      typeof snapshot === 'object'
-      && snapshot !== null
-      && Array.isArray((snapshot as { cells?: unknown }).cells)
-    )
-      ? (snapshot as { cells: HeatmapCell[] }).cells
-      : [];
+    const cells =
+      typeof snapshot === 'object' &&
+      snapshot !== null &&
+      Array.isArray((snapshot as { cells?: unknown }).cells)
+        ? (snapshot as { cells: HeatmapCell[] }).cells
+        : [];
 
     for (const cell of cells) {
       this.cells.set(cell.id, { ...cell });
@@ -93,11 +83,13 @@ registerLayerType({
   layer_type: 'mypkg.heatmap',
   label: 'Heatmap Layer',
 
-  metadataSchema: z.object({
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-    colormap: z.enum(['viridis', 'plasma', 'inferno']).optional(),
-  }).passthrough(),
+  metadataSchema: z
+    .object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+      colormap: z.enum(['viridis', 'plasma', 'inferno']).optional(),
+    })
+    .passthrough(),
 
   itemSchema: z.object({
     id: z.string(),
@@ -133,19 +125,16 @@ registerLayerType({
     },
   },
   view: {
-    getSceneBounds: (metadata) => (
+    getSceneBounds: (metadata) =>
       typeof metadata.width === 'number' && typeof metadata.height === 'number'
         ? { width: metadata.width, height: metadata.height }
-        : undefined
-    ),
+        : undefined,
     sceneBoundsPriority: 20,
   },
 });
 ```
 
-Call `registerLayerType` **before** constructing `Scenario`, opening a
-WebSocket connection, or replaying snapshots so `storageFactory`,
-`fromSnapshot`, and `renderer` are available from the first layer message.
+Call `registerLayerType` **before** constructing `Scenario`, opening a WebSocket connection, or replaying snapshots so `storageFactory`, `fromSnapshot`, and `renderer` are available from the first layer message.
 
 If you also want live rendering, add a `renderer` block as described below.
 
@@ -157,16 +146,13 @@ Once a layer type is registered, the core runtime uses it in these places:
 
 1. `env_layer_create` calls `storageFactory` to create the layer's live storage.
 2. `env_layer_update` calls `controller.applyMetadata`, then reindexes dependencies.
-3. Strict `item_create` and `item_update` validate each primary key before
-   calling the controller hook; `item_delete` calls its hook with the delete keys.
+3. Strict `item_create` and `item_update` validate each primary key before calling the controller hook; `item_delete` calls its hook with the delete keys.
 4. Dependency changes call `controller.onDependencyItemsChanged` on dependent layers.
 5. Incoming asset data calls `controller.onAssetDataReceived`.
 6. Snapshot replay uses `fromSnapshot` to rebuild storage.
 7. Render planning uses `view` and `renderer` to compute bounds, ordering, z-index, and host-layer creation.
 
-If a layer type does not register a `controller`, `Scenario` treats it as
-metadata-only. Strict `item_create` and `item_update` reject it; unsupported
-`item_delete` reports a diagnostic.
+If a layer type does not register a `controller`, `Scenario` treats it as metadata-only. Strict `item_create` and `item_update` reject it; unsupported `item_delete` reports a diagnostic.
 
 ---
 
@@ -214,14 +200,10 @@ interface LayerTypeDefinition {
 
 Notes:
 
-- `storageFactory` is the root hook for typed runtime storage. Without it,
-  `Scenario` falls back to a generic metadata-backed storage.
-- Implement `fromSnapshot` if you need snapshot replay or static rendering to
-  reconstruct your storage faithfully.
-- `requiredDependencyLayerTypes` validates `dependency_layer_ids` at runtime.
-  The keys are layer types and the values are layer IDs.
-- Re-registering the same `layer_type` replaces the previous definition in the
-  current registry.
+- `storageFactory` is the root hook for typed runtime storage. Without it, `Scenario` falls back to a generic metadata-backed storage.
+- Implement `fromSnapshot` if you need snapshot replay or static rendering to reconstruct your storage faithfully.
+- `requiredDependencyLayerTypes` validates `dependency_layer_ids` at runtime. The keys are layer types and the values are layer IDs.
+- Re-registering the same `layer_type` replaces the previous definition in the current registry.
 
 ---
 
@@ -233,7 +215,10 @@ interface ItemLayerController<
   TUpdateItem extends Record<string, unknown> = TCreateItem,
 > {
   applyMetadata?(context: LayerControllerContext): void;
-  getExistingItemKeys?(context: LayerControllerContext, items: TCreateItem[]): ItemDeletePayload['items'];
+  getExistingItemKeys?(
+    context: LayerControllerContext,
+    items: TCreateItem[],
+  ): ItemDeletePayload['items'];
   getItemKeyExists?(context: LayerControllerContext): (key: unknown) => boolean;
   createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
   updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
@@ -244,17 +229,9 @@ interface ItemLayerController<
 }
 ```
 
-`LayerControllerContext.requireStorage()` is the normal way to access your
-typed storage inside controller hooks.
+`LayerControllerContext.requireStorage()` is the normal way to access your typed storage inside controller hooks.
 
-For strict `item_create`/`item_update`, provide an identity lookup alongside
-`primaryKeyFields`. `getItemKeyExists` binds storage once and receives a single
-key value for one-field layers, or a tuple in primary-key field order for
-composite keys. It lets the runtime reject duplicate creates and missing
-updates before changing any item in the batch. `getExistingItemKeys` remains
-the fallback for existing custom controllers; it returns the keys already in
-storage for the supplied batch. Legacy protocol sessions retain their explicit
-create-replacement behavior.
+For strict `item_create`/`item_update`, provide an identity lookup alongside `primaryKeyFields`. `getItemKeyExists` binds storage once and receives a single key value for one-field layers, or a tuple in primary-key field order for composite keys. It lets the runtime reject duplicate creates and missing updates before changing any item in the batch. `getExistingItemKeys` remains the fallback for existing custom controllers; it returns the keys already in storage for the supplied batch. Legacy protocol sessions retain their explicit create-replacement behavior.
 
 ---
 
@@ -262,17 +239,17 @@ create-replacement behavior.
 
 ```typescript
 interface LayerViewDefinition {
-  getSceneBounds?: (metadata: Record<string, unknown>) => { width: number; height: number } | undefined;
+  getSceneBounds?: (
+    metadata: Record<string, unknown>,
+  ) => { width: number; height: number } | undefined;
   sceneBoundsPriority?: number;
   viewMetadataPriority?: number;
 }
 ```
 
-Lower priority numbers win. These hooks are consumed by
-`findSceneBounds()` and `findViewMetadataSource()`.
+Lower priority numbers win. These hooks are consumed by `findSceneBounds()` and `findViewMetadataSource()`.
 
-Use `view` when your layer can define shared environment dimensions or should
-be treated as the canonical metadata source for a composed view.
+Use `view` when your layer can define shared environment dimensions or should be treated as the canonical metadata source for a composed view.
 
 ---
 
@@ -291,7 +268,9 @@ interface LayerRendererDefinition {
   getBackgroundSource?(metadata: Record<string, unknown>): unknown;
   getSnapshotGridData?(layer: ScenarioLayerSnapshot): GridEnvData | undefined;
   getSnapshotAgentLayer?(layer: ScenarioLayerSnapshot): SnapshotAgentLayerData | undefined;
-  getSnapshotTrajectoryLayer?(layer: ScenarioLayerSnapshot): SnapshotTrajectoryLayerData | undefined;
+  getSnapshotTrajectoryLayer?(
+    layer: ScenarioLayerSnapshot,
+  ): SnapshotTrajectoryLayerData | undefined;
   getSnapshotEdges?(layer: ScenarioLayerSnapshot): GraphEdge[];
   getSnapshotBackground?(layer: ScenarioLayerSnapshot): BackgroundData | null | undefined;
   createLayer?(plan: RenderLayerPlan, context: LayerCreateContext): CreatedLayerEntry | null;
@@ -301,18 +280,12 @@ interface LayerRendererDefinition {
 
 Important details:
 
-- `role` is open-ended. Built-in roles are `background`, `grid`, `edge`,
-  `trajectory`, and `agent`.
-- Built-in roles receive specialized plan objects. Custom roles are emitted as
-  `GenericLayerPlan`.
-- `renderOrderPriority` sorts roles before reconciliation. Lower values are
-  processed first. Built-ins use `background=0`, `grid=1`, `edge=2`,
-  `trajectory=3`, `agent=4`.
-- `dependencies` declares inter-role ordering. The current planner uses
-  `fromRole` to topologically order roles.
+- `role` is open-ended. Built-in roles are `background`, `grid`, `edge`, `trajectory`, and `agent`.
+- Built-in roles receive specialized plan objects. Custom roles are emitted as `GenericLayerPlan`.
+- `renderOrderPriority` sorts roles before reconciliation. Lower values are processed first. Built-ins use `background=0`, `grid=1`, `edge=2`, `trajectory=3`, `agent=4`.
+- `dependencies` declares inter-role ordering. The current planner uses `fromRole` to topologically order roles.
 - `createLayer` is the live host hook used by `layerRegistry.createLayer()`.
-- `getSnapshot*` hooks power snapshot-oriented helpers such as
-  `collectRenderData()`.
+- `getSnapshot*` hooks power snapshot-oriented helpers such as `collectRenderData()`.
 
 ---
 
@@ -326,9 +299,7 @@ Important details:
 | `grid` | - | - | Parametric multi-scale grid overlay and common scene-bounds metadata source. |
 | `background` | - | - | Background source layer; `background` accepts CSS colors, URLs, data URLs, `Uint8Array`, or `{ asset_id, interpolation? }`. |
 
-Built-in types are registered automatically at module load time. They now ship
-their storage, controller, view, and renderer definitions through the same
-registry API used by custom plugins.
+Built-in types are registered automatically at module load time. They now ship their storage, controller, view, and renderer definitions through the same registry API used by custom plugins.
 
 ---
 
@@ -352,11 +323,7 @@ See the [Python API reference](../api-reference/python-api.md) for details.
 ## Using the Registry Programmatically
 
 ```typescript
-import {
-  findSceneBounds,
-  findViewMetadataSource,
-  layerRegistry,
-} from '@tensnap/core/scenario';
+import { findSceneBounds, findViewMetadataSource, layerRegistry } from '@tensnap/core/scenario';
 
 // Check if a type is registered
 layerRegistry.has('mypkg.heatmap');
@@ -380,15 +347,13 @@ const viewMetadataLayer = findViewMetadataSource([...environment.layers.values()
 const roleOrder = layerRegistry.getRenderOrder();
 ```
 
-For isolated tests or custom hosts, instantiate `LayerRegistryClass` instead of
-mutating the process-global registry.
+For isolated tests or custom hosts, instantiate `LayerRegistryClass` instead of mutating the process-global registry.
 
 ---
 
 ## Rendering Custom Layers
 
-Rendering registration now lives on the same `LayerTypeDefinition`. There is no
-separate component-registration API in the core path.
+Rendering registration now lives on the same `LayerTypeDefinition`. There is no separate component-registration API in the core path.
 
 To render a custom layer type:
 
@@ -398,9 +363,7 @@ To render a custom layer type:
 4. If you use a custom role, `createRenderPlan()` emits a `GenericLayerPlan` and your `renderer.createLayer()` must handle it.
 5. Register the definition before the host initializes its renderer.
 
-Hosts that use `createRenderPlan()`, `createRenderPlanFromSnapshot()`, or
-`EnvironmentRendererController` will pick up registered renderers
-automatically.
+Hosts that use `createRenderPlan()`, `createRenderPlanFromSnapshot()`, or `EnvironmentRendererController` will pick up registered renderers automatically.
 
 ---
 
@@ -414,9 +377,7 @@ The following `layer_type` strings are reserved for built-in use:
 - `grid`
 - `background`
 
-Custom layer types should use a namespaced prefix such as `mypkg.heatmap` to
-avoid future collisions. The same rule is a good idea for custom renderer
-roles unless you are intentionally overriding a built-in behavior.
+Custom layer types should use a namespaced prefix such as `mypkg.heatmap` to avoid future collisions. The same rule is a good idea for custom renderer roles unless you are intentionally overriding a built-in behavior.
 
 ---
 

@@ -57,7 +57,7 @@ function App() {
 
 function YourComponent() {
   const { pickFiles } = useFilePicker();
-  
+
   const handleClick = async () => {
     const files = await pickFiles({
       title: '选择文件',
@@ -66,7 +66,7 @@ function YourComponent() {
     });
     console.log('Selected files:', files);
   };
-  
+
   return <button onClick={handleClick}>选择文件</button>;
 }
 ```
@@ -174,8 +174,8 @@ console.log(joinPath('/folder', 'subfolder', 'file.txt')); // "/folder/subfolder
 
 ```tsx
 import React, { useState } from 'react';
-import { 
-  FilePickerProvider, 
+import {
+  FilePickerProvider,
   useFilePicker,
   FileSystemBrowser,
   ExportDialog
@@ -198,24 +198,24 @@ function MyApp() {
   const { pickFiles } = useFilePicker();
   const [showBrowser, setShowBrowser] = useState(false);
   const [showExport, setShowExport] = useState(false);
-  
+
   const handlePickFile = async () => {
     const files = await pickFiles({
       title: '选择要打开的文件',
       multiSelect: false
     });
-    
+
     if (files.length > 0) {
       console.log('Selected file:', files[0]);
     }
   };
-  
+
   return (
     <div>
       <button onClick={handlePickFile}>打开文件</button>
       <button onClick={() => setShowBrowser(true)}>浏览文件</button>
       <button onClick={() => setShowExport(true)}>导出</button>
-      
+
       {showBrowser && (
         <dialog open>
           <FileSystemBrowser
@@ -228,7 +228,7 @@ function MyApp() {
           <button onClick={() => setShowBrowser(false)}>关闭</button>
         </dialog>
       )}
-      
+
       <ExportDialog
         open={showExport}
         onOpenChange={setShowExport}

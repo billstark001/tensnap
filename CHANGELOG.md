@@ -30,51 +30,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Protocol conformance:** Added an executable JSON/MessagePack integrity
-  matrix for Python/Mesa, Go, JavaScript/TypeScript, Julia, and the shared
-  renderer client, with retained evidence, deliberate failure canaries, and CI
-  verification. The matrix distinguishes visible projections from complete
-  fixture host state and deterministic future replay; its case-study limits are
-  recorded alongside the results.
-- **@tensnap/core / @tensnap/agent:** Added a shared `RendererClient` for
-  handshake-safe transport replacement and correlated sync/action waits, used
-  by the browser and headless agent runtime.
-- **@tensnap/go:** Added a bundled MessagePack codec with canonical wire field
-  names and binary WebSocket frames; JSON remains the default.
-- **Schelling audit:** Added a reproducible four-host headless workflow with
-  retained exact-checkpoint, future-replay, and rendered-scene evidence.
-- **@tensnap/python:** Added model-owned map, matrix, and indexed agent sources
-  with compiled field selectors, revision-based sparse updates, scan fallback,
-  and validated projected restore for map and matrix values.
-- **@tensnap/go:** Added typed map and matrix agent layers with direct field
-  selectors, flat matrix storage, optional sparse change tracking, and
-  validated source restore.
-- **@tensnap/julia:** Added map and matrix agent layers with direct field
-  selectors, explicit matrix orientation, and validated projected restore.
-- **@tensnap/js:** Added map and matrix agent layers for keyed maps and nested
-  or flat matrices, with direct field selectors, sparse change tracking, and
-  validated projected restore.
+- **Protocol conformance:** Added an executable JSON/MessagePack integrity matrix for Python/Mesa, Go, JavaScript/TypeScript, Julia, and the shared renderer client, with retained evidence, deliberate failure canaries, and CI verification. The matrix distinguishes visible projections from complete fixture host state and deterministic future replay; its case-study limits are recorded alongside the results.
+- **@tensnap/core / @tensnap/agent:** Added a shared `RendererClient` for handshake-safe transport replacement and correlated sync/action waits, used by the browser and headless agent runtime.
+- **@tensnap/go:** Added a bundled MessagePack codec with canonical wire field names and binary WebSocket frames; JSON remains the default.
+- **Schelling audit:** Added a reproducible four-host headless workflow with retained exact-checkpoint, future-replay, and rendered-scene evidence.
+- **@tensnap/python:** Added model-owned map, matrix, and indexed agent sources with compiled field selectors, revision-based sparse updates, scan fallback, and validated projected restore for map and matrix values.
+- **@tensnap/go:** Added typed map and matrix agent layers with direct field selectors, flat matrix storage, optional sparse change tracking, and validated source restore.
+- **@tensnap/julia:** Added map and matrix agent layers with direct field selectors, explicit matrix orientation, and validated projected restore.
+- **@tensnap/js:** Added map and matrix agent layers for keyed maps and nested or flat matrices, with direct field selectors, sparse change tracking, and validated projected restore.
 
 ### Changed
 
-- **@tensnap/core:** Made state synchronization stage changes until its
-  matching end frame, kept legacy create replacement in compatibility/replay
-  paths, and required unique, existing item identities where strict v0.3
-  mutations call for them.
-- **@tensnap/core:** Preserved intermediate updates needed by dependent
-  trajectory layers during recording; improved chart, asset, environment, and
-  snapshot handling for sparse data and repeated scene changes.
-- **@tensnap/web:** Kept project source and transport changes consistent across
-  connection failures, local edits, snapshot playback, and undo/redo.
-- **Runtime performance:** Reduced repeated item-key scans and agent batch
-  copies, reused the continuous-run action watchdog, avoided a deep copy after
-  strict protocol decoding, and cached WebSocket validation settings.
+- **@tensnap/core:** Made state synchronization stage changes until its matching end frame, kept legacy create replacement in compatibility/replay paths, and required unique, existing item identities where strict v0.3 mutations call for them.
+- **@tensnap/core:** Preserved intermediate updates needed by dependent trajectory layers during recording; improved chart, asset, environment, and snapshot handling for sparse data and repeated scene changes.
+- **@tensnap/web:** Kept project source and transport changes consistent across connection failures, local edits, snapshot playback, and undo/redo.
+- **Runtime performance:** Reduced repeated item-key scans and agent batch copies, reused the continuous-run action watchdog, avoided a deep copy after strict protocol decoding, and cached WebSocket validation settings.
 
 ### Fixed
 
-- **Bindings and renderer:** Corrected state-before-result ordering, parameter
-  feedback, checkpoint decoding, failed-send handling, and render-barrier
-  failures in the affected public paths.
+- **Bindings and renderer:** Corrected state-before-result ordering, parameter feedback, checkpoint decoding, failed-send handling, and render-barrier failures in the affected public paths.
 
 ## @tensnap/protocol [0.3.1] - 2026-10-02
 
@@ -104,51 +78,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added class-owned binding metadata, declarative layer inverses, checkpoint
-  hooks, and compiled dependency ordering for environment layers.
-- Added model-aware projected time restoration with pre-apply validation, plus
-  a Mesa clock adapter for the default step schedule across Mesa 3.x and 4.0.0a0.
+- Added class-owned binding metadata, declarative layer inverses, checkpoint hooks, and compiled dependency ordering for environment layers.
+- Added model-aware projected time restoration with pre-apply validation, plus a Mesa clock adapter for the default step schedule across Mesa 3.x and 4.0.0a0.
 - Added projected and exact restoration to flocking and Game of Life examples.
 
 ### Changed
 
-- Updated Mesa grid examples to use cell-space agents and a typed, example-local
-  import route for Mesa 3.0/3.1 and 3.2+/4.0.
+- Updated Mesa grid examples to use cell-space agents and a typed, example-local import route for Mesa 3.0/3.1 and 3.2+/4.0.
 
 ### Fixed
 
-- Kept layer restore callbacks attached to their declared owner and rejected
-  invalid complete-layer restores before model mutation.
-- Restored the pending Mesa step event alongside model time so the next step
-  advances once after a projected restore, and rejected unsupported schedules
-  before changing the model.
-- Resolved Ruff parameter-count findings without changing public decorator or
-  factory signatures.
+- Kept layer restore callbacks attached to their declared owner and rejected invalid complete-layer restores before model mutation.
+- Restored the pending Mesa step event alongside model time so the next step advances once after a projected restore, and rejected unsupported schedules before changing the model.
+- Resolved Ruff parameter-count findings without changing public decorator or factory signatures.
 - Derived package metadata and runtime binding versions from one Python source.
 
 ## @tensnap/go [0.3.1] - 2026-10-02
 
 ### Added
 
-- Added layer-local restore builders, typed checkpoints, and compiled layer
-  dependency ordering.
+- Added layer-local restore builders, typed checkpoints, and compiled layer dependency ordering.
 - Added model-wide before/after hooks around declarative projected restore.
-- Added SIRS and forest-fire examples with reversible state and exact random
-  continuation.
+- Added SIRS and forest-fire examples with reversible state and exact random continuation.
 - Added focused SIRS and forest-fire dynamics regression tests.
 
 ### Fixed
 
-- Validated complete projected layers and rejected ambiguous topology before
-  applying model changes.
+- Validated complete projected layers and rejected ambiguous topology before applying model changes.
 - Centralized Go binding and protocol versions used in simulator handshakes.
 
 ## @tensnap/js [0.3.1] - 2026-10-02
 
 ### Added
 
-- Added declarative layer restore composition, exact checkpoint support, and
-  cached layer dependency ordering.
+- Added declarative layer restore composition, exact checkpoint support, and cached layer dependency ordering.
 
 ### Fixed
 
@@ -159,8 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added layer-local restore callbacks, checkpoint hooks, and registration-time
-  dependency ordering.
+- Added layer-local restore callbacks, checkpoint hooks, and registration-time dependency ordering.
 - Added model-wide before/after hooks around declarative projected restore.
 - Added El Farol checkpoint continuation coverage.
 
@@ -173,17 +135,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Preserved captured simulation time in CLI checkpoint files and restored it
-  with exact checkpoints when projected restore is supported.
-- Wrote runtime control files atomically so CLI startup cannot read a partial
-  status update.
+- Preserved captured simulation time in CLI checkpoint files and restored it with exact checkpoints when projected restore is supported.
+- Wrote runtime control files atomically so CLI startup cannot read a partial status update.
 
 ## @tensnap/web [0.3.1] - 2026-10-02
 
 ### Fixed
 
-- Restored snapshot time with exact checkpoints when the simulator declares
-  projected restore, preventing a stale renderer or binding clock.
+- Restored snapshot time with exact checkpoints when the simulator declares projected restore, preventing a stale renderer or binding clock.
 - Read project snapshot protocol versions from `@tensnap/protocol`.
 
 ## @tensnap/examples-js [0.3.1] - 2026-10-02
@@ -195,10 +154,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Restored full culture layers and used unit increments for the updates-per-tick
-  control.
-- Preserved Schelling random state and iteration order across checkpoint
-  restoration, including restores that also set simulation time.
+- Restored full culture layers and used unit increments for the updates-per-tick control.
+- Preserved Schelling random state and iteration order across checkpoint restoration, including restores that also set simulation time.
 - Read the example manifest protocol version from `@tensnap/protocol`.
 
 ## @tensnap/examples-julia [0.3.1] - 2026-10-02
@@ -211,343 +168,202 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Added renderer-side model identity and capability handling, transactional
-  state sync, monitor storage, structured action results, projected scene
-  restore, exact checkpoint capture/restore, and snapshot-backed project
-  sources across core, Web, Tauri, and the headless agent.
-- Added reusable value inspection for simulator metadata, monitor values, and
-  agent data, plus monitor views, simulator information, scene restore controls,
-  protocol validation settings, and centralized project diagnostics.
-- Added headless checkpoint capture/restore routes and CLI commands, bounded-run
-  validation controls, and compact monitor replay in recordings.
-- Added accessible application-owned confirmation dialogs for project close and
-  filesystem deletion instead of browser-native prompts.
+- Added renderer-side model identity and capability handling, transactional state sync, monitor storage, structured action results, projected scene restore, exact checkpoint capture/restore, and snapshot-backed project sources across core, Web, Tauri, and the headless agent.
+- Added reusable value inspection for simulator metadata, monitor values, and agent data, plus monitor views, simulator information, scene restore controls, protocol validation settings, and centralized project diagnostics.
+- Added headless checkpoint capture/restore routes and CLI commands, bounded-run validation controls, and compact monitor replay in recordings.
+- Added accessible application-owned confirmation dialogs for project close and filesystem deletion instead of browser-native prompts.
 
 ### Changed
 
-- Upgraded the complete npm workspace with `npm-check-updates`, including
-  TypeScript 7.0.2, ESLint 10.7, Vite 8.1.5, Leafer 2.2.2, Hono 4.12.30,
-  ws 8.21.1, and current Tauri JavaScript plugins.
-- Pinned Node.js 24 and pnpm 11 for workspace development. Tools that still
-  execute the removed pre-v7 TypeScript JavaScript API receive an isolated
-  TypeScript 6 runtime while all TenSnap compilation uses TypeScript 7.
-- Aligned Tauri JavaScript and Rust plugins, refreshed the compatible Cargo
-  graph, raised the Rust minimum to 1.88, and began tracking the real desktop
-  application lockfile.
-- Reworked renderer handshake, reconnect, legacy-session negotiation, project
-  migration, recording, chart restoration, and action scheduling around the
-  v0.3 identity and transaction model.
-- Promoted the finalized protocol specification out of the historical v0.3
-  draft and refreshed maintainer guides, API references, tutorials, release
-  instructions, and repository skills.
+- Upgraded the complete npm workspace with `npm-check-updates`, including TypeScript 7.0.2, ESLint 10.7, Vite 8.1.5, Leafer 2.2.2, Hono 4.12.30, ws 8.21.1, and current Tauri JavaScript plugins.
+- Pinned Node.js 24 and pnpm 11 for workspace development. Tools that still execute the removed pre-v7 TypeScript JavaScript API receive an isolated TypeScript 6 runtime while all TenSnap compilation uses TypeScript 7.
+- Aligned Tauri JavaScript and Rust plugins, refreshed the compatible Cargo graph, raised the Rust minimum to 1.88, and began tracking the real desktop application lockfile.
+- Reworked renderer handshake, reconnect, legacy-session negotiation, project migration, recording, chart restoration, and action scheduling around the v0.3 identity and transaction model.
+- Promoted the finalized protocol specification out of the historical v0.3 draft and refreshed maintainer guides, API references, tutorials, release instructions, and repository skills.
 
 ### Fixed
 
-- Surfaced correlated action failures in the Web UI and prevented invalid or
-  mismatched handshakes from mutating an existing project.
-- Migrated legacy persisted chart, asset, monitor, and snapshot shapes without
-  silently replacing malformed project data.
-- Completed all Chinese and Japanese Web and filesystem-adapter translations
-  and restored strict catalog compilation.
-- Fixed TypeScript 7 compatibility for protocol documentation generation and
-  TypeScript-aware ESLint, and fixed a Python binding type annotation exposed by
-  the repository-wide lint pass.
+- Surfaced correlated action failures in the Web UI and prevented invalid or mismatched handshakes from mutating an existing project.
+- Migrated legacy persisted chart, asset, monitor, and snapshot shapes without silently replacing malformed project data.
+- Completed all Chinese and Japanese Web and filesystem-adapter translations and restored strict catalog compilation.
+- Fixed TypeScript 7 compatibility for protocol documentation generation and TypeScript-aware ESLint, and fixed a Python binding type annotation exposed by the repository-wide lint pass.
 
 ### Removed
 
-- Removed the stale Tauri `Cargo.lock` ignore rules; the real desktop
-  `src-tauri/Cargo.lock` is now tracked for reproducible builds.
+- Removed the stale Tauri `Cargo.lock` ignore rules; the real desktop `src-tauri/Cargo.lock` is now tracked for reproducible builds.
 
 ## @tensnap/protocol [0.3.0] - 2026-07-17
 
 ### Added
 
-- Added the mandatory `simulator_info` handshake with binding, model,
-  instance, capability, and state-schema identity.
-- Added monitor create/update/delete messages, scene capture and restore
-  transactions, binary or protocol-value checkpoints, structured errors,
-  action targets/kwargs/errors/timings, explicit chart selectors, and chart
-  truncation.
-- Added canonical conformance traces for handshake/state sync, targeted
-  actions, chart/monitor behavior, and scene restoration.
-- Added opt-in runtime validation levels (`off`, `warning`, and `error`) with
-  direction-aware issues and warning callbacks.
-- Added a finalized standalone specification and schema-derived protocol type
-  documentation generated with `zod-to-ts`.
+- Added the mandatory `simulator_info` handshake with binding, model, instance, capability, and state-schema identity.
+- Added monitor create/update/delete messages, scene capture and restore transactions, binary or protocol-value checkpoints, structured errors, action targets/kwargs/errors/timings, explicit chart selectors, and chart truncation.
+- Added canonical conformance traces for handshake/state sync, targeted actions, chart/monitor behavior, and scene restoration.
+- Added opt-in runtime validation levels (`off`, `warning`, and `error`) with direction-aware issues and warning callbacks.
+- Added a finalized standalone specification and schema-derived protocol type documentation generated with `zod-to-ts`.
 
 ### Changed
 
-- Made canonical v0.3 messages strict snake_case and renamed the action wire
-  pair to `action_invoke`/`action_result`, correlation to `request_id`, action
-  continuation to `should_continue`, layer data to `metadata`, and asset
-  metadata to `asset_metadata`.
-- Made state sync a correlated, non-nestable read-only inventory transaction;
-  scene restore is a separate atomic transaction.
-- Required chart delete/update operations to identify `group` or `series`
-  explicitly and formalized same-time replacement and truncate boundaries.
-- Moved built-in layer payload ownership and all inferred protocol types into
-  the protocol package as the sole wire-contract source.
+- Made canonical v0.3 messages strict snake_case and renamed the action wire pair to `action_invoke`/`action_result`, correlation to `request_id`, action continuation to `should_continue`, layer data to `metadata`, and asset metadata to `asset_metadata`.
+- Made state sync a correlated, non-nestable read-only inventory transaction; scene restore is a separate atomic transaction.
+- Required chart delete/update operations to identify `group` or `series` explicitly and formalized same-time replacement and truncate boundaries.
+- Moved built-in layer payload ownership and all inferred protocol types into the protocol package as the sole wire-contract source.
 
 ### Fixed
 
-- Selected legacy compatibility once per session from parsed major/minor
-  versions and kept strict v0.3 inputs free of legacy aliases.
-- Made legacy normalization path-aware, detected conflicting canonical/legacy
-  aliases, retained state-sync correlation, and preserved custom user maps.
-- Decoded ambiguous legacy chart operations through the renderer compatibility
-  boundary and covered legacy chart clearing with regression tests.
+- Selected legacy compatibility once per session from parsed major/minor versions and kept strict v0.3 inputs free of legacy aliases.
+- Made legacy normalization path-aware, detected conflicting canonical/legacy aliases, retained state-sync correlation, and preserved custom user maps.
+- Decoded ambiguous legacy chart operations through the renderer compatibility boundary and covered legacy chart clearing with regression tests.
 
 ### Removed
 
-- Removed action `allow_runtime_change` and the ambiguous v0.2 action, chart,
-  asset, and layer field shapes from the strict v0.3 contract.
+- Removed action `allow_runtime_change` and the ambiguous v0.2 action, chart, asset, and layer field shapes from the strict v0.3 contract.
 
 ## @tensnap/python [0.3.0] - 2026-07-17
 
 ### Added
 
-- Added the v0.3 `simulator_info` handshake with stable model identity,
-  instance identity, binding metadata, state schema version, and capabilities.
-- Added monitor decorators/models, monitor replay, action targets and kwargs,
-  projected scene restore helpers, checkpoint capture/restore hooks, and
-  correlated scene transaction boundaries.
-- Added exact native-to-wire mapping tests validated against the generated
-  protocol schemas.
+- Added the v0.3 `simulator_info` handshake with stable model identity, instance identity, binding metadata, state schema version, and capabilities.
+- Added monitor decorators/models, monitor replay, action targets and kwargs, projected scene restore helpers, checkpoint capture/restore hooks, and correlated scene transaction boundaries.
+- Added exact native-to-wire mapping tests validated against the generated protocol schemas.
 
 ### Changed
 
-- Migrated actions to `action_invoke`/`action_result`, `request_id`,
-  `should_continue`, and structured execution errors.
-- Migrated chart groups to `data_list`, layer payloads to `metadata`, and all
-  protocol-visible fields to canonical snake_case while retaining language-
-  appropriate Python APIs.
-- Made state sync read-only, replay monitors with scenario state, and gate
-  optional restore/capture behavior through declared capabilities.
+- Migrated actions to `action_invoke`/`action_result`, `request_id`, `should_continue`, and structured execution errors.
+- Migrated chart groups to `data_list`, layer payloads to `metadata`, and all protocol-visible fields to canonical snake_case while retaining language- appropriate Python APIs.
+- Made state sync read-only, replay monitors with scenario state, and gate optional restore/capture behavior through declared capabilities.
 
 ### Fixed
 
-- Prevented chart helper methods and other structural fields from being
-  inferred as model parameters.
-- Preserved parameter correction semantics: accepted values remain quiet while
-  rejected or canonicalized values emit `param_sync`.
-- Annotated action serialization dictionaries so strict mypy accepts boolean,
-  scope, and kwargs values.
+- Prevented chart helper methods and other structural fields from being inferred as model parameters.
+- Preserved parameter correction semantics: accepted values remain quiet while rejected or canonicalized values emit `param_sync`.
+- Annotated action serialization dictionaries so strict mypy accepts boolean, scope, and kwargs values.
 
 ## @tensnap/go [0.3.0] - 2026-07-17
 
 ### Added
 
-- Added v0.3 simulator identity/capabilities, correlated state sync and actions,
-  structured action errors/timings, action targets/kwargs, monitors, and scene
-  capture/restore payloads to the protocol, ABM, binding, and server layers.
-- Added declarative monitor builders, projected restore and checkpoint hooks,
-  exact mapping tests, and protocol-schema validation of native output.
-- Added tag-driven parameter, environment metadata, agent, and edge projection
-  with explicit scopes and omission rules.
+- Added v0.3 simulator identity/capabilities, correlated state sync and actions, structured action errors/timings, action targets/kwargs, monitors, and scene capture/restore payloads to the protocol, ABM, binding, and server layers.
+- Added declarative monitor builders, projected restore and checkpoint hooks, exact mapping tests, and protocol-schema validation of native output.
+- Added tag-driven parameter, environment metadata, agent, and edge projection with explicit scopes and omission rules.
 
 ### Changed
 
-- Migrated the server to canonical `action_invoke`/`action_result`,
-  `request_id`, `should_continue`, `data_list`, `metadata`, and strict
-  snake_case v0.3 payloads.
-- Made `ActionInvokePayload` and `ActionResultPayload` the canonical Go type
-  names; removed the v0.2 `ActionStartPayload` and `ActionEndPayload`
-  source-compatible aliases.
-- Made `binding.NewModel` own declared lifecycle, parameters, environments,
-  charts, and monitors while preserving low-level imperative composition.
+- Migrated the server to canonical `action_invoke`/`action_result`, `request_id`, `should_continue`, `data_list`, `metadata`, and strict snake_case v0.3 payloads.
+- Made `ActionInvokePayload` and `ActionResultPayload` the canonical Go type names; removed the v0.2 `ActionStartPayload` and `ActionEndPayload` source-compatible aliases.
+- Made `binding.NewModel` own declared lifecycle, parameters, environments, charts, and monitors while preserving low-level imperative composition.
 
 ### Fixed
 
-- Replayed authoritative scenario state inside correlated sync transactions and
-  emitted action results only after visible updates.
-- Enforced action target/kwargs validation and returned protocol-visible errors
-  without sending a second uncorrelated transport error.
-- Updated examples and API documentation to avoid duplicate action results and
-  removed references to the retired v0.2 router constructor.
+- Replayed authoritative scenario state inside correlated sync transactions and emitted action results only after visible updates.
+- Enforced action target/kwargs validation and returned protocol-visible errors without sending a second uncorrelated transport error.
+- Updated examples and API documentation to avoid duplicate action results and removed references to the retired v0.2 router constructor.
 
 ## @tensnap/js [0.3.0] - 2026-07-17
 
 ### Added
 
-- Added strict v0.3 simulator sessions that send `simulator_info`, wait for the
-  first valid state sync before initialization, and correlate every action
-  invocation/result.
-- Added declarative action scope, target, kwargs, error, and continuous-result
-  handling; monitor declarations and replay; and grouped chart metadata.
-- Added composed projected restore with full layer create/update/delete
-  callbacks, imperative projected restore, and paired exact checkpoint capture
-  and restore hooks.
-- Added scene capture/restore support to `SimulatorEmitter`,
-  `SimulatorSession`, `ScenarioRegistry`, WebSocket hosts, and postMessage hosts.
-- Added configurable client/server protocol validation levels and transport
-  warning/error events.
+- Added strict v0.3 simulator sessions that send `simulator_info`, wait for the first valid state sync before initialization, and correlate every action invocation/result.
+- Added declarative action scope, target, kwargs, error, and continuous-result handling; monitor declarations and replay; and grouped chart metadata.
+- Added composed projected restore with full layer create/update/delete callbacks, imperative projected restore, and paired exact checkpoint capture and restore hooks.
+- Added scene capture/restore support to `SimulatorEmitter`, `SimulatorSession`, `ScenarioRegistry`, WebSocket hosts, and postMessage hosts.
+- Added configurable client/server protocol validation levels and transport warning/error events.
 
 ### Changed
 
-- Made declarative definitions emit only canonical v0.3 snake_case payloads and
-  made the protocol package the only source of wire types.
-- Made restore replay omit charts, order dependent-layer deletion safely, and
-  replay complete authoritative state after successful mutation.
-- Made default lifecycle actions and state replay flush visible changes before
-  their matching `action_result`.
+- Made declarative definitions emit only canonical v0.3 snake_case payloads and made the protocol package the only source of wire types.
+- Made restore replay omit charts, order dependent-layer deletion safely, and replay complete authoritative state after successful mutation.
+- Made default lifecycle actions and state replay flush visible changes before their matching `action_result`.
 
 ### Fixed
 
-- Prevented initialization before identity-checked state sync and prevented
-  legacy aliases from entering strict binding sessions.
-- Preserved binary checkpoint semantics across JSON and MessagePack transports
-  and validated exact emitted payloads against the protocol schemas.
+- Prevented initialization before identity-checked state sync and prevented legacy aliases from entering strict binding sessions.
+- Preserved binary checkpoint semantics across JSON and MessagePack transports and validated exact emitted payloads against the protocol schemas.
 
 ## @tensnap/julia [0.3.0] - 2026-07-17
 
 ### Added
 
-- Added v0.3 simulator identity/capabilities, correlated state sync and action
-  results, monitor builders, action targets/kwargs, scene restore/capture, and
-  exact checkpoint support.
-- Added grouped chart series metadata, projected parameter updates, exact
-  native-to-wire mapping tests, and lifecycle/conformance coverage.
-- Added environment-aware automatic agent projection, including Agents.jl-style
-  positions without introducing an Agents.jl dependency.
+- Added v0.3 simulator identity/capabilities, correlated state sync and action results, monitor builders, action targets/kwargs, scene restore/capture, and exact checkpoint support.
+- Added grouped chart series metadata, projected parameter updates, exact native-to-wire mapping tests, and lifecycle/conformance coverage.
+- Added environment-aware automatic agent projection, including Agents.jl-style positions without introducing an Agents.jl dependency.
 
 ### Changed
 
-- Migrated all wire output to canonical v0.3 snake_case, including
-  `action_invoke`/`action_result`, `request_id`, `should_continue`,
-  `data_list`, and layer `metadata`.
-- Expanded explicit builders and scenario replay so parameters, actions,
-  environments, charts, and monitors participate in initialization, reconnect,
-  reset, and restore consistently.
-- Updated the El Farol example to use the uniform environment presentation and
-  improved automatic projection behavior for non-grid models.
-- Changed the release helper to create annotated
-  `tensnap-julia-vX.Y.Z` tags suitable for the repository's Julia release
-  convention.
+- Migrated all wire output to canonical v0.3 snake_case, including `action_invoke`/`action_result`, `request_id`, `should_continue`, `data_list`, and layer `metadata`.
+- Expanded explicit builders and scenario replay so parameters, actions, environments, charts, and monitors participate in initialization, reconnect, reset, and restore consistently.
+- Updated the El Farol example to use the uniform environment presentation and improved automatic projection behavior for non-grid models.
+- Changed the release helper to create annotated `tensnap-julia-vX.Y.Z` tags suitable for the repository's Julia release convention.
 
 ### Fixed
 
-- Hardened WebSocket handshake/lifecycle handling and prevented state changes
-  before a valid v0.3 sync request.
-- Corrected dependency-layer metadata, action continuation naming, and exact
-  omission of unsupported parameter/projector fields.
+- Hardened WebSocket handshake/lifecycle handling and prevented state changes before a valid v0.3 sync request.
+- Corrected dependency-layer metadata, action continuation naming, and exact omission of unsupported parameter/projector fields.
 
 ## @tensnap/benchmark [0.2.2] - 2026-07-12
 
 ### Added
 
-- Added three explicit benchmark suites: six production Web component cases
-  without transport, complete Axelrod/Schelling/Wolf-Sheep model runs, and a
-  seeded random-walk comparison across raw Leafer, core layers, and the full
-  Web transport path.
-- Added shared cycle latency/TPS metrics, component mutation metrics, complete
-  model stop metadata, and random-walk overhead percentages relative to raw
-  Leafer.
+- Added three explicit benchmark suites: six production Web component cases without transport, complete Axelrod/Schelling/Wolf-Sheep model runs, and a seeded random-walk comparison across raw Leafer, core layers, and the full Web transport path.
+- Added shared cycle latency/TPS metrics, component mutation metrics, complete model stop metadata, and random-walk overhead percentages relative to raw Leafer.
 
 ### Changed
 
-- Rebuilt the benchmark app on React and the production Web host so component
-  and model results follow the current Web render-trigger, TPS, store, layout,
-  session, and canvas behavior.
-- Reorganized benchmark configuration, JSON/Markdown reports, regression gate
-  names, tests, and documentation around component, model, and random-walk
-  categories.
+- Rebuilt the benchmark app on React and the production Web host so component and model results follow the current Web render-trigger, TPS, store, layout, session, and canvas behavior.
+- Reorganized benchmark configuration, JSON/Markdown reports, regression gate names, tests, and documentation around component, model, and random-walk categories.
 
 ### Fixed
 
-- Preserved partial benchmark results when a simulator stops before the
-  requested step count, including actual completed/measured frames and the
-  simulator stop reason instead of failing the run.
+- Preserved partial benchmark results when a simulator stops before the requested step count, including actual completed/measured frames and the simulator stop reason instead of failing the run.
 
 ## @tensnap/web [0.2.4] - 2026-07-12
 
 ### Added
 
-- Added a production benchmark host that mounts the real transport store,
-  `RendererSession`, Zustand subscriptions, auto-layout, React view tree, and
-  the Web chart/environment components for benchmark consumers.
+- Added a production benchmark host that mounts the real transport store, `RendererSession`, Zustand subscriptions, auto-layout, React view tree, and the Web chart/environment components for benchmark consumers.
 
 ### Fixed
 
-- Made continuous-action buttons leave their visible running state as soon as
-  pause is requested, so one click immediately restores the play icon and
-  paused indicator while the in-flight tick finishes safely.
+- Made continuous-action buttons leave their visible running state as soon as pause is requested, so one click immediately restores the play icon and paused indicator while the in-flight tick finishes safely.
 
 ## Workspace [0.2.1], @tensnap/protocol [0.2.2] - 2026-07-12
 
 ### Added
 
-- Added a shared `RendererSession` and `RunController` for browser and headless
-  hosts, with explicit manual/bounded runs, stop expressions, deadlines,
-  pause/step/reset semantics, render barriers, action timeouts, and observable
-  stop reasons.
-- Added shared `SnapshotArchive` persistence: independently decodable
-  MessagePack segments, lossless byte compression, worker encoding in the web
-  host, and pluggable layer codec implementations.
-- Added project format v2 with a content-addressed asset table shared by the
-  live scenario and all recordings; older project formats remain readable.
-- Added scenario inspection, agent-focused rendering, headless chart painting,
-  scene/run HTTP routes, and matching CLI controls for automation workflows.
-- Added `ChartScene` and `BrowserChartView`, canvas-backed chart rendering,
-  snapshot detail playback/export, continuous-run profiles, live TPS/MSPT
-  metrics, and project-scoped undo/redo history.
-- Added RendererSession benchmark coverage for real React/Zustand commits,
-  recording, long-history conditions, trajectories, checkpoint behavior, and
-  reusable p95/TPS regression gates.
+- Added a shared `RendererSession` and `RunController` for browser and headless hosts, with explicit manual/bounded runs, stop expressions, deadlines, pause/step/reset semantics, render barriers, action timeouts, and observable stop reasons.
+- Added shared `SnapshotArchive` persistence: independently decodable MessagePack segments, lossless byte compression, worker encoding in the web host, and pluggable layer codec implementations.
+- Added project format v2 with a content-addressed asset table shared by the live scenario and all recordings; older project formats remain readable.
+- Added scenario inspection, agent-focused rendering, headless chart painting, scene/run HTTP routes, and matching CLI controls for automation workflows.
+- Added `ChartScene` and `BrowserChartView`, canvas-backed chart rendering, snapshot detail playback/export, continuous-run profiles, live TPS/MSPT metrics, and project-scoped undo/redo history.
+- Added RendererSession benchmark coverage for real React/Zustand commits, recording, long-history conditions, trajectories, checkpoint behavior, and reusable p95/TPS regression gates.
 
 ### Fixed
 
-- Restored replace-by-default handling for repeated create messages in core,
-  preventing model resets from retaining stale agents, edges, trajectories, or
-  chart history; internal upsert paths now preserve those states explicitly.
-- Kept dependent-layer indexes valid when a source layer is recreated, and
-  removed stale chart metadata registrations when a chart group is replaced.
-- Stopped maintaining the agent-neighborhood spatial hash while no inspector
-  is open, removed item-delta full-scene rebuild triggers, split broad UI
-  revisions by domain, and made uniform agent lists derive only their visible
-  page. This restores non-recording Web throughput for agent-heavy models.
-- Converted render-barrier failures into an observable `render-error` run stop
-  instead of leaving an unhandled rejection or stalled pipeline.
-- Required action completions to match their dispatched `tick_id`, preventing
-  stale or ambiguous completions from contaminating run metrics.
-- Fixed multi-chart headless output paths so suffixes apply only to filenames,
-  for both relative and absolute destinations.
-- Fixed binary filesystem checksums so distinct invalid UTF-8 byte sequences no
-  longer collapse to the same decoded-text hash.
-- Made Tauri Save As request the final extension/filter in the native dialog
-  and write exactly the returned scoped path.
-- Made Tauri's native menu follow the renderer language setting, with complete
-  English, Chinese, and Japanese menu labels.
-- Prevented project tabs from wrapping long filesystem paths; tabs now show a
-  compact filename and Project Settings exposes the full path read-only.
-- Compacted the settings dialog's system controls into a responsive grid so
-  ordinary desktop viewports do not require scrolling.
+- Restored replace-by-default handling for repeated create messages in core, preventing model resets from retaining stale agents, edges, trajectories, or chart history; internal upsert paths now preserve those states explicitly.
+- Kept dependent-layer indexes valid when a source layer is recreated, and removed stale chart metadata registrations when a chart group is replaced.
+- Stopped maintaining the agent-neighborhood spatial hash while no inspector is open, removed item-delta full-scene rebuild triggers, split broad UI revisions by domain, and made uniform agent lists derive only their visible page. This restores non-recording Web throughput for agent-heavy models.
+- Converted render-barrier failures into an observable `render-error` run stop instead of leaving an unhandled rejection or stalled pipeline.
+- Required action completions to match their dispatched `tick_id`, preventing stale or ambiguous completions from contaminating run metrics.
+- Fixed multi-chart headless output paths so suffixes apply only to filenames, for both relative and absolute destinations.
+- Fixed binary filesystem checksums so distinct invalid UTF-8 byte sequences no longer collapse to the same decoded-text hash.
+- Made Tauri Save As request the final extension/filter in the native dialog and write exactly the returned scoped path.
+- Made Tauri's native menu follow the renderer language setting, with complete English, Chinese, and Japanese menu labels.
+- Prevented project tabs from wrapping long filesystem paths; tabs now show a compact filename and Project Settings exposes the full path read-only.
+- Compacted the settings dialog's system controls into a responsive grid so ordinary desktop viewports do not require scrolling.
 
 ### Changed
 
-- Made `@tensnap/protocol` the sole source of built-in layer schemas and
-  protocol item types; core now keeps only renderer-owned state and helpers.
-- Made bounded-run mode explicit and made standard toolbar controls bind only
-  to the canonical `start`, `step`, and `reset` action IDs.
-- Reworked trajectory storage around explicit active/historical segments and
-  lifecycle policies for deletion, state sync, reset, and agent-ID reuse.
-- Unified renderer settings, native persistence, scoped file access, runtime
-  checkpoint recovery, and localized Tauri menus across web and desktop hosts.
-- Updated runtime, snapshot, project, protocol, desktop-adapter, and user
-  documentation for shared session control, offline replay, trajectory
-  lifecycle behavior, and scoped native saves.
-- Split stable UI, rendering, runtime, and data dependencies into shared Vite
-  chunks for web, Tauri, and benchmark builds while retaining the 500 KiB
-  eager-code warning budget.
+- Made `@tensnap/protocol` the sole source of built-in layer schemas and protocol item types; core now keeps only renderer-owned state and helpers.
+- Made bounded-run mode explicit and made standard toolbar controls bind only to the canonical `start`, `step`, and `reset` action IDs.
+- Reworked trajectory storage around explicit active/historical segments and lifecycle policies for deletion, state sync, reset, and agent-ID reuse.
+- Unified renderer settings, native persistence, scoped file access, runtime checkpoint recovery, and localized Tauri menus across web and desktop hosts.
+- Updated runtime, snapshot, project, protocol, desktop-adapter, and user documentation for shared session control, offline replay, trajectory lifecycle behavior, and scoped native saves.
+- Split stable UI, rendering, runtime, and data dependencies into shared Vite chunks for web, Tauri, and benchmark builds while retaining the 500 KiB eager-code warning budget.
 
 ### Removed
 
-- Removed the superseded browser `SimulationLoopController`, agent-session and
-  reserved-action wrappers, retired wait routes, and the old Leafer-specific
-  line-chart view.
-- Removed compatibility-only action-role inference, optional bounded-run mode,
-  tickless action-metric matching, duplicate core protocol schemas, redundant
-  type/path/export aliases, legacy browser polyfills, and vendor-prefixed
-  canvas smoothing assignments.
+- Removed the superseded browser `SimulationLoopController`, agent-session and reserved-action wrappers, retired wait routes, and the old Leafer-specific line-chart view.
+- Removed compatibility-only action-role inference, optional bounded-run mode, tickless action-metric matching, duplicate core protocol schemas, redundant type/path/export aliases, legacy browser polyfills, and vendor-prefixed canvas smoothing assignments.
 - Removed the unused dummy Rust crate beside the real `src-tauri` application.
 
 ## @tensnap/protocol [0.2.1] - 2026-07-10

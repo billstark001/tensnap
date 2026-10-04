@@ -7,8 +7,7 @@ Use this skill when you need an automation agent to drive a TenSnap simulator th
 - You need to connect to a running simulator and inspect the current scene state.
 - You need to trigger one simulator action by id.
 - You need to change parameters from an agent workflow.
-- You need a bounded continuous run with a condition based on time, charts,
-  metadata, parameters, or agent counts.
+- You need a bounded continuous run with a condition based on time, charts, metadata, parameters, or agent counts.
 - You need an environment render, optionally for a specific viewport.
 - You need a long-lived local runtime instead of a one-shot WebSocket client.
 
@@ -17,12 +16,8 @@ Use this skill when you need an automation agent to drive a TenSnap simulator th
 - Start the daemon once per working context.
 - Runtime state is persisted under `.tensnap/contexts/<context>/` by default.
 - The daemon exposes local HTTP control endpoints and an SSE event stream.
-- The runtime is a Node host for core `RendererSession` and `RunController`.
-  It has no package-local protocol/session lifecycle or action aliases.
-- Protocol message shapes, screenshot payloads, asset payloads, and built-in layer
-  item contracts come from `packages/protocol`. Generate the current reference
-  with `pnpm --dir packages/protocol export:protocol` when debugging transport
-  or scene-sync issues.
+- The runtime is a Node host for core `RendererSession` and `RunController`. It has no package-local protocol/session lifecycle or action aliases.
+- Protocol message shapes, screenshot payloads, asset payloads, and built-in layer item contracts come from `packages/protocol`. Generate the current reference with `pnpm --dir packages/protocol export:protocol` when debugging transport or scene-sync issues.
 
 ## Core Commands
 
@@ -60,12 +55,9 @@ pnpm --filter @tensnap/agent dev -- action run reseed --context demo
 
 ## Bounded Runs
 
-For a continuous action, use `run start`; `action run` is deliberately a single
-dispatch. `--max-steps` is required even when a condition is present, and the
-default policy rejects values greater than 1,000,000.
+For a continuous action, use `run start`; `action run` is deliberately a single dispatch. `--max-steps` is required even when a condition is present, and the default policy rejects values greater than 1,000,000.
 
-Start the runtime with a higher explicit policy only when the automation
-workflow requires it:
+Start the runtime with a higher explicit policy only when the automation workflow requires it:
 
 ```bash
 pnpm --filter @tensnap/agent dev -- runtime up --context demo --simulator-url ws://127.0.0.1:8765 --max-steps-policy 2000000
@@ -79,11 +71,7 @@ pnpm --filter @tensnap/agent dev -- run status --context demo
 pnpm --filter @tensnap/agent dev -- run stop --context demo
 ```
 
-The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and
-`DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first
-dispatch and after every `action_result`. It can read `steps`, `time`, metadata,
-`parameters`, `charts`, `agent(envId, layerId, id)`, and
-`agentCount(envId, layerId)`; it cannot call arbitrary host functions.
+The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first dispatch and after every `action_result`. It can read `steps`, `time`, metadata, `parameters`, `charts`, `agent(envId, layerId, id)`, and `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
 
 ## Rendering
 
@@ -149,14 +137,10 @@ Useful event families:
 ## Operational Guidance
 
 - Prefer `scene inspect` before mutating parameters or actions, so the agent has the current ids.
-- If a protocol payload looks wrong, inspect `packages/protocol/src/schemas.ts`
-  and `packages/protocol/src/layers.ts`, then regenerate the Markdown protocol
-  reference before changing agent runtime code.
+- If a protocol payload looks wrong, inspect `packages/protocol/src/schemas.ts` and `packages/protocol/src/layers.ts`, then regenerate the Markdown protocol reference before changing agent runtime code.
 - Prefer `action run` for one action and `run start` for every continuous workflow.
-- Use `run status` or the SSE stream to observe a run; do not build a client-side
-  wait loop for conditions the shared controller can evaluate.
-- The retired `scene start|step|reset`, `wait`, and `experiment` commands have
-  no aliases. Use the action id or a bounded run instead.
+- Use `run status` or the SSE stream to observe a run; do not build a client-side wait loop for conditions the shared controller can evaluate.
+- The retired `scene start|step|reset`, `wait`, and `experiment` commands have no aliases. Use the action id or a bounded run instead.
 - Use `manual` render trigger when you need to separate simulation stepping from image capture.
 - Use `action-end` render trigger when a downstream workflow expects every action to produce a new image.
 - If multiple environments exist and no `--env` is provided, the painter may emit one artifact per environment.

@@ -1,15 +1,10 @@
 # NetLogo DQN Evacuation Comparison
 
-`evac_dqn_netlogo.nlogox` is a NetLogo 7 counterpart to
-`examples/python_dqn/evac_viz.py` and `examples/python_dqn/evac_viz_solara.py`.
+`evac_dqn_netlogo.nlogox` is a NetLogo 7 counterpart to `examples/python_dqn/evac_viz.py` and `examples/python_dqn/evac_viz_solara.py`.
 
-NetLogo owns the visible simulation: patches, turtles, buttons, sliders,
-monitors, and plots. The guide action can come from the Python DQN policy
-through NetLogo's bundled `py` extension, or from the Python training adapter
-via the `training-action` global.
+NetLogo owns the visible simulation: patches, turtles, buttons, sliders, monitors, and plots. The guide action can come from the Python DQN policy through NetLogo's bundled `py` extension, or from the Python training adapter via the `training-action` global.
 
-See [../MODEL.md](../MODEL.md) for the model definition, ODD description,
-reinforcement-learning formulation, and Mesa/NetLogo equivalence boundary.
+See [../MODEL.md](../MODEL.md) for the model definition, ODD description, reinforcement-learning formulation, and Mesa/NetLogo equivalence boundary.
 
 ## Run
 
@@ -36,20 +31,13 @@ The model follows the standard NetLogo Python-extension flow:
 
 Inputs:
 
-- `repo-root`: repository root. The default `auto` searches the current working
-  directory and its parents; set an absolute path if import fails.
-- `python-executable`: `auto` tries common project, conda, and Homebrew Python
-  paths before falling back to `python3`; set an absolute path if your
-  dependencies live somewhere else.
-- `guide-model`: `untrained` or a checkpoint file name from
-  `examples/python_dqn/checkpoints`.
+- `repo-root`: repository root. The default `auto` searches the current working directory and its parents; set an absolute path if import fails.
+- `python-executable`: `auto` tries common project, conda, and Homebrew Python paths before falling back to `python3`; set an absolute path if your dependencies live somewhere else.
+- `guide-model`: `untrained` or a checkpoint file name from `examples/python_dqn/checkpoints`.
 - `checkpoint-dir`: optional override for the checkpoint directory.
-- `use-python-policy?`: keep this on for the GUI comparison. The bundled
-  BehaviorSpace `smoke` experiment turns it off because NetLogo's `py:setup`
-  can stop silently in headless BehaviorSpace on this machine.
+- `use-python-policy?`: keep this on for the GUI comparison. The bundled BehaviorSpace `smoke` experiment turns it off because NetLogo's `py:setup` can stop silently in headless BehaviorSpace on this machine.
 
-Changing `guide-model` does not reload immediately. Press `reset-guide-model` or
-`setup` to apply it.
+Changing `guide-model` does not reload immediately. Press `reset-guide-model` or `setup` to apply it.
 
 ## Python Training Adapter
 
@@ -60,12 +48,9 @@ cd examples
 python -m python_dqn.main --mode train --env netlogo --episodes 500
 ```
 
-The adapter uses pyNetLogo to load this model, turns `use-python-policy?` off,
-sets `training-action` before every `go`, and reads `dqn-state-values`,
-`last-reward`, `done?`, and count monitors after the step.
+The adapter uses pyNetLogo to load this model, turns `use-python-policy?` off, sets `training-action` before every `go`, and reads `dqn-state-values`, `last-reward`, `done?`, and count monitors after the step.
 
-The shared environment contract is documented in
-[../MODEL.md](../MODEL.md#process-overview-and-scheduling).
+The shared environment contract is documented in [../MODEL.md](../MODEL.md#process-overview-and-scheduling).
 
 To compare a checkpoint with reference policies through this adapter:
 
@@ -85,5 +70,4 @@ python -m python_dqn.main --mode compare --env netlogo --episodes 20 \
   --threads 1
 ```
 
-This verifies the NetLogo map, agents, fire spread, monitors, and plots. The
-Python DQN bridge is smoke-tested separately through `python_dqn.netlogo_policy`.
+This verifies the NetLogo map, agents, fire spread, monitors, and plots. The Python DQN bridge is smoke-tested separately through `python_dqn.netlogo_policy`.

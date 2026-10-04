@@ -14,8 +14,7 @@ TenSnap is designed for research workflows that need live observation, experimen
 - **🔧 Composable Integration Layers**: Choose high-level mappings, lifecycle hooks, or typed raw-protocol access without moving transition authority out of the host
 - **🌍 Internationalization**: Use the Web and desktop clients in English, Chinese, or Japanese
 
-![A screenshot of the example S/I/R/S model's visualization](./assets/screenshot_sirs.png)
-![A screenshot of the example Schelling model's agent inspection & A screenshot of the example Flock model's snapshot recording](./assets/screenshot_inspect_snapshot.png)
+![A screenshot of the example S/I/R/S model's visualization](./assets/screenshot_sirs.png) ![A screenshot of the example Schelling model's agent inspection & A screenshot of the example Flock model's snapshot recording](./assets/screenshot_inspect_snapshot.png)
 
 ## 🚀 Quick Start
 
@@ -248,12 +247,7 @@ tensnap/
 - **web-common** / **web-adapter**: Shared browser-side UI, types, and filesystem integration.
 - **benchmark**: Generic runner, journal/resume/merge workflow, artifact verification, statistical summaries, and analysis generation. Versioned subjects and publication profiles live in `benchmarks/`, outside user-facing examples.
 
-Some Schelling example launchers are intentionally thin: visualization
-entrypoints call reusable binding/UI factories and standalone entrypoints call
-reusable study helpers. This split exists so examples and publication subjects
-share model, reset and trial behavior; it is not extra structure required for a
-normal TenSnap integration. See [`benchmarks/README.md`](benchmarks/README.md)
-for the ownership boundary.
+Some Schelling example launchers are intentionally thin: visualization entrypoints call reusable binding/UI factories and standalone entrypoints call reusable study helpers. This split exists so examples and publication subjects share model, reset and trial behavior; it is not extra structure required for a normal TenSnap integration. See [`benchmarks/README.md`](benchmarks/README.md) for the ownership boundary.
 
 ## 🤝 Contributing
 
@@ -294,6 +288,7 @@ If TenSnap has benefited your research—whether by facilitating your agent-base
 The full paper has been accepted for a long presentation at [CSS 2026](https://computationalsocialscience.org/conferences/css-2026-santa-fe/), the annual conference of the Computational Social Science Society of the Americas. Proceedings metadata is not yet available, so please use the following provisional citation and update it when the Springer Proceedings in Complexity volume is published.
 
 **Plain Text (APA):**
+
 > Zhao, J., & Chen, Y. (2026). TenSnap: Platform-agnostic interactive visualization toolkit for high-integrity agent-based simulation [Accepted full paper]. CSS 2026, Computational Social Science Society of the Americas, Santa Fe, NM, United States.
 
 **BibTeX:**
@@ -315,6 +310,7 @@ The full paper has been accepted for a long presentation at [CSS 2026](https://c
 An earlier version of the project was presented as a non-archival extended abstract at IC2S2 2026:
 
 **Plain Text (APA):**
+
 > Zhao, J., & Chen, Y. (2026). TenSnap: Bridging the performance-usability gap in computational social science modeling via a decoupled interactive protocol. Extended abstract presented at the International Conference on Computational Social Science (IC2S2 2026).
 
 **BibTeX:**

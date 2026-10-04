@@ -28,15 +28,11 @@ cd tensnap
 pnpm install  # Installs all workspace packages
 ```
 
-The workspace compiles with TypeScript 7. `zod-to-ts` and
-`typescript-eslint` still execute the removed pre-v7 JavaScript compiler API,
-so `.pnpmfile.cjs` gives only those tools a private TypeScript 6 runtime. Do not
-remove that compatibility dependency until both upstream tools support the
-TypeScript 7 APIs; application and library typechecks must continue to resolve
-TypeScript 7.
+The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed pre-v7 JavaScript compiler API, so `.pnpmfile.cjs` gives it a private TypeScript 6 runtime. Do not remove that compatibility dependency until upstream supports the TypeScript 7 APIs; application and library typechecks continue to resolve TypeScript 7.
 
-To refresh the npm toolchain, run both root and workspace updates, then verify
-cross-package tool versions before installing:
+`pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
+
+To refresh the npm toolchain, run both root and workspace updates, then verify cross-package tool versions before installing:
 
 ```bash
 ncu -u
@@ -129,10 +125,7 @@ pnpm run standalone:julia:schelling
 pnpm dev:tauri
 ```
 
-Tauri JavaScript and Rust plugins must be upgraded together. Keep
-`@tauri-apps/plugin-*` in `packages/tensnap-tauri/package.json` aligned with
-the corresponding `tauri-plugin-*` crates, run `cargo update` from
-`packages/tensnap-tauri/src-tauri`, and commit that directory's `Cargo.lock`.
+Tauri JavaScript and Rust plugins must be upgraded together. Keep `@tauri-apps/plugin-*` in `packages/tensnap-tauri/package.json` aligned with the corresponding `tauri-plugin-*` crates, run `cargo update` from `packages/tensnap-tauri/src-tauri`, and commit that directory's `Cargo.lock`.
 
 ### Project Structure
 
@@ -162,12 +155,7 @@ tensnap/
 └── package.json             # Workspace root
 ```
 
-Some Schelling launchers are intentionally thin. Visualization commands
-delegate to reusable TenSnap/native-UI factories, and standalone commands
-delegate to reusable study helpers, so the user-facing examples and publication
-harness execute the same reset, trial, and projection behavior. This is a
-repository reuse boundary rather than required application structure; see the
-[benchmark ownership guide](../../benchmarks/README.md).
+Some Schelling launchers are intentionally thin. Visualization commands delegate to reusable TenSnap/native-UI factories, and standalone commands delegate to reusable study helpers, so the user-facing examples and publication harness execute the same reset, trial, and projection behavior. This is a repository reuse boundary rather than required application structure; see the [benchmark ownership guide](../../benchmarks/README.md).
 
 ## Code Quality
 
