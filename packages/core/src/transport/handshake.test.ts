@@ -48,4 +48,13 @@ describe('transport handshake', () => {
     expect(handshake.mode).toBe('legacy');
     expect(handshake.takeBufferedMessages()).toEqual([]);
   });
+
+  it('aborts even when the transport never completes its connection promise', async () => {
+    const stalled = transport([]);
+    stalled.connect = () => new Promise<void>(() => {});
+    const controller = new AbortController();
+    const handshake = connectWithHandshake(stalled, controller.signal);
+    controller.abort();
+    await expect(handshake).rejects.toThrow(/aborted/);
+  });
 });

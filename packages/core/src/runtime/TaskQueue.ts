@@ -231,7 +231,11 @@ export class TaskQueue {
 
     this.taskById.delete(taskId);
     if (task.continuous) {
-      this.continuousTaskByKey.delete(task.key);
+      // A cancelled run can be queued again under the same key while its old
+      // task is still completing. Preserve the new task's deduplication entry.
+      if (this.continuousTaskByKey.get(task.key) === task) {
+        this.continuousTaskByKey.delete(task.key);
+      }
     }
     this.activeTask = null;
 
@@ -297,8 +301,10 @@ export class TaskQueue {
     const commandIndex = this.pendingCommands.findIndex((command) => command.task.id === taskId);
     if (commandIndex !== -1) this.pendingCommands.splice(commandIndex, 1);
     if (task.continuous) {
-      this.continuousTaskByKey.delete(task.key);
-      this.continuousKeys.delete(task.key);
+      if (this.continuousTaskByKey.get(task.key) === task) {
+        this.continuousTaskByKey.delete(task.key);
+        this.continuousKeys.delete(task.key);
+      }
     }
     this.activeTask = null;
     return true;

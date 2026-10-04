@@ -15,7 +15,7 @@ import type {
   StateSyncEndPayload,
 } from '@tensnap/protocol';
 import { PROTOCOL_VERSION, ProtocolValidationError } from '@tensnap/protocol';
-import { Scenario, type StateSyncInventory } from '../scenario';
+import { Scenario, createStateSyncRequest, type StateSyncInventory } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import type { DiagnosticEvent } from '../diagnostics';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
@@ -252,6 +252,7 @@ export class RendererSession extends LazyEventTarget {
     const onRunStateChange = options.run?.onStateChange;
     const onRunStart = options.run?.onRunStart;
     const onRunStop = options.run?.onRunStop;
+    const onActionRendered = options.run?.onActionRendered;
     this.run = new RunController({
       ...options.run,
       scenario: this.scenario,
@@ -276,6 +277,10 @@ export class RendererSession extends LazyEventTarget {
         if (!status.spec.record) return;
         const snapshot = this.recorder.stop();
         if (snapshot) this.dispatch('recording:complete', { snapshot, reason: 'run' } satisfies RendererSessionRecordingDetail);
+      },
+      onActionRendered: (payload) => {
+        this.dispatch('action:rendered', payload);
+        onActionRendered?.(payload);
       },
     });
   }
@@ -412,12 +417,7 @@ export class RendererSession extends LazyEventTarget {
     this.assertNoActiveRequest();
     const payload = inventory === undefined
       ? this.scenario.createStateSyncMessage(info.model.id, requestId, this.stateSyncIdentity?.instance_id).payload
-      : {
-          request_id: requestId,
-          model_id: info.model.id,
-          ...(this.stateSyncIdentity?.instance_id === undefined ? {} : { instance_id: this.stateSyncIdentity.instance_id }),
-          ...inventory,
-        };
+      : createStateSyncRequest(info.model.id, requestId, this.stateSyncIdentity?.instance_id, inventory);
     if (!this.run.requestStateSync(requestId)) {
       throw new Error('Cannot request state sync while another state sync is active.');
     }

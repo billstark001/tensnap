@@ -76,6 +76,8 @@ export interface RunControllerOptions {
   renderBarrier?: RunRenderBarrier;
   actionTimeoutMs?: number;
   onActionTimeout?: (task: RuntimeTaskSnapshot) => void;
+  /** Fired after the matching action has passed the host render barrier. */
+  onActionRendered?: (payload: Pick<ActionResultPayload, 'id' | 'request_id'>) => void;
   /** Observability hook for host rendering failures; errors are never left unhandled. */
   onRenderBarrierError?: (error: unknown, task: RuntimeTaskSnapshot, payload: ActionResultPayload) => void;
   maxStepsPolicy?: number;
@@ -238,14 +240,20 @@ export class RunController {
   }
 
   start(spec: RunRequest): RunStatus {
+    const normalized = validateRunSpec(spec, this.maxStepsPolicy);
+    const condition = normalized.mode === 'bounded' && normalized.stopWhen !== undefined
+      ? compileRunCondition(normalized.stopWhen)
+      : null;
+    // Reject a new run before changing the existing one. A caller can retry
+    // once the current tick has passed its render barrier.
+    if (this.runtime.peekActiveTaskRef()) {
+      throw new Error('Wait for the current action tick to finish before starting another run.');
+    }
     this.stop('stopped');
     if (this.runtime.peekActiveTaskRef()) {
       throw new Error('Wait for the current action tick to finish before starting another run.');
     }
-    const normalized = validateRunSpec(spec, this.maxStepsPolicy);
-    this.condition = normalized.mode === 'bounded' && normalized.stopWhen !== undefined
-      ? compileRunCondition(normalized.stopWhen)
-      : null;
+    this.condition = condition;
     const status: RunStatus = {
       id: this.idFactory(),
       spec: normalized,
@@ -322,8 +330,9 @@ export class RunController {
       this.discardInvocations(this.runtime.cancel(task.key));
     }
 
-    if (this.options.renderBarrier) {
-      void Promise.resolve(this.options.renderBarrier.wait(task, payload))
+    const renderBarrier = this.options.renderBarrier;
+    if (renderBarrier) {
+      void Promise.resolve().then(() => renderBarrier.wait(task, payload))
         .catch((error: unknown) => this.handleRenderBarrierError(error, task, payload))
         .then(() => this.markActionRendered(payload));
     }
@@ -341,6 +350,7 @@ export class RunController {
         this.activeRun.inFlight = this.hasInFlightAction;
         this.publish();
       }
+      this.options.onActionRendered?.(payload);
     }
     return rendered;
   }
@@ -387,7 +397,7 @@ export class RunController {
   private matchActiveTask(payload: Pick<ActionResultPayload, 'id' | 'request_id'>): RuntimeTaskSnapshot | null {
     const activeTask = this.runtime.peekActiveTaskRef();
     if (!activeTask) return null;
-    return activeTask.id === payload.request_id ? activeTask : null;
+    return activeTask.id === payload.request_id && activeTask.key === payload.id ? activeTask : null;
   }
 
   private flushCommands(): void {

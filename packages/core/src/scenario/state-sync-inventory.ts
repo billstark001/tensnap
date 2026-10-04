@@ -7,6 +7,24 @@ import type { ScenarioSnapshot } from './types';
 /** Definitions advertised during state sync; excludes simulation state and chart values. */
 export type StateSyncInventory = Pick<StateSyncRequest, 'parameters' | 'actions' | 'envs' | 'charts' | 'monitors'>;
 
+/** Build a wire request from definition lists without accepting identity fields from callers. */
+export function createStateSyncRequest(
+  modelId: string,
+  requestId: string,
+  instanceId: string | undefined,
+  inventory: StateSyncInventory,
+): StateSyncRequest {
+  // The returned protocol message may outlive either a live Scenario or a
+  // saved project's inventory. Keep ownership at this wire boundary.
+  const { parameters, actions, envs, charts, monitors } = structuredClone(inventory);
+  return {
+    request_id: requestId,
+    model_id: modelId,
+    ...(instanceId === undefined ? {} : { instance_id: instanceId }),
+    parameters, actions, envs, charts, monitors,
+  };
+}
+
 interface InventoryEnvironment {
   id: string;
   type: ScenarioEnvironmentType;

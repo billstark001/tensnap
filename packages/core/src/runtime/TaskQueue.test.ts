@@ -118,6 +118,22 @@ describe('TaskQueue – cancel', () => {
     q.maybeDispatchNext();
     expect(q.takeNextDispatchTask()).toBeNull();
   });
+
+  it('keeps a restarted continuous task indexed when the old task finishes', () => {
+    const q = makeQueue();
+    const oldId = q.enqueue('run', { continuous: true });
+    q.maybeDispatchNext();
+    q.takeNextDispatchTask();
+    q.cancel('run');
+    const newId = q.enqueue('run', { continuous: true });
+    expect(newId).not.toBe(oldId);
+    q.completeTask(oldId, { should_continue: true });
+    q.markTaskApplied(oldId);
+    q.markTaskRendered(oldId, (key) => { q.enqueue(key, { continuous: true }); }, () => {});
+
+    expect(q.enqueue('run', { continuous: true })).toBe(newId);
+    expect(q.queueLength).toBe(1);
+  });
 });
 
 describe('TaskQueue – cancelPendingDispatch', () => {
@@ -140,5 +156,17 @@ describe('TaskQueue – cancelPendingDispatch', () => {
     q.maybeDispatchNext();
     q.takeNextDispatchTask(); // 'a' is now active
     expect(q.cancelPendingDispatch(id2)).toBe(false);
+  });
+
+  it('does not clear a new continuous task when cancelling the old pending dispatch', () => {
+    const q = makeQueue();
+    const oldId = q.enqueue('run', { continuous: true });
+    q.maybeDispatchNext();
+    q.cancel('run');
+    const newId = q.enqueue('run', { continuous: true });
+
+    expect(q.cancelPendingDispatch(oldId)).toBe(true);
+    expect(q.hasContinuousKey('run')).toBe(true);
+    expect(q.enqueue('run', { continuous: true })).toBe(newId);
   });
 });
