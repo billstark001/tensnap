@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { RendererSession } from '../packages/core/src/runtime/RendererSession.ts';
-import { SimulatorClient } from '../packages/tensnap-agent/src/session/SimulatorClient.ts';
+import { RendererClient } from '../packages/core/src/runtime/RendererClient.ts';
+import { NodeWebSocketTransport } from '../packages/tensnap-agent/src/session/NodeWebSocketTransport.ts';
 import type { AnyProtocolMessage, ParameterSyncPayload, SimulatorToRendererMessage, StateSyncBeginPayload } from '../packages/protocol/src/index.ts';
 
 type Encoding = 'json' | 'msgpack';
@@ -12,17 +13,42 @@ type HostState = { steps: number; speed: number; x: number; rng: number; queue: 
   births: number; deaths: number; base_population: number; agents: HostAgent[] };
 
 async function connect(port: number, encoding: Encoding, expectedModel?: string) {
-  const client = new SimulatorClient();
+  const client = new RendererClient();
   const session = client.renderer;
   if (expectedModel) session.setExpectedSimulatorIdentity({ model_id: expectedModel });
   const wire: AnyProtocolMessage[] = [];
-  client.onWireMessage((message) => wire.push(message));
-  await client.connect({ simulatorUrl: `ws://127.0.0.1:${port}`, encoding,
-    clientMessageValidation: 'error', serverMessageValidation: 'error' }, false);
+  await client.connect(transport(port, encoding, wire), false);
   assert.equal(wire[0]?.type, 'simulator_info');
   const info = session.simulatorInfo;
   assert.ok(info);
   return { client, session, wire, info };
+}
+
+function transport(port: number, encoding: Encoding, wire?: AnyProtocolMessage[]): NodeWebSocketTransport {
+  const connection = new NodeWebSocketTransport(`ws://127.0.0.1:${port}`, encoding,
+    { clientMessages: 'error', serverMessages: 'error' });
+  if (wire) connection.on('message', (message) => wire.push(message as AnyProtocolMessage));
+  return connection;
+}
+
+function waitForMessage(session: RendererSession, predicate: (message: AnyProtocolMessage) => boolean): Promise<AnyProtocolMessage> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => { cleanup(); reject(new Error('Timed out waiting for simulator message.')); }, 10_000);
+    const onMessage = (event: Event): void => {
+      const message = (event as CustomEvent<{ message: AnyProtocolMessage }>).detail.message;
+      if (!predicate(message)) return;
+      cleanup();
+      resolve(message);
+    };
+    const onClose = (): void => { cleanup(); reject(new Error('Disconnected before simulator message arrived.')); };
+    const cleanup = (): void => {
+      clearTimeout(timeout);
+      session.removeEventListener('message', onMessage);
+      session.removeEventListener('transport:close', onClose);
+    };
+    session.addEventListener('message', onMessage);
+    session.addEventListener('transport:close', onClose);
+  });
 }
 
 function state(path: string): HostState {
@@ -64,8 +90,8 @@ async function sync(client: Awaited<ReturnType<typeof connect>>, id: string): Pr
 }
 
 async function action(client: Awaited<ReturnType<typeof connect>>, id = 'step'): Promise<SimulatorToRendererMessage[]> {
-  let result: Awaited<ReturnType<SimulatorClient['invokeAction']>>['result'];
-  let messages: Awaited<ReturnType<SimulatorClient['invokeAction']>>['messages'];
+  let result: Awaited<ReturnType<RendererClient['invokeAction']>>['result'];
+  let messages: Awaited<ReturnType<RendererClient['invokeAction']>>['messages'];
   try { ({ result, messages } = await client.client.invokeAction(id)); }
   catch (error) {
     throw new Error(`${String(error)}; recent wire: ${client.wire.slice(-8).map((message) => message.type).join(',')}; run: ${JSON.stringify(client.session.run.status)}`);
@@ -76,13 +102,13 @@ async function action(client: Awaited<ReturnType<typeof connect>>, id = 'step'):
 }
 
 async function capture(client: Awaited<ReturnType<typeof connect>>) {
-  const result = await client.client.captureScene();
+  const result = await client.session.captureScene();
   assert.ok(result.checkpoint);
   return result;
 }
 
 async function restore(client: Awaited<ReturnType<typeof connect>>, checkpoint: NonNullable<Awaited<ReturnType<typeof capture>>['checkpoint']>, time: number) {
-  const result = await client.client.restoreScene({ checkpoint, time,
+  const result = await client.session.restoreScene({ checkpoint, time,
     state_schema_version: '1', expected_instance_id: client.info.instance_id }, { chartPolicy: 'truncate' });
   assert.equal(result.status, 'ok', JSON.stringify(result));
 }
@@ -132,28 +158,28 @@ export async function runLiveClient(port: number, encoding: Encoding, binding: s
     pass('action_correlation', { action_result_last: true, rejected_actions: ['fail'],
       correlated_frames: correlated.map((message) => message.type) });
 
-    client.client.setParameter('speed', 2);
+    client.session.setParameter('speed', 2);
     assert.equal(client.session.scenario.parameters.get('speed')?.value, 2);
     await untilState(path, 'speed', 2);
     const accepted = await sync(client, 'renderer-accepted-param');
     assert.ok(!accepted.some((message) => message.type === 'param_sync'));
-    const correction = client.client.waitForWireMessage((message) => message.type === 'param_sync' && message.payload.id === 'speed');
-    client.client.setParameter('speed', 9);
+    const correction = waitForMessage(client.session, (message) => message.type === 'param_sync' && message.payload.id === 'speed');
+    client.session.setParameter('speed', 9);
     assert.equal(((await correction).payload as ParameterSyncPayload).value, 5);
     assert.equal(client.session.scenario.parameters.get('speed')?.value, 5);
     assert.equal(state(path).speed, 5);
     pass('parameter_control', { accepted: 2, normalized: 5, optimistic: true });
 
-    client.client.setParameter('speed', 0);
+    client.session.setParameter('speed', 0);
     await untilState(path, 'speed', 0);
     const zero = state(path);
     await action(client);
     assert.equal(state(path).x, zero.x);
     assert.equal(state(path).steps, zero.steps + 1);
-    client.client.setParameter('speed', 5);
+    client.session.setParameter('speed', 5);
     await untilState(path, 'speed', 5);
-    const lower = client.client.waitForWireMessage((message) => message.type === 'param_sync' && message.payload.id === 'speed');
-    client.client.setParameter('speed', -100);
+    const lower = waitForMessage(client.session, (message) => message.type === 'param_sync' && message.payload.id === 'speed');
+    client.session.setParameter('speed', -100);
     assert.equal(((await lower).payload as ParameterSyncPayload).value, 0);
     assert.equal(client.session.scenario.parameters.get('speed')?.value, 0);
     pass('parameter_extremes', { zero_rate_step: true, accepted_max: 5, normalized_min: 0 });
@@ -258,8 +284,7 @@ export async function runLiveClient(port: number, encoding: Encoding, binding: s
 
     const previousInstance = client.session.simulatorInfo?.instance_id;
     client.client.disconnect();
-    await client.client.connect({ simulatorUrl: `ws://127.0.0.1:${port}`, encoding,
-      clientMessageValidation: 'error', serverMessageValidation: 'error' }, false);
+    await client.client.connect(transport(port, encoding, client.wire), false);
     const reconnectedInfo = client.session.simulatorInfo;
     assert.ok(reconnectedInfo);
     assert.equal(reconnectedInfo.instance_id === previousInstance, binding !== 'js');
