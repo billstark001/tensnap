@@ -84,7 +84,7 @@
     "traces": "conformance/traces/*.json"
   },
   "protocol_version": "0.3",
-  "revision": "f9f99c34ff7c9941a7166fe5890ea247675038e5",
+  "revision": "2625b5c9dd587b7831a276a97efd6be6f5c448e1",
   "runs": [
     {
       "binding": "python",
@@ -165,7 +165,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "1e14a2a2c91f490daa7ecde6de25a925"
+            "instance_id": "2ada1623c0f247079e929e6780c33fcf"
           },
           "status": "pass"
         },
@@ -217,8 +217,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "1e14a2a2c91f490daa7ecde6de25a925",
-            "previous_instance": "096c9ff3cf384027b31ec75c58b36244",
+            "new_instance": "2ada1623c0f247079e929e6780c33fcf",
+            "previous_instance": "19ae739b106c48d591de01f1a9b26056",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -652,7 +652,7 @@
               "scene.restore.checkpoint",
               "scene.restore.projected"
             ],
-            "instance_id": "096c9ff3cf384027b31ec75c58b36244",
+            "instance_id": "19ae739b106c48d591de01f1a9b26056",
             "same_host_reconnect": true
           },
           "status": "pass"
@@ -761,8 +761,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "1e14a2a2c91f490daa7ecde6de25a925",
-            "previous_instance": "096c9ff3cf384027b31ec75c58b36244",
+            "new_instance": "2ada1623c0f247079e929e6780c33fcf",
+            "previous_instance": "19ae739b106c48d591de01f1a9b26056",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -869,7 +869,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "23f2090959d24061a406d45985686628"
+            "instance_id": "b8ae13be386340e1b6e34121f99cc8e3"
           },
           "status": "pass"
         },
@@ -921,8 +921,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "23f2090959d24061a406d45985686628",
-            "previous_instance": "c7f80fddf08d4a6fabb7c4fa9463a6fd",
+            "new_instance": "b8ae13be386340e1b6e34121f99cc8e3",
+            "previous_instance": "f9cb9aed7deb4caba74cbdc45db1e26f",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -1356,7 +1356,7 @@
               "scene.restore.checkpoint",
               "scene.restore.projected"
             ],
-            "instance_id": "c7f80fddf08d4a6fabb7c4fa9463a6fd",
+            "instance_id": "f9cb9aed7deb4caba74cbdc45db1e26f",
             "same_host_reconnect": true
           },
           "status": "pass"
@@ -1465,8 +1465,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "23f2090959d24061a406d45985686628",
-            "previous_instance": "c7f80fddf08d4a6fabb7c4fa9463a6fd",
+            "new_instance": "b8ae13be386340e1b6e34121f99cc8e3",
+            "previous_instance": "f9cb9aed7deb4caba74cbdc45db1e26f",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -1573,7 +1573,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "489e66e0297c659d952f9a22fb5b27fd"
+            "instance_id": "e98468e944c7e66350fc47f79be7bb27"
           },
           "status": "pass"
         },
@@ -1625,8 +1625,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "489e66e0297c659d952f9a22fb5b27fd",
-            "previous_instance": "e7a2eebdb7032afd31b2899d882044a6",
+            "new_instance": "e98468e944c7e66350fc47f79be7bb27",
+            "previous_instance": "fa808a8f3ba64f450457aab83b3361d1",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -2060,7 +2060,7 @@
               "scene.restore.checkpoint",
               "scene.restore.projected"
             ],
-            "instance_id": "e7a2eebdb7032afd31b2899d882044a6",
+            "instance_id": "fa808a8f3ba64f450457aab83b3361d1",
             "same_host_reconnect": true
           },
           "status": "pass"
@@ -2169,8 +2169,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "489e66e0297c659d952f9a22fb5b27fd",
-            "previous_instance": "e7a2eebdb7032afd31b2899d882044a6",
+            "new_instance": "e98468e944c7e66350fc47f79be7bb27",
+            "previous_instance": "fa808a8f3ba64f450457aab83b3361d1",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -2277,7 +2277,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "48a64065530bab47f30dc87a8f3d2e64"
+            "instance_id": "1b18696e05a4beaddeebb2c26f88a039"
           },
           "status": "pass"
         },
@@ -2329,8 +2329,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "48a64065530bab47f30dc87a8f3d2e64",
-            "previous_instance": "a855ae27454c8ea92b8cb45bdaff7f56",
+            "new_instance": "1b18696e05a4beaddeebb2c26f88a039",
+            "previous_instance": "fe4f471f9b3e5348d176e34968fbcf02",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -2764,7 +2764,7 @@
               "scene.restore.checkpoint",
               "scene.restore.projected"
             ],
-            "instance_id": "a855ae27454c8ea92b8cb45bdaff7f56",
+            "instance_id": "fe4f471f9b3e5348d176e34968fbcf02",
             "same_host_reconnect": true
           },
           "status": "pass"
@@ -2873,8 +2873,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "48a64065530bab47f30dc87a8f3d2e64",
-            "previous_instance": "a855ae27454c8ea92b8cb45bdaff7f56",
+            "new_instance": "1b18696e05a4beaddeebb2c26f88a039",
+            "previous_instance": "fe4f471f9b3e5348d176e34968fbcf02",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -2981,7 +2981,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "930aca6c-f725-4396-b2c1-63c11782f781"
+            "instance_id": "251c02c4-9001-4ac7-b383-ed2fe34b268d"
           },
           "status": "pass"
         },
@@ -3033,8 +3033,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "29d7f81d-0316-4f0c-8a46-77ad5dd741d4",
-            "previous_instance": "7afddc75-dff5-4ba7-bf06-4e3bfa88bf7d",
+            "new_instance": "d1a3e1f9-9864-4c9b-9994-398ccbfeed9e",
+            "previous_instance": "eff2252b-344f-4e3e-8862-265a25c2688c",
             "reused_client_object": true,
             "same_instance_reconnect": false,
             "session_scope": "isolated",
@@ -3468,7 +3468,7 @@
               "scene.restore.projected",
               "scene.restore.checkpoint"
             ],
-            "instance_id": "20191080-b7cd-4a64-93a4-9cfa1f64510a",
+            "instance_id": "507e5093-2b43-4113-a731-b12ab9c30b03",
             "same_host_reconnect": false
           },
           "status": "pass"
@@ -3577,8 +3577,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "29d7f81d-0316-4f0c-8a46-77ad5dd741d4",
-            "previous_instance": "7afddc75-dff5-4ba7-bf06-4e3bfa88bf7d",
+            "new_instance": "d1a3e1f9-9864-4c9b-9994-398ccbfeed9e",
+            "previous_instance": "eff2252b-344f-4e3e-8862-265a25c2688c",
             "reused_client_object": true,
             "same_instance_reconnect": false,
             "session_scope": "isolated",
@@ -3603,7 +3603,7 @@
           "status": "pass"
         }
       },
-      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
+      "source_sha256": "c4facaa8bd97c1dc201ca1a90a95c071c96d2a06204d0cc25546ea4db4a88945",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -3685,7 +3685,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "0a42703f-629f-403a-838f-f1f3ed36e6a5"
+            "instance_id": "e3a3a706-a2ca-476e-a99b-029c5d277c7d"
           },
           "status": "pass"
         },
@@ -3737,8 +3737,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "b5dfbe46-8bfb-4838-8176-d97b47586993",
-            "previous_instance": "bcd76ba2-e9c5-4376-97ad-732d22b3af81",
+            "new_instance": "d46812ca-6728-44b8-b9d4-195c7eb7f704",
+            "previous_instance": "62ca6297-ac3b-4fd1-be81-6b8237372123",
             "reused_client_object": true,
             "same_instance_reconnect": false,
             "session_scope": "isolated",
@@ -4172,7 +4172,7 @@
               "scene.restore.projected",
               "scene.restore.checkpoint"
             ],
-            "instance_id": "254cebc6-90d8-40fc-ac5a-3ee9cc3834ee",
+            "instance_id": "4d381ef3-2e74-40dd-9860-e342fc0e6ffd",
             "same_host_reconnect": false
           },
           "status": "pass"
@@ -4281,8 +4281,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "b5dfbe46-8bfb-4838-8176-d97b47586993",
-            "previous_instance": "bcd76ba2-e9c5-4376-97ad-732d22b3af81",
+            "new_instance": "d46812ca-6728-44b8-b9d4-195c7eb7f704",
+            "previous_instance": "62ca6297-ac3b-4fd1-be81-6b8237372123",
             "reused_client_object": true,
             "same_instance_reconnect": false,
             "session_scope": "isolated",
@@ -4307,7 +4307,7 @@
           "status": "pass"
         }
       },
-      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
+      "source_sha256": "c4facaa8bd97c1dc201ca1a90a95c071c96d2a06204d0cc25546ea4db4a88945",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -4389,7 +4389,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "02195278-0b6c-40bd-a5d2-d714050c0ef6"
+            "instance_id": "95cf17de-e9f5-46f7-bfdd-eec0c6e4ce95"
           },
           "status": "pass"
         },
@@ -4441,8 +4441,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "02195278-0b6c-40bd-a5d2-d714050c0ef6",
-            "previous_instance": "89720785-2c59-4fc7-a2ed-cce2c80a7564",
+            "new_instance": "95cf17de-e9f5-46f7-bfdd-eec0c6e4ce95",
+            "previous_instance": "5af69f66-64e7-4166-84ee-11fb6ae0aca0",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -4876,7 +4876,7 @@
               "scene.restore.checkpoint",
               "scene.restore.projected"
             ],
-            "instance_id": "89720785-2c59-4fc7-a2ed-cce2c80a7564",
+            "instance_id": "5af69f66-64e7-4166-84ee-11fb6ae0aca0",
             "same_host_reconnect": true
           },
           "status": "pass"
@@ -4985,8 +4985,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "02195278-0b6c-40bd-a5d2-d714050c0ef6",
-            "previous_instance": "89720785-2c59-4fc7-a2ed-cce2c80a7564",
+            "new_instance": "95cf17de-e9f5-46f7-bfdd-eec0c6e4ce95",
+            "previous_instance": "5af69f66-64e7-4166-84ee-11fb6ae0aca0",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -5093,7 +5093,7 @@
         "identity_handshake": {
           "evidence": {
             "actual_transport": "NodeWebSocketTransport",
-            "instance_id": "33dd85db-ae8d-4ae7-968a-ddd340df70e6"
+            "instance_id": "babd696b-437e-448a-acbe-500e2db10cea"
           },
           "status": "pass"
         },
@@ -5145,8 +5145,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "33dd85db-ae8d-4ae7-968a-ddd340df70e6",
-            "previous_instance": "764a7b91-98fe-4076-951f-df8f2487ee46",
+            "new_instance": "babd696b-437e-448a-acbe-500e2db10cea",
+            "previous_instance": "a32d27b7-a29c-442c-aa60-9e3fb1d95a8e",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",
@@ -5580,7 +5580,7 @@
               "scene.restore.checkpoint",
               "scene.restore.projected"
             ],
-            "instance_id": "764a7b91-98fe-4076-951f-df8f2487ee46",
+            "instance_id": "a32d27b7-a29c-442c-aa60-9e3fb1d95a8e",
             "same_host_reconnect": true
           },
           "status": "pass"
@@ -5689,8 +5689,8 @@
           "evidence": {
             "host_state_unchanged": true,
             "new_handshake_observed": true,
-            "new_instance": "33dd85db-ae8d-4ae7-968a-ddd340df70e6",
-            "previous_instance": "764a7b91-98fe-4076-951f-df8f2487ee46",
+            "new_instance": "babd696b-437e-448a-acbe-500e2db10cea",
+            "previous_instance": "a32d27b7-a29c-442c-aa60-9e3fb1d95a8e",
             "reused_client_object": true,
             "same_instance_reconnect": true,
             "session_scope": "shared",

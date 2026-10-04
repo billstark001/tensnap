@@ -152,7 +152,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
+      "source_sha256": "c4facaa8bd97c1dc201ca1a90a95c071c96d2a06204d0cc25546ea4db4a88945",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -183,7 +183,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
+      "source_sha256": "c4facaa8bd97c1dc201ca1a90a95c071c96d2a06204d0cc25546ea4db4a88945",
       "test": "conformance/run_matrix.py"
     },
     {
@@ -255,5 +255,5 @@
     "detail": "all eight live renderer probes",
     "status": "pass"
   },
-  "revision": "f9f99c34ff7c9941a7166fe5890ea247675038e5"
+  "revision": "2625b5c9dd587b7831a276a97efd6be6f5c448e1"
 }
