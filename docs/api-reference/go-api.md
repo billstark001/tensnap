@@ -504,7 +504,9 @@ _ = model.Step(emitter)
 
 - The current frontend uses `start`, `step`, and `reset` as its reserved toolbar actions.
 - `server.RunFactory` is usually the safer entry point because it isolates model state per renderer session.
-- The bundled codec is JSON only. Use a custom `protocol.Codec` if you need a different wire format.
+- The bundled codecs are `protocol.JSONCodec` (default, text frames) and
+  `protocol.MsgPackCodec` (binary frames). Select one through
+  `server.Options.Codec`; both use the canonical JSON-tagged field names.
 - A declarative `Scenario` only covers stable protocol surface plus replay callbacks. It is not the same object as the browser-side Scenario runtime in `packages/core`.
 
 ## References

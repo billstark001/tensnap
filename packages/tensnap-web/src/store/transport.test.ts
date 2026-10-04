@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './scenario/store';
 import { createTransportStore } from './transport';
 import { useSettingsStore } from './settings';
-import { WebSocketManagerImpl } from '@/transport';
+import { WebSocketConnectionError, WebSocketManagerImpl } from '@/transport';
 
 class DeferredTransport implements ISimulatorTransport {
   readonly encoding: ProtocolEncoding = 'json';
@@ -36,10 +36,18 @@ class DeferredTransport implements ISimulatorTransport {
     return this.state === 'open';
   }
 
-  connect(): Promise<void> {
+  connect(signal?: AbortSignal): Promise<void> {
     this.state = 'connecting';
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve, reject) => {
+      const abort = () => {
+        this.resolveConnect = null;
+        this.state = 'closed';
+        reject(new Error('Connection was aborted'));
+      };
+      if (signal?.aborted) return abort();
+      signal?.addEventListener('abort', abort, { once: true });
       this.resolveConnect = () => {
+        signal?.removeEventListener('abort', abort);
         this.state = 'open';
         this.emit('open', undefined);
         resolve();
@@ -123,7 +131,31 @@ class FailingTransport extends DeferredTransport {
   }
 }
 
+class ImmediateSyncTransport extends DeferredTransport {
+  override send(message: RendererToSimulatorMessage): void {
+    super.send(message);
+    if (message.type !== 'state_sync') return;
+    const requestId = (message.payload as { request_id: string }).request_id;
+    this.receive({ type: 'state_sync_begin', payload: {
+      request_id: requestId, model_id: 'replacement-model', instance_id: 'replacement-instance', mode: 'replace',
+    } });
+    this.receive({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
+  }
+}
+
 describe('transport store reconnect state', () => {
+  it('keeps a failed initial websocket attached for browser auto-reconnect', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new WebSocketManagerImpl('retry-test', 'ws://unused.test');
+    vi.spyOn(transport, 'connect').mockRejectedValue(new WebSocketConnectionError('initial failure'));
+
+    await expect(useTransportStore.getState().initialize(transport)).resolves.toBeUndefined();
+    expect(useTransportStore.getState().transport).toBe(transport);
+    expect(useTransportStore.getState().canReconnect()).toBe(true);
+    useTransportStore.getState().destroy();
+  });
+
   it('applies validation setting changes to the active websocket immediately', async () => {
     const originalClient = useSettingsStore.getState().clientMessageValidation;
     const originalServer = useSettingsStore.getState().serverMessageValidation;
@@ -179,6 +211,44 @@ describe('transport store reconnect state', () => {
     expect(useScenarioStore.getState().connected).toBe(true);
   });
 
+  it('keeps the current transport when initialize receives an unknown built-in model', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const current = new DeferredTransport('mock://current');
+    const initialized = useTransportStore.getState().initialize(current);
+    current.open();
+    await initialized;
+
+    await expect(useTransportStore.getState().initialize('inmemory:missing-model'))
+      .rejects.toThrow(/No built-in model/);
+    expect(useTransportStore.getState().transport).toBe(current);
+    expect(current.isConnected).toBe(true);
+    expect(useScenarioStore.getState().connected).toBe(true);
+    useTransportStore.getState().destroy();
+  });
+
+  it('replays the replacement handshake once when sync responds synchronously', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const first = new DeferredTransport('mock://first');
+    const initialized = useTransportStore.getState().initialize(first);
+    first.open();
+    await initialized;
+
+    const second = new ImmediateSyncTransport('mock://second');
+    const replacement = useTransportStore.getState().changeTransport(second);
+    second.open();
+    second.receive({ type: 'simulator_info', payload: {
+      protocol_version: '0.3', binding: { name: 'transport-test', version: '0.3.0' },
+      model: { id: 'replacement-model' }, instance_id: 'replacement-instance', capabilities: [],
+    } });
+    await replacement;
+
+    expect(useScenarioStore.getState().stateSync.requestId).toBeNull();
+    expect(useScenarioStore.getState().diagnostics).toEqual([]);
+    useTransportStore.getState().destroy();
+  });
+
   it('preserves the current transport when a replacement fails to connect', async () => {
     const useScenarioStore = createScenarioStore();
     const useTransportStore = createTransportStore(useScenarioStore);
@@ -223,6 +293,34 @@ describe('transport store reconnect state', () => {
     }
   });
 
+  it('keeps the latest source and status when an older candidate is superseded', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const current = new DeferredTransport('mock://current');
+    const firstInit = useTransportStore.getState().initialize(current);
+    current.open();
+    await firstInit;
+
+    const stale = new DeferredTransport('mock://stale');
+    const latest = new DeferredTransport('mock://latest');
+    const staleChange = useTransportStore.getState().changeTransport(stale);
+    const staleRejection = expect(staleChange).rejects.toThrow(/abort/i);
+    const latestChange = useTransportStore.getState().changeTransport(latest);
+    latest.open();
+    latest.receive({ type: 'simulator_info', payload: {
+      protocol_version: '0.3', binding: { name: 'transport-test', version: '0.3.0' },
+      model: { id: 'latest-model' }, instance_id: 'latest-instance', capabilities: [],
+    } });
+    await staleRejection;
+    await latestChange;
+
+    expect(useTransportStore.getState().transport).toBe(latest);
+    expect(useTransportStore.getState().connectionError).toBeNull();
+    expect(latest.sent.filter((message) => message.type === 'state_sync')).toHaveLength(1);
+    expect(current.connectionState).toBe('destroyed');
+    useTransportStore.getState().destroy();
+  });
+
   it('marks the scenario disconnected before swapping transports', async () => {
     const useScenarioStore = createScenarioStore();
     const useTransportStore = createTransportStore(useScenarioStore);
@@ -256,7 +354,7 @@ describe('transport store reconnect state', () => {
 
     expect(useTransportStore.getState().canReconnect()).toBe(false);
 
-    useTransportStore.getState().disconnect();
+    useTransportStore.getState().destroy();
 
     await expect(useTransportStore.getState().reconnect()).resolves.toBeUndefined();
     expect(useTransportStore.getState().transport).toBeNull();
@@ -380,5 +478,21 @@ describe('transport store reconnect state', () => {
     expect(transport.sent.filter((message) => message.type === 'state_sync')).toEqual([]);
     expect(useTransportStore.getState().connectionError).toMatch(/legacy simulator cannot be verified/i);
     expect(useScenarioStore.getState().connected).toBe(false);
+  });
+
+  it('reports a sync request after the retained transport disconnects', async () => {
+    const useScenarioStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useScenarioStore);
+    const transport = new DeferredTransport('mock://disconnected');
+    const initialized = useTransportStore.getState().initialize(transport);
+    transport.open();
+    await initialized;
+    transport.disconnect();
+
+    expect(() => useTransportStore.getState().requestStateSync()).not.toThrow();
+    expect(useScenarioStore.getState().diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'state_sync_while_disconnected', severity: 'warning' }),
+    ]));
+    useTransportStore.getState().destroy();
   });
 });

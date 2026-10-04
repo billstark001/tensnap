@@ -69,6 +69,29 @@ describe('render plan', () => {
     });
   });
 
+  it('resolves trajectories when their linked edge and agent appear later', () => {
+    const agents = { id: 'agents', layerType: 'agent', storage: { kind: 'agents' } };
+    const edges = {
+      id: 'edges', layerType: 'edge', storage: { kind: 'edges' },
+      dependencyLayerIds: { agent: 'agents' },
+    };
+    const trails = {
+      id: 'trails', layerType: 'trajectory', storage: { kind: 'trails' },
+      dependencyLayerIds: { agent: 'agents' },
+    };
+
+    for (const layers of [[agents, edges, trails], [trails, edges, agents], [edges, trails, agents]]) {
+      const plan = createRenderPlan(createEnvironment(layers));
+      expect(plan.edgeLayers).toHaveLength(1);
+      expect(plan.trajectoryLayers[0]).toMatchObject({
+        agentLayerId: 'agents', coordOffset: 'float', worldBounds: undefined,
+      });
+      expect(plan.agentLayers[0]).toMatchObject({
+        coordOffset: 'float', originMode: 'center', usesGraphInteraction: true,
+      });
+    }
+  });
+
   it('prefers registered scene bounds and includes storage identity in build keys', () => {
     const sharedStorage = { kind: 'agent-storage' };
     const environment = createEnvironment([
@@ -168,5 +191,28 @@ describe('render plan', () => {
 
     expect(aggregated.width).toBe(40);
     expect(aggregated.height).toBe(40);
+  });
+
+  it('collects dense agent and edge layers without a function-argument overflow', () => {
+    const count = 150_000;
+    const agents = Array.from({ length: count }, (_, id) => ({ id, x: id, y: 0 }));
+    const edges = Array.from({ length: count }, (_, source) => ({ source, target: source + 1 }));
+    const aggregated = collectRenderData({
+      id: 'dense',
+      type: '2d',
+      layers: [
+        {
+          id: 'agents', layerType: 'agent', metadata: {}, dependencyLayerIds: {},
+          storageSnapshot: { agents },
+        },
+        {
+          id: 'edges', layerType: 'edge', metadata: {}, dependencyLayerIds: { agent: 'agents' },
+          storageSnapshot: { edges },
+        },
+      ],
+    });
+    expect(aggregated.agents).toHaveLength(count);
+    expect(aggregated.edges).toHaveLength(count);
+    expect(aggregated.agents[0]).not.toBe(aggregated.agentLayers[0].agents[0]);
   });
 });

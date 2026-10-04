@@ -247,9 +247,11 @@ Exact layout can vary by package (`tensnap-web` vs `tensnap-tauri`) and by curre
 
 ## Running, Recording, and Offline Replay
 
-Continuous actions are renderer-driven. A run has a maximum step count and can
-also have a stop expression or wall-clock deadline. The UI shows the completed
-step count and stop reason; use Stop to end a run that you started manually.
+Continuous actions are renderer-driven. A configured bounded run has a maximum
+step count and may also have a stop expression or wall-clock deadline. A manual
+run has no required step limit and continues until paused, stopped, or ended by
+the simulator. The UI shows the completed step count and stop reason; use Stop
+to end a run that you started manually.
 
 You can record a configured continuous run, or start/stop recording from the
 snapshot controls to capture manual steps, external simulator updates, and

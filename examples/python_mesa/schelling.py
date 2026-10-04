@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import List, cast
 
+from tensnap.bindings import BindParameterConfig
+
 from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import Model
 from mesa.datacollection import DataCollector
@@ -63,7 +65,7 @@ class SchellingModel(Model):
         self.height = height if height > 0 else DEFAULT_GRID_H
         self.density = density if 0 <= density <= 1 else DEFAULT_DENSITY
         self.balance = balance if 0 <= balance <= 1 else DEFAULT_BALANCE
-        self.similarity_threshold = (
+        self._similarity_threshold = (
             similarity_threshold
             if 0 <= similarity_threshold <= 1
             else DEFAULT_SIMILARITY_THRESHOLD
@@ -93,6 +95,14 @@ class SchellingModel(Model):
         )
         if self.collect_data:
             self.datacollector.collect(self)
+
+    @BindParameterConfig("number", id="similarityThreshold", min=0, max=1, step=0.05)
+    def similarity_threshold(self) -> float:
+        return self._similarity_threshold
+
+    @similarity_threshold.setter
+    def similarity_threshold(self, value: float) -> None:
+        self._similarity_threshold = max(0.0, min(1.0, float(value)))
 
     def _populate(self) -> None:
         type1_threshold = self.density * self.balance

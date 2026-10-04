@@ -37,6 +37,13 @@ describe('Rectangle Packing with MaxRects', () => {
       expect(result.actualBounds.height).toBe(0);
     });
 
+    it('calculates bounds for a dense view list without a function-argument limit', () => {
+      const rectangles: PlacedRectangle[] = Array.from({ length: 150_000 }, (_, left) => ({
+        type: 'dense', left, top: 0, width: 1, height: 2,
+      }));
+      expect(calculateBounds(rectangles)).toEqual({ width: 150_000, height: 2 });
+    });
+
     it('should handle single rectangle', () => {
       const rectangles: Rectangle[] = [
         { type: 'A', width: 50, height: 60 },
@@ -46,6 +53,15 @@ describe('Rectangle Packing with MaxRects', () => {
       expect(result.rectangles.length).toBe(1);
       expect(result.rectangles[0].left).toBe(0);
       expect(result.rectangles[0].top).toBe(0);
+    });
+
+    it('honors an explicit zero padding between adjacent rectangles', () => {
+      const result = pack([
+        { type: 'A', width: 10, height: 10 },
+        { type: 'B', width: 10, height: 10 },
+      ], { containerWidth: 20, containerHeight: 10, padding: 0 });
+      expect(result.rectangles).toHaveLength(2);
+      expect(result.actualBounds).toEqual({ width: 20, height: 10 });
     });
   });
 

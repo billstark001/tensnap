@@ -148,4 +148,22 @@ describe('BrowserRunRenderBarrier', () => {
     void barrier.wait(taskAt(0));
     expect(host.rafCallbacks).toHaveLength(1);
   });
+
+  it('recalibrates after the display cadence changes', () => {
+    const host = new FakeTimingHost();
+    const barrier = new BrowserRunRenderBarrier(() => ({
+      mode: 'auto', maxTps: 5, maxRenderFps: 120,
+    }), host);
+
+    void barrier.wait(taskAt(0));
+    for (let frame = 1; frame <= 7; frame += 1) host.fireAnimationFrame(frame * 16);
+
+    host.nowValue = 3_000;
+    void barrier.wait(taskAt(3_000));
+    for (let frame = 1; frame <= 7; frame += 1) host.fireAnimationFrame(3_000 + frame * 100);
+
+    const pendingFrames = host.rafCallbacks.length;
+    void barrier.wait(taskAt(host.nowValue));
+    expect(host.rafCallbacks).toHaveLength(pendingFrames + 1);
+  });
 });

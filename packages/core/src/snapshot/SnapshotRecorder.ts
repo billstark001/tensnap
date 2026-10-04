@@ -47,14 +47,30 @@ function createId(): string {
 /** Actual MessagePack-plus-compression bytes, not a JSON-size proxy. */
 const byteLength = snapshotEncodedByteLength;
 
+function stableItemJson(item: Record<string, unknown>): string {
+  return JSON.stringify(item, (_key, value: unknown) => (
+    value !== null && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)))
+      : value
+  ));
+}
+
+function endpointId(endpoint: unknown): unknown {
+  return endpoint !== null && typeof endpoint === 'object' && 'id' in endpoint
+    ? endpoint.id
+    : endpoint;
+}
+
 function itemKey(item: Record<string, unknown>): string {
-  if ('id' in item) return `id:${String(item.id)}`;
-  if ('source' in item && 'target' in item) return `edge:${String(item.source)}\u0000${String(item.target)}`;
-  return `item:${JSON.stringify(item, Object.keys(item).sort())}`;
+  if ('id' in item) return JSON.stringify(['id', item.id]);
+  if ('source' in item && 'target' in item) {
+    return JSON.stringify(['edge', endpointId(item.source), endpointId(item.target)]);
+  }
+  return JSON.stringify(['item', stableItemJson(item)]);
 }
 
 function layerKey(payload: { env_id: string; layer_id: string }): string {
-  return `${payload.env_id}\u0000${payload.layer_id}`;
+  return JSON.stringify([payload.env_id, payload.layer_id]);
 }
 
 type ItemChange = {
@@ -70,7 +86,7 @@ type ItemChange = {
  * final Scenario state, while slider drags and repeated item patches do not
  * inflate recordings.
  */
-function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRendererMessage[] {
+function coalesceMessageBatch(messages: SimulatorToRendererMessage[]): SimulatorToRendererMessage[] {
   const passthrough: Array<{ order: number; message: SimulatorToRendererMessage }> = [];
   const latestMetadata: Record<string, unknown> = {};
   let metadataOrder: number | undefined;
@@ -85,7 +101,7 @@ function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRe
     }
     if (message.type === 'param_sync') {
       const payload = message.payload as { id: string };
-      latestParamSync.set(payload.id, { order, message: clone(message) });
+      latestParamSync.set(payload.id, { order, message });
       return;
     }
     if (message.type === 'item_create' || message.type === 'item_update' || message.type === 'item_delete') {
@@ -95,10 +111,23 @@ function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRe
         items: Array<Record<string, unknown> | string | number>;
       };
       for (const entry of payload.items) {
-        const key = `${layerKey(payload)}\u0000${typeof entry === 'object' && entry !== null ? itemKey(entry) : `id:${String(entry)}`}`;
+        const key = JSON.stringify([
+          layerKey(payload),
+          typeof entry === 'object' && entry !== null ? itemKey(entry) : JSON.stringify(['id', entry]),
+        ]);
         const previous = itemChanges.get(key);
         if (message.type === 'item_create') {
-          const next = clone(entry as Record<string, unknown>);
+          const next = entry as Record<string, unknown>;
+          if (previous?.kind === 'delete') {
+            // An existing item may be deleted and rebuilt in one frame. Keep
+            // the delete so strict replay does not create over the old item.
+            passthrough.push({
+              order: previous.order,
+              message: { type: 'item_delete', payload: {
+                ...previous.payload, items: [previous.item],
+              } } as SimulatorToRendererMessage,
+            });
+          }
           if (previous?.kind === 'delete' || !previous) {
             itemChanges.set(key, { kind: 'create', payload, item: next, order });
           } else {
@@ -110,7 +139,7 @@ function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRe
             });
           }
         } else if (message.type === 'item_update') {
-          const next = clone(entry as Record<string, unknown>);
+          const next = entry as Record<string, unknown>;
           if (!previous) {
             itemChanges.set(key, { kind: 'update', payload, item: next, order });
           } else if (previous.kind !== 'delete') {
@@ -122,12 +151,12 @@ function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRe
         } else if (previous?.kind === 'create') {
           itemChanges.delete(key);
         } else {
-          itemChanges.set(key, { kind: 'delete', payload, item: clone(entry), order });
+          itemChanges.set(key, { kind: 'delete', payload, item: entry, order });
         }
       }
       return;
     }
-    passthrough.push({ order, message: clone(message) });
+    passthrough.push({ order, message });
   });
 
   if (metadataOrder !== undefined) {
@@ -136,12 +165,14 @@ function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRe
       message: { type: 'metadata_update', payload: latestMetadata } as SimulatorToRendererMessage,
     });
   }
-  passthrough.push(...latestParamSync.values());
+  for (const entry of latestParamSync.values()) passthrough.push(entry);
 
   const grouped = new Map<string, { order: number; type: 'item_create' | 'item_update' | 'item_delete'; payload: { env_id: string; layer_id: string; items: unknown[] } }>();
   for (const change of itemChanges.values()) {
     const type = `item_${change.kind}` as 'item_create' | 'item_update' | 'item_delete';
-    const key = `${type}\u0000${layerKey(change.payload)}`;
+    // Keep mutations at different positions separate: merging a later create
+    // into an earlier batch can move it before a required delete.
+    const key = JSON.stringify([change.order, type, layerKey(change.payload)]);
     const group = grouped.get(key) ?? {
       order: change.order,
       type,
@@ -161,11 +192,58 @@ function coalesceMessages(messages: SimulatorToRendererMessage[]): SimulatorToRe
   return passthrough.sort((a, b) => a.order - b.order).map(({ message }) => message);
 }
 
+function coalesceMessages(messages: SimulatorToRendererMessage[], scenario: Scenario): SimulatorToRendererMessage[] {
+  const result: SimulatorToRendererMessage[] = [];
+  let batch: SimulatorToRendererMessage[] = [];
+  let dependencySources: Set<string> | null = null;
+  const isDependencySource = (payload: { env_id: string; layer_id: string }): boolean => {
+    if (dependencySources === null) {
+      dependencySources = new Set<string>();
+      for (const [envId, environment] of scenario.environments) {
+        for (const layer of environment.layers.values()) {
+          for (const sourceLayerId of Object.values(layer.dependencyLayerIds)) {
+            dependencySources.add(layerKey({ env_id: envId, layer_id: sourceLayerId }));
+          }
+        }
+      }
+    }
+    return dependencySources.has(layerKey(payload));
+  };
+  const flush = () => {
+    if (batch.length) {
+      for (const message of coalesceMessageBatch(batch)) result.push(message);
+    }
+    batch = [];
+  };
+  for (const message of messages) {
+    if ((message.type === 'item_create' || message.type === 'item_update' || message.type === 'item_delete')
+      && isDependencySource(message.payload as { env_id: string; layer_id: string })) {
+      // A dependent layer can observe every source mutation (for example,
+      // trajectories append a point per update). Final-item coalescing would
+      // erase those derived state transitions.
+      flush();
+      result.push(message);
+      continue;
+    }
+    if (message.type === 'metadata_update' || message.type === 'param_sync'
+      || message.type === 'item_create' || message.type === 'item_update' || message.type === 'item_delete') {
+      batch.push(message);
+    } else {
+      // Other messages can change the object or layer that these mutations
+      // target. Keep their relative order rather than coalescing across them.
+      flush();
+      result.push(message);
+    }
+  }
+  flush();
+  return result;
+}
+
 function coalesceControls(controls: RendererToSimulatorMessage[]): RendererToSimulatorMessage[] {
   const result: RendererToSimulatorMessage[] = [];
   const paramPositions = new Map<string, number>();
   for (const control of controls) {
-    const next = cloneRecordedMessage(control);
+    const next = control;
     if (next.type === 'param_change') {
       const id = (next.payload as { id: string }).id;
       const previous = paramPositions.get(id);
@@ -220,7 +298,7 @@ function loadKeyframe(scenario: Scenario, snapshot: Snapshot, keyframe: Snapshot
 
 export function createSingleSnapshot(
   scenario: ScenarioSnapshot,
-  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint'> = {},
+  options: Pick<RecordingOptions, 'id' | 'label' | 'timestamp' | 'modelIdentity' | 'checkpoint' | 'legacyCreateReplacement'> = {},
 ): Snapshot {
   const timestamp = options.timestamp ?? now();
   return {
@@ -231,6 +309,7 @@ export function createSingleSnapshot(
       endedAt: timestamp,
       label: options.label,
       protocol_version: PROTOCOL_VERSION,
+      ...(options.legacyCreateReplacement ? { legacy_create_replacement: true } : {}),
       ...(options.modelIdentity === undefined ? {} : { model_identity: clone(options.modelIdentity) }),
       ...(options.checkpoint === undefined ? {} : { checkpoint: clone(options.checkpoint) }),
     },
@@ -292,6 +371,7 @@ export class SnapshotRecorder {
       timestamp,
       modelIdentity: options.modelIdentity,
       checkpoint: options.checkpoint,
+      legacyCreateReplacement: options.legacyCreateReplacement,
     });
     this.nextFrameIndex = this.snapshot.initial.frame + 1;
     this.snapshot.metadata.endedAt = undefined;
@@ -389,7 +469,7 @@ export class SnapshotRecorder {
     if (!target || (!this.pendingMessages.length && !this.pendingControls.length)) return;
     const timestamp = now();
     let forceKeyframe = false;
-    const messages = coalesceMessages(this.pendingMessages).filter((message) => {
+    const messages = coalesceMessages(this.pendingMessages, this.scenario).filter((message) => {
       if (message.type !== 'item_create' && message.type !== 'item_update' && message.type !== 'item_delete') return true;
       const payload = message.payload as { env_id: string; layer_id: string };
       const codec = this.resolveLayerCodec(payload);
@@ -570,7 +650,7 @@ export function materializeSnapshot(snapshot: Snapshot, frame = snapshot.frames[
   const keyframe = [...snapshot.keyframes, snapshot.initial]
     .filter((candidate) => candidate.frame <= bounded)
     .sort((a, b) => b.frame - a.frame)[0];
-  const scenario = new Scenario();
+  const scenario = new Scenario({ mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict' });
   loadKeyframe(scenario, snapshot, keyframe);
   for (const recordedFrame of snapshot.frames) {
     if (recordedFrame.index <= keyframe.frame || recordedFrame.index > bounded) continue;
@@ -616,10 +696,11 @@ export function snapshotFrameAt(snapshot: Snapshot, frame: number): SnapshotFram
  * a full keyframe load is reserved for random/backward seeks.
  */
 export class SnapshotPlayer {
-  readonly scenario = new Scenario();
+  readonly scenario: Scenario;
   private currentFrame: number;
 
   constructor(readonly snapshot: Snapshot) {
+    this.scenario = new Scenario({ mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict' });
     this.currentFrame = snapshot.initial.frame;
     loadKeyframe(this.scenario, snapshot, snapshot.initial);
   }

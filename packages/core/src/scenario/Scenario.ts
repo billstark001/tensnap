@@ -54,6 +54,7 @@ import {
   layerRegistry,
   LayerRegistryClass,
 } from './layer-registry';
+import { createStateSyncInventory, createStateSyncRequest } from './state-sync-inventory';
 import type {
   ScenarioEnvironmentSnapshot,
   ScenarioEnvironmentState,
@@ -85,15 +86,11 @@ function acceptsOptimisticParameterValue(parameter: Parameter, value: ParameterC
   }
 }
 
-// TODO(protocol-v0.3): Read the optional `upsert` field from each create
-// payload. Until the protocol owns that field, create messages keep the
-// backwards-compatible replace/recreate default.
-const UPSERT_CREATE_MESSAGES = false;
-
 export interface ScenarioOptions {
   charts?: ChartStorage;
   assets?: AssetStore;
   layerRegistry?: LayerRegistryClass;
+  mutationRules?: 'strict' | 'legacy';
 }
 
 export class Scenario extends LazyEventTarget {
@@ -109,6 +106,7 @@ export class Scenario extends LazyEventTarget {
   private resetDepth = 0;
   private metadataRevisionState = 0;
   private parameterRevisionState = 0;
+  private mutationRules: 'strict' | 'legacy';
   readonly layerRegistry: LayerRegistryClass;
 
   constructor(options: ScenarioOptions = {}) {
@@ -116,6 +114,12 @@ export class Scenario extends LazyEventTarget {
     this.chartState = options.charts ?? new ChartStorage();
     this.assetState = options.assets ?? new AssetStore();
     this.layerRegistry = options.layerRegistry ?? layerRegistry;
+    this.mutationRules = options.mutationRules ?? 'strict';
+  }
+
+  /** Called when a transport explicitly selects the v0.2 compatibility codec. */
+  enableLegacyMutationRules(): void {
+    this.mutationRules = 'legacy';
   }
 
   get metadata(): Record<string, unknown> {
@@ -195,6 +199,7 @@ export class Scenario extends LazyEventTarget {
   }
 
   apply(message: SimulatorToRendererMessage): void {
+    if (this.mutationRules === 'strict') this.validateMutation(message);
     switch (message.type) {
       case 'metadata_update':
         this.applyMetadata(message.payload as MetadataUpdatePayload);
@@ -213,7 +218,7 @@ export class Scenario extends LazyEventTarget {
         this.emit('action:result', message.payload as ActionResultPayload);
         return;
       case 'action_create':
-        this.createAction(message.payload as Action, UPSERT_CREATE_MESSAGES);
+        this.createAction(message.payload as Action);
         return;
       case 'action_update':
         this.upsertAction(message.payload as Action, 'action:update');
@@ -222,13 +227,13 @@ export class Scenario extends LazyEventTarget {
         this.deleteAction(message.payload as ActionDeletePayload);
         return;
       case 'env_create':
-        this.createEnvironment(message.payload as EnvCreatePayload, UPSERT_CREATE_MESSAGES);
+        this.createEnvironment(message.payload as EnvCreatePayload);
         return;
       case 'env_delete':
         this.deleteEnvironment(message.payload as EnvDeletePayload);
         return;
       case 'env_layer_create':
-        this.createLayer(message.payload as EnvLayerCreatePayload, UPSERT_CREATE_MESSAGES);
+        this.createLayer(message.payload as EnvLayerCreatePayload);
         return;
       case 'env_layer_update':
         this.updateLayer(message.payload as EnvLayerUpdatePayload);
@@ -237,7 +242,7 @@ export class Scenario extends LazyEventTarget {
         this.deleteLayer(message.payload as EnvLayerDeletePayload);
         return;
       case 'item_create':
-        this.createItems(message.payload as ItemCreatePayload, UPSERT_CREATE_MESSAGES);
+        this.createItems(message.payload as ItemCreatePayload);
         return;
       case 'item_update':
         this.updateItems(message.payload as ItemUpdatePayload);
@@ -246,7 +251,7 @@ export class Scenario extends LazyEventTarget {
         this.deleteItems(message.payload as ItemDeletePayload);
         return;
       case 'param_create':
-        this.createParameter(message.payload as Parameter, UPSERT_CREATE_MESSAGES);
+        this.createParameter(message.payload as Parameter);
         return;
       case 'param_update':
         this.upsertParameter(message.payload as Parameter, 'param:update');
@@ -258,7 +263,7 @@ export class Scenario extends LazyEventTarget {
         this.syncParameter(message.payload as ParameterSyncPayload);
         return;
       case 'chart_create':
-        this.createChart(message.payload as ChartGroupMetadata, UPSERT_CREATE_MESSAGES);
+        this.createChart(message.payload as ChartGroupMetadata);
         return;
       case 'chart_update':
         this.updateChart(message.payload as ChartUpdatePayload);
@@ -298,28 +303,130 @@ export class Scenario extends LazyEventTarget {
     }
   }
 
+  private validateMutation(message: SimulatorToRendererMessage): void {
+    const payload = message.payload;
+    switch (message.type) {
+      case 'action_create':
+        if (this.actionsState.has((payload as Action).id)) throw new Error(`action_create already exists: ${(payload as Action).id}`);
+        return;
+      case 'action_update':
+        if (!this.actionsState.has((payload as Action).id)) throw new Error(`action_update does not exist: ${(payload as Action).id}`);
+        return;
+      case 'param_create':
+        if (this.parametersState.has((payload as Parameter).id)) throw new Error(`param_create already exists: ${(payload as Parameter).id}`);
+        return;
+      case 'param_update':
+        if (!this.parametersState.has((payload as Parameter).id)) throw new Error(`param_update does not exist: ${(payload as Parameter).id}`);
+        return;
+      case 'env_create':
+        if (this.environmentsState.has((payload as EnvCreatePayload).id)) throw new Error(`env_create already exists: ${(payload as EnvCreatePayload).id}`);
+        return;
+      case 'env_layer_create': {
+        const { env_id, layer_id } = payload as EnvLayerCreatePayload;
+        const environment = this.environmentsState.get(env_id);
+        if (!environment) throw new Error(`env_layer_create missing environment: ${env_id}`);
+        if (environment.layers.has(layer_id)) throw new Error(`env_layer_create already exists: ${env_id}/${layer_id}`);
+        return;
+      }
+      case 'env_layer_update': {
+        const { env_id, layer_id } = payload as EnvLayerUpdatePayload;
+        if (!this.environmentsState.get(env_id)?.layers.has(layer_id)) {
+          throw new Error(`env_layer_update does not exist: ${env_id}/${layer_id}`);
+        }
+        return;
+      }
+      case 'item_create':
+      case 'item_update': {
+        const { env_id, layer_id, items } = payload as ItemCreatePayload | ItemUpdatePayload;
+        const environment = this.environmentsState.get(env_id);
+        const layer = environment?.layers.get(layer_id);
+        if (!layer) throw new Error(`${message.type} missing layer: ${env_id}/${layer_id}`);
+        const controller = this.getLayerController(layer.layerType);
+        if (!controller?.getItemKeyExists && !controller?.getExistingItemKeys) {
+          throw new Error(`${message.type} cannot check existing identities for layer type ${layer.layerType}`);
+        }
+        const context = this.createLayerControllerContext(environment!, layer);
+        const hasKey = controller.getItemKeyExists?.(context);
+        const hasWrongExistence = this.assertUniqueItemKeys(layer.layerType, items, message.type, hasKey);
+        const existing = hasKey ? null : controller.getExistingItemKeys!(context, items);
+        if (message.type === 'item_create' && (hasWrongExistence || (existing?.length ?? 0) > 0)) {
+          throw new Error(`item_create already exists: ${env_id}/${layer_id}`);
+        }
+        if (message.type === 'item_update' && (hasWrongExistence || (existing?.length ?? items.length) !== items.length)) {
+          throw new Error(`item_update does not exist: ${env_id}/${layer_id}`);
+        }
+        return;
+      }
+      case 'chart_create':
+        if (this.chartState.hasGroup((payload as ChartGroupMetadata).id)) {
+          throw new Error(`chart_create already exists: ${(payload as ChartGroupMetadata).id}`);
+        }
+        return;
+    }
+  }
+
+  private assertUniqueItemKeys(
+    layerType: string,
+    items: Record<string, unknown>[],
+    operation: 'item_create' | 'item_update',
+    hasKey?: (key: unknown) => boolean,
+  ): boolean {
+    const fields = this.layerRegistry.get(layerType)?.primaryKeyFields;
+    if (!fields?.length) throw new Error(`${operation} requires primary key fields for layer type ${layerType}`);
+    let hasWrongExistence = false;
+    if (fields.length === 1) {
+      // Built-in agent and trajectory keys are primitive IDs. Avoid allocating
+      // an array and JSON string for every item in a large update batch.
+      // Non-primitive custom keys retain the existing serialized semantics.
+      const field = fields[0];
+      const primitiveKeys = new Set<string | number>();
+      let allPrimitive = true;
+      for (const item of items) {
+        const value = item[field];
+        if (value === undefined) throw new Error(`${operation} missing primary key for layer type ${layerType}`);
+        if (typeof value !== 'string' && (typeof value !== 'number' || !Number.isFinite(value))) {
+          allPrimitive = false;
+          break;
+        }
+        if (primitiveKeys.has(value)) throw new Error(`${operation} repeats an identity in layer type ${layerType}`);
+        primitiveKeys.add(value);
+        if (hasKey && hasKey(value) !== (operation === 'item_update')) hasWrongExistence = true;
+      }
+      if (allPrimitive) return hasWrongExistence;
+      hasWrongExistence = false;
+    }
+    const seen = new Set<string>();
+    for (const item of items) {
+      const values = fields.map((field) => item[field]);
+      if (values.some((value) => value === undefined)) throw new Error(`${operation} missing primary key for layer type ${layerType}`);
+      const key = JSON.stringify(values);
+      if (seen.has(key)) throw new Error(`${operation} repeats an identity in layer type ${layerType}`);
+      seen.add(key);
+      if (hasKey && hasKey(fields.length === 1 ? values[0] : values) !== (operation === 'item_update')) {
+        hasWrongExistence = true;
+      }
+    }
+    return hasWrongExistence;
+  }
+
+  /** Advertise the current definitions for a read-only sync; simulator state remains authoritative. */
   createStateSyncMessage(modelId: string, requestId: string, instanceId?: string): RendererToSimulatorMessage<StateSyncRequest> {
-    // Internal state references are safe to include directly: this message is
-    // serialized immediately by the caller and never mutated in-process.
+    // The inventory projection is cheap; createStateSyncRequest takes its own
+    // copy before returning a public protocol message.
+    const inventory = createStateSyncInventory({
+      parameters: this.parametersState.values(),
+      actions: this.actionsState.values(),
+      environments: [...this.environmentsState.values()].map((environment) => ({
+        id: environment.id,
+        type: environment.type,
+        layers: environment.layers.values(),
+      })),
+      charts: this.chartState.getAllMeta(),
+      monitors: this.monitorState.dump(),
+    });
     return {
       type: 'state_sync',
-      payload: {
-        request_id: requestId,
-        model_id: modelId,
-        instance_id: instanceId,
-        parameters: [...this.parametersState.values()],
-        actions: [...this.actionsState.values()],
-        envs: [...this.environmentsState.values()].map((environment) => ({
-          id: environment.id,
-          type: environment.type,
-          layers: [...environment.layers.values()].map((layer) => ({
-            layer_id: layer.id,
-            layer_type: layer.layerType,
-          })),
-        })),
-        charts: this.chartState.getAllMeta(),
-        monitors: this.monitorState.dump().map(({ value: _value, revision: _revision, ...metadata }) => metadata),
-      },
+      payload: createStateSyncRequest(modelId, requestId, instanceId, inventory),
     };
   }
 
@@ -380,7 +487,7 @@ export class Scenario extends LazyEventTarget {
         dependencyGraph: new Map(),
       };
       for (const layer of environment.layers) {
-        const metadata = layer.metadata ?? {};
+        const metadata = cloneValue(layer.metadata ?? {});
         const storage = this.createStorageForLayer(layer.layerType, metadata);
         storage.load(cloneValue(layer.storageSnapshot));
         restoredEnv.layers.set(layer.id, {
@@ -400,8 +507,11 @@ export class Scenario extends LazyEventTarget {
     // partially migrated archive, so treat an absent collection as empty.
     this.monitorState.load(snapshot.monitors ?? []);
 
-    this.logsState.push(...snapshot.logs.map(cloneValue));
+    for (const log of snapshot.logs) this.logsState.push(cloneValue(log));
     this.assetState.load(snapshot.assets);
+    for (const asset of snapshot.assets) {
+      if (this.assetState.getUrl(asset.meta.id)) this.refreshBackgroundLayersForAsset(asset.meta.id);
+    }
   }
 
   reset(options: { preserveTrajectoryLayers?: boolean } = {}): void {
@@ -504,12 +614,8 @@ export class Scenario extends LazyEventTarget {
 
   // Clone once for storage so internal state is isolated. Emit the original
   // payload directly — a second clone would be redundant.
-  private createAction(payload: Action, upsert: boolean): void {
-    if (!upsert) {
-      this.actionsState.delete(payload.id);
-    }
-    // Action definitions have no renderer-owned child state, so updating and
-    // recreating currently converge after the old definition is discarded.
+  private createAction(payload: Action): void {
+    if (this.mutationRules === 'legacy') this.actionsState.delete(payload.id);
     this.upsertAction(payload, 'action:create');
   }
 
@@ -523,23 +629,21 @@ export class Scenario extends LazyEventTarget {
     this.emit('action:delete', payload);
   }
 
-  private createEnvironment(payload: EnvCreatePayload, upsert: boolean): void {
+  private createEnvironment(payload: EnvCreatePayload): void {
     const existing = this.environmentsState.get(payload.id);
-    if (upsert && existing) {
-      existing.type = payload.type;
-    } else {
-      if (existing) {
-        for (const layer of existing.layers.values()) {
-          this.disposeLayer(existing, layer);
-        }
+    if (existing) {
+      // Only a legacy session can reach this branch: strict mode rejected the
+      // duplicate before any layer is disposed.
+      for (const layer of existing.layers.values()) {
+        this.disposeLayer(existing, layer);
       }
-      this.environmentsState.set(payload.id, {
-        id: payload.id,
-        type: payload.type,
-        layers: new Map(),
-        dependencyGraph: new Map(),
-      });
     }
+    this.environmentsState.set(payload.id, {
+      id: payload.id,
+      type: payload.type,
+      layers: new Map(),
+      dependencyGraph: new Map(),
+    });
     this.emit('env:create', payload);
   }
 
@@ -554,32 +658,14 @@ export class Scenario extends LazyEventTarget {
     this.emit('env:delete', payload);
   }
 
-  private createLayer(payload: EnvLayerCreatePayload, upsert: boolean): void {
+  private createLayer(payload: EnvLayerCreatePayload): void {
     const environment = this.ensureEnvironment(payload.env_id);
     const metadata = payload.metadata ?? {};
     const dependencyLayerIds = this.normalizeDependencyLayerIds(payload.dependency_layer_ids);
     const existingLayer = environment.layers.get(payload.layer_id);
 
-    if (upsert && existingLayer) {
-      if (existingLayer.layerType !== payload.layer_type) {
-        // The id is immediately reused, so retain inbound dependents while
-        // removing this layer's own dependency registrations.
-        this.unindexLayerDependencies(environment, existingLayer.id);
-        this.disposeLayer(environment, existingLayer);
-        existingLayer.layerType = payload.layer_type;
-        existingLayer.storage = this.createStorageForLayer(payload.layer_type, metadata);
-      }
-
-      existingLayer.metadata = metadata;
-      existingLayer.dependencyLayerIds = dependencyLayerIds;
-      this.applyLayerMetadata(environment, existingLayer);
-      this.emit('layer:create', payload);
-      return;
-    }
-
     if (existingLayer) {
-      // Recreate the layer and its storage, but keep layers which depend on
-      // this stable id indexed against its replacement.
+      // Legacy replacement keeps dependents indexed against the stable id.
       this.unindexLayerDependencies(environment, existingLayer.id);
       this.disposeLayer(environment, existingLayer);
     }
@@ -624,7 +710,7 @@ export class Scenario extends LazyEventTarget {
     this.emit('layer:delete', payload);
   }
 
-  private createItems(payload: ItemCreatePayload, upsert: boolean, expectedLayerType?: string): void {
+  private createItems(payload: ItemCreatePayload, expectedLayerType?: string): void {
     const environment = expectedLayerType
       ? this.ensureEnvironment(payload.env_id)
       : this.environmentsState.get(payload.env_id);
@@ -637,10 +723,7 @@ export class Scenario extends LazyEventTarget {
     }
 
     const controller = this.getLayerController(expectedLayerType ?? layer.layerType);
-    const applyItems = upsert && controller?.updateItems
-      ? controller.updateItems
-      : controller?.createItems;
-    if (!controller || !applyItems) {
+    if (!controller?.createItems) {
       this.reportDiagnostic('items_create_unsupported', `Layer type ${(expectedLayerType ?? layer.layerType)} does not support item creation.`, payload);
       return;
     }
@@ -651,7 +734,7 @@ export class Scenario extends LazyEventTarget {
     }
 
     const context = this.createLayerControllerContext(environment, layer);
-    if (!upsert && controller.deleteItems) {
+    if (this.mutationRules === 'legacy' && controller.deleteItems) {
       const keys = this.createItemDeleteKeys(expectedLayerType ?? layer.layerType, payload.items);
       if (keys) {
         const existingKeys = controller.getExistingItemKeys?.(context, payload.items) ?? keys;
@@ -664,7 +747,7 @@ export class Scenario extends LazyEventTarget {
       }
     }
 
-    applyItems(context, payload.items);
+    controller.createItems(context, payload.items);
 
     if (previousLayerType !== layer.layerType) {
       // layer.metadata is internal state — must clone before emitting.
@@ -675,7 +758,7 @@ export class Scenario extends LazyEventTarget {
       });
     }
 
-    this.runDependencyLayerControllers(environment, layer, upsert ? 'update' : 'create', payload.items);
+    this.runDependencyLayerControllers(environment, layer, 'create', payload.items);
 
     this.emitLazy('item:create', () => payload);
   }
@@ -831,13 +914,8 @@ export class Scenario extends LazyEventTarget {
   // Emit that same instance directly — a second clone to "protect" it is redundant
   // because the stored and emitted object are the same; callers must not mutate
   // event detail objects.
-  private createParameter(payload: Parameter, upsert: boolean): void {
-    if (!upsert) {
-      this.parametersState.delete(payload.id);
-    }
-    // Like actions, parameters have no renderer-owned child collection. Their
-    // full definitions are replaced in both modes; the branch is explicit so
-    // the protocol flag has a complete handler surface in v0.3.
+  private createParameter(payload: Parameter): void {
+    if (this.mutationRules === 'legacy') this.parametersState.delete(payload.id);
     this.upsertParameter(payload, 'param:create');
   }
 
@@ -866,10 +944,10 @@ export class Scenario extends LazyEventTarget {
     this.emit('param:sync', payload);
   }
 
-  private createChart(payload: ChartGroupMetadata, upsert: boolean): void {
+  private createChart(payload: ChartGroupMetadata): void {
     // Clone before passing to instantiateChartMetadata since its contract
     // does not guarantee it leaves the argument unmodified.
-    this.chartState.addGroup(instantiateChartMetadata(cloneValue(payload) as ChartGroupMetadata), upsert);
+    this.chartState.addGroup(instantiateChartMetadata(cloneValue(payload) as ChartGroupMetadata));
     this.emit('chart:create', payload);
   }
 
@@ -922,19 +1000,24 @@ export class Scenario extends LazyEventTarget {
   private receiveAssetMeta(payload: AssetMetadataPayload): void {
     // Pass the array directly: AssetStore takes ownership and payload is never
     // mutated externally, so per-item cloning is unnecessary.
-    this.assetState.receiveMetaBatch(payload.assets);
+    const invalidated = this.assetState.receiveMetaBatch(payload.assets);
+    for (const id of invalidated) this.refreshBackgroundLayersForAsset(id);
     this.emit('asset:metadata', payload);
   }
 
   private receiveAssetData(payload: AssetDataPayload): void {
     void this.assetState.receiveData(payload.id, payload.hash, payload.mime, payload.data).then(() => {
+      if (this.assetState.get(payload.id)?.hash !== payload.hash) return;
       this.refreshBackgroundLayersForAsset(payload.id);
       this.emit('asset:data', payload);
+    }).catch((error: unknown) => {
+      this.reportDiagnostic('asset_data_invalid', `Cannot decode asset ${payload.id}: ${error instanceof Error ? error.message : String(error)}`, payload);
     });
   }
 
   private deleteAssets(payload: AssetDeletePayload): void {
     this.assetState.deleteBatch(payload.ids);
+    for (const id of payload.ids) this.refreshBackgroundLayersForAsset(id);
     this.emit('asset:delete', payload);
   }
 

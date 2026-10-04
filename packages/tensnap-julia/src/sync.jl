@@ -121,8 +121,8 @@ function _handle_state_sync(s::Scenario, ws, payload)
 	end
 	mode = get(payload, "instance_id", nothing) == s.instance_id ? "reconcile" : "replace"
 	begin_payload = Dict("request_id" => request_id, "model_id" => s.model_id, "instance_id" => s.instance_id, "mode" => mode)
-	_send_to(s, ws, "state_sync_begin", begin_payload)
 	_ensure_initialized!(s)
+	_send_to(s, ws, "state_sync_begin", begin_payload)
 	inventory = mode == "reconcile" ? payload : Dict{String, Any}()
 	try
 		_sync_actions!(s, ws, get(inventory, "actions", Any[]))

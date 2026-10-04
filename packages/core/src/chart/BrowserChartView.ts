@@ -1,6 +1,11 @@
 import { ChartScene, type ChartTheme } from './ChartScene';
 import type { ChartConfig, ChartDataPoint } from './types';
 
+function canvasPixelRatio(): number {
+  const ratio = window.devicePixelRatio;
+  return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+}
+
 /** Browser host for the shared ChartScene. */
 export class BrowserChartView {
   private readonly canvas: HTMLCanvasElement;
@@ -26,7 +31,7 @@ export class BrowserChartView {
     this.render();
   };
 
-  constructor(private readonly container: HTMLElement, config: ChartConfig) {
+  constructor(container: HTMLElement, config: ChartConfig) {
     this.scene = new ChartScene(config);
     this.canvas = document.createElement('canvas');
     this.canvas.style.display = 'block';
@@ -54,9 +59,9 @@ export class BrowserChartView {
   }
 
   resize(width: number, height: number): void {
-    this.width = Math.max(1, width);
-    this.height = Math.max(1, height);
-    const ratio = window.devicePixelRatio || 1;
+    this.width = Number.isFinite(width) ? Math.max(1, width) : 1;
+    this.height = Number.isFinite(height) ? Math.max(1, height) : 1;
+    const ratio = canvasPixelRatio();
     this.canvas.width = Math.round(this.width * ratio);
     this.canvas.height = Math.round(this.height * ratio);
     this.render();
@@ -69,11 +74,11 @@ export class BrowserChartView {
   destroy(): void {
     this.canvas.removeEventListener('pointermove', this.handlePointerMove);
     this.canvas.removeEventListener('pointerleave', this.handlePointerLeave);
-    this.container.replaceChildren();
+    this.canvas.remove();
   }
 
   private render(): void {
-    const ratio = window.devicePixelRatio || 1;
+    const ratio = canvasPixelRatio();
     this.context.setTransform(ratio, 0, 0, ratio, 0, 0);
     this.scene.render(this.context, this.canvas.width, this.canvas.height, { theme: this.theme, pixelRatio: ratio });
     this.drawTooltip();
@@ -99,8 +104,12 @@ export class BrowserChartView {
     const timeText = formatTooltipValue(tooltip.x);
     const timeWidth = this.context.measureText(timeText).width;
     this.context.font = '12px system-ui, sans-serif';
-    const labelWidth = Math.max(...tooltip.values.map((value) => this.context.measureText(value.label).width));
-    const valueWidth = Math.max(...tooltip.values.map((value) => this.context.measureText(formatTooltipValue(value.value)).width));
+    let labelWidth = 0;
+    let valueWidth = 0;
+    for (const value of tooltip.values) {
+      labelWidth = Math.max(labelWidth, this.context.measureText(value.label).width);
+      valueWidth = Math.max(valueWidth, this.context.measureText(formatTooltipValue(value.value)).width);
+    }
     const tooltipWidth = Math.max(
       titleWidth + timeWidth + paddingX * 2 + 20,
       markerSize + 7 + labelWidth + valueWidth + paddingX * 2 + 14,

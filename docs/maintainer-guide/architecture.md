@@ -1,6 +1,6 @@
 # TenSnap Architecture
 
-Architecture overview for maintainers working on the 0.3.0 codebase.
+Architecture overview for maintainers working on the v0.3 codebase.
 
 ## System Model
 
@@ -44,7 +44,10 @@ Owns:
 - `Scenario` state model and snapshot logic
 - `RendererSession`: transport binding, protocol application, state-sync commit
   transaction, asset sync, screenshot replies, and outbound controls
-- `RunController`: renderer-driven bounded action runs and safe stop conditions
+- `RendererClient`: shared transport handshake, replacement, and correlated
+  sync/action waits around a `RendererSession`
+- `RunController`: renderer-driven bounded and manual action runs, render
+  barriers, and safe stop conditions
 - layer registry, dependency graph, and render-plan helpers
 - shared environment storages and built-in render layers
 - shared runtime pipeline helpers
@@ -107,7 +110,7 @@ Headless runtime and session tooling.
 
 Owns:
 
-- headless host around core `RendererSession`
+- headless host around core `RendererClient` and `RendererSession`
 - node-side websocket transport
 - offscreen environment painting
 - HTTP/CLI control endpoints for automation, bounded runs, and capture workflows
@@ -130,7 +133,7 @@ Go simulator binding package.
 
 Owns:
 
-- `protocol` wire types and JSON codec
+- `protocol` wire types and JSON/MessagePack codecs
 - `abm` model interface, `Base`, `Scenario`, `ActionRouter`, and `Emitter`
 - `binding` declarative builders, tag-based projectors, and item diff helpers
 - `server` WebSocket integration
@@ -248,12 +251,13 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 ### Initial sync / reconnect
 
-1. `RendererSession` sends `state_sync` with the current summary.
+1. `RendererSession` sends `state_sync` with the current read-only inventory.
 2. Simulator replies with `state_sync_begin`.
 3. The session applies replayed `*_create`, `*_update`, and `*_delete`
-   messages immediately, but buffers the UI commit.
-4. On `state_sync_end`, the session publishes one `state-sync` commit and the
-   UI renders the reconstructed `Scenario`.
+   messages to an isolated staging `Scenario`; the committed scene remains
+   visible throughout the transaction.
+4. On a matching `state_sync_end`, the session swaps in the staged state and
+   publishes one `state-sync` commit. Failure or disconnect discards the stage.
 5. The renderer continues from that state.
 
 ### Continuous execution
@@ -268,9 +272,10 @@ Layer creation carries `dependency_layer_ids`; changing dependencies is a struct
 
 This keeps loop ownership in the renderer and avoids server-owned hidden timers in the protocol contract.
 
-Every continuous run has a positive `maxSteps`; the default policy limit is
-1,000,000. A `stopWhen` expression is parsed once and runs only before the
-first dispatch and after an `action_result`. It has a read-only incremental scope:
+Bounded runs have a positive `maxSteps`, with a default policy limit of
+1,000,000. Manual runs continue until paused or stopped and do not require
+`maxSteps`. A bounded run's `stopWhen` expression is parsed once and runs only
+before the first dispatch and after an `action_result`. It has a read-only incremental scope:
 `steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`.
 It cannot invoke arbitrary host functions or rely on a full scenario dump.
 The agent CLI can explicitly raise its policy while starting a runtime with
@@ -287,8 +292,10 @@ matches the original task id.
 ## Recording, Replay, and Project Persistence
 
 `SnapshotRecorder` records protocol activity as atomic frames. It coalesces
-repeated item/metadata/parameter updates at a frame boundary, inserts adaptive
-keyframes, and enforces frame, duration, and byte budgets. Replays use the
+repeated item changes only when no dependent layer needs intermediate updates;
+layer replacement starts a new coalescing batch. It also coalesces eligible
+metadata/parameter updates, inserts adaptive keyframes, and enforces frame,
+duration, and byte budgets. Replays use the
 same `Scenario`/layer registry as a live session; they are offline copies and
 must not be treated as a restore of a still-connected simulator.
 

@@ -77,7 +77,10 @@ export class SnapshotPlaybackSource {
       this.frameCursor += 1;
     }
     const next = this.snapshot.frames[this.frameCursor];
-    if (!next) return null;
+    if (!next) {
+      this.state = 'paused';
+      return null;
+    }
     this.player.seek(next.index);
     this.frameCursor += 1;
     return structuredClone(next);

@@ -60,6 +60,9 @@ class RafCadenceEstimator {
     if (this.calibrating) return;
     if (this.estimateMs !== null && now - this.updatedAt <= RAF_ESTIMATE_MAX_AGE_MS) return;
 
+    // A stale cadence may be from a different display or power state. Clear
+    // it so the outlier filter can accept the new calibration samples.
+    this.estimateMs = null;
     this.calibrating = true;
     this.lastTimestamp = null;
     this.samplesLeft = RAF_CALIBRATION_SAMPLE_COUNT;

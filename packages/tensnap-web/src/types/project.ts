@@ -113,6 +113,7 @@ const SnapshotMetadataSchema = z.object({
   endedAt: z.number().nullable().optional().transform((value) => value ?? undefined),
   label: z.string().nullable().optional().transform((value) => value ?? undefined),
   protocol_version: z.literal(PROTOCOL_VERSION).optional(),
+  legacy_create_replacement: z.boolean().optional(),
   model_identity: SnapshotModelIdentitySchema.optional(),
   checkpoint: SnapshotCheckpointSchema.optional(),
 });
@@ -375,7 +376,7 @@ function migrateRecordingSnapshot(value: unknown): Snapshot {
   const migrated = {
     ...source,
     version: 1,
-    metadata: { ...metadata, protocol_version: PROTOCOL_VERSION },
+    metadata: { ...metadata, protocol_version: PROTOCOL_VERSION, legacy_create_replacement: true },
     initial: migrateKeyframe(source.initial),
     keyframes: source.keyframes.map(migrateKeyframe),
     frames,

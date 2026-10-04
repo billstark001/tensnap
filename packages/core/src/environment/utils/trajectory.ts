@@ -24,9 +24,8 @@ export interface TrajectoryWorldBounds {
 }
 
 export function resolveTrajectoryLength(value: number | undefined, fallback = DEFAULT_TRAJECTORY_LENGTH): number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? value
-    : fallback;
+  const candidate = typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : fallback;
+  return Number.isFinite(candidate) && candidate >= 0 ? Math.floor(candidate) : DEFAULT_TRAJECTORY_LENGTH;
 }
 
 export function resolveTrajectoryWidth(value: number | undefined, fallback = DEFAULT_TRAJECTORY_WIDTH): number {

@@ -29,7 +29,7 @@ import { useScenarioUndoRedoStore } from '@/store/undo-redo';
 import { useFileOperations } from './useFileOperations';
 
 import { ToolButton } from './ToolButton';
-import { createStateSyncRequestFromStore } from '@/store/project';
+import { createStateSyncInventoryFromSnapshot } from '@tensnap/core/scenario';
 import { useSettingsStore } from '@/store/settings';
 import { AboutDialog } from '@/dialogs/AboutDialog';
 import { useScenarioStore } from '@/store/scenario/store';
@@ -267,7 +267,7 @@ export function ViewTools() {
       <ToolButton
         icon={<RefreshCcw size={16} />}
         tooltip={_(msg`Synchronize State`)}
-        onClick={() => dump ? transportStore?.requestStateSync(createStateSyncRequestFromStore(dump())) : undefined}
+        onClick={() => dump ? transportStore?.requestStateSync(createStateSyncInventoryFromSnapshot(dump())) : undefined}
         disabled={isSnapshotSource}
       />
       <ToolButton

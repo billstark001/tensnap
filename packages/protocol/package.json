@@ -19,8 +19,7 @@
   "files": [
     "dist",
     "README.md",
-    "SPECIFICATION.md",
-    "conformance"
+    "SPECIFICATION.md"
   ],
   "scripts": {
     "build": "node ./scripts/build.mjs",

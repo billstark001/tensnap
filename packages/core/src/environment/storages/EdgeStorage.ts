@@ -11,9 +11,9 @@
  * Delta semantics:
  *   - `replaced: true`  — the entire edge set was replaced; consumers must
  *     treat `added` as a full snapshot and discard previous state.
- *   - `replaced: false` — only `added` and `removed` arrays are meaningful.
- * After `notify()` fires, the pending delta is reset automatically so
- * subsequent `getData()` calls show an empty (no-op) delta.
+ *   - `replaced: false` — `added`, `updated`, and `removed` describe the delta.
+ * Deltas are emitted to subscribers with each mutation; getData() returns
+ * the current indexes rather than retaining a pending delta.
  */
 
 import { BaseStorage } from './BaseStorage';
@@ -27,7 +27,7 @@ import type { GraphEdge } from '../types';
 export type EdgeDelta = {
   /** Newly added or updated edges. */
   added: GraphEdge[];
-  /** Edges that were updated (snapshot at update time). */
+  /** Edges that were updated. */
   updated: GraphEdge[];
   /** Edges that were removed (snapshot at removal time). */
   removed: GraphEdge[];
@@ -98,9 +98,9 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
       : endpoint;
   }
 
-  /** Canonical map key from two resolved AgentIds. */
+  /** Canonical map key that preserves string/number identity and embedded separators. */
   static edgeKey(source: AgentId, target: AgentId): string {
-    return `${source}\x00${target}`;
+    return JSON.stringify([source, target]);
   }
 
   // -------------------------------------------------------------------------
@@ -109,45 +109,53 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
 
   /** Add a single edge. O(1). */
   addEdge(edge: GraphEdge): void {
-    const src = EdgeStorage.resolveId(edge.source);
-    const tgt = EdgeStorage.resolveId(edge.target);
+    const owned = EdgeStorage.ownEdge(edge);
+    const src = owned.source as AgentId;
+    const tgt = owned.target as AgentId;
     const key = EdgeStorage.edgeKey(src, tgt);
-    this._data.edges.set(key, edge);
+    const existed = this._data.edges.has(key);
+    this._data.edges.set(key, owned);
     this._adjIndex(src).add(key);
     this._adjIndex(tgt).add(key);
-    const delta: EdgeDelta = { added: [edge], updated: [], removed: [], replaced: false };
+    const delta: EdgeDelta = {
+      added: existed ? [] : [owned], updated: existed ? [owned] : [], removed: [], replaced: false,
+    };
     this.notify(delta);
   }
 
   /** Add multiple edges. O(m). */
   addEdges(edges: GraphEdge[]): void {
+    const ownedEdges = edges.map(EdgeStorage.ownEdge);
     const delta: EdgeDelta = { added: [], updated: [], removed: [], replaced: false };
-    for (const edge of edges) {
-      const src = EdgeStorage.resolveId(edge.source);
-      const tgt = EdgeStorage.resolveId(edge.target);
+    for (const edge of ownedEdges) {
+      const src = edge.source as AgentId;
+      const tgt = edge.target as AgentId;
       const key = EdgeStorage.edgeKey(src, tgt);
+      const existed = this._data.edges.has(key);
       this._data.edges.set(key, edge);
       this._adjIndex(src).add(key);
       this._adjIndex(tgt).add(key);
-      delta.added.push(edge);
+      if (existed) delta.updated.push(edge);
+      else delta.added.push(edge);
     }
-    this.notify(delta);
+    if (delta.added.length > 0 || delta.updated.length > 0) this.notify(delta);
   }
 
   /** Update an existing edge by source/target. O(1). */
   updateEdge(source: AgentId, target: AgentId, updates: Partial<GraphEdge>): void {
     const key = EdgeStorage.edgeKey(source, target);
     const existing = this._data.edges.get(key);
-    const delta: EdgeDelta = { added: [], updated: [], removed: [], replaced: false };
+    // Endpoints identify the map and adjacency entries; attributes cannot
+    // silently re-key them. This matches updateEdges' endpoint handling.
+    const data = { ...updates };
+    delete data.source;
+    delete data.target;
     if (!existing) {
-      const newEdge = { source, target, ...updates } as GraphEdge;
-      this.addEdge(newEdge);
-      delta.added.push(newEdge);
-    } else {
-      Object.assign(existing, updates);
-      delta.updated.push(existing);
+      this.addEdge({ source, target, ...data } as GraphEdge);
+      return;
     }
-    this.notify(delta);
+    Object.assign(existing, data);
+    this.notify({ added: [], updated: [existing], removed: [], replaced: false });
   }
 
   /** Update multiple edges. O(k). */
@@ -264,14 +272,6 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
   }
 
   // -------------------------------------------------------------------------
-  // Override notify() to attach & reset the pending delta
-  // -------------------------------------------------------------------------
-
-  override notify(delta: EdgeDelta): void {
-    super.notify(delta);
-  }
-
-  // -------------------------------------------------------------------------
   // Internal helpers
   // -------------------------------------------------------------------------
 
@@ -285,12 +285,21 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     return set;
   }
 
+  private static ownEdge(edge: GraphEdge): GraphEdge {
+    return {
+      ...edge,
+      source: EdgeStorage.resolveId(edge.source),
+      target: EdgeStorage.resolveId(edge.target),
+    };
+  }
+
   private _bulkInsert(edges: GraphEdge[]): void {
     for (const edge of edges) {
-      const src = EdgeStorage.resolveId(edge.source);
-      const tgt = EdgeStorage.resolveId(edge.target);
+      const owned = EdgeStorage.ownEdge(edge);
+      const src = owned.source as AgentId;
+      const tgt = owned.target as AgentId;
       const key = EdgeStorage.edgeKey(src, tgt);
-      this._data.edges.set(key, edge);
+      this._data.edges.set(key, owned);
       this._adjIndex(src).add(key);
       this._adjIndex(tgt).add(key);
     }

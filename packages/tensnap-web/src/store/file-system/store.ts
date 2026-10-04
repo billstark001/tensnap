@@ -53,6 +53,8 @@ export interface FileSystemState {
 }
 
 export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: string) => create<FileSystemState>((set, get) => {
+  let pendingOperations = 0;
+  let initialization: Promise<void> | null = null;
   // 统一的错误处理辅助函数
   const handleError = (error: unknown) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -74,18 +76,20 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       }
     }
 
+    pendingOperations += 1;
     set({ loading: true, error: null });
     try {
       const result = await operation();
       if (shouldRefresh) {
         await get().refreshCurrentDirectory();
       }
-      set({ loading: false });
       return result;
     } catch (error) {
       handleError(error);
-      set({ loading: false });
       throw error;
+    } finally {
+      pendingOperations -= 1;
+      set({ loading: pendingOperations > 0 });
     }
   };
 
@@ -123,22 +127,31 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
     stats: null,
 
     // Actions
-    initialize: async () => {
-      if (get().initialized) return;
+    initialize: () => {
+      if (initialization) return initialization;
+      if (get().initialized) return Promise.resolve();
 
-      set({ loading: true, error: null });
-      try {
-        await adapter.initialize();
-        set({ initialized: true, loading: false });
-        await Promise.all([
-          get().refreshCurrentDirectory(),
-          get().refreshStats()
-        ]);
-      } catch (error) {
-        handleError(error);
-        set({ loading: false });
-        throw error;
-      }
+      const promise = (async () => {
+        set({ loading: true, error: null });
+        try {
+          await adapter.initialize();
+          set({ initialized: true, loading: pendingOperations > 0 });
+          await Promise.all([
+            get().refreshCurrentDirectory(),
+            get().refreshStats()
+          ]);
+        } catch (error) {
+          handleError(error);
+          set({ loading: pendingOperations > 0 });
+          throw error;
+        }
+      })();
+      initialization = promise;
+      void promise.then(
+        () => { initialization = null; },
+        () => { initialization = null; },
+      );
+      return promise;
     },
 
     cleanup: async () => {
@@ -177,7 +190,9 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
     },
 
     pickFiles: async (options?: FilePickerOptions) => {
-      return await withErrorHandling(() => get().picker!.pickFiles(options));
+      const picker = get().picker;
+      if (!picker) throw new Error('No file picker registered');
+      return withErrorHandling(() => picker.pickFiles(options));
     },
 
     // File operations
@@ -209,9 +224,12 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
 
       try {
         const directoryContents = await adapter.list(currentDirectory);
-        set({ directoryContents });
+        // An older directory request may resolve after navigation or cleanup.
+        if (get().adapter === adapter && get().currentDirectory === currentDirectory) {
+          set({ directoryContents });
+        }
       } catch (error) {
-        handleError(error);
+        if (get().adapter === adapter && get().currentDirectory === currentDirectory) handleError(error);
       }
     },
 
@@ -221,9 +239,9 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
 
       try {
         const stats = await adapter.getStats();
-        set({ stats });
+        if (get().adapter === adapter) set({ stats });
       } catch (error) {
-        handleError(error);
+        if (get().adapter === adapter) handleError(error);
       }
     },
 

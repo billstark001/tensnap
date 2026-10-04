@@ -29,6 +29,7 @@ export interface TransportEventMap {
   message: AnyProtocolMessage;
 }
 
+/** Host-specific connection that emits decoded inbound messages for a RendererSession. */
 export interface ISimulatorTransport {
   readonly connectionId: string;
   readonly transportKind: string;
@@ -50,5 +51,6 @@ export interface ISimulatorTransport {
     handler?: TransportEventHandler<TransportEventMap[K]>,
   ): void;
 
+  /** Throw synchronously when a frame cannot be sent; the session uses this to roll back optimistic changes. */
   send(message: RendererToSimulatorMessage): void;
 }

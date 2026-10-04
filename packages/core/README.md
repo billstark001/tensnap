@@ -16,16 +16,22 @@ core exposes only renderer-owned storage, layout, and view state.
 | `@tensnap/core/environment` | storage classes, layer classes, and renderer-owned environment types |
 | `@tensnap/core/environment/browser` | browser `EnvironmentView` host |
 | `@tensnap/core/parameter` | parameter normalization and numeric range utilities |
-| `@tensnap/core/runtime` | `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
+| `@tensnap/core/runtime` | `RendererClient`, `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
 | `@tensnap/core/snapshot` | recording, keyframes, compressed archive segments, and seekable replay helpers |
 | `@tensnap/core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
 
 ## Shared runtime
 
-`RendererSession` is the only renderer-side transport/session implementation
-used by the browser and headless agent hosts. It applies protocol messages to a
+`RendererSession` is the shared renderer-side protocol session used by the
+browser and headless agent hosts. It applies protocol messages to a
 `Scenario`, preserves state-sync as one UI commit at `state_sync_end`, requests
 missing assets, handles screenshot responses, and owns a `RunController`.
+
+`RendererClient` owns transport connection changes around a session. Its
+`replaceTransport` method keeps the current source active until the candidate
+completes its handshake, then replays buffered candidate messages in order.
+Hosts that already own a `RendererSession` can pass it as `session` to preserve
+their render barrier and event subscriptions.
 
 `RunController` drives one renderer-dispatched action at a time. Bounded runs
 require an explicit `mode: 'bounded'` and finite `maxSteps` (default policy
@@ -44,6 +50,9 @@ continuous action.
 
 `SnapshotRecorder` captures atomic frames at `action_result` (plus explicit
 control/sync frames), with adaptive keyframes and a strict retention budget.
+It coalesces repeated item changes only when no live layer depends on their
+intermediate mutations; dependent trajectories need every source update to
+replay the same path. Layer replacement also separates coalescing batches.
 The live `Snapshot` stays convenient for replay APIs. Use
 `encodeSnapshotArchive(snapshot)` before persistence to create independently
 decodable MessagePack segments; each segment carries a complete base keyframe
@@ -55,10 +64,10 @@ built-in recording behavior. `RecordingOptions.layerCodecImplementations` can
 replace that policy with a concrete host/application codec instead of treating
 the policy label as a serialization implementation.
 
-The web project format is version 2. It puts resolved asset bytes in one
+The web project format is version 3. It puts resolved asset bytes in one
 project-level content-addressed table keyed by protocol hash, so live state,
 recording keyframes, and asset-data frames do not repeat the same data URL.
-Version-0 and version-1 project files remain readable and are upgraded in
+Version-0, version-1, and version-2 project files remain readable and are upgraded in
 memory.
 
 ## Usage
@@ -139,10 +148,12 @@ EnvironmentView  (owns a Leafer instance + resize handling)
   ├─ BackgroundLayer  (z:  0)  ← BackgroundStorage
   ├─ GridLayer        (z: 10)  ← GridEnvStorage
   ├─ EdgeLayer        (z: 20)  ← EdgeStorage + AgentStorage  [drives d3-force]
-  └─ AgentLayer       (z: 30)  ← AgentStorage [+ GridEnvStorage in grid mode]
+  └─ AgentLayer       (z: 40)  ← AgentStorage [+ GridEnvStorage in grid mode]
 ```
 
 Storage classes are reactive data containers. Layers subscribe to them and re-render on change. `EdgeLayer` runs d3-force layout and writes computed positions back to `AgentStorage`.
+`BackgroundStorage` revokes only blob URLs it created from raw image bytes;
+asset URLs passed in from `AssetStore` remain owned by the asset store.
 
 ## Testing & Benchmarks
 
@@ -150,8 +161,8 @@ Storage classes are reactive data containers. Layers subscribe to them and re-re
 # Vitest unit tests
 pnpm test
 
-# Interactive browser benchmarks (Vite dev server)
-pnpm dev:benchmark
+# Browser benchmark profiles (from the repository root)
+pnpm bench:browser:all
 ```
 
 The benchmark app contains three suites:

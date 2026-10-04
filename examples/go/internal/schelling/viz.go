@@ -2,6 +2,7 @@ package schelling
 
 import (
 	"github.com/billstark001/tensnap/packages/tensnap-go/binding"
+	"github.com/billstark001/tensnap/packages/tensnap-go/protocol"
 )
 
 const (
@@ -21,17 +22,52 @@ type VizModel struct {
 	model *Model
 }
 
-func NewVizModel(model *Model) *VizModel {
+func NewVizModel(model *Model, auditHooks ...func(*Model)) *VizModel {
 	viz := &VizModel{model: model}
+	version := "2"
+	var audit func(*Model)
+	if len(auditHooks) > 0 {
+		audit = auditHooks[0]
+	}
+	initFn := func(model *Model) error { model.Initialize(); return nil }
+	stepFn := func(model *Model) (bool, error) { return model.Step() > 0, nil }
+	restoreFn := func(model *Model, saved checkpoint) error {
+		if err := model.restoreCheckpoint(saved); err != nil {
+			return err
+		}
+		viz.Model.SetTick(int64(saved.StepCount))
+		return nil
+	}
+	if audit != nil {
+		originalInit, originalStep, originalRestore := initFn, stepFn, restoreFn
+		initFn = func(model *Model) error {
+			err := originalInit(model)
+			if err == nil {
+				audit(model)
+			}
+			return err
+		}
+		stepFn = func(model *Model) (bool, error) {
+			advanced, err := originalStep(model)
+			if err == nil {
+				audit(model)
+			}
+			return advanced, err
+		}
+		restoreFn = func(model *Model, saved checkpoint) error {
+			err := originalRestore(model, saved)
+			if err == nil {
+				audit(model)
+			}
+			return err
+		}
+	}
 	viz.Model = binding.NewModel(
 		model,
-		binding.WithInit(func(model *Model) error {
-			model.Initialize()
-			return nil
-		}),
-		binding.WithStep(func(model *Model) (bool, error) {
-			return model.Step() > 0, nil
-		}),
+		binding.WithSimulatorInfo[*Model](protocol.SimulatorInfoPayload{Model: protocol.ModelInfo{ID: "examples.schelling", StateSchemaVersion: &version}}),
+		binding.WithTypedCheckpoint((*Model).captureCheckpoint, restoreFn),
+		binding.WithInit(initFn),
+		binding.WithStep(stepFn),
 		binding.WithParams(binding.MustParamsFromTags(
 			func(model *Model) *Config { return &model.Config },
 			binding.TagScope("param"),

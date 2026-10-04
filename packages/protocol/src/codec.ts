@@ -167,7 +167,11 @@ export class ProtocolCodec {
     const normalized = this.mode === 'legacy'
       ? normalizeLegacyMessage(decoded, (warning) => this.onWarning?.(warning), this.legacyStateSyncRequestId)
       : decoded;
-    const canonical = this.validate(stripUndefined(normalized));
+    // Both wire decoders produce defined values (JSON has no undefined and
+    // MessagePack decodes nil as null). Only the legacy adapter can introduce
+    // optional undefined fields while translating aliases. Avoid a deep copy
+    // of every strict item batch after decoding it.
+    const canonical = this.validate(this.mode === 'legacy' ? stripUndefined(normalized) : normalized);
     return normalizeDecodedBinarySemanticMessage(canonical);
   }
 

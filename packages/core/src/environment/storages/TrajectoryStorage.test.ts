@@ -9,6 +9,16 @@ describe('TrajectoryStorage – config items', () => {
     expect(storage.dump().configs).toEqual([{ id: 'a1', color: '#0f0', width: 3 }]);
   });
 
+  it('owns inserted config values and exported snapshots', () => {
+    const storage = new TrajectoryStorage();
+    const config = { id: 'a1', color: '#0f0' };
+    storage.upsertConfig(config);
+    config.color = '#f00';
+    const snapshot = storage.dump();
+    snapshot.configs[0].color = '#00f';
+    expect(storage.dump().configs[0].color).toBe('#0f0');
+  });
+
   it('deleteItems removes config items and trajectories together', () => {
     const storage = new TrajectoryStorage();
     storage.upsertConfigs([{ id: 'a1', color: '#0f0' }]);
@@ -27,6 +37,17 @@ describe('TrajectoryStorage – trajectory updates', () => {
     expect(storage.dump().trajectories).toEqual([
       { id: 'a1', points: [{ x: 1, y: 2, time: 5, color: '#123456' }] },
     ]);
+  });
+
+  it('normalizes fractional retention lengths and owns inserted points', () => {
+    const storage = new TrajectoryStorage({ length: 1.9 });
+    const point = { x: 1, y: 2, time: 0 };
+    storage.appendTrajectoryPoint('a1', point);
+    point.x = 9;
+    expect(storage.dump().trajectories[0].points[0].x).toBe(1);
+    storage.appendTrajectoryPoint('a1', { x: 3, y: 4, time: 1 });
+    expect(storage.dump().config.length).toBe(1);
+    expect(storage.dump().trajectories[0].points).toEqual([{ x: 3, y: 4, time: 1, color: DEFAULT_TRAJECTORY_CONFIG.color }]);
   });
 
   it('setConfig refreshes cached entry limits and widths', () => {

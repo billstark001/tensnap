@@ -37,6 +37,8 @@ export interface SnapshotMetadata {
   label?: string;
   /** Wire semantics used by frames before this snapshot was persisted. */
   protocol_version?: typeof PROTOCOL_VERSION;
+  /** Canonicalized v0.2 frames still use create-as-replace during replay. */
+  legacy_create_replacement?: boolean;
   /** Immutable simulator identity that produced this snapshot. */
   model_identity?: SnapshotModelIdentity;
   /** Optional exact model-state capture for checkpoint-capable simulators. */
@@ -136,4 +138,5 @@ export interface RecordingOptions {
   timestamp?: number;
   modelIdentity?: SnapshotModelIdentity;
   checkpoint?: SnapshotCheckpoint;
+  legacyCreateReplacement?: boolean;
 }

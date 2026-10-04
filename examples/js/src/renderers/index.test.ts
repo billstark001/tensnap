@@ -212,7 +212,7 @@ describe('JS example sessions', () => {
       payload: {
         request_id: 'restore-schelling',
         model_id: 'schelling',
-        state_schema_version: '1',
+        state_schema_version: '2',
         time: 12,
         envs: [{
           id: 'main',
@@ -265,7 +265,7 @@ describe('JS example sessions', () => {
       await session.dispatch({
         type: 'scene_restore',
         payload: {
-          request_id: 'restore-continuation', model_id: 'schelling', state_schema_version: '1',
+          request_id: 'restore-continuation', model_id: 'schelling', state_schema_version: '2',
           checkpoint: (capture.payload as SceneCaptureResultPayload).checkpoint, time: 3,
         },
       });

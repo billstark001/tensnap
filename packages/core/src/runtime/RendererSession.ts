@@ -13,10 +13,9 @@ import type {
   SimulatorToRendererMessage,
   StateSyncBeginPayload,
   StateSyncEndPayload,
-  StateSyncRequest,
 } from '@tensnap/protocol';
 import { PROTOCOL_VERSION, ProtocolValidationError } from '@tensnap/protocol';
-import { Scenario } from '../scenario';
+import { Scenario, createStateSyncRequest, type StateSyncInventory } from '../scenario';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import type { DiagnosticEvent } from '../diagnostics';
 import { LazyEventTarget } from '../utils/LazyEventTarget';
@@ -253,6 +252,7 @@ export class RendererSession extends LazyEventTarget {
     const onRunStateChange = options.run?.onStateChange;
     const onRunStart = options.run?.onRunStart;
     const onRunStop = options.run?.onRunStop;
+    const onActionRendered = options.run?.onActionRendered;
     this.run = new RunController({
       ...options.run,
       scenario: this.scenario,
@@ -277,6 +277,10 @@ export class RendererSession extends LazyEventTarget {
         if (!status.spec.record) return;
         const snapshot = this.recorder.stop();
         if (snapshot) this.dispatch('recording:complete', { snapshot, reason: 'run' } satisfies RendererSessionRecordingDetail);
+      },
+      onActionRendered: (payload) => {
+        this.dispatch('action:rendered', payload);
+        onActionRendered?.(payload);
       },
     });
   }
@@ -349,6 +353,7 @@ export class RendererSession extends LazyEventTarget {
     this.updateIdentityStatus(this.announcedInfo);
   }
 
+  /** Subscribe to a decoded transport; the caller retains ownership of connection and destruction. */
   attachTransport(transport: ISimulatorTransport): void {
     if (this.transport === transport) return;
     this.detachTransport();
@@ -362,6 +367,7 @@ export class RendererSession extends LazyEventTarget {
     transport.on('codec-warning', this.transportCodecWarningHandler);
   }
 
+  /** Stop observing the current transport and cancel any in-flight protocol transaction. */
   detachTransport(): void {
     const transport = this.transport;
     if (transport) {
@@ -405,17 +411,13 @@ export class RendererSession extends LazyEventTarget {
     this.dispatch('action:metrics', { metrics: null } satisfies RendererSessionActionMetricsDetail);
   }
 
-  requestStateSync(requestId = createRequestId('sync'), request?: StateSyncRequest): string {
+  /** Start a state sync using this connection's identity. Omit inventory to advertise the live Scenario. */
+  requestStateSync(requestId = createRequestId('sync'), inventory?: StateSyncInventory): string {
     const info = this.requireCompatibleSimulator(true);
     this.assertNoActiveRequest();
-    const payload = request ?? this.scenario.createStateSyncMessage(
-      info.model.id,
-      requestId,
-      this.stateSyncIdentity?.instance_id,
-    ).payload;
-    if (payload.request_id !== requestId || (!this.legacySession && payload.model_id !== info.model.id)) {
-      throw new Error('state_sync identity must match the active simulator session.');
-    }
+    const payload = inventory === undefined
+      ? this.scenario.createStateSyncMessage(info.model.id, requestId, this.stateSyncIdentity?.instance_id).payload
+      : createStateSyncRequest(info.model.id, requestId, this.stateSyncIdentity?.instance_id, inventory);
     if (!this.run.requestStateSync(requestId)) {
       throw new Error('Cannot request state sync while another state sync is active.');
     }
@@ -559,6 +561,7 @@ export class RendererSession extends LazyEventTarget {
   private beginRecording(options: RecordingOptions, reason: RendererSessionRecordingDetail['reason']): Snapshot {
     const snapshot = this.recorder.start({
       ...options,
+      legacyCreateReplacement: this.legacySession,
       ...(options.modelIdentity === undefined && this.modelIdentity !== null ? { modelIdentity: this.modelIdentity } : {}),
     });
     this.dispatch('recording:start', { snapshot, reason } satisfies RendererSessionRecordingDetail);
@@ -676,6 +679,7 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     this.legacySession = true;
+    this.scenario.enableLegacyMutationRules();
     this.identityStatusState = this.expectedIdentity === null && this.committedInfo === null
       ? 'matching'
       : 'model-mismatch';
@@ -1049,7 +1053,10 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private createStagingScenario(): Scenario {
-    const staging = new Scenario({ layerRegistry: this.scenario.layerRegistry });
+    const staging = new Scenario({
+      layerRegistry: this.scenario.layerRegistry,
+      mutationRules: this.legacySession ? 'legacy' : 'strict',
+    });
     staging.addEventListener('diagnostic', this.scenarioDiagnosticHandler);
     return staging;
   }

@@ -1,6 +1,7 @@
 export type { ActionRunMetricSnapshot } from './ActionRunMetrics';
 export * from './PipelineRuntime';
 export * from './RendererSession';
+export * from './RendererClient';
 export * from './RunController';
 export * from './ScenarioConditionScope';
 export { TaskQueue } from './TaskQueue';

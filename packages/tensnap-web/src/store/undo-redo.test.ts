@@ -62,6 +62,18 @@ describe('project command history', () => {
     history.getState().markClean();
     history.getState().recordApplied(command('too large', target, 2, 3, 3));
     expect(history.getState().isDirty()).toBe(true);
-    expect(history.getState().past.map((item) => item.label)).not.toContain('too large');
+    expect(history.getState().past).toEqual([]);
+    expect(history.getState().retainedBytes).toBe(0);
+    expect(await history.getState().undo()).toBe(false);
+  });
+
+  it('rejects invalid budgets and command sizes before changing the target', async () => {
+    expect(() => createHistoryStore({ maxCommands: 0 })).toThrow(/maxCommands/);
+    expect(() => createHistoryStore({ maxBytes: Number.POSITIVE_INFINITY })).toThrow(/maxBytes/);
+    const target = { value: 0 };
+    const history = createHistoryStore();
+    expect(await history.getState().execute(command('invalid', target, 0, 1, Number.NaN))).toBe(false);
+    expect(target.value).toBe(0);
+    expect(history.getState().past).toEqual([]);
   });
 });

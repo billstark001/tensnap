@@ -153,33 +153,21 @@ class MaxRectsPacker {
   }
 
   private splitFreeNodeGuillotine(freeNode: FreeRectangle, usedWidth: number, usedHeight: number, placed: PlacedRectangle): void {
-    // 移除已使用的节点
-    const index = this.freeRectangles.indexOf(freeNode);
-    if (index !== -1) {
-      this.freeRectangles.splice(index, 1);
-    }
-
-    // 使用Guillotine分割方法：对所有现有的空闲矩形进行分割
-    // 这样可以更好地处理矩形的放置，避免重叠
+    // Partition once instead of repeatedly searching and splicing the free
+    // list as it grows. Preserve survivor and split order.
+    const survivors: FreeRectangle[] = [];
     const newFreeRects: FreeRectangle[] = [];
-
-    // 对每个空闲矩形检查是否与新放置的矩形相交
-    for (const freeRect of [...this.freeRectangles]) {
+    for (const freeRect of this.freeRectangles) {
+      if (freeRect === freeNode) continue;
       if (this.intersects(freeRect, placed, usedWidth, usedHeight)) {
-        // 如果相交，将其分割成最多4个不相交的矩形
         const splits = this.splitRectByIntersection(freeRect, placed, usedWidth, usedHeight);
-        newFreeRects.push(...splits);
-        
-        // 从原列表中移除这个矩形
-        const idx = this.freeRectangles.indexOf(freeRect);
-        if (idx !== -1) {
-          this.freeRectangles.splice(idx, 1);
-        }
+        for (const split of splits) newFreeRects.push(split);
+      } else {
+        survivors.push(freeRect);
       }
     }
-
-    // 添加新分割的矩形
-    this.freeRectangles.push(...newFreeRects);
+    this.freeRectangles = survivors;
+    for (const split of newFreeRects) this.freeRectangles.push(split);
 
     // 添加原节点的剩余空间
     // 右侧剩余空间
@@ -315,8 +303,12 @@ function calculateSuggestedDimensions(
   const height = targetAspectRatio ? Math.ceil(Math.sqrt(totalArea / targetAspectRatio)) : 60;
   const width = targetAspectRatio ? Math.ceil(height * targetAspectRatio) : 80;
 
-  const maxWidth = Math.max(...rectangles.map(r => r.width));
-  const maxHeight = Math.max(...rectangles.map(r => r.height));
+  let maxWidth = 0;
+  let maxHeight = 0;
+  for (const rectangle of rectangles) {
+    maxWidth = Math.max(maxWidth, rectangle.width);
+    maxHeight = Math.max(maxHeight, rectangle.height);
+  }
 
   return {
     width: Math.max(width, maxWidth + padding * 2),
@@ -328,7 +320,7 @@ function normalizeOptions(rectangles: Rectangle[], options: PackingOptions): Nor
   const suggested = calculateSuggestedDimensions(
     rectangles,
     options.targetAspectRatio,
-    options.padding || 10
+    options.padding ?? 10
   );
 
   const [paddingBorderY = 0, paddingBorderX = 0] = Array.isArray(options.paddingBorder)
@@ -341,7 +333,7 @@ function normalizeOptions(rectangles: Rectangle[], options: PackingOptions): Nor
     targetAspectRatio: options.targetAspectRatio,
     groupByType: options.groupByType ?? true,
     preservePosition: options.preservePosition ?? false,
-    padding: options.padding || 10,
+    padding: options.padding ?? 10,
     paddingBorderX,
     paddingBorderY,
     inPlace: options.inPlace ?? false,
@@ -371,8 +363,12 @@ export function calculateBounds(
 ): { width: number; height: number } {
   if (rectangles.length === 0) return { width: paddingBorderX, height: paddingBorderY };
 
-  const maxX = Math.max(...rectangles.map(r => r.left + r.width));
-  const maxY = Math.max(...rectangles.map(r => r.top + r.height));
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const rectangle of rectangles) {
+    maxX = Math.max(maxX, rectangle.left + rectangle.width);
+    maxY = Math.max(maxY, rectangle.top + rectangle.height);
+  }
 
   return { width: maxX + paddingBorderX, height: maxY + paddingBorderY };
 }

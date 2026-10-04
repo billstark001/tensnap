@@ -28,6 +28,8 @@ import type { AssetSnapshot, AssetStoreListener, ResolvedAsset } from './types';
 export class AssetStore {
   /** Known metadata (including assets whose data hasn't arrived yet). */
   private readonly _meta = new Map<AssetId, AssetMeta>();
+  /** IDs with an authoritative metadata announcement from the simulator. */
+  private readonly _announced = new Set<AssetId>();
   /** Fully resolved assets (data present). */
   private readonly _resolved = new Map<AssetId, ResolvedAsset>();
   /** Active blob-URLs to revoke on removal. */
@@ -60,18 +62,20 @@ export class AssetStore {
    * @returns true if new data is needed (asset is missing or hash changed)
    */
   receiveMeta(meta: AssetMeta): boolean {
+    this._announced.add(meta.id);
     const existing = this._resolved.get(meta.id);
-    if (existing?.hash === meta.hash) {
+    if (existing?.hash === meta.hash && existing.mime === meta.mime) {
       // Already up-to-date — just refresh metadata label etc.
-      this._meta.set(meta.id, meta);
+      this._meta.set(meta.id, { ...meta });
       return false;
     }
+    this._meta.set(meta.id, { ...meta });
     // Invalidate stale resolved entry
     if (existing) {
       this._revokeBlobUrl(meta.id);
       this._resolved.delete(meta.id);
+      this._notify(meta.id, null);
     }
-    this._meta.set(meta.id, meta);
     return true;
   }
 
@@ -90,7 +94,7 @@ export class AssetStore {
 
   /** Map of id → currently-held hash for all *resolved* assets (for asset_sync). */
   getHeldHashes(): Record<AssetId, string> {
-    const result: Record<AssetId, string> = {};
+    const result: Record<AssetId, string> = Object.create(null);
     for (const [id, asset] of this._resolved) {
       result[id] = asset.hash;
     }
@@ -107,26 +111,27 @@ export class AssetStore {
    * For text/* types the data is decoded to a string.
    * String inputs may be either bare base64 or explicit base64 data URLs.
    * For all other types the raw Uint8Array is stored.
+   * A payload whose hash conflicts with announced metadata is ignored.
    */
   async receiveData(id: AssetId, hash: string, mime: string, raw: string | Uint8Array): Promise<void> {
+    const announced = this._meta.get(id);
+    if (this._announced.has(id) && announced?.hash !== hash) return;
     // Decode JSON-side base64/data-URL strings into bytes before resolving by mime.
     const bytes: Uint8Array =
       typeof raw === 'string' ? decodeBinaryString(raw).bytes : raw;
 
     let url: string | Uint8Array;
     let source: string | Uint8Array | undefined;
+    let newBlobUrl: string | undefined;
 
     if (mime === 'image/svg+xml') {
       source = new TextDecoder().decode(bytes);
       url = encodeBytesAsDataUrl(bytes, mime);
     } else if (mime.startsWith('image/') || mime === 'application/octet-stream') {
-      const oldUrl = this._blobUrls.get(id);
-      if (oldUrl) URL.revokeObjectURL(oldUrl);
       const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
       const blob = new Blob([buf as ArrayBuffer], { type: mime });
-      const blobUrl = URL.createObjectURL(blob);
-      this._blobUrls.set(id, blobUrl);
-      url = blobUrl;
+      newBlobUrl = URL.createObjectURL(blob);
+      url = newBlobUrl;
       source = bytes.slice();
     } else if (mime.startsWith('text/') || mime === 'application/json') {
       url = new TextDecoder().decode(bytes);
@@ -136,8 +141,13 @@ export class AssetStore {
       source = bytes.slice();
     }
 
+    // Keep the previous resolved asset usable if decoding or URL creation
+    // failed; replace its URL only once the new representation is ready.
+    this._revokeBlobUrl(id);
+    if (newBlobUrl !== undefined) this._blobUrls.set(id, newBlobUrl);
+
     // Update or create metadata if we didn't receive asset_metadata first
-    const meta: AssetMeta = this._meta.get(id) ?? { id, hash, mime, size: bytes.byteLength };
+    const meta: AssetMeta = { ...(this._meta.get(id) ?? { id, hash, mime, size: bytes.byteLength }) };
     meta.hash = hash;
     meta.mime = mime;
     this._meta.set(id, meta);
@@ -155,6 +165,7 @@ export class AssetStore {
     this._revokeBlobUrl(id);
     this._resolved.delete(id);
     this._meta.delete(id);
+    this._announced.delete(id);
     this._notify(id, null);
   }
 

@@ -98,7 +98,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     const { config, configs, trajectories } = this._data;
     return {
       config: { ...config },
-      configs: [...configs.values()],
+      configs: [...configs.values()].map((config) => ({ ...config })),
       trajectories: [...trajectories.entries()].map(([id, entry]) => {
         const segments = entry.segments
           .map((segment) => this.materializePoints(segment, entry.defaultColor))
@@ -138,7 +138,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
 
   upsertConfig(config: TrajectoryItem): void {
     const created = !this._data.configs.has(config.id);
-    this._data.configs.set(config.id, config);
+    this._data.configs.set(config.id, { ...config });
     this.refreshEntries([config.id]);
     this.notify({ created: created ? [config.id] : [], updated: created ? [] : [config.id], appended: [], deleted: [] });
   }
@@ -152,7 +152,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       } else {
         created.push(config.id);
       }
-      this._data.configs.set(config.id, config);
+      this._data.configs.set(config.id, { ...config });
     }
     this.refreshEntries(configs.map((config) => config.id));
     if (created.length > 0 || updated.length > 0) {
@@ -263,12 +263,13 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       startedSegment = true;
     }
 
-    const append = entry.activeSegment.push(point);
+    const storedPoint = { ...point };
+    const append = entry.activeSegment.push(storedPoint);
     this.notify({
       created: created ? [id] : [],
       updated: [],
       appended: created ? [] : [id],
-      appendDeltas: [{ id, point, evicted: append.evicted, startedSegment }],
+      appendDeltas: [{ id, point: storedPoint, evicted: append.evicted, startedSegment }],
       deleted: [],
     });
   }
@@ -350,7 +351,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     const segment = new RingBuffer<TrajectoryPoint>(length);
     const start = length > 0 ? Math.max(0, points.length - length) : 0;
     for (let i = start; i < points.length; i += 1) {
-      segment.push(points[i]);
+      segment.push({ ...points[i] });
     }
     return segment;
   }

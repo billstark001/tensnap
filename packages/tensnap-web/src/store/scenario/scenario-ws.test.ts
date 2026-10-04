@@ -13,7 +13,7 @@ import type {
 } from '@tensnap/protocol';
 import { describe, expect, it } from 'vitest';
 import { createScenarioStore } from './store';
-import { registerEventHandlers, unregisterEventHandlers } from './scenario-ws';
+import { createTransportStore } from '../transport';
 
 class MockTransport implements ISimulatorTransport {
   readonly connectionId = 'mock://transport';
@@ -21,6 +21,7 @@ class MockTransport implements ISimulatorTransport {
   readonly encoding: ProtocolEncoding = 'json';
   readonly connectionState: TransportConnectionState = 'open';
   readonly isConnected = true;
+  readonly sent: RendererToSimulatorMessage[] = [];
 
   private handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
 
@@ -67,8 +68,7 @@ class MockTransport implements ISimulatorTransport {
   }
 
   send(message: RendererToSimulatorMessage): void {
-    void message;
-    // no-op for tests
+    this.sent.push(message);
   }
 
   emitMessage(message: SimulatorToRendererMessage): void {
@@ -92,10 +92,11 @@ class MockTransport implements ISimulatorTransport {
 }
 
 describe('scenario ws event handlers', () => {
-  it('routes simulator action errors into project diagnostics', () => {
+  it('routes simulator action errors into project diagnostics', async () => {
     const useStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useStore);
     const transport = new MockTransport();
-    registerEventHandlers(transport, useStore);
+    await useTransportStore.getState().initialize(transport);
     transport.emitMessage({
       type: 'simulator_info',
       payload: {
@@ -125,13 +126,14 @@ describe('scenario ws event handlers', () => {
         message: 'Bool(::ElFarolModel)',
       }),
     ]);
-    unregisterEventHandlers(transport);
+    useTransportStore.getState().destroy();
   });
 
-  it('routes validation warnings and transport errors into project diagnostics', () => {
+  it('routes validation warnings and transport errors into project diagnostics', async () => {
     const useStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useStore);
     const transport = new MockTransport();
-    registerEventHandlers(transport, useStore);
+    await useTransportStore.getState().initialize(transport);
 
     transport.emitValidationWarning({
       level: 'warning',
@@ -145,15 +147,14 @@ describe('scenario ws event handlers', () => {
       expect.objectContaining({ severity: 'warning', code: 'validation_warning', message: 'invalid monitor payload' }),
       expect.objectContaining({ severity: 'error', code: 'transport_error', message: 'invalid protocol message' }),
     ]));
-    unregisterEventHandlers(transport);
+    useTransportStore.getState().destroy();
   });
 
-  it('keeps applying inbound messages while sync is only requested', () => {
+  it('keeps applying inbound messages while sync is only requested', async () => {
     const useStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useStore);
     const transport = new MockTransport();
-
-    useStore.getState().prepareStateSync('sync-1');
-    registerEventHandlers(transport, useStore);
+    await useTransportStore.getState().initialize(transport);
     transport.emitMessage({
       type: 'simulator_info',
       payload: {
@@ -172,16 +173,14 @@ describe('scenario ws event handlers', () => {
 
     expect(useStore.getState().environments.has('env-1')).toBe(true);
 
-    unregisterEventHandlers(transport);
+    useTransportStore.getState().destroy();
   });
 
   it('publishes a state-sync replay to the UI only after its end boundary', async () => {
     const useStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useStore);
     const transport = new MockTransport();
-    const before = useStore.getState().environmentUpdateTrigger.value;
-
-    useStore.getState().prepareStateSync('sync-1');
-    registerEventHandlers(transport, useStore);
+    await useTransportStore.getState().initialize(transport);
     transport.emitMessage({
       type: 'simulator_info',
       payload: {
@@ -192,10 +191,13 @@ describe('scenario ws event handlers', () => {
         capabilities: [],
       },
     });
-    useStore.getState().session.requestStateSync('sync-1');
+    const request = transport.sent.find((message) => message.type === 'state_sync');
+    expect(request).toBeDefined();
+    const requestId = (request!.payload as { request_id: string }).request_id;
+    const before = useStore.getState().environmentUpdateTrigger.value;
     transport.emitMessage({
       type: 'state_sync_begin',
-      payload: { request_id: 'sync-1', model_id: 'ws-model', instance_id: 'ws-instance', mode: 'replace' },
+      payload: { request_id: requestId, model_id: 'ws-model', instance_id: 'ws-instance', mode: 'replace' },
     });
     transport.emitMessage({ type: 'env_create', payload: { id: 'env-1', type: '2d' } });
     await Promise.resolve();
@@ -203,11 +205,49 @@ describe('scenario ws event handlers', () => {
     expect(useStore.getState().environments.has('env-1')).toBe(false);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before);
 
-    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: 'sync-1', state_revision: '1' } });
+    transport.emitMessage({ type: 'state_sync_end', payload: { request_id: requestId, state_revision: '1' } });
     await Promise.resolve();
 
     expect(useStore.getState().environments.has('env-1')).toBe(true);
     expect(useStore.getState().environmentUpdateTrigger.value).toBe(before + 1);
-    unregisterEventHandlers(transport);
+    useTransportStore.getState().destroy();
+  });
+
+  it('drops a screenshot captured for a connection that was replaced', async () => {
+    const useStore = createScenarioStore();
+    const useTransportStore = createTransportStore(useStore);
+    const first = new MockTransport();
+    await useTransportStore.getState().initialize(first);
+    first.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3', binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' }, instance_id: 'ws-instance', capabilities: [],
+      },
+    });
+    let finishCapture!: (blob: Blob) => void;
+    useStore.getState().registerScreenshotCapture('env-1', () => new Promise<Blob>((resolve) => {
+      finishCapture = resolve;
+    }));
+    first.emitMessage({ type: 'screenshot_request', payload: {
+      request_id: 'screen-1', env_id: 'env-1', format: 'png',
+    } });
+
+    const second = new MockTransport();
+    await useTransportStore.getState().initialize(second);
+    second.emitMessage({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3', binding: { name: 'ws-test', version: '0.3.0' },
+        model: { id: 'ws-model' }, instance_id: 'ws-instance-2', capabilities: [],
+      },
+    });
+    expect(useStore.getState().session.isConnected).toBe(true);
+    finishCapture(new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(second.sent.some((message) => message.type === 'screenshot_response')).toBe(false);
+    useTransportStore.getState().destroy();
   });
 });

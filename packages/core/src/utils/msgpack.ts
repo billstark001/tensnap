@@ -1,5 +1,6 @@
 /**
- * Checks for all cases in an object that cannot be correctly handled by @msgpack/msgpack
+ * Warn about values that @msgpack/msgpack cannot safely encode. Throw for
+ * object keys that its decoder always rejects, preventing unreadable saves.
  * @param obj - The object to check
  * @param path - The current property path (used internally for recursion)
  * @param seen - Used to detect circular references (used internally for recursion)
@@ -72,11 +73,15 @@ export function checkMsgpackCompatibility(
       checkMsgpackCompatibility(item, `${path}[${i}]`, seen);
     });
   } else if (typeof obj === 'object' && obj !== null) {
+    if (Object.prototype.hasOwnProperty.call(obj, '__proto__')) {
+      throw new Error(`MessagePack cannot save the __proto__ key at ${path}; use JSON format.`);
+    }
     for (const key in obj) {
       if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
       checkMsgpackCompatibility(obj[key], `${path}.${key}`, seen);
     }
   }
+  if (typeof obj === 'object' && obj !== null) seen.delete(obj);
 }
 
 
@@ -97,8 +102,8 @@ export function uint8ArrayToArrayBuffer(uint8Array: Uint8Array): ArrayBuffer {
   const { buffer, byteOffset, byteLength } = uint8Array;
 
   // Check if Uint8Array covers the entire buffer
-  if (byteOffset === 0 && byteLength === buffer.byteLength) {
-    return buffer as ArrayBuffer;
+  if (buffer instanceof ArrayBuffer && byteOffset === 0 && byteLength === buffer.byteLength) {
+    return buffer;
   }
 
   // Otherwise, allocate a new ArrayBuffer and copy the relevant bytes

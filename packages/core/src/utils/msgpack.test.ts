@@ -24,6 +24,16 @@ describe('msgpack utils', () => {
     expect(Array.from(new Uint8Array(buffer))).toEqual([1, 2]);
   });
 
+  it('copies a full SharedArrayBuffer view into an ordinary ArrayBuffer', () => {
+    const shared = new SharedArrayBuffer(3);
+    const bytes = new Uint8Array(shared);
+    bytes.set([1, 2, 3]);
+    const buffer = uint8ArrayToArrayBuffer(bytes);
+    expect(buffer).toBeInstanceOf(ArrayBuffer);
+    expect(buffer).not.toBe(shared);
+    expect(Array.from(new Uint8Array(buffer))).toEqual([1, 2, 3]);
+  });
+
   it('converts ArrayBuffer payloads to JSON-safe latin1 strings', () => {
     const buffer = new Uint8Array([0, 65, 255]).buffer;
     expect(JSON.parse(arrayBufferToJsonString(buffer))).toBe('\u0000Aÿ');

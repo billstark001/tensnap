@@ -4,11 +4,11 @@
  * Unified agent rendering layer. Supports:
  *   Grid mode  — x/y are grid-cell coordinates; GridEnvStorage supplies cell
  *                count; heading rotates the shape.
- *   Graph mode — x/y are canvas-pixel coordinates (managed by EdgeLayer's
+ *   Graph mode — x/y are scene coordinates (managed by EdgeLayer's
  *                d3-force simulation); drag interaction via config callbacks.
  *
  * Each agent: one Group containing a shape + optional label.
- * Trajectories live in a sub-group rendered below agents.
+ * Trajectories are rendered by a separate TrajectoryLayer below agents.
  *
  * Default z-index: 40
  * Registered storages: AgentStorage (required), GridEnvStorage (optional)
@@ -40,7 +40,7 @@ import {
   isBuiltinAgentIcon,
 } from '../types';
 import type { AgentIcon, AgentId, BuiltinAgentIcon } from '@tensnap/protocol/layers';
-import { getCoordOffsetValue } from '../utils';
+import { getCoordOffsetValue, resolveAgentSize } from '../utils';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';
 
 // #region Constants & Defaults
@@ -201,8 +201,8 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     let minX = Infinity, maxX = -Infinity;
     let minY = Infinity, maxY = -Infinity;
 
-    for (const { x = 0, y = 0, size = 1 } of this._cachedAgents.values()) {
-      const h = size / 2;
+    for (const { x = 0, y = 0, size } of this._cachedAgents.values()) {
+      const h = resolveAgentSize(size) / 2;
       if (x - h < minX) minX = x - h;
       if (x + h > maxX) maxX = x + h;
       if (y - h < minY) minY = y - h;
@@ -266,7 +266,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   // #region Coordinate Transform
 
-  /** Cell-center offset in grid mode: 0.5 for 'int', 0 for 'center'. */
+  /** Cell-center offset: 0.5 for integer coordinates, 0 for float coordinates. */
   private get _posOffset(): number {
     return getCoordOffsetValue(this._cfg.coordOffset);
   }
@@ -277,8 +277,14 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       x: (agent.x ?? 0) + off,
       y: (agent.y ?? 0) + off,
       rotation: agent.heading ? (agent.heading * 180) / Math.PI : 0,
-      size: agent.size ?? 1,
+      size: resolveAgentSize(agent.size),
     };
+  }
+
+  /** Avoid entering Leafer's attribute setter when a projected item did not move. */
+  private _setGroupTransform(group: Group, coords: { x: number; y: number; rotation: number }): void {
+    if (group.x === coords.x && group.y === coords.y && group.rotation === coords.rotation) return;
+    group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
   }
 
   private _createAgent(agent: AgentRenderState): void {
@@ -313,6 +319,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? DEFAULT_AGENT_COLOR;
     const assetUrl = this._resolveIconAssetUrl(icon);
+    const sizeChanged = entry.size !== coords.size;
 
     const shapeTypeChanged = entry.icon !== icon || entry.assetUrl !== assetUrl;
     if (shapeTypeChanged) {
@@ -327,34 +334,38 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       entry.size = coords.size;
       entry.color = color;
     } else {
-      // Batch shape appearance changes into a single set() call.
-      const shapeUpdates: Record<string, unknown> = {};
-      if (entry.size !== coords.size) {
-        if (isBuiltinAgentIcon(icon)) {
-          Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
-        } else {
-          Object.assign(shapeUpdates, SHAPE_CONFIGS.square(coords.size));
+      const colorChanged = entry.color !== color;
+      if (sizeChanged || colorChanged) {
+        // Most item updates only move an agent; allocate and write shape attrs
+        // only when its appearance actually changes.
+        const shapeUpdates: Record<string, unknown> = {};
+        if (sizeChanged) {
+          if (isBuiltinAgentIcon(icon)) {
+            Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
+          } else {
+            Object.assign(shapeUpdates, SHAPE_CONFIGS.square(coords.size));
+          }
+          entry.size = coords.size;
         }
-        entry.size = coords.size;
-      }
-      if (entry.color !== color) {
-        if (entry.assetUrl) {
-          shapeUpdates.fill = {
-            type: 'image',
-            mode: 'cover',
-            url: entry.assetUrl,
-          };
-        } else {
-          shapeUpdates.fill = color;
+        if (colorChanged) {
+          if (entry.assetUrl) {
+            shapeUpdates.fill = {
+              type: 'image',
+              mode: 'cover',
+              url: entry.assetUrl,
+            };
+          } else {
+            shapeUpdates.fill = color;
+          }
+          entry.color = color;
         }
-        entry.color = color;
+        entry.shape.set(shapeUpdates);
       }
-      if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
     }
 
     this._updateInspectionHighlight(entry, agent.id, coords.size);
 
-    if (entry.label) {
+    if (entry.label && sizeChanged) {
       const fs = Math.max(8, coords.size * 0.6);
       entry.label.set({
         text: String(agent.id),
@@ -366,7 +377,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       });
     }
 
-    entry.group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
+    this._setGroupTransform(entry.group, coords);
   }
 
   private _resolveIconAssetUrl(icon: AgentIcon | undefined): string | null {

@@ -520,6 +520,9 @@ export class SchellingModel {
   }
 
   captureCheckpointData(): ProtocolValue {
+    // Optional exact replay support for the publication experiment. A simpler
+    // scene restore can recover visible agents and time, but not necessarily
+    // the RNG and cache order needed for the same future trajectory.
     return {
       config: this.getConfig() as unknown as Record<string, ProtocolValue>,
       time: this.timeStep,
@@ -530,6 +533,7 @@ export class SchellingModel {
       lastMoved: this.lastMoved,
     };
   }
+
 
   restoreCheckpointData(data: unknown): void {
     if (typeof data !== 'object' || data === null || Array.isArray(data)) {
@@ -560,50 +564,43 @@ export class SchellingModel {
       || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
       throw new Error('Schelling checkpoint config requires gridWidth and gridHeight.');
     }
-    if (rngState !== undefined && (!Number.isSafeInteger(rngState) || (rngState as number) < 0 || (rngState as number) > 0xffffffff)) {
+    if (!Number.isSafeInteger(rngState) || (rngState as number) < 0 || (rngState as number) > 0xffffffff) {
       throw new Error('Schelling checkpoint RNG state must be an unsigned 32-bit integer.');
     }
-    if (lastMoved !== undefined && (!Number.isSafeInteger(lastMoved) || (lastMoved as number) < 0)) {
+    if (!Number.isSafeInteger(lastMoved) || (lastMoved as number) < 0) {
       throw new Error('Schelling checkpoint lastMoved must be a nonnegative integer.');
     }
-    if (emptySpots !== undefined && (!Array.isArray(emptySpots)
+    if (!Array.isArray(emptySpots)
       || emptySpots.some((position) => !Number.isSafeInteger(position) || position < 0 || position >= width * height)
-      || new Set(emptySpots).size !== emptySpots.length)) {
+      || new Set(emptySpots).size !== emptySpots.length) {
       throw new Error('Schelling checkpoint empty spots must be unique in-bounds positions.');
     }
-    if (unsatisfiedIds !== undefined && (!Array.isArray(unsatisfiedIds)
+    if (!Array.isArray(unsatisfiedIds)
       || unsatisfiedIds.some((id) => typeof id !== 'string')
-      || new Set(unsatisfiedIds).size !== unsatisfiedIds.length)) {
+      || new Set(unsatisfiedIds).size !== unsatisfiedIds.length) {
       throw new Error('Schelling checkpoint unsatisfied IDs must be unique strings.');
     }
     this.validateRestoredAgents(records, { width, height });
     const occupied = new Set(records.map((agent) => (agent.y as number) * width + (agent.x as number)));
-    if (emptySpots !== undefined && (emptySpots.length + records.length !== width * height
-      || emptySpots.some((position) => occupied.has(position)))) {
+    if (emptySpots.length + records.length !== width * height
+      || emptySpots.some((position) => occupied.has(position))) {
       throw new Error('Schelling checkpoint empty spots must complement the occupied positions.');
-    }
-    const agentIds = new Set(records.map((agent) => agent.id));
-    if (unsatisfiedIds !== undefined && unsatisfiedIds.some((id) => !agentIds.has(id))) {
-      throw new Error('Schelling checkpoint unsatisfied IDs must refer to agents.');
     }
     this.updateConfig(configPatch as Partial<SchellingConfig>);
     this.prepareRestoredAgents();
     for (const agent of records) this.restoreAgent(agent);
     this.restoreTime(time);
     this.finishRestoredAgents();
-    if (emptySpots !== undefined) {
-      this.emptySpots = [...emptySpots];
-      this.emptySpotIndexMap = new Map(this.emptySpots.map((position, index) => [position, index]));
+    this.emptySpots = [...emptySpots];
+    this.emptySpotIndexMap = new Map(this.emptySpots.map((position, index) => [position, index]));
+    const unsatisfiedById = new Map([...this.unsatisfiedSet].map((agent) => [agent.id, agent]));
+    if (unsatisfiedById.size !== unsatisfiedIds.length
+      || !unsatisfiedIds.every((id) => unsatisfiedById.has(id))) {
+      throw new Error('Schelling checkpoint unsatisfied IDs do not match the restored agents.');
     }
-    if (unsatisfiedIds !== undefined) {
-      const unsatisfiedById = new Map([...this.unsatisfiedSet].map((agent) => [agent.id, agent]));
-      if (unsatisfiedById.size === unsatisfiedIds.length
-        && unsatisfiedIds.every((id) => unsatisfiedById.has(id))) {
-        this.unsatisfiedSet = new Set(unsatisfiedIds.map((id) => unsatisfiedById.get(id)!));
-      }
-    }
-    if (rngState !== undefined) this.rngState = rngState as number;
-    if (lastMoved !== undefined) this.lastMoved = lastMoved as number;
+    this.unsatisfiedSet = new Set(unsatisfiedIds.map((id) => unsatisfiedById.get(id)!));
+    this.rngState = rngState as number;
+    this.lastMoved = lastMoved as number;
   }
 
   getStatistics() {

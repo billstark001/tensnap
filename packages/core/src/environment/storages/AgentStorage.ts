@@ -26,9 +26,9 @@ export interface AgentRenderState {
   size?: number;
 
   // ---- Coordinates ----
-  /** X coordinate.  For graph mode: canvas pixels.  For grid mode: grid column. */
+  /** X coordinate. For graph mode: scene units. For grid mode: grid column. */
   x?: number;
-  /** Y coordinate.  For graph mode: canvas pixels.  For grid mode: grid row. */
+  /** Y coordinate. For graph mode: scene units. For grid mode: grid row. */
   y?: number;
   /** d3-force: velocity x (graph mode). */
   vx?: number;
@@ -48,11 +48,11 @@ export interface AgentRenderState {
 
 
 export type AgentDelta = {
-  /** Newly added or updated agents. */
+  /** Newly added agents. */
   added: AgentRenderState[];
-  /** Agents that were removed (snapshot at removal time). */
+  /** Updated agents. */
   updated: AgentRenderState[];
-  /** Agents that were removed (snapshot at removal time). */
+  /** IDs of removed agents. */
   removed: AgentId[];
   /**
    * True when the entire agent set was replaced (setAgents / clearAgents).
@@ -87,6 +87,12 @@ export interface AgentStorageSnapshot {
   agents: AgentRenderState[];
 }
 
+function ownAgentData<T extends Partial<AgentRenderState>>(agent: T): T {
+  const owned = { ...agent };
+  if (agent.data !== undefined) owned.data = structuredClone(agent.data);
+  return owned;
+}
+
 export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   private static readonly SPATIAL_CELL_SIZE = 4;
   private readonly spatialCells = new Map<string, Set<AgentId>>();
@@ -99,7 +105,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
 
   override dump(): AgentStorageSnapshot {
     return {
-      agents: [...this._data.agents.values()].map((agent) => ({ ...agent })),
+      agents: [...this._data.agents.values()].map(ownAgentData),
     };
   }
 
@@ -115,7 +121,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Replace the entire agent map and notify. */
   setAgents(agents: Iterable<AgentRenderState>): void {
     const map: Map<AgentId, AgentRenderState> = new Map();
-    for (const a of agents) map.set(a.id, { ...a });
+    for (const a of agents) map.set(a.id, ownAgentData(a));
     this._data = { agents: map };
     if (this.spatialIndexRetainers > 0) this.rebuildSpatialIndex();
     this.notify({ replaced: true });
@@ -178,11 +184,11 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const existing = this._data.agents.get(agent.id);
     if (existing) {
       // Update existing agent in place to maintain reference stability
-      Object.assign(existing, agent);
+      Object.assign(existing, ownAgentData(agent));
       this.indexAgent(existing);
       this.notify({ added: [], updated: [existing], removed: [] });
     } else {
-      const clonedAgent = { ...agent };
+      const clonedAgent = ownAgentData(agent);
       this._data.agents.set(agent.id, clonedAgent);
       this.indexAgent(clonedAgent);
       this.notify({ added: [clonedAgent], updated: [], removed: [] });
@@ -191,9 +197,12 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
 
   /** Add multiple agents efficiently. */
   addAgents(agents: Iterable<Readonly<AgentRenderState>>): void {
+    // Own the entire batch before mutating live state, so a bad nested payload
+    // cannot leave some agents changed without a corresponding notification.
+    const prepared = Array.from(agents, ownAgentData);
     const added: AgentRenderState[] = [];
     const updated: AgentRenderState[] = [];
-    for (const agent of agents) {
+    for (const agent of prepared) {
       const existing = this._data.agents.get(agent.id);
       if (existing) {
         Object.assign(existing, agent);
@@ -213,13 +222,15 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
   /** Update an existing agent by ID. Creates if doesn't exist. */
   updateAgent(id: AgentId, updates: Partial<Readonly<AgentRenderState>>): void {
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
+    const { id: _ignoredId, ...rawPatch } = updates;
+    const patch = ownAgentData(rawPatch);
     const existing = this._data.agents.get(id);
     if (existing) {
-      Object.assign(existing, updates);
+      Object.assign(existing, patch);
       this.indexAgent(existing);
       delta.updated.push(existing);
     } else {
-      const newAgent = { id, ...updates } as AgentRenderState;
+      const newAgent = { id, ...patch } as AgentRenderState;
       this._data.agents.set(id, newAgent);
       this.indexAgent(newAgent);
       delta.added.push(newAgent);
@@ -229,16 +240,17 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
 
   /** Update multiple agents efficiently. */
   updateAgents(updates: Array<Readonly<Partial<AgentRenderState> & { id: AgentId }>>): void {
+    const prepared = updates.map(ownAgentData);
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
-    for (const { id, ...data } of updates) {
-      const existing = this._data.agents.get(id);
+    for (const agent of prepared) {
+      const existing = this._data.agents.get(agent.id);
       if (existing) {
-        Object.assign(existing, data);
+        Object.assign(existing, agent);
         this.indexAgent(existing);
         delta.updated.push(existing);
       } else {
-        const newAgent = { id, ...data } as AgentRenderState;
-        this._data.agents.set(id, newAgent);
+        const newAgent = agent as AgentRenderState;
+        this._data.agents.set(agent.id, newAgent);
         this.indexAgent(newAgent);
         delta.added.push(newAgent);
       }
@@ -258,18 +270,17 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
 
   /** Remove multiple agents efficiently. */
   removeAgents(ids: Iterable<AgentId>): void {
-    let changed = false;
-    const removed = Array.from(ids);
-    for (const id of removed) {
+    const removed: AgentId[] = [];
+    for (const id of ids) {
       if (this._data.agents.delete(id)) {
         this.unindexAgent(id);
-        changed = true;
+        removed.push(id);
       }
     }
-    if (changed) this.notify({ added: [], updated: [], removed });
+    if (removed.length > 0) this.notify({ added: [], updated: [], removed });
   }
 
-  /** Get a single agent by ID. */
+  /** Get a storage-owned agent reference; mutate it only through storage methods. */
   getAgent(id: AgentId): AgentRenderState | undefined {
     return this._data.agents.get(id);
   }
@@ -322,27 +333,34 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     };
   }
 
-  /** Exact radius query backed by an incrementally maintained spatial hash. */
+  /** Exact radius query; uses the retained spatial hash for compact queries and scans for broad ones. */
   getAgentsWithinRadius(x: number, y: number, radius: number): AgentRenderState[] {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(radius) || radius < 0) return [];
-    if (this.spatialIndexRetainers === 0) {
-      const squaredRadius = radius * radius;
-      return [...this._data.agents.values()].filter((agent) => {
-        const agentX = agent.x;
-        const agentY = agent.y;
-        return typeof agentX === 'number'
-          && Number.isFinite(agentX)
-          && typeof agentY === 'number'
-          && Number.isFinite(agentY)
-          && (agentX - x) ** 2 + (agentY - y) ** 2 <= squaredRadius;
-      });
-    }
+    const squaredRadius = radius * radius;
+    const withinRadius = (agent: AgentRenderState | undefined): agent is AgentRenderState => {
+      const agentX = agent?.x;
+      const agentY = agent?.y;
+      if (typeof agentX !== 'number' || !Number.isFinite(agentX)
+        || typeof agentY !== 'number' || !Number.isFinite(agentY)) return false;
+      const dx = agentX - x;
+      const dy = agentY - y;
+      return Number.isFinite(squaredRadius)
+        ? dx * dx + dy * dy <= squaredRadius
+        : Math.hypot(dx, dy) <= radius;
+    };
+    const scan = (): AgentRenderState[] => [...this._data.agents.values()].filter(withinRadius);
+    if (this.spatialIndexRetainers === 0) return scan();
     const size = AgentStorage.SPATIAL_CELL_SIZE;
     const minX = Math.floor((x - radius) / size);
     const maxX = Math.floor((x + radius) / size);
     const minY = Math.floor((y - radius) / size);
     const maxY = Math.floor((y + radius) / size);
-    const squaredRadius = radius * radius;
+    const cellCount = (maxX - minX + 1) * (maxY - minY + 1);
+    // Iterating empty cells is slower than scanning the agents for a large or
+    // sparse query. Unsafe cell indices may also fail to advance by one.
+    if (!Number.isSafeInteger(minX) || !Number.isSafeInteger(maxX)
+      || !Number.isSafeInteger(minY) || !Number.isSafeInteger(maxY)
+      || cellCount > this._data.agents.size * 4) return scan();
     const result: AgentRenderState[] = [];
     for (let cellX = minX; cellX <= maxX; cellX += 1) {
       for (let cellY = minY; cellY <= maxY; cellY += 1) {
@@ -350,18 +368,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
         if (!ids) continue;
         for (const id of ids) {
           const agent = this._data.agents.get(id);
-          const agentX = agent?.x;
-          const agentY = agent?.y;
-          if (
-            agent
-            && typeof agentX === 'number'
-            && Number.isFinite(agentX)
-            && typeof agentY === 'number'
-            && Number.isFinite(agentY)
-            && (agentX - x) ** 2 + (agentY - y) ** 2 <= squaredRadius
-          ) {
-            result.push(agent);
-          }
+          if (withinRadius(agent)) result.push(agent);
         }
       }
     }

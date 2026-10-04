@@ -20,23 +20,28 @@ export interface ContinuousRunProfile {
 }
 
 function parseRunProfiles(raw: string | null): Record<string, ContinuousRunProfile> {
-  if (!raw) return {};
+  const profiles = Object.create(null) as Record<string, ContinuousRunProfile>;
+  if (!raw) return profiles;
   try {
-    const parsed = JSON.parse(raw) as Record<string, Partial<ContinuousRunProfile>>;
-    return Object.fromEntries(Object.entries(parsed).flatMap(([actionId, profile]) => {
-      if (!Number.isInteger(profile.maxSteps) || (profile.maxSteps ?? 0) < 1) return [];
-      return [[actionId, {
-        maxSteps: profile.maxSteps!,
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return profiles;
+    for (const [actionId, value] of Object.entries(parsed)) {
+      if (value === null || typeof value !== 'object' || Array.isArray(value)) continue;
+      const profile = value as Record<string, unknown>;
+      if (typeof profile.maxSteps !== 'number' || !Number.isInteger(profile.maxSteps) || profile.maxSteps < 1) continue;
+      profiles[actionId] = {
+        maxSteps: profile.maxSteps,
         stopWhen: typeof profile.stopWhen === 'string' && profile.stopWhen.trim() ? profile.stopWhen : undefined,
-        maxWallTimeMs: typeof profile.maxWallTimeMs === 'number' && profile.maxWallTimeMs > 0
+        maxWallTimeMs: typeof profile.maxWallTimeMs === 'number' && Number.isFinite(profile.maxWallTimeMs) && profile.maxWallTimeMs > 0
           ? profile.maxWallTimeMs
           : undefined,
         record: profile.record === true,
-      }]];
-    }));
+      };
+    }
   } catch {
-    return {};
+    return profiles;
   }
+  return profiles;
 }
 
 function parseNonNegativeInteger(raw: string | null, fallback: number): number {
@@ -165,7 +170,7 @@ export const useSettingsStore = create<SettingsStore>()(
     maxRenderFps: 120,
     snapshotPlaybackFps: 30,
     actionTimeoutSeconds: 5,
-    continuousRunProfiles: {},
+    continuousRunProfiles: Object.create(null) as Record<string, ContinuousRunProfile>,
 
     clientMessageValidation: 'off',
     serverMessageValidation: 'off',
@@ -226,10 +231,11 @@ export const useSettingsStore = create<SettingsStore>()(
 
     setContinuousRunProfile: (actionId, profile) => {
       set((state) => ({
-        continuousRunProfiles: {
-          ...state.continuousRunProfiles,
-          [actionId]: { ...profile },
-        },
+        continuousRunProfiles: Object.assign(
+          Object.create(null) as Record<string, ContinuousRunProfile>,
+          state.continuousRunProfiles,
+          { [actionId]: { ...profile } },
+        ),
       }));
     },
 

@@ -19,6 +19,19 @@ describe('ValueInspector', () => {
     });
   });
 
+  it('respects a one-column limit for record maps', () => {
+    const content = new ValueInspector({ a: { one: 1, two: 2 } }, { maxColumns: 1 }).inspect({ hint: 'table' });
+    expect(content).toMatchObject({ kind: 'table', columns: ['key'], rows: [{ key: 'a' }] });
+  });
+
+  it('keeps the map key column distinct from a record field named key', () => {
+    const content = new ValueInspector({ a: { key: 'inner', score: 2 } }).inspect({ hint: 'table' });
+    expect(content).toMatchObject({
+      kind: 'table', columns: ['entry_key', 'key', 'score'],
+      rows: [{ entry_key: 'a', key: 'inner', score: 2 }],
+    });
+  });
+
   it('falls back to bounded text for incompatible hints and nested values', () => {
     const incompatible = new ValueInspector(4).inspect({ hint: 'tree' });
     expect(incompatible).toMatchObject({ kind: 'text', reason: expect.stringContaining('tree') });
@@ -65,5 +78,13 @@ describe('ValueInspector', () => {
     });
 
     expect(valueInspectorText(values, 8)).toEqual({ kind: 'text', text: '[xxxxxx…', truncated: true });
+  });
+
+  it('does not label a shared object as a cycle', () => {
+    const shared = { value: 1 };
+    expect(valueInspectorText([shared, shared]).text).toBe('[{"value": 1}, {"value": 1}]');
+    const cyclic: unknown[] = [];
+    cyclic.push(cyclic);
+    expect(valueInspectorText(cyclic).text).toContain('[Circular]');
   });
 });

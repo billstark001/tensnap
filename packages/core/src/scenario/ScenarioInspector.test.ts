@@ -64,6 +64,10 @@ describe('ScenarioInspector', () => {
     }));
     const fresh = inspector.inspect({ environmentId: 'world', layerId: 'agents', agentId: 'target' });
     expect(fresh?.agent).toMatchObject({ x: 9, y: 8 });
+    expect(inspection?.kind === 'graph' && inspection.renderSnapshot.environments[0].layers
+      .find((layer) => layer.id === 'agents')?.storageSnapshot).toMatchObject({
+      agents: [{ id: 'target', x: 5, y: 5 }, { id: 'near' }, { id: 'far' }],
+    });
   });
 
   it('uses a radius viewport and filters agents/edges for non-graph 2D scenes', () => {
@@ -87,6 +91,26 @@ describe('ScenarioInspector', () => {
     });
   });
 
+  it('uses the render plan graph mode when an edge layer is linked without an explicit metadata flag', () => {
+    const scenario = createSpatialScenario();
+    const ref = { environmentId: 'world', layerId: 'agents', agentId: 'target' } as const;
+
+    expect(new ScenarioInspector(scenario).inspectLive(ref)).toMatchObject({
+      kind: 'graph', neighborCount: 2,
+    });
+  });
+
+  it('uses a finite fallback radius for malformed inspection options', () => {
+    const scenario = createSpatialScenario();
+    scenario.apply(message('env_layer_delete', { env_id: 'world', layer_id: 'edges' }));
+    const ref = { environmentId: 'world', layerId: 'agents', agentId: 'target' } as const;
+
+    const inspection = new ScenarioInspector(scenario).inspectLive(ref, { radius: Number.NaN });
+    expect(inspection).toMatchObject({ kind: 'spatial', radius: 3, neighborCount: 1 });
+    expect(inspection?.kind === 'spatial' ? inspection.viewport : undefined)
+      .toEqual({ x: 2.5, y: 2.5, width: 6, height: 6 });
+  });
+
   it('reports no spatial context for uniform environments', () => {
     const scenario = new Scenario();
     scenario.apply(message('env_create', { id: 'uniform', type: 'uniform' }));
@@ -99,6 +123,7 @@ describe('ScenarioInspector', () => {
 
   it('avoids cloning a render snapshot for high-frequency live inspection', () => {
     const scenario = createSpatialScenario();
+    scenario.apply(message('env_layer_delete', { env_id: 'world', layer_id: 'edges' }));
     const inspection = new ScenarioInspector(scenario).inspectLive(
       { environmentId: 'world', layerId: 'agents', agentId: 'target' },
       { radius: 3 },

@@ -13,7 +13,7 @@ import type {
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
-import { RendererSession, type BoundedRunSpec, type SceneRestoreOptions } from '@tensnap/core/runtime';
+import { RendererClient, RendererSession, type BoundedRunSpec, type SceneRestoreOptions } from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
 import type { AgentInspection, AgentInspectionOptions, AgentRef, ScenarioSnapshot } from '@tensnap/core/scenario';
 import { AgentStorage } from '@tensnap/core/environment';
@@ -70,15 +70,17 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['enviro
   }));
 }
 
+/** Node host for the shared renderer client, headless painting, checkpoints, and control events. */
 export class AgentRuntime extends EventEmitter {
+  private readonly client: RendererClient;
   private readonly renderer: RendererSession;
-  private transport: NodeWebSocketTransport | null = null;
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
   private completedStateSyncCount = 0;
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
+  private statusWriteChain: Promise<void> = Promise.resolve();
   private readonly checkpointWriter: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
 
   constructor(
@@ -87,9 +89,13 @@ export class AgentRuntime extends EventEmitter {
   ) {
     super();
 
-    this.renderer = new RendererSession({
-      run: { maxStepsPolicy: options.maxRunStepsPolicy },
+    this.client = new RendererClient({
+      run: {
+        maxStepsPolicy: options.maxRunStepsPolicy,
+        renderBarrier: { wait: (_task, payload) => this.renderActionResult(payload) },
+      },
     });
+    this.renderer = this.client.renderer;
     const requestedCheckpointInterval = options.checkpointIntervalMs ?? DEFAULT_CHECKPOINT_INTERVAL_MS;
     this.checkpointIntervalMs = Number.isFinite(requestedCheckpointInterval)
       ? Math.min(5_000, Math.max(1_000, requestedCheckpointInterval))
@@ -129,6 +135,7 @@ export class AgentRuntime extends EventEmitter {
     await this.log('info', 'runtime', 'Runtime initialized.', { context: this.context.contextName });
   }
 
+  /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
   async connect(options: ConnectOptions): Promise<RuntimeStatus> {
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
@@ -139,18 +146,13 @@ export class AgentRuntime extends EventEmitter {
     await this.persistStatus();
 
     try {
-      this.destroyTransport();
+      this.client.disconnect();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
-      const transport = new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
+      await this.client.connect(new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
         clientMessages: this.control.clientMessageValidation,
         serverMessages: this.control.serverMessageValidation,
-      });
-      this.transport = transport;
-      this.renderer.attachTransport(transport);
-      await transport.connect();
-      await this.waitForSimulatorInfo();
-      this.renderer.requestStateSync();
+      }));
       await this.log('info', 'runtime', 'Connected to simulator.', {
         simulatorUrl: options.simulatorUrl,
         encoding: this.control.encoding,
@@ -175,8 +177,7 @@ export class AgentRuntime extends EventEmitter {
 
     this.setPhase('stopping');
     await this.checkpointScene();
-    this.transport?.disconnect();
-    this.destroyTransport();
+    this.client.disconnect();
     this.setPhase('idle');
     await this.log('info', 'runtime', 'Disconnected from simulator.');
   }
@@ -327,13 +328,16 @@ export class AgentRuntime extends EventEmitter {
     return [...this.renderer.scenario.actions.values()].map(cloneValue);
   }
 
+  /** Refresh the projected scene and wait until the transaction commits. */
   async syncScene(): Promise<void> {
     const targetSyncCount = this.completedStateSyncCount + 1;
     this.assertConnected();
     this.setPhase('syncing');
-    this.renderer.requestStateSync();
+    const synchronized = this.client.sync();
+    void synchronized.catch(() => {});
     await this.log('info', 'scene', 'State sync requested.');
     this.emitRuntimeEvent('scene.sync.requested', {});
+    await synchronized;
     await this.waitForStateSync(targetSyncCount);
   }
 
@@ -371,10 +375,12 @@ export class AgentRuntime extends EventEmitter {
     return result;
   }
 
+  /** Wait for the first completed state sync on this connection. */
   async waitUntilReady(timeoutMs?: number): Promise<RuntimeStatus> {
     return await this.waitForStateSync(1, timeoutMs);
   }
 
+  /** Request a parameter change; the simulator may later normalize it with param_sync. */
   async setParameter(id: string, value: ProtocolData): Promise<void> {
     this.assertConnected();
     this.renderer.setParameter(id, value);
@@ -382,10 +388,10 @@ export class AgentRuntime extends EventEmitter {
     this.emitRuntimeEvent('param.change.requested', { id, value });
   }
 
+  /** Dispatch one action; completion is reported through runtime events. */
   async runAction(id: string): Promise<void> {
     this.assertConnected();
-    this.renderer.run.cancelContinuousActions();
-    this.renderer.run.requestAction(id);
+    this.client.requestAction(id);
     await this.log('info', 'action', 'Action requested.', {
       id,
     });
@@ -554,7 +560,9 @@ export class AgentRuntime extends EventEmitter {
       }>).detail;
       void this.handleProtocolMessage(message, origin);
       if (message.type === 'action_result') {
-        void this.handleActionResult(message.payload as ActionResultPayload);
+        const payload = message.payload as ActionResultPayload;
+        void this.log('info', 'action', 'Action completed.', payload);
+        this.emitRuntimeEvent('action.result', payload);
       }
       if (message.type === 'screenshot_request') {
         void this.handleScreenshotRequest(message.payload as ScreenshotRequestPayload);
@@ -604,33 +612,22 @@ export class AgentRuntime extends EventEmitter {
     }
   }
 
-  private async handleActionResult(payload: ActionResultPayload): Promise<void> {
-    try {
-      void this.log('info', 'action', 'Action completed.', payload);
-      this.emitRuntimeEvent('action.result', payload);
+  private async renderActionResult(payload: ActionResultPayload): Promise<void> {
+    if (this.control.render.trigger !== 'action-result') return;
+    const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
+    const artifacts = await this.runPainters(request);
+    await this.checkpointScene(request.snapshot, true);
 
-      if (this.control.render.trigger === 'action-result') {
-        const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
-        const artifacts = await this.runPainters(request);
-        await this.checkpointScene(request.snapshot, true);
-
-        void this.log('info', 'render', 'Auto render executed after action_result.', {
-          actionId: payload.id,
-          artifactCount: artifacts.length,
-        });
-        this.emitRuntimeEvent('render.requested', {
-          reason: `action-result:${payload.id}`,
-          trigger: 'action-result',
-          painterCount: this.painters.size,
-          artifactCount: artifacts.length,
-        });
-      }
-    } finally {
-      // RendererSession emits its message event before RunController marks the
-      // task applied. Defer one microtask so removing synchronous disk I/O
-      // does not race the next-tick render barrier.
-      queueMicrotask(() => this.renderer.run.markActionRendered(payload));
-    }
+    void this.log('info', 'render', 'Auto render executed after action_result.', {
+      actionId: payload.id,
+      artifactCount: artifacts.length,
+    });
+    this.emitRuntimeEvent('render.requested', {
+      reason: `action-result:${payload.id}`,
+      trigger: 'action-result',
+      painterCount: this.painters.size,
+      artifactCount: artifacts.length,
+    });
   }
 
   private async handleScreenshotRequest(payload: ScreenshotRequestPayload): Promise<void> {
@@ -717,13 +714,6 @@ export class AgentRuntime extends EventEmitter {
     return assets;
   }
 
-  private destroyTransport(): void {
-    if (!this.transport) return;
-    this.renderer.detachTransport();
-    this.transport.destroy();
-    this.transport = null;
-  }
-
   private async waitForStateSync(
     minimumCompletedCount: number,
     timeoutMs?: number,
@@ -787,41 +777,11 @@ export class AgentRuntime extends EventEmitter {
     });
   }
 
-  private async waitForSimulatorInfo(timeoutMs = 10_000): Promise<void> {
-    if (this.renderer.simulatorInfo) return;
-    await new Promise<void>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error('Timed out waiting for simulator_info.'));
-      }, timeoutMs);
-      const onInfo = (): void => {
-        cleanup();
-        resolve();
-      };
-      const onClose = (): void => {
-        cleanup();
-        reject(new Error('Runtime disconnected before simulator_info arrived.'));
-      };
-      const onError = (event: Event): void => {
-        cleanup();
-        const error = (event as CustomEvent<unknown>).detail;
-        reject(error instanceof Error ? error : new Error(String(error)));
-      };
-      const cleanup = (): void => {
-        clearTimeout(timeoutId);
-        this.renderer.removeEventListener('simulator:info', onInfo);
-        this.renderer.removeEventListener('transport:close', onClose);
-        this.renderer.removeEventListener('transport:error', onError);
-      };
-      this.renderer.addEventListener('simulator:info', onInfo);
-      this.renderer.addEventListener('transport:close', onClose);
-      this.renderer.addEventListener('transport:error', onError);
-    });
-  }
-
   private setPhase(phase: RuntimePhase): void {
     this.control.phase = phase;
-    void this.persistStatus();
+    void this.persistStatus().catch((error) => this.emitRuntimeEvent('runtime.status-write-failed', {
+      error: error instanceof Error ? error.message : String(error),
+    }));
   }
 
   private markSceneDirty(): void {
@@ -882,9 +842,12 @@ export class AgentRuntime extends EventEmitter {
     await appendRuntimeLog(this.context, entry);
   }
 
-  private async persistStatus(): Promise<void> {
+  private persistStatus(): Promise<void> {
     this.control.updatedAt = new Date().toISOString();
     this.control.painters = [...this.painters.keys()];
-    await writeRuntimeControl(this.context, this.control);
+    const snapshot = structuredClone(this.control);
+    const write = this.statusWriteChain.then(() => writeRuntimeControl(this.context, snapshot));
+    this.statusWriteChain = write.catch(() => {});
+    return write;
   }
 }

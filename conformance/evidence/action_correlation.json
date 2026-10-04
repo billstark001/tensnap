@@ -1,0 +1,395 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "monitor_update",
+            "monitor_update",
+            "chart_update",
+            "action_result"
+          ],
+          "handler_error": "handler_error",
+          "rejected_error": "unknown_action"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "monitor_update",
+            "monitor_update",
+            "chart_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "a8192b5380f65e2906b9d99ba29b0e50d1a66131e9f1fcf0354c2f5c49903a57",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "monitor_update",
+            "monitor_update",
+            "chart_update",
+            "action_result"
+          ],
+          "handler_error": "handler_error",
+          "rejected_error": "unknown_action"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "monitor_update",
+            "monitor_update",
+            "chart_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "a8192b5380f65e2906b9d99ba29b0e50d1a66131e9f1fcf0354c2f5c49903a57",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "metadata_update",
+            "action_result"
+          ],
+          "handler_error": "handler_error",
+          "rejected_error": "handler_error"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "metadata_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "22a40422af4e7d3c4a199ecd5ef224e8b22a72a1169a6904963dfdcdfe663f85",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "metadata_update",
+            "action_result"
+          ],
+          "handler_error": "handler_error",
+          "rejected_error": "handler_error"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "metadata_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "22a40422af4e7d3c4a199ecd5ef224e8b22a72a1169a6904963dfdcdfe663f85",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "item_create",
+            "item_update",
+            "metadata_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "handler_error": "action_failed",
+          "rejected_error": "unknown_action"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "item_create",
+            "item_update",
+            "metadata_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "60b03d651d41c2207ba71bbadf22c0aee1ef7745df0ee6186fe0dc612445d006",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "item_create",
+            "item_update",
+            "metadata_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "handler_error": "action_failed",
+          "rejected_error": "unknown_action"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "item_create",
+            "item_update",
+            "metadata_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "60b03d651d41c2207ba71bbadf22c0aee1ef7745df0ee6186fe0dc612445d006",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "handler_error": "handler_error",
+          "rejected_error": "unknown_action"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "b7535e4c244c754b8bac4b4af05d4b26cd1e63dce08215500a65cb7499131ab6",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.1",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "accepted_order": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "handler_error": "handler_error",
+          "rejected_error": "unknown_action"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "action_result_last": true,
+          "correlated_frames": [
+            "metadata_update",
+            "item_create",
+            "item_update",
+            "chart_update",
+            "monitor_update",
+            "monitor_update",
+            "action_result"
+          ],
+          "rejected_actions": [
+            "fail"
+          ]
+        },
+        "status": "pass"
+      },
+      "source_sha256": "b7535e4c244c754b8bac4b4af05d4b26cd1e63dce08215500a65cb7499131ab6",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "action_correlation",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "detail": "all eight live renderer probes",
+    "status": "pass"
+  },
+  "revision": "ca710185ce6def35c7e7859ab78e3814add10646"
+}

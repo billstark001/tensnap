@@ -20,21 +20,6 @@ function mapListRemove<K, V>(map: Map<K, V[]>, key: K, item: V): void {
   next.length ? map.set(key, next) : map.delete(key);
 }
 
-/**
- * Returns the index of the element in `data` (sorted ascending by `time`)
- * whose time is closest to `time`.
- */
-function closestTimeIndex(data: ChartSeriesPoint[], time: number): number {
-  let lo = 0, hi = data.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (data[mid].time < time) lo = mid + 1;
-    else hi = mid;
-  }
-  if (lo > 0 && time - data[lo - 1].time <= data[lo].time - time) return lo - 1;
-  return lo;
-}
-
 /** First index whose point time is >= `time`. */
 function lowerBoundTime(data: ChartSeriesPoint[], time: number): number {
   let lo = 0, hi = data.length;
@@ -118,7 +103,7 @@ export class ChartStorage {
     this.pushBuffer.clear();
     this.latestValues.clear();
     for (const group of snapshot) {
-      this.addGroup({
+      this.replaceGroup({
         id: group.id,
         label: group.label,
         metadataDict: Object.fromEntries(
@@ -143,6 +128,25 @@ export class ChartStorage {
     // Must be called before the metadataDict entry is deleted.
     mapListRemove(this.metaMap, metaId, group.metadataDict[metaId]);
     mapListRemove(this.metaGroups, metaId, group);
+  }
+
+  /** Replace a group and its metadata indexes without rebuilding data indexes. */
+  private replaceGroup(group: ChartGroup): Set<string> {
+    const affected = new Set<string>();
+    const existing = this.groups.get(group.id);
+    if (existing) {
+      for (const metaId of Object.keys(existing.metadataDict)) {
+        this._unregister(metaId, existing);
+        affected.add(metaId);
+      }
+    }
+    this.groups.set(group.id, group);
+    this.pushBuffer.set(group.id, new Map());
+    for (const [id, meta] of Object.entries(group.metadataDict)) {
+      this._register(id, meta, group);
+      affected.add(id);
+    }
+    return affected;
   }
 
   /**
@@ -213,7 +217,8 @@ export class ChartStorage {
     // Streaming fast path: append-only updates are O(incoming), not O(history log history).
     const lastExisting = data[data.length - 1];
     if (normalized[0].time > lastExisting.time) {
-      data.push(...normalized);
+      // A dense import may exceed the engine's argument limit with push(...items).
+      for (const point of normalized) data.push(point);
       return;
     }
     if (normalized[0].time === lastExisting.time && normalized.length === 1) {
@@ -306,6 +311,7 @@ export class ChartStorage {
 
   addGroup(group: ChartGroup, upsert = false): void {
     const existing = this.groups.get(group.id);
+    let affectedMetaIds: Iterable<string>;
 
     if (upsert && existing) {
       existing.label = group.label;
@@ -318,19 +324,11 @@ export class ChartStorage {
         }
       }
       this._appendToGroup(existing, group.data);
+      affectedMetaIds = Object.keys(existing.metadataDict);
     } else {
-      if (existing) {
-        for (const metaId of Object.keys(existing.metadataDict)) {
-          this._unregister(metaId, existing);
-        }
-      }
-      this.groups.set(group.id, group);
-      this.pushBuffer.set(group.id, new Map());
-      for (const [id, meta] of Object.entries(group.metadataDict)) {
-        this._register(id, meta, group);
-      }
+      affectedMetaIds = this.replaceGroup(group);
     }
-    this.rebuildLatestValues();
+    this.rebuildLatestFor(affectedMetaIds);
     this.touch();
   }
 
@@ -469,6 +467,7 @@ export class ChartStorage {
       warn(`Metadata "${metaId}" not found in group "${fromGroupId}".`);
       return false;
     }
+    if (from === to) return true;
 
     const { copy = false } = opts ?? {};
     // Clone metadata when copying so each group owns an independent object.
@@ -482,7 +481,8 @@ export class ChartStorage {
       this._register(metaId, targetMeta, to);
     }
 
-    if (points.length) this.pushMany(metaId, points);
+    if (points.length) this._appendToGroup(to, points);
+    this.rebuildLatestFor([metaId]);
     this.touch();
     return true;
   }
@@ -495,7 +495,7 @@ export class ChartStorage {
   ): boolean {
     if (this.metaMap.has(newId)) { warn(`Metadata "${newId}" already exists.`); return false; }
 
-    const candidates = groupId
+    const candidates = groupId !== undefined
       ? (this.groups.get(groupId) ? [this.groups.get(groupId)!] : [])
       : [...(this.metaGroups.get(oldId) ?? [])];
 
@@ -504,19 +504,15 @@ export class ChartStorage {
 
     for (const group of affected) {
       const meta = group.metadataDict[oldId];
-      meta.id = newId;
-      group.metadataDict[newId] = meta;
+      this._unregister(oldId, group);
+      const renamed = { ...meta, id: newId };
+      group.metadataDict[newId] = renamed;
       delete group.metadataDict[oldId];
+      this._register(newId, renamed, group);
       for (const dp of group.data) {
         if (oldId in dp) { dp[newId] = dp[oldId]; delete dp[oldId]; }
       }
     }
-
-    const metaList = this.metaMap.get(oldId);
-    if (metaList) { this.metaMap.delete(oldId); this.metaMap.set(newId, metaList); }
-
-    const groupList = this.metaGroups.get(oldId);
-    if (groupList) { this.metaGroups.delete(oldId); this.metaGroups.set(newId, groupList); }
 
     this.rebuildLatestValues();
     this.touch();
@@ -566,21 +562,32 @@ export class ChartStorage {
     return this.latestValues.get(metaId)?.value;
   }
 
-  /** Returns the value at the time point closest to `time`, or `undefined`. */
-  getValueAt(metaId: string, time: number): number | undefined {
+  /** Returns the nearest defined chart value, which may be nonnumeric. */
+  getValueAt(metaId: string, time: number): unknown {
+    if (!Number.isFinite(time)) return undefined;
     const groups = this.metaGroups.get(metaId);
     if (!groups?.length) return undefined;
 
-    let best: number | undefined;
+    let best: unknown;
     let bestDiff = Infinity;
 
     for (const { data } of groups) {
       if (!data.length) continue;
-      const idx = closestTimeIndex(data, time);
-      const value = data[idx][metaId];
-      if (value !== undefined) {
-        const diff = Math.abs(data[idx].time - time);
-        if (diff < bestDiff) { bestDiff = diff; best = value; }
+      // Points from other series may lie between two values of this series.
+      // Search outward from the insertion point until each side has a value.
+      let left = lowerBoundTime(data, time) - 1;
+      let right = left + 1;
+      while (left >= 0 || right < data.length) {
+        const leftDiff = left >= 0 ? Math.abs(time - data[left].time) : Infinity;
+        const rightDiff = right < data.length ? Math.abs(data[right].time - time) : Infinity;
+        const useLeft = leftDiff <= rightDiff;
+        const point = data[useLeft ? left-- : right++];
+        const value = point[metaId];
+        if (value !== undefined) {
+          const diff = Math.abs(point.time - time);
+          if (diff < bestDiff) { bestDiff = diff; best = value; }
+          break;
+        }
       }
     }
 
@@ -736,27 +743,30 @@ export class ChartStorage {
   truncateMetas(metaIds: string[], time: number, inclusive: boolean): Set<string> {
     const target = new Set(metaIds);
     const truncated = new Set<string>();
+    if (target.size === 0) return truncated;
     for (const group of this.groups.values()) {
       const start = inclusive
         ? lowerBoundTime(group.data, time)
         : upperBoundTime(group.data, time);
       if (start === group.data.length) continue;
-
-      const head = group.data.slice(0, start);
-      const tail = group.data
-        .slice(start)
-        .map((point) => {
-          const next = { ...point };
-          for (const id of target) {
-            if (id in next) {
-              delete next[id];
-              truncated.add(id);
-            }
-          }
-          return next;
-        })
-        .filter((point) => Object.keys(point).some((key) => key !== 'time'));
-      group.data = head.concat(tail);
+      let changedData: ChartSeriesPoint[] | null = null;
+      for (let index = start; index < group.data.length; index++) {
+        const point = group.data[index];
+        let changedPoint: ChartSeriesPoint | null = null;
+        for (const id of target) {
+          if (!(id in point)) continue;
+          changedPoint ??= { ...point };
+          delete changedPoint[id];
+          truncated.add(id);
+        }
+        if (changedPoint !== null) {
+          changedData ??= group.data.slice(0, index);
+          if (Object.keys(changedPoint).some((key) => key !== 'time')) changedData.push(changedPoint);
+        } else if (changedData !== null) {
+          changedData.push(point);
+        }
+      }
+      if (changedData !== null) group.data = changedData;
     }
     if (truncated.size) {
       this.rebuildLatestFor(truncated);

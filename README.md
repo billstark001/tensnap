@@ -110,6 +110,7 @@ Comprehensive documentation is available in the `/docs` folder:
 
 ### For Maintainers
 
+- **[Protocol Conformance](./conformance/README.md)** - Cross-binding matrix, reproducible wire probes, and retained evidence
 - **[Architecture Overview](./docs/maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./docs/maintainer-guide/contributing.md)** - How to contribute to TenSnap

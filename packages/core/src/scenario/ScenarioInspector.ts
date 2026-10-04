@@ -2,7 +2,6 @@ import type { AgentId } from '@tensnap/protocol/layers';
 import type { AgentRenderState, GraphEdge, Viewport } from '../environment';
 import { AgentStorage, EdgeStorage, getCoordOffsetValue } from '../environment';
 import type {
-  ScenarioEnvironmentSnapshot,
   ScenarioEnvironmentState,
   ScenarioLayerSnapshot,
   ScenarioSnapshot,
@@ -17,7 +16,7 @@ export interface AgentRef {
 }
 
 export interface AgentInspectionOptions {
-  /** Radius in scene units for 2D neighbourhood inspection. */
+  /** Spatial neighbour radius in scene units; graph neighbours follow edges. */
   radius?: number;
 }
 
@@ -104,21 +103,17 @@ function endpointIds(edge: GraphEdge): [AgentId, AgentId] {
 }
 
 function isGraphEnvironment(environment: ScenarioEnvironmentState, agentLayerId: string): boolean {
-  // An edge layer alone is not enough: a spatial 2D model may expose
-  // relationships while retaining simulator-owned coordinates. The renderer
-  // registry uses this metadata flag to opt into graph interaction semantics.
-  return environment.layers.get(agentLayerId)?.metadata.uses_graph_interaction === true;
+  if (environment.layers.get(agentLayerId)?.metadata.uses_graph_interaction === true) return true;
+  // Keep inspection mode aligned with createRenderPlan, which enables graph
+  // interaction for an agent layer linked to an edge layer.
+  for (const layer of environment.layers.values()) {
+    if (layer.dependencyLayerIds.agent === agentLayerId && layer.storage instanceof EdgeStorage) return true;
+  }
+  return false;
 }
 
 /** Match the agent layer's rendered scene coordinates, including grid centers. */
 function getRenderedAgentOffset(environment: ScenarioEnvironmentState, agentLayerId: string): number {
-  // render-plan promotes agent layers linked to an edge layer to graph mode,
-  // where coordinates are already scene coordinates and must not receive +0.5.
-  for (const layer of environment.layers.values()) {
-    if (layer.dependencyLayerIds.agent === agentLayerId && layer.storage instanceof EdgeStorage) {
-      return 0;
-    }
-  }
   const metadata = environment.layers.get(agentLayerId)?.metadata ?? {};
   return getCoordOffsetValue(metadata.coord_offset === 'float' ? 'float' : 'int');
 }
@@ -127,7 +122,7 @@ function createViewport(center: { x: number; y: number }, radius: number, agentS
   // The semantic radius remains the requested neighbourhood radius. An
   // explicitly oversized marker needs extra visual room, otherwise the target
   // can fill the whole inspector canvas and obscure nearby agents.
-  const markerPadding = Math.max(0, ((agentSize ?? 1) - 1) / 2);
+  const markerPadding = Math.max(0, ((agentSize !== undefined && Number.isFinite(agentSize) ? agentSize : 1) - 1) / 2);
   const extent = Math.max(MIN_VIEWPORT_EXTENT, (radius + markerPadding) * 2);
   return {
     x: center.x - extent / 2,
@@ -158,19 +153,22 @@ function createEgoViewport(agents: AgentRenderState[], fallback: AgentRenderStat
   return { x: minX - padding, y: minY - padding, width: width + padding * 2, height: height + padding * 2 };
 }
 
-function filterSnapshot(
+function filterOwnedSnapshot(
   snapshot: ScenarioSnapshot,
   environmentId: string,
   agentLayerId: string,
   agentIds: Set<AgentId>,
 ): ScenarioSnapshot {
+  // Both callers pass a fresh Scenario.dump(). Filter that owned copy in place
+  // instead of cloning the whole scene again for each layer and at return.
   const environment = snapshot.environments.find((candidate) => candidate.id === environmentId);
   if (!environment) {
-    return { ...snapshot, environments: [] };
+    snapshot.environments = [];
+    return snapshot;
   }
 
   const layers = environment.layers.map((layer): ScenarioLayerSnapshot => {
-    const result = cloneValue(layer);
+    const result = layer;
     if (layer.id === agentLayerId && layer.layerType === 'agent') {
       const storage = result.storageSnapshot as { agents?: AgentRenderState[] };
       if (Array.isArray(storage.agents)) {
@@ -208,8 +206,9 @@ function filterSnapshot(
     return result;
   });
 
-  const filteredEnvironment: ScenarioEnvironmentSnapshot = { ...cloneValue(environment), layers };
-  return { ...cloneValue(snapshot), environments: [filteredEnvironment] };
+  environment.layers = layers;
+  snapshot.environments = [environment];
+  return snapshot;
 }
 
 /**
@@ -235,6 +234,7 @@ export class ScenarioInspector {
     return layer.storage.retainSpatialIndex();
   }
 
+  /** Resolve one agent and return an owned render snapshot for offline inspection. */
   inspect(ref: AgentRef, options: AgentInspectionOptions = {}): AgentInspection | undefined {
     return this.inspectInternal(ref, options, true) as AgentInspection | undefined;
   }
@@ -265,10 +265,13 @@ export class ScenarioInspector {
       return undefined;
     }
 
-    const radius = Math.max(MIN_VIEWPORT_EXTENT / 2, options.radius ?? DEFAULT_RADIUS);
+    const requestedRadius = options.radius ?? DEFAULT_RADIUS;
+    const radius = Number.isFinite(requestedRadius)
+      ? Math.max(MIN_VIEWPORT_EXTENT / 2, requestedRadius)
+      : DEFAULT_RADIUS;
     const agent = cloneValue(liveAgent);
     const edgeStorages = collectEdgeStorages(environment, ref.layerId);
-    const graph = isGraphEnvironment(environment, ref.layerId);
+    const graph = edgeStorages.length > 0 || agentLayer.metadata.uses_graph_interaction === true;
 
     if (graph) {
       const edges = edgeStorages.flatMap((storage) => storage.getEdgesForAgent(ref.agentId));
@@ -296,7 +299,7 @@ export class ScenarioInspector {
         viewport: createEgoViewport([agent, ...neighbors], agent),
       };
       return includeRenderSnapshot
-        ? { ...base, renderSnapshot: filterSnapshot(this.scenario.dump(), environment.id, ref.layerId, relevantIds) }
+        ? { ...base, renderSnapshot: filterOwnedSnapshot(this.scenario.dump(), environment.id, ref.layerId, relevantIds) }
         : base;
     }
 
@@ -340,6 +343,7 @@ export class ScenarioInspector {
         const [source, target] = endpointIds(edge);
         return relevantIds.has(source) && relevantIds.has(target);
       });
+    const offset = getRenderedAgentOffset(environment, ref.layerId);
     const base: LiveSpatialAgentInspection = {
       kind: 'spatial',
       ref: { ...ref },
@@ -351,12 +355,12 @@ export class ScenarioInspector {
       neighborCount: neighbors.length,
       edges: edges.map(cloneValue),
       viewport: createViewport({
-        x: agent.x + getRenderedAgentOffset(environment, ref.layerId),
-        y: agent.y + getRenderedAgentOffset(environment, ref.layerId),
+        x: agent.x + offset,
+        y: agent.y + offset,
       }, radius, agent.size),
     };
     return includeRenderSnapshot
-      ? { ...base, renderSnapshot: filterSnapshot(this.scenario.dump(), environment.id, ref.layerId, relevantIds) }
+      ? { ...base, renderSnapshot: filterOwnedSnapshot(this.scenario.dump(), environment.id, ref.layerId, relevantIds) }
       : base;
   }
 }

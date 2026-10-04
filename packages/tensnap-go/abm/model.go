@@ -141,7 +141,10 @@ func (b *Base) OnStateSync(e Emitter, p *protocol.StateSyncPayload) error {
 	}
 	info := b.SimulatorInfo()
 	if p.ModelID != info.Model.ID {
-		return fmt.Errorf("tensnap: state_sync model_id mismatch")
+		requestID := p.RequestID
+		return e.Error(&protocol.ErrorPayload{
+			Code: "model_mismatch", Message: "state_sync model_id does not match this simulator.", RequestID: &requestID,
+		})
 	}
 	mode := "replace"
 	// Base performs an authoritative full create replay. Keep it in replace

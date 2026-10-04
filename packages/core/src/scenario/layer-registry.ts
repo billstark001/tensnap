@@ -84,6 +84,8 @@ export interface ItemLayerController<
   applyMetadata?(context: LayerControllerContext): void;
   /** Return keys which already exist before a create recreates its identities. */
   getExistingItemKeys?(context: LayerControllerContext, items: TCreateItem[]): DeleteItems;
+  /** Bind a cheap per-key lookup for strict batch validation. */
+  getItemKeyExists?(context: LayerControllerContext): (key: unknown) => boolean;
   createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
   updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
   deleteItems?(context: LayerControllerContext, items: DeleteItems): void;
@@ -556,9 +558,17 @@ function getSnapshotBackground(layer: ScenarioLayerSnapshot): BackgroundData | n
 
 // #region Built-in controllers
 const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
+  getItemKeyExists: (context) => {
+    const storage = context.requireStorage(AgentStorage, 'agent');
+    return (key) => storage.hasAgent(key as AgentId);
+  },
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(AgentStorage, 'agent');
-    return items.filter((item) => storage.hasAgent(item.id)).map((item) => item.id);
+    const existing: AgentId[] = [];
+    for (const item of items) {
+      if (storage.hasAgent(item.id)) existing.push(item.id);
+    }
+    return existing;
   },
   createItems: (context, items) => {
     context.requireStorage(AgentStorage, 'agent').addAgents(items);
@@ -589,11 +599,22 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
 };
 
 const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
+  getItemKeyExists: (context) => {
+    const storage = context.requireStorage(EdgeStorage, 'edge');
+    return (key) => {
+      const [source, target] = key as [AgentId, AgentId];
+      return storage.findEdge(source, target) !== undefined;
+    };
+  },
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(EdgeStorage, 'edge');
-    return items
-      .filter((item) => storage.findEdge(item.source, item.target))
-      .map((item) => ({ source: item.source, target: item.target }));
+    const existing: Array<{ source: AgentId; target: AgentId }> = [];
+    for (const item of items) {
+      if (storage.findEdge(item.source, item.target)) {
+        existing.push({ source: item.source, target: item.target });
+      }
+    }
+    return existing;
   },
   createItems: (context, items) => {
     context.requireStorage(EdgeStorage, 'edge').addEdges(items);
@@ -611,6 +632,11 @@ const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
 };
 
 const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryItemDiff> = {
+  getItemKeyExists: (context) => {
+    const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
+    const { configs } = storage.getData();
+    return (key) => configs.has(key as AgentId) || storage.getEntry(key as AgentId) !== undefined;
+  },
   applyMetadata: (context) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     storage.setConfig({
@@ -646,9 +672,11 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     const { configs } = storage.getData();
-    return items
-      .filter((item) => configs.has(item.id) || storage.getEntry(item.id) !== undefined)
-      .map((item) => item.id);
+    const existing: AgentId[] = [];
+    for (const item of items) {
+      if (configs.has(item.id) || storage.getEntry(item.id) !== undefined) existing.push(item.id);
+    }
+    return existing;
   },
   createItems: (context, items) => {
     context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);
@@ -726,7 +754,9 @@ const backgroundLayerController: ItemLayerController = {
       || background === undefined
       || background === null
     ) {
-      void storage.setBackground(background ?? undefined, interpolation);
+      void storage.setBackground(background ?? undefined, interpolation).catch((error: unknown) => {
+        context.reportWarning(`Failed to load background: ${error instanceof Error ? error.message : String(error)}`);
+      });
       return;
     }
     if (isBackgroundAssetReference(background)) {

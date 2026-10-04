@@ -88,7 +88,20 @@ function _handle_message(s::Scenario, ws, raw)
 		_handle_state_sync(s, ws, payload)
 	elseif type == "param_change"
 		id = String(payload["id"])
-		haskey(s.parameters, id) && _set_parameter!(s.parameters[id], payload["value"], s.model)
+		if haskey(s.parameters, id)
+			parameter = s.parameters[id]
+			try
+				_set_parameter!(parameter, payload["value"], s.model)
+				canonical = _param_value(parameter, s.model)
+				# param_change is optimistic: only correct a rejected or
+				# normalized edit, never echo every accepted value.
+				_payload_equal(canonical, payload["value"]) ||
+					_send_to(s, ws, "param_sync", Dict("id" => id, "value" => _jsonable(canonical)))
+			catch error
+				_send_to(s, ws, "param_sync", Dict("id" => id, "value" => _jsonable(_param_value(parameter, s.model))))
+				_send_to(s, ws, "error", Dict("code" => "handler_error", "message" => sprint(showerror, error)))
+			end
+		end
 	elseif type == "asset_sync"
 		_handle_asset_sync(s, ws, payload)
 	elseif type == "screenshot_response"

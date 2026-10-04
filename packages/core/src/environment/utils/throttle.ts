@@ -1,16 +1,17 @@
 /**
  * environment/utils/throttle.ts
  *
- * Leading-edge throttle: fires immediately on first call, then ignores
- * subsequent calls until the delay has elapsed.
+ * Leading and trailing throttle. Fires immediately, then runs once with the
+ * most recent arguments at the end of a burst.
  */
 
 export function throttle<T extends (...args: any[]) => void>(
   fn: T,
   delayMs: number
 ): T {
-  let lastCall = 0;
+  let lastCall = -Infinity;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let pending: { context: unknown; args: Parameters<T> } | null = null;
 
   return function (this: unknown, ...args: Parameters<T>) {
     const now = Date.now();
@@ -21,15 +22,20 @@ export function throttle<T extends (...args: any[]) => void>(
         clearTimeout(timer);
         timer = null;
       }
+      pending = null;
       lastCall = now;
       fn.apply(this, args);
-    } else if (timer === null) {
-      // Schedule a trailing call so the last invocation is not lost.
-      timer = setTimeout(() => {
-        lastCall = Date.now();
-        timer = null;
-        fn.apply(this, args);
-      }, remaining);
+    } else {
+      pending = { context: this, args };
+      if (timer === null) {
+        timer = setTimeout(() => {
+          lastCall = Date.now();
+          timer = null;
+          const call = pending;
+          pending = null;
+          if (call !== null) fn.apply(call.context, call.args);
+        }, remaining);
+      }
     }
   } as T;
 }

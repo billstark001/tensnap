@@ -25,7 +25,11 @@ export class RingBuffer<T> {
   private _size = 0;
   readonly capacity: number;
 
+  /** `capacity = 0` grows without eviction; bounded capacities must be whole numbers. */
   constructor(capacity: number) {
+    if (!Number.isSafeInteger(capacity) || capacity < 0) {
+      throw new RangeError('RingBuffer capacity must be a non-negative safe integer');
+    }
     this.capacity = capacity;
     this.buf = capacity > 0 ? new Array<T | undefined>(capacity) : [];
   }

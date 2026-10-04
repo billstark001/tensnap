@@ -48,6 +48,23 @@ describe('RunController', () => {
       .toThrow(/mode/);
   });
 
+  it('leaves an active run intact when a replacement request is invalid or premature', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    const original = session.run.start({ mode: 'manual', actionId: 'step' });
+
+    expect(() => session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 0 }))
+      .toThrow(/positive integer/);
+    expect(() => session.run.start({ mode: 'manual', actionId: 'step' }))
+      .toThrow(/current action tick/);
+    expect(session.run.status).toMatchObject({ id: original.id, state: 'running' });
+    expect(session.run.status?.stopReason).toBeUndefined();
+    expect(sent).toHaveLength(1);
+    session.run.reset();
+  });
+
   it('requires request_id to correlate an action result', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
@@ -59,6 +76,7 @@ describe('RunController', () => {
 
     expect(session.run.observeActionResult({ id: 'step' } as never)).toBe(false);
     expect(session.run.observeActionResult({ id: 'step', request_id: 'other' } as never)).toBe(false);
+    expect(session.run.observeActionResult({ id: 'other', request_id: requestId })).toBe(false);
     expect(session.run.observeActionResult({ id: 'step', request_id: requestId })).toBe(true);
   });
 
@@ -286,6 +304,24 @@ describe('RunController', () => {
     expect(() => compileRunCondition('/x/.test("x")')).toThrow();
   });
 
+  it('keeps callable permissions intact after a nested evaluation', () => {
+    const condition = compileRunCondition('agentCount("e", "l") === 1 && agentCount("e", "l") === 1');
+    const base = createRunConditionScope(new RendererSession().scenario, 0);
+    const nested = { ...base, agentCount: () => 1 };
+    let calls = 0;
+    const outer = {
+      ...base,
+      agentCount: () => {
+        calls += 1;
+        if (calls === 1) expect(condition.evaluate(nested)).toBe(true);
+        return 1;
+      },
+    };
+
+    expect(condition.evaluate(outer)).toBe(true);
+    expect(calls).toBe(2);
+  });
+
   it('reuses read-only condition views until their source revisions change', () => {
     const session = new RendererSession();
     session.scenario.apply({ type: 'param_create', payload: { id: 'speed', type: 'number', label: 'Speed', value: 2 } });
@@ -324,12 +360,65 @@ describe('RunController', () => {
     expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
   });
 
-  it('records a rejected render barrier and stops the affected run without an unhandled rejection', async () => {
+  it('reuses a watchdog during rapid ticks while preserving each tick deadline', async () => {
+    vi.useFakeTimers();
+    const sent: RendererToSimulatorMessage[] = [];
+    const setWatchdog = vi.fn((callback: () => void, delayMs: number) => setTimeout(callback, delayMs));
+    const clearWatchdog = vi.fn((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+    const session = new RendererSession({ run: {
+      actionTimeoutMs: 100,
+      scheduler: { now: () => Date.now(), setTimeout: setWatchdog, clearTimeout: clearWatchdog },
+    } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 4 });
+
+    for (let index = 0; index < 3; index += 1) {
+      await vi.advanceTimersByTimeAsync(5);
+      const requestId = tickId(sent[index]!);
+      session.handleIncoming({ type: 'action_result', payload: {
+        id: 'step', request_id: requestId, should_continue: true,
+      } });
+      session.run.markActionRendered({ id: 'step', request_id: requestId });
+    }
+
+    expect(sent).toHaveLength(4);
+    expect(setWatchdog).toHaveBeenCalledTimes(1);
+    expect(clearWatchdog).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(85); // The first tick's former deadline.
+    expect(session.run.status).toMatchObject({ state: 'running', completedSteps: 3 });
+    expect(setWatchdog).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(15); // The fourth tick's own deadline.
+    expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
+  });
+
+  it('moves the watchdog earlier when the action timeout is shortened', async () => {
+    vi.useFakeTimers();
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession({ run: { actionTimeoutMs: 100 } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.run.start({ mode: 'manual', actionId: 'step' });
+
+    await vi.advanceTimersByTimeAsync(10);
+    session.run.setActionTimeoutMs(20);
+    await vi.advanceTimersByTimeAsync(19);
+    expect(session.run.status?.state).toBe('running');
+    await vi.advanceTimersByTimeAsync(1);
+    expect(session.run.status).toMatchObject({ state: 'stopped', stopReason: 'action-timeout' });
+  });
+
+  it.each([
+    ['rejects', () => Promise.reject(new Error('canvas lost'))],
+    ['throws', () => { throw new Error('canvas lost'); }],
+  ])('records a render barrier that %s and stops the affected run', async (_mode, wait) => {
     const sent: RendererToSimulatorMessage[] = [];
     const onRenderBarrierError = vi.fn();
     const session = new RendererSession({
       run: {
-        renderBarrier: { wait: () => Promise.reject(new Error('canvas lost')) },
+        renderBarrier: { wait },
         onRenderBarrierError,
       },
     });
@@ -339,10 +428,9 @@ describe('RunController', () => {
     session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
     const first = tickId(sent[0]!);
     session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first, should_continue: true } });
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(onRenderBarrierError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ id: first }), expect.anything());
+    await vi.waitFor(() => {
+      expect(onRenderBarrierError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ id: first }), expect.anything());
+    });
     expect(session.run.status).toMatchObject({
       state: 'stopped',
       stopReason: 'render-error',

@@ -98,7 +98,7 @@ export function compileRunCondition(source: string): CompiledRunCondition {
     throw new Error('A stop expression must not be empty.');
   }
 
-  const allowedCalls = new Set<CallableFunction>();
+  const activeCalls: Array<Set<CallableFunction>> = [];
   const compiled = compile(source, {
     allowAwait: false,
     allowArrowFunctions: false,
@@ -115,15 +115,14 @@ export function compileRunCondition(source: string): CompiledRunCondition {
     // capability functions. `copy-plain-data-to-null-prototype` cannot carry
     // those functions, while calls remain explicitly permission-gated below.
     rootContextMode: 'allow',
-    isCallableAllowed: ({ fn }) => allowedCalls.has(fn),
+    isCallableAllowed: ({ fn }) => activeCalls[activeCalls.length - 1]?.has(fn) ?? false,
   });
   validateConditionAst(compiled.ast);
 
   return {
     source,
     evaluate(scope) {
-      allowedCalls.add(scope.agent);
-      allowedCalls.add(scope.agentCount);
+      activeCalls.push(new Set([scope.agent, scope.agentCount]));
       try {
         return compiled.evaluate({
           steps: scope.steps,
@@ -135,7 +134,7 @@ export function compileRunCondition(source: string): CompiledRunCondition {
           agentCount: scope.agentCount,
         });
       } finally {
-        allowedCalls.clear();
+        activeCalls.pop();
       }
     },
   };

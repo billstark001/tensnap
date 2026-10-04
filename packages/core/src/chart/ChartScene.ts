@@ -51,12 +51,19 @@ const light = {
 const dark = {
   background: '#1f1f1f', grid: '#404040', axis: '#cccccc', text: '#b0b0b0', label: '#e0e0e0',
 };
+const MAX_AXIS_TICKS = 100;
+
+function expandFiniteBounds(min: number, max: number, padding: number): [number, number] {
+  const lower = min - padding;
+  const upper = max + padding;
+  return [Number.isFinite(lower) ? lower : min, Number.isFinite(upper) ? upper : max];
+}
 
 function normalizeBounds(min: number, max: number): [number, number] {
   if (!Number.isFinite(min) || !Number.isFinite(max)) return [0, 1];
   if (min === max) {
     const padding = Math.abs(min) * 0.1 || 1;
-    return [min - padding, max + padding];
+    return expandFiniteBounds(min, max, padding);
   }
   return [min, max];
 }
@@ -65,13 +72,22 @@ function niceTicks(min: number, max: number, count = 6): number[] {
   const range = max - min;
   if (!Number.isFinite(range) || range <= 0) return [min];
   const rough = range / Math.max(1, count - 1);
+  if (rough === 0) return [min, max];
   const magnitude = 10 ** Math.floor(Math.log10(rough));
+  if (magnitude === 0) return [min, max];
   const normalized = rough / magnitude;
   const step = (normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10) * magnitude;
+  if (!Number.isFinite(step) || step <= 0) return [min, max];
   const first = Math.ceil(min / step) * step;
+  if (!Number.isFinite(first)) return [min, max];
   const result: number[] = [];
-  for (let tick = first; tick <= max + step * 1e-9; tick += step) result.push(Number(tick.toPrecision(14)));
-  return result;
+  for (let tick = first; tick <= max + step * 1e-9 && result.length < MAX_AXIS_TICKS;) {
+    result.push(Number(tick.toPrecision(14)));
+    const next = tick + step;
+    if (!Number.isFinite(next) || next <= tick) break;
+    tick = next;
+  }
+  return result.length ? result : [min, max];
 }
 
 function formatTick(value: number): string {
@@ -81,13 +97,15 @@ function formatTick(value: number): string {
   return Number(value.toPrecision(4)).toString();
 }
 
-/** Min/max bucket sampling preserves extrema at a canvas-pixel granularity. */
+/** Min/max bucket sampling preserves extrema per pixel; small input is returned unchanged. */
 export function downsampleSeries(points: SeriesPoint[], xMin: number, xMax: number, pixelWidth: number): SeriesPoint[] {
-  if (points.length <= Math.max(4, pixelWidth * 2) || pixelWidth <= 1) return points;
+  if (!Number.isFinite(pixelWidth) || pixelWidth <= 1) return points;
+  const width = Math.floor(pixelWidth);
+  if (points.length <= Math.max(4, width * 2)) return points;
   const range = xMax - xMin || 1;
-  const buckets = new Array<SampleBucket | undefined>(pixelWidth);
+  const buckets = new Array<SampleBucket | undefined>(width);
   for (const point of points) {
-    const bucket = Math.max(0, Math.min(pixelWidth - 1, Math.floor(((point.time - xMin) / range) * pixelWidth)));
+    const bucket = Math.max(0, Math.min(width - 1, Math.floor(((point.time - xMin) / range) * width)));
     const current = buckets[bucket];
     if (!current) {
       buckets[bucket] = { first: point, last: point, min: point, max: point };
@@ -178,6 +196,10 @@ export class ChartScene {
     this.recalculateDataBounds();
   }
 
+  /**
+   * Supply time-sorted rows. Reusing the same array enables an append-only
+   * bounds update; pass a new array after editing or reordering older rows.
+   */
   updateData(data: ChartDataPoint[]): void {
     const canAppend = data === this.data
       && data.length >= this.indexedDataLength
@@ -203,15 +225,15 @@ export class ChartScene {
       if (yTicks.length > 1) [yMin, yMax] = [yTicks[0], yTicks[yTicks.length - 1]];
     } else {
       const padding = (yMax - yMin) * 0.1;
-      yMin -= padding;
-      yMax += padding;
+      [yMin, yMax] = expandFiniteBounds(yMin, yMax, padding);
     }
     return { xMin, xMax, yMin, yMax };
   }
 
-  /** Resolve the nearest x-coordinate without allocating a sampled series. */
+  /** Return the nearest row with a finite configured line value in time-sorted data. */
   getTooltipAt(pointerX: number, width: number): ChartTooltip | null {
-    if (this.config.showTooltip === false || this.data.length === 0) return null;
+    if (this.config.showTooltip === false || this.data.length === 0
+      || !Number.isFinite(pointerX) || !Number.isFinite(width) || width <= 0) return null;
     const padding: Padding = {
       top: this.config.padding?.top ?? 24,
       right: this.config.padding?.right ?? 20,
@@ -236,6 +258,8 @@ export class ChartScene {
   render(context: ChartCanvasContext, width: number, height: number, options: ChartRenderOptions = {}): void {
     const colors = options.theme === 'dark' ? dark : light;
     const ratio = options.pixelRatio ?? 1;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || !Number.isFinite(ratio)
+      || width <= 0 || height <= 0 || ratio <= 0) return;
     const cssWidth = width / ratio;
     const cssHeight = height / ratio;
     const padding: Padding = {
@@ -319,16 +343,24 @@ export class ChartScene {
 
   private findNearestPoint(time: number): ChartDataPoint | undefined {
     let low = 0;
-    let high = this.data.length - 1;
+    let high = this.data.length;
     while (low < high) {
       const middle = (low + high) >>> 1;
       if (this.data[middle].time < time) low = middle + 1;
       else high = middle;
     }
-    const candidate = this.data[low];
-    const previous = low > 0 ? this.data[low - 1] : undefined;
-    if (!previous || !Number.isFinite(candidate.time)) return candidate;
-    return time - previous.time <= candidate.time - time ? previous : candidate;
+    let left = low - 1;
+    let right = low;
+    while (left >= 0 || right < this.data.length) {
+      const useLeft = left >= 0 && (right >= this.data.length
+        || Math.abs(time - this.data[left].time) <= Math.abs(this.data[right].time - time));
+      const point = this.data[useLeft ? left-- : right++];
+      if (Number.isFinite(point.time) && this.config.lines.some((line) => {
+        const value = point[line.key];
+        return typeof value === 'number' && Number.isFinite(value);
+      })) return point;
+    }
+    return undefined;
   }
 
   /** The normal chart path appends to a stable data array, so bound updates stay O(appended points). */
