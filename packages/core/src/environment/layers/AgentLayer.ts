@@ -281,6 +281,12 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     };
   }
 
+  /** Avoid entering Leafer's attribute setter when a projected item did not move. */
+  private _setGroupTransform(group: Group, coords: { x: number; y: number; rotation: number }): void {
+    if (group.x === coords.x && group.y === coords.y && group.rotation === coords.rotation) return;
+    group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
+  }
+
   private _createAgent(agent: AgentRenderState): void {
     const coords = this._toSceneCoords(agent);
     const icon = agent.icon ?? 'circle';
@@ -313,6 +319,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     const icon = agent.icon ?? 'circle';
     const color = agent.color ?? DEFAULT_AGENT_COLOR;
     const assetUrl = this._resolveIconAssetUrl(icon);
+    const sizeChanged = entry.size !== coords.size;
 
     const shapeTypeChanged = entry.icon !== icon || entry.assetUrl !== assetUrl;
     if (shapeTypeChanged) {
@@ -327,34 +334,38 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       entry.size = coords.size;
       entry.color = color;
     } else {
-      // Batch shape appearance changes into a single set() call.
-      const shapeUpdates: Record<string, unknown> = {};
-      if (entry.size !== coords.size) {
-        if (isBuiltinAgentIcon(icon)) {
-          Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
-        } else {
-          Object.assign(shapeUpdates, SHAPE_CONFIGS.square(coords.size));
+      const colorChanged = entry.color !== color;
+      if (sizeChanged || colorChanged) {
+        // Most item updates only move an agent; allocate and write shape attrs
+        // only when its appearance actually changes.
+        const shapeUpdates: Record<string, unknown> = {};
+        if (sizeChanged) {
+          if (isBuiltinAgentIcon(icon)) {
+            Object.assign(shapeUpdates, SHAPE_CONFIGS[icon](coords.size));
+          } else {
+            Object.assign(shapeUpdates, SHAPE_CONFIGS.square(coords.size));
+          }
+          entry.size = coords.size;
         }
-        entry.size = coords.size;
-      }
-      if (entry.color !== color) {
-        if (entry.assetUrl) {
-          shapeUpdates.fill = {
-            type: 'image',
-            mode: 'cover',
-            url: entry.assetUrl,
-          };
-        } else {
-          shapeUpdates.fill = color;
+        if (colorChanged) {
+          if (entry.assetUrl) {
+            shapeUpdates.fill = {
+              type: 'image',
+              mode: 'cover',
+              url: entry.assetUrl,
+            };
+          } else {
+            shapeUpdates.fill = color;
+          }
+          entry.color = color;
         }
-        entry.color = color;
+        entry.shape.set(shapeUpdates);
       }
-      if (Object.keys(shapeUpdates).length) entry.shape.set(shapeUpdates);
     }
 
     this._updateInspectionHighlight(entry, agent.id, coords.size);
 
-    if (entry.label) {
+    if (entry.label && sizeChanged) {
       const fs = Math.max(8, coords.size * 0.6);
       entry.label.set({
         text: String(agent.id),
@@ -366,7 +377,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       });
     }
 
-    entry.group.set({ x: coords.x, y: coords.y, rotation: coords.rotation });
+    this._setGroupTransform(entry.group, coords);
   }
 
   private _resolveIconAssetUrl(icon: AgentIcon | undefined): string | null {

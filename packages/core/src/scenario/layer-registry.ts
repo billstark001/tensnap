@@ -558,7 +558,11 @@ function getSnapshotBackground(layer: ScenarioLayerSnapshot): BackgroundData | n
 const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(AgentStorage, 'agent');
-    return items.filter((item) => storage.hasAgent(item.id)).map((item) => item.id);
+    const existing: AgentId[] = [];
+    for (const item of items) {
+      if (storage.hasAgent(item.id)) existing.push(item.id);
+    }
+    return existing;
   },
   createItems: (context, items) => {
     context.requireStorage(AgentStorage, 'agent').addAgents(items);
@@ -591,9 +595,13 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
 const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(EdgeStorage, 'edge');
-    return items
-      .filter((item) => storage.findEdge(item.source, item.target))
-      .map((item) => ({ source: item.source, target: item.target }));
+    const existing: Array<{ source: AgentId; target: AgentId }> = [];
+    for (const item of items) {
+      if (storage.findEdge(item.source, item.target)) {
+        existing.push({ source: item.source, target: item.target });
+      }
+    }
+    return existing;
   },
   createItems: (context, items) => {
     context.requireStorage(EdgeStorage, 'edge').addEdges(items);
@@ -646,9 +654,11 @@ const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryI
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     const { configs } = storage.getData();
-    return items
-      .filter((item) => configs.has(item.id) || storage.getEntry(item.id) !== undefined)
-      .map((item) => item.id);
+    const existing: AgentId[] = [];
+    for (const item of items) {
+      if (configs.has(item.id) || storage.getEntry(item.id) !== undefined) existing.push(item.id);
+    }
+    return existing;
   },
   createItems: (context, items) => {
     context.requireStorage(TrajectoryStorage, 'trajectory').upsertConfigs(items);

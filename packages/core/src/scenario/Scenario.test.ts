@@ -703,6 +703,21 @@ describe('Scenario – protocol identity rules', () => {
     }))).toThrow(/item_update does not exist/);
     expect(storage.getAgent('a1')?.x).toBe(1);
   });
+
+  it('keeps numeric and string agent identities distinct in one batch', () => {
+    const s = new Scenario();
+    setupEnvAndAgentLayer(s);
+    s.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 1, x: 1 }, { id: '1', x: 2 }],
+    }));
+    const storage = s.environments.get('env1')!.layers.get('layer1')!.storage as AgentStorage;
+    expect(storage.getAgent(1)?.x).toBe(1);
+    expect(storage.getAgent('1')?.x).toBe(2);
+    expect(() => s.apply(msg('item_update', {
+      env_id: 'env1', layer_id: 'layer1', items: [{ id: 1, x: 3 }, { id: 1, x: 4 }],
+    }))).toThrow(/item_update repeats an identity/);
+    expect(storage.getAgent(1)?.x).toBe(1);
+  });
 });
 
 // ── Parameter handling ────────────────────────────────────────────────────────

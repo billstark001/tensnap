@@ -371,6 +371,25 @@ export class Scenario extends LazyEventTarget {
   ): void {
     const fields = this.layerRegistry.get(layerType)?.primaryKeyFields;
     if (!fields?.length) throw new Error(`${operation} requires primary key fields for layer type ${layerType}`);
+    if (fields.length === 1) {
+      // Built-in agent and trajectory keys are primitive IDs. Avoid allocating
+      // an array and JSON string for every item in a large update batch.
+      // Non-primitive custom keys retain the existing serialized semantics.
+      const field = fields[0];
+      const primitiveKeys = new Set<string | number>();
+      let allPrimitive = true;
+      for (const item of items) {
+        const value = item[field];
+        if (value === undefined) throw new Error(`${operation} missing primary key for layer type ${layerType}`);
+        if (typeof value !== 'string' && (typeof value !== 'number' || !Number.isFinite(value))) {
+          allPrimitive = false;
+          break;
+        }
+        if (primitiveKeys.has(value)) throw new Error(`${operation} repeats an identity in layer type ${layerType}`);
+        primitiveKeys.add(value);
+      }
+      if (allPrimitive) return;
+    }
     const seen = new Set<string>();
     for (const item of items) {
       const values = fields.map((field) => item[field]);
