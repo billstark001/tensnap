@@ -2,5 +2,11 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "singleQuote": true,
   "printWidth": 100,
-  "proseWrap": "never"
+  "proseWrap": "never",
+  "ignorePatterns": [
+    "packages/*/src/locales/*/messages.mjs",
+    "packages/tensnap-tauri/src-tauri/gen/**",
+    "artifacts/benchmark-results/**/report.md",
+    "conformance/MATRIX.md"
+  ]
 }
