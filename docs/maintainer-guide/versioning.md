@@ -4,7 +4,8 @@ TenSnap uses independent package patch versions within the shared `0.3` release 
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/web`, `@tensnap/benchmark`, `@tensnap/tauri` | `0.3.2` | Each package's `package.json` |
+| `@tensnap/web`, `@tensnap/tauri` | `0.3.3` | Each package's `package.json`; Tauri also mirrors the version in `src-tauri/Cargo.toml` and `Cargo.lock` |
+| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/benchmark` | `0.3.2` | Each package's `package.json` |
 | `@tensnap/examples-js`, `@tensnap/examples-julia` | `0.3.2` | Each example's `package.json` |
 | Go binding | `0.3.2` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
 | Python binding | `0.3.2` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |

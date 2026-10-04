@@ -34,6 +34,8 @@ export default defineConfig({
 
   resolve: {
     alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') }],
+    // Radix overlays must share one layer manager across workspace packages.
+    dedupe: ['@radix-ui/react-dismissable-layer'],
   },
 
   build: {

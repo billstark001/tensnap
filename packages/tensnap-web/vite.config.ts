@@ -19,6 +19,9 @@ export default defineConfig({
   ],
   resolve: {
     alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(__dirname, './src/$1') }],
+    // Radix overlays must share one layer manager so modal teardown restores
+    // body pointer events correctly across workspace packages.
+    dedupe: ['@radix-ui/react-dismissable-layer'],
   },
   server: {
     port: 3200,

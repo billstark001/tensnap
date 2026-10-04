@@ -28,6 +28,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## @tensnap/web [0.3.3] - 2026-10-04
+
+### Fixed
+
+- Deduplicated Radix's dismissable layer in the Web build so closing a dialog opened from a menu restores body pointer events.
+
+## @tensnap/tauri [0.3.3] - 2026-10-04
+
+### Changed
+
+- Restored multi-platform draft release builds for `app-v*` tags.
+
+### Fixed
+
+- Applied the same Radix layer deduplication to the desktop WebView build.
+
 ## tensnap [0.3.1] - 2026-10-04
 
 ### Added

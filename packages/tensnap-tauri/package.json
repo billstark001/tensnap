@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/tauri",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "scripts": {
@@ -22,6 +22,7 @@
     "@lingui/cli": "^6.9.0",
     "@lingui/core": "^6.9.0",
     "@lingui/react": "^6.9.0",
+    "@radix-ui/react-dismissable-layer": "^1.1.19",
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "2.8.1",
     "@tauri-apps/plugin-fs": "2.6.0",
