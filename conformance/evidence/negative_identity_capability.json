@@ -2,7 +2,7 @@
   "bindings": [
     {
       "binding": "python",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -37,12 +37,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "a8192b5380f65e2906b9d99ba29b0e50d1a66131e9f1fcf0354c2f5c49903a57",
+      "source_sha256": "5d97ef45fd4306d17498c170c00fb3de020b91317c41ba55cf88a4f4f85ec2ff",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "python",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -77,12 +77,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "a8192b5380f65e2906b9d99ba29b0e50d1a66131e9f1fcf0354c2f5c49903a57",
+      "source_sha256": "5d97ef45fd4306d17498c170c00fb3de020b91317c41ba55cf88a4f4f85ec2ff",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "go",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -117,12 +117,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "22a40422af4e7d3c4a199ecd5ef224e8b22a72a1169a6904963dfdcdfe663f85",
+      "source_sha256": "e6803feed43574dac6e9a977c489a88b17679335e5f8ab1ff552c1a824feb88a",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "go",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -157,12 +157,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "22a40422af4e7d3c4a199ecd5ef224e8b22a72a1169a6904963dfdcdfe663f85",
+      "source_sha256": "e6803feed43574dac6e9a977c489a88b17679335e5f8ab1ff552c1a824feb88a",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "js",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -197,12 +197,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "60b03d651d41c2207ba71bbadf22c0aee1ef7745df0ee6186fe0dc612445d006",
+      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "js",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -237,12 +237,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "60b03d651d41c2207ba71bbadf22c0aee1ef7745df0ee6186fe0dc612445d006",
+      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "julia",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -277,12 +277,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "b7535e4c244c754b8bac4b4af05d4b26cd1e63dce08215500a65cb7499131ab6",
+      "source_sha256": "749f1e6fd9ce9dfa0910d06a3b25bbb16b601ebfcf5fa62b8049290db6e6cc9e",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "julia",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -317,7 +317,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "b7535e4c244c754b8bac4b4af05d4b26cd1e63dce08215500a65cb7499131ab6",
+      "source_sha256": "749f1e6fd9ce9dfa0910d06a3b25bbb16b601ebfcf5fa62b8049290db6e6cc9e",
       "test": "conformance/run_matrix.py"
     }
   ],
@@ -327,5 +327,5 @@
     "detail": "all eight live renderer probes",
     "status": "pass"
   },
-  "revision": "ca710185ce6def35c7e7859ab78e3814add10646"
+  "revision": "f9f99c34ff7c9941a7166fe5890ea247675038e5"
 }

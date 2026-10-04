@@ -2,7 +2,7 @@
   "bindings": [
     {
       "binding": "python",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -15,8 +15,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "1d1d046729c846cd956a52410034d7c0",
-          "previous_instance": "f00dcfa3f0b64e07953256c55a0568c1",
+          "new_instance": "1e14a2a2c91f490daa7ecde6de25a925",
+          "previous_instance": "096c9ff3cf384027b31ec75c58b36244",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -28,8 +28,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "1d1d046729c846cd956a52410034d7c0",
-          "previous_instance": "f00dcfa3f0b64e07953256c55a0568c1",
+          "new_instance": "1e14a2a2c91f490daa7ecde6de25a925",
+          "previous_instance": "096c9ff3cf384027b31ec75c58b36244",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -37,12 +37,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "a8192b5380f65e2906b9d99ba29b0e50d1a66131e9f1fcf0354c2f5c49903a57",
+      "source_sha256": "5d97ef45fd4306d17498c170c00fb3de020b91317c41ba55cf88a4f4f85ec2ff",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "python",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -55,8 +55,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "e011b4af121c42b9b7560edb42de3d44",
-          "previous_instance": "6834c6add3894adfa9d37d72552a9404",
+          "new_instance": "23f2090959d24061a406d45985686628",
+          "previous_instance": "c7f80fddf08d4a6fabb7c4fa9463a6fd",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -68,8 +68,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "e011b4af121c42b9b7560edb42de3d44",
-          "previous_instance": "6834c6add3894adfa9d37d72552a9404",
+          "new_instance": "23f2090959d24061a406d45985686628",
+          "previous_instance": "c7f80fddf08d4a6fabb7c4fa9463a6fd",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -77,12 +77,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "a8192b5380f65e2906b9d99ba29b0e50d1a66131e9f1fcf0354c2f5c49903a57",
+      "source_sha256": "5d97ef45fd4306d17498c170c00fb3de020b91317c41ba55cf88a4f4f85ec2ff",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "go",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -95,8 +95,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "cc8ca80a5d0850a96f1040ff50adae8b",
-          "previous_instance": "869123445ccb3e78ff0e6a5a0af50302",
+          "new_instance": "489e66e0297c659d952f9a22fb5b27fd",
+          "previous_instance": "e7a2eebdb7032afd31b2899d882044a6",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -108,8 +108,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "cc8ca80a5d0850a96f1040ff50adae8b",
-          "previous_instance": "869123445ccb3e78ff0e6a5a0af50302",
+          "new_instance": "489e66e0297c659d952f9a22fb5b27fd",
+          "previous_instance": "e7a2eebdb7032afd31b2899d882044a6",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -117,12 +117,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "22a40422af4e7d3c4a199ecd5ef224e8b22a72a1169a6904963dfdcdfe663f85",
+      "source_sha256": "e6803feed43574dac6e9a977c489a88b17679335e5f8ab1ff552c1a824feb88a",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "go",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -135,8 +135,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "4331f2d6b23be1acee82864041a12340",
-          "previous_instance": "103be085cf8bb294fc1cd1d8036b411c",
+          "new_instance": "48a64065530bab47f30dc87a8f3d2e64",
+          "previous_instance": "a855ae27454c8ea92b8cb45bdaff7f56",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -148,8 +148,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "4331f2d6b23be1acee82864041a12340",
-          "previous_instance": "103be085cf8bb294fc1cd1d8036b411c",
+          "new_instance": "48a64065530bab47f30dc87a8f3d2e64",
+          "previous_instance": "a855ae27454c8ea92b8cb45bdaff7f56",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -157,12 +157,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "22a40422af4e7d3c4a199ecd5ef224e8b22a72a1169a6904963dfdcdfe663f85",
+      "source_sha256": "e6803feed43574dac6e9a977c489a88b17679335e5f8ab1ff552c1a824feb88a",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "js",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -175,8 +175,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "fa8e3025-84e6-46ce-bb9f-a00431826c50",
-          "previous_instance": "73785516-89cd-4900-8cb7-e36c8bb6819a",
+          "new_instance": "29d7f81d-0316-4f0c-8a46-77ad5dd741d4",
+          "previous_instance": "7afddc75-dff5-4ba7-bf06-4e3bfa88bf7d",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -188,8 +188,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "fa8e3025-84e6-46ce-bb9f-a00431826c50",
-          "previous_instance": "73785516-89cd-4900-8cb7-e36c8bb6819a",
+          "new_instance": "29d7f81d-0316-4f0c-8a46-77ad5dd741d4",
+          "previous_instance": "7afddc75-dff5-4ba7-bf06-4e3bfa88bf7d",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -197,12 +197,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "60b03d651d41c2207ba71bbadf22c0aee1ef7745df0ee6186fe0dc612445d006",
+      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "js",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -215,8 +215,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "a7bdc008-3f84-4fcf-95a9-015a0ca8776d",
-          "previous_instance": "d9828d4f-9625-409c-ba27-0980255ca649",
+          "new_instance": "b5dfbe46-8bfb-4838-8176-d97b47586993",
+          "previous_instance": "bcd76ba2-e9c5-4376-97ad-732d22b3af81",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -228,8 +228,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "a7bdc008-3f84-4fcf-95a9-015a0ca8776d",
-          "previous_instance": "d9828d4f-9625-409c-ba27-0980255ca649",
+          "new_instance": "b5dfbe46-8bfb-4838-8176-d97b47586993",
+          "previous_instance": "bcd76ba2-e9c5-4376-97ad-732d22b3af81",
           "reused_client_object": true,
           "same_instance_reconnect": false,
           "session_scope": "isolated",
@@ -237,12 +237,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "60b03d651d41c2207ba71bbadf22c0aee1ef7745df0ee6186fe0dc612445d006",
+      "source_sha256": "3eadec18cf8fd8993926eed9cddd959fcf93c3780a7d175161fdce74208e388f",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "julia",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -255,8 +255,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "2bc6dd76-bd64-4616-9bc6-0af8c0db228c",
-          "previous_instance": "531e4c1e-8608-428b-88a3-08ca72775d68",
+          "new_instance": "02195278-0b6c-40bd-a5d2-d714050c0ef6",
+          "previous_instance": "89720785-2c59-4fc7-a2ed-cce2c80a7564",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -268,8 +268,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "2bc6dd76-bd64-4616-9bc6-0af8c0db228c",
-          "previous_instance": "531e4c1e-8608-428b-88a3-08ca72775d68",
+          "new_instance": "02195278-0b6c-40bd-a5d2-d714050c0ef6",
+          "previous_instance": "89720785-2c59-4fc7-a2ed-cce2c80a7564",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -277,12 +277,12 @@
         },
         "status": "pass"
       },
-      "source_sha256": "b7535e4c244c754b8bac4b4af05d4b26cd1e63dce08215500a65cb7499131ab6",
+      "source_sha256": "749f1e6fd9ce9dfa0910d06a3b25bbb16b601ebfcf5fa62b8049290db6e6cc9e",
       "test": "conformance/run_matrix.py"
     },
     {
       "binding": "julia",
-      "binding_version": "0.3.1",
+      "binding_version": "0.3.2",
       "client_test": [
         "conformance/renderer-client.ts",
         "conformance/renderer-live-client.ts",
@@ -295,8 +295,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "c07640f6-3282-4538-98bd-cf9289d49cc6",
-          "previous_instance": "a8442e8e-7b7b-4c5c-ad1a-c347a620184c",
+          "new_instance": "33dd85db-ae8d-4ae7-968a-ddd340df70e6",
+          "previous_instance": "764a7b91-98fe-4076-951f-df8f2487ee46",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -308,8 +308,8 @@
         "evidence": {
           "host_state_unchanged": true,
           "new_handshake_observed": true,
-          "new_instance": "c07640f6-3282-4538-98bd-cf9289d49cc6",
-          "previous_instance": "a8442e8e-7b7b-4c5c-ad1a-c347a620184c",
+          "new_instance": "33dd85db-ae8d-4ae7-968a-ddd340df70e6",
+          "previous_instance": "764a7b91-98fe-4076-951f-df8f2487ee46",
           "reused_client_object": true,
           "same_instance_reconnect": true,
           "session_scope": "shared",
@@ -317,7 +317,7 @@
         },
         "status": "pass"
       },
-      "source_sha256": "b7535e4c244c754b8bac4b4af05d4b26cd1e63dce08215500a65cb7499131ab6",
+      "source_sha256": "749f1e6fd9ce9dfa0910d06a3b25bbb16b601ebfcf5fa62b8049290db6e6cc9e",
       "test": "conformance/run_matrix.py"
     }
   ],
@@ -327,5 +327,5 @@
     "detail": "all eight live renderer probes",
     "status": "pass"
   },
-  "revision": "ca710185ce6def35c7e7859ab78e3814add10646"
+  "revision": "f9f99c34ff7c9941a7166fe5890ea247675038e5"
 }
