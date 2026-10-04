@@ -718,6 +718,27 @@ describe('Scenario – protocol identity rules', () => {
     }))).toThrow(/item_update repeats an identity/);
     expect(storage.getAgent(1)?.x).toBe(1);
   });
+
+  it('validates composite edge keys before changing a mixed update batch', () => {
+    const scenario = new Scenario();
+    setupEnvAndEdgeLayer(scenario);
+    scenario.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'items', items: [{ source: 'a', target: 'b', width: 1 }],
+    }));
+    const storage = scenario.environments.get('env1')!.layers.get('items')!.storage as EdgeStorage;
+
+    expect(() => scenario.apply(msg('item_update', {
+      env_id: 'env1', layer_id: 'items',
+      items: [{ source: 'a', target: 'b', width: 2 }, { source: 'b', target: 'a', width: 3 }],
+    }))).toThrow(/item_update does not exist/);
+    expect(storage.findEdge('a', 'b')?.width).toBe(1);
+
+    expect(() => scenario.apply(msg('item_create', {
+      env_id: 'env1', layer_id: 'items',
+      items: [{ source: 'b', target: 'a' }, { source: 'a', target: 'b' }],
+    }))).toThrow(/item_create already exists/);
+    expect(storage.findEdge('b', 'a')).toBeUndefined();
+  });
 });
 
 // ── Parameter handling ────────────────────────────────────────────────────────

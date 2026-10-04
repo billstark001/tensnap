@@ -84,6 +84,8 @@ export interface ItemLayerController<
   applyMetadata?(context: LayerControllerContext): void;
   /** Return keys which already exist before a create recreates its identities. */
   getExistingItemKeys?(context: LayerControllerContext, items: TCreateItem[]): DeleteItems;
+  /** Bind a cheap per-key lookup for strict batch validation. */
+  getItemKeyExists?(context: LayerControllerContext): (key: unknown) => boolean;
   createItems?(context: LayerControllerContext, items: TCreateItem[]): void;
   updateItems?(context: LayerControllerContext, items: TUpdateItem[]): void;
   deleteItems?(context: LayerControllerContext, items: DeleteItems): void;
@@ -556,6 +558,10 @@ function getSnapshotBackground(layer: ScenarioLayerSnapshot): BackgroundData | n
 
 // #region Built-in controllers
 const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
+  getItemKeyExists: (context) => {
+    const storage = context.requireStorage(AgentStorage, 'agent');
+    return (key) => storage.hasAgent(key as AgentId);
+  },
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(AgentStorage, 'agent');
     const existing: AgentId[] = [];
@@ -593,6 +599,13 @@ const agentLayerController: ItemLayerController<AgentItem, AgentItemDiff> = {
 };
 
 const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
+  getItemKeyExists: (context) => {
+    const storage = context.requireStorage(EdgeStorage, 'edge');
+    return (key) => {
+      const [source, target] = key as [AgentId, AgentId];
+      return storage.findEdge(source, target) !== undefined;
+    };
+  },
   getExistingItemKeys: (context, items) => {
     const storage = context.requireStorage(EdgeStorage, 'edge');
     const existing: Array<{ source: AgentId; target: AgentId }> = [];
@@ -619,6 +632,11 @@ const edgeLayerController: ItemLayerController<EdgeItem, EdgeItemDiff> = {
 };
 
 const trajectoryLayerController: ItemLayerController<TrajectoryItem, TrajectoryItemDiff> = {
+  getItemKeyExists: (context) => {
+    const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
+    const { configs } = storage.getData();
+    return (key) => configs.has(key as AgentId) || storage.getEntry(key as AgentId) !== undefined;
+  },
   applyMetadata: (context) => {
     const storage = context.requireStorage(TrajectoryStorage, 'trajectory');
     storage.setConfig({

@@ -338,20 +338,21 @@ export class Scenario extends LazyEventTarget {
       case 'item_create':
       case 'item_update': {
         const { env_id, layer_id, items } = payload as ItemCreatePayload | ItemUpdatePayload;
-        const layer = this.environmentsState.get(env_id)?.layers.get(layer_id);
+        const environment = this.environmentsState.get(env_id);
+        const layer = environment?.layers.get(layer_id);
         if (!layer) throw new Error(`${message.type} missing layer: ${env_id}/${layer_id}`);
-        this.assertUniqueItemKeys(layer.layerType, items, message.type);
         const controller = this.getLayerController(layer.layerType);
-        if (!controller?.getExistingItemKeys) {
+        if (!controller?.getItemKeyExists && !controller?.getExistingItemKeys) {
           throw new Error(`${message.type} cannot check existing identities for layer type ${layer.layerType}`);
         }
-        const existing = controller.getExistingItemKeys(
-          this.createLayerControllerContext(this.environmentsState.get(env_id)!, layer), items,
-        );
-        if (message.type === 'item_create' && existing.length > 0) {
+        const context = this.createLayerControllerContext(environment!, layer);
+        const hasKey = controller.getItemKeyExists?.(context);
+        const hasWrongExistence = this.assertUniqueItemKeys(layer.layerType, items, message.type, hasKey);
+        const existing = hasKey ? null : controller.getExistingItemKeys!(context, items);
+        if (message.type === 'item_create' && (hasWrongExistence || (existing?.length ?? 0) > 0)) {
           throw new Error(`item_create already exists: ${env_id}/${layer_id}`);
         }
-        if (message.type === 'item_update' && existing.length !== items.length) {
+        if (message.type === 'item_update' && (hasWrongExistence || (existing?.length ?? items.length) !== items.length)) {
           throw new Error(`item_update does not exist: ${env_id}/${layer_id}`);
         }
         return;
@@ -368,9 +369,11 @@ export class Scenario extends LazyEventTarget {
     layerType: string,
     items: Record<string, unknown>[],
     operation: 'item_create' | 'item_update',
-  ): void {
+    hasKey?: (key: unknown) => boolean,
+  ): boolean {
     const fields = this.layerRegistry.get(layerType)?.primaryKeyFields;
     if (!fields?.length) throw new Error(`${operation} requires primary key fields for layer type ${layerType}`);
+    let hasWrongExistence = false;
     if (fields.length === 1) {
       // Built-in agent and trajectory keys are primitive IDs. Avoid allocating
       // an array and JSON string for every item in a large update batch.
@@ -387,8 +390,10 @@ export class Scenario extends LazyEventTarget {
         }
         if (primitiveKeys.has(value)) throw new Error(`${operation} repeats an identity in layer type ${layerType}`);
         primitiveKeys.add(value);
+        if (hasKey && hasKey(value) !== (operation === 'item_update')) hasWrongExistence = true;
       }
-      if (allPrimitive) return;
+      if (allPrimitive) return hasWrongExistence;
+      hasWrongExistence = false;
     }
     const seen = new Set<string>();
     for (const item of items) {
@@ -397,7 +402,11 @@ export class Scenario extends LazyEventTarget {
       const key = JSON.stringify(values);
       if (seen.has(key)) throw new Error(`${operation} repeats an identity in layer type ${layerType}`);
       seen.add(key);
+      if (hasKey && hasKey(fields.length === 1 ? values[0] : values) !== (operation === 'item_update')) {
+        hasWrongExistence = true;
+      }
     }
+    return hasWrongExistence;
   }
 
   /** Advertise the current definitions for a read-only sync; simulator state remains authoritative. */

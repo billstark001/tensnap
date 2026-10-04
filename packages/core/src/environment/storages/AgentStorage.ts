@@ -88,10 +88,9 @@ export interface AgentStorageSnapshot {
 }
 
 function ownAgentData<T extends Partial<AgentRenderState>>(agent: T): T {
-  return {
-    ...agent,
-    ...(agent.data === undefined ? {} : { data: structuredClone(agent.data) }),
-  } as T;
+  const owned = { ...agent };
+  if (agent.data !== undefined) owned.data = structuredClone(agent.data);
+  return owned;
 }
 
 export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
@@ -241,17 +240,17 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
 
   /** Update multiple agents efficiently. */
   updateAgents(updates: Array<Readonly<Partial<AgentRenderState> & { id: AgentId }>>): void {
-    const prepared = updates.map(({ id, ...data }) => ({ id, data: ownAgentData(data) }));
+    const prepared = updates.map(ownAgentData);
     const delta: AgentDelta = { added: [], updated: [], removed: [] };
-    for (const { id, data } of prepared) {
-      const existing = this._data.agents.get(id);
+    for (const agent of prepared) {
+      const existing = this._data.agents.get(agent.id);
       if (existing) {
-        Object.assign(existing, data);
+        Object.assign(existing, agent);
         this.indexAgent(existing);
         delta.updated.push(existing);
       } else {
-        const newAgent = { id, ...data } as AgentRenderState;
-        this._data.agents.set(id, newAgent);
+        const newAgent = agent as AgentRenderState;
+        this._data.agents.set(agent.id, newAgent);
         this.indexAgent(newAgent);
         delta.added.push(newAgent);
       }

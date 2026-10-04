@@ -105,6 +105,18 @@ describe('AgentStorage – updateAgent / updateAgents', () => {
     expect(s.getData().agents.get('a2')?.x).toBe(20);
   });
 
+  it('owns the complete update batch before changing any agent', () => {
+    const storage = new AgentStorage();
+    storage.addAgents([{ id: 'a1', x: 0 }, { id: 'a2', x: 0 }]);
+    const revision = storage.revision;
+    expect(() => storage.updateAgents([
+      { id: 'a1', x: 10 },
+      { id: 'a2', data: { unsupported: () => undefined } },
+    ])).toThrow();
+    expect(storage.getAgent('a1')?.x).toBe(0);
+    expect(storage.revision).toBe(revision);
+  });
+
   it('does not retain nested data passed through a partial update', () => {
     const storage = new AgentStorage();
     storage.addAgent({ id: 'a' });
