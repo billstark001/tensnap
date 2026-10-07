@@ -94,6 +94,20 @@ pnpm dev:py:evac-dqn
 
 The server listens on `ws://localhost:8765` by default. Connect the TenSnap renderer at <https://tensnap.netlify.app> or run `pnpm dev:web` locally.
 
+### Exact inference checkpoints
+
+The TenSnap host advertises `scene.restore.checkpoint` with model identity `examples.fire-dqn` and state schema `fire-dqn-inference-v1`. After initial state synchronization, capture at an action boundary, advance, then restore the captured file with the agent CLI:
+
+```bash
+pnpm --filter @tensnap/agent dev scene capture --context evac-dqn --output capture.json
+pnpm --filter @tensnap/agent dev action run step --context evac-dqn
+pnpm --filter @tensnap/agent dev scene restore --checkpoint capture.json --context evac-dqn
+```
+
+The snapshot embeds the active CPU inference weights, selected/loaded policy names, model RNGs, positions and target exits, reward counters, collector history, active layout, pending reset configuration, and scenario time. It restores on the same registered model and configuration objects and needs no policy-file reload. The exact guarantee covers continued `env_step`/greedy inference in the same software environment; it does not cover training, CUDA, NetLogo, arbitrary Mesa events, or future resets that reread external files. Optimizer/target-network/replay-buffer training state is outside this inference checkpoint. The Python binding owns encoding, identity guards, transaction replay, request deduplication, and rollback.
+
+Set `TENSNAP_SEED=5000` for reproducible init/reset and `TENSNAP_ENCODING=msgpack` for MessagePack transport. Use `TENSNAP_USE_SOURCE=1` to exercise this checkout. The normal example advertises checkpoint restoration only. The intentionally non-exact visible-state inverse, explicit-action probe, and evidence verifier are **publication tools**, located in [../../experiments/fire_dqn_replay/README.md](../../experiments/fire_dqn_replay/README.md), and are not required to launch the example.
+
 ## Solara Visualization
 
 Run the Mesa/Solara view:
@@ -126,13 +140,13 @@ The Solara view exposes the same core map layers, DQN guide model selection, env
 cd examples && python -m python_dqn.evac_viz &
 
 # 2. Start the agent runtime
-pnpm --filter @tensnap/agent dev -- runtime up --context evac-dqn --simulator-url ws://localhost:8765
+pnpm --filter @tensnap/agent dev runtime up --context evac-dqn --simulator-url ws://localhost:8765
 
 # 3. Advance a few steps
-pnpm --filter @tensnap/agent dev -- action run step --context evac-dqn
+pnpm --filter @tensnap/agent dev action run step --context evac-dqn
 
 # 4. Render a snapshot
-pnpm --filter @tensnap/agent dev -- scene render snapshot --context evac-dqn
+pnpm --filter @tensnap/agent dev scene render snapshot --context evac-dqn
 ```
 
 ### Visualization layers
@@ -197,4 +211,4 @@ The NetLogo GUI keeps `use-python-policy?` on by default. Its bundled BehaviorSp
 ## TenSnap design notes
 
 - Parameter option lists are static after state sync. The guide model directory is scanned when the server starts; adding checkpoint files while the server is running requires restarting the simulator to refresh the enum choices.
-- A custom action can reload Python-side policy state, but the Python binding does not currently provide a compact helper for "run this action and immediately push a full visual refresh." The `Reset Guide Model` action therefore reloads the policy and the visible effect appears on the next step or reset.
+- `Reset Guide Model` reloads the active policy through an ordinary host action. Action-caused state is published before its correlated result.

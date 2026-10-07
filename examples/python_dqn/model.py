@@ -3,18 +3,17 @@
 
 from __future__ import annotations
 
+import math
 from collections import Counter, deque
 from dataclasses import dataclass
-import math
-import random
 from typing import Iterable
 
+import tensnap as t
 import torch
-from torch import Tensor
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
-import tensnap as t
+from torch import Tensor
 
 from .config import EnvConfig, Position
 
@@ -71,6 +70,8 @@ class EvacueeAgent(Agent):
         self.spawn_pos = pos
         self.alive = True
         self.evacuated = False
+        self._counted_evacuated = False
+        self._counted_dead = False
         self.target_exit = model.default_exit_for(pos)
 
     def step(self) -> int:
@@ -144,7 +145,6 @@ class EvacuationModel(Model):
         self.width = config.width
         self.height = config.height
         self.grid = MultiGrid(self.width, self.height, torus=False)
-        self.random = random.Random(seed)
         self.exit_cells: set[Position] = set(config.exits)
         self.wall_cells: set[Position] = set(config.walls)
         source_candidates = tuple(config.fire_sources)
@@ -367,7 +367,7 @@ class EvacuationModel(Model):
         choices = [
             exit_pos for exit_pos, distance in distances.items() if distance == best
         ]
-        return self.random.choice(choices)
+        return self.random.choice(sorted(choices))
 
     def route_distance(self, pos: Position, target: Position) -> int | None:
         distance_map = self._route_distance_cache.get(target)
@@ -457,7 +457,7 @@ class EvacuationModel(Model):
 
     def _spread_fire(self) -> None:
         new_fire: set[Position] = set(self.fire_cells)
-        for x, y in list(self.fire_cells):
+        for x, y in sorted(self.fire_cells):
             for nx, ny in self._neighbors((x, y)):
                 pos = (nx, ny)
                 if pos in self.wall_cells or pos in self.exit_cells:
@@ -484,19 +484,18 @@ class EvacuationModel(Model):
         evacuated_delta = sum(
             1
             for agent in self.evacuees
-            if agent.evacuated and getattr(agent, "_counted_evacuated", False) is False
+            if agent.evacuated and not agent._counted_evacuated
         )
         dead_delta = sum(
             1
             for agent in self.evacuees
-            if (not agent.alive and not agent.evacuated)
-            and getattr(agent, "_counted_dead", False) is False
+            if (not agent.alive and not agent.evacuated) and not agent._counted_dead
         )
         for evacuee in self.evacuees:
             if evacuee.evacuated:
-                setattr(evacuee, "_counted_evacuated", True)
+                evacuee._counted_evacuated = True
             if not evacuee.alive and not evacuee.evacuated:
-                setattr(evacuee, "_counted_dead", True)
+                evacuee._counted_dead = True
 
         occupancy = Counter(
             evacuee.pos

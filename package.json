@@ -42,6 +42,8 @@
     "dev:netlogo:evac-dqn": "open -a '/Applications/NetLogo 7.0.4/NetLogo 7.0.4.app' examples/python_dqn/netlogo/evac_dqn_netlogo.nlogox",
     "evidence:fire:run": "cd examples && python -m python_dqn.evidence run",
     "evidence:fire:verify": "cd examples && python -m python_dqn.evidence verify",
+    "evidence:fire:replay": "python experiments/fire_dqn_replay/run.py run",
+    "evidence:fire:replay:verify": "python experiments/fire_dqn_replay/run.py verify",
     "dev:go:schelling": "cd examples/go && make run-schelling",
     "standalone:go:schelling": "cd examples/go && make run-standalone",
     "standalone:js:schelling": "pnpm --filter @tensnap/examples-js standalone:schelling",

@@ -353,3 +353,11 @@ A smaller cross-runtime smoke comparison used one checkpoint for 10 NetLogo epis
 | NetLogo-to-Python checkpoint bridge        | `netlogo_policy.py`               |
 | TenSnap visualization entry point          | `evac_viz.py`                     |
 | Solara visualization entry point           | `evac_viz_solara.py`              |
+
+## Exact inference continuation evidence
+
+The TenSnap route now supports model-private CPU inference checkpoints. Its state is distinct from a saved training `.pt` file: it also contains the current episode, model RNGs, reward bookkeeping, collector history, active layout and pending configuration, and protocol clock. See [README.md](README.md#exact-inference-checkpoints) for the supported boundary.
+
+The publication experiment lives outside the example in [../../experiments/fire_dqn_replay](../../experiments/fire_dqn_replay/README.md). It uses held-out seeds, captures after two no-guide steps, compares a 20-step recorded-action replay and a fresh greedy-policy replay, and tests a visible restoration baseline with the advanced RNG deliberately retained. It also branches DQN and no-guide to termination from the same exact checkpoint.
+
+Fire spread and tied initial exit choices now consume random numbers in sorted coordinate order. The model also keeps Mesa's original RNG object, so agent registries share the same generator. Earlier ranking/training artifacts remain historical results tied to their recorded source commit; they are not fresh results for this implementation. Existing v2 policy weights remain dimensionally compatible with the unchanged observation and action spaces. This replay study tests restoration integrity and a bounded branching workflow; it does not establish evacuation realism or a need for DQN.

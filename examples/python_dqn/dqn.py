@@ -85,7 +85,7 @@ class DQNAgent:
         epsilon = 0.0 if greedy else self.current_epsilon()
         if not greedy:
             self.total_steps += 1
-        if random.random() < epsilon:
+        if not greedy and random.random() < epsilon:
             return random.randrange(self.action_dim)
         with torch.no_grad():
             q_values = self.policy_net(state.to(self.device).unsqueeze(0))
