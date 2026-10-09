@@ -59,7 +59,11 @@ _instructions
 tmp-*
 
 # Locally generated reproducible benchmark artifacts. Workload specifications live in benchmarks/.
-/benchmark-results/
+/benchmark-results/.work
+/benchmark-results/.cache
+/benchmark-results/.logs
+/benchmark-results/.tmp
+/benchmark-results/*.log
 
 # Dedicated publication environment and generated evidence.
 .evaluation-venv/
