@@ -434,7 +434,13 @@ function stateSyncMessage(workload: ProtocolBenchmarkWorkload): RendererToSimula
   };
 }
 
-function assertActionResult(message: SimulatorToRendererMessage): void {
+function assertSimulatorResult(message: SimulatorToRendererMessage): void {
+  if (message.type === 'error') {
+    const payload = message.payload as { code: string; message: string; request_id?: string };
+    throw new Error(
+      `Simulator protocol error: ${payload.code}: ${payload.message}${payload.request_id ? ` (request ${payload.request_id})` : ''}`,
+    );
+  }
   if (message.type !== 'action_result') return;
   const payload = message.payload as { error?: { code: string; message: string } };
   if (payload.error)
@@ -508,7 +514,7 @@ async function runProtocolNodeReplicate(
     const decoded = incoming.decode(encoded) as SimulatorToRendererMessage;
     incrementCount(counts, decoded.type);
     validator.observe(decoded);
-    assertActionResult(decoded);
+    assertSimulatorResult(decoded);
   }, `benchmark-node-${index}`);
 
   const send = async (message: RendererToSimulatorMessage): Promise<void> => {
@@ -713,7 +719,7 @@ async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer
   return { pageUrl, close: () => server.close() };
 }
 
-async function runWsReplicate(
+export async function runWsReplicate(
   workload: ProtocolBenchmarkWorkload,
   config: BenchmarkConfig,
   encoding: ProtocolEncoding,
@@ -744,8 +750,21 @@ async function runWsReplicate(
     validation: { level: validation, direction: 'simulator-to-renderer' },
   });
   const synchronised = deferred<void>();
+  // Identity can arrive (and fail) before the connection promise resumes.
+  void synchronised.promise.catch(() => undefined);
   const actionResults = new Map<string, Deferred<void>>();
   let socket: WebSocket | undefined;
+  let failure: unknown;
+  const fail = (error: unknown): void => {
+    failure ??= error;
+    synchronised.reject(failure);
+    for (const pending of actionResults.values()) pending.reject(failure);
+  };
+  const send = (encoded: string | Uint8Array): void => {
+    socket!.send(typeof encoded === 'string' ? encoded : Buffer.from(encoded), (error) => {
+      if (error) fail(error);
+    });
+  };
 
   try {
     socket = new WebSocket(url);
@@ -758,8 +777,8 @@ async function runWsReplicate(
         const normalized = normalizeWebSocketRawData(data, isBinary);
         const message = incoming.decode(normalized) as SimulatorToRendererMessage;
         incrementCount(counts, message.type);
+        assertSimulatorResult(message);
         validator.observe(message);
-        assertActionResult(message);
         if (message.type === 'simulator_info') {
           const payload = outgoing.encode(
             stateSyncMessage(workload) as AnyProtocolMessage,
@@ -769,7 +788,7 @@ async function runWsReplicate(
             ...wireBytes,
             rendererToSimulator: wireBytes.rendererToSimulator + byteLength(payload),
           };
-          socket!.send(typeof payload === 'string' ? payload : Buffer.from(payload));
+          send(payload);
         } else if (message.type === 'state_sync_end') {
           synchronised.resolve();
         } else if (message.type === 'action_result') {
@@ -777,13 +796,16 @@ async function runWsReplicate(
           actionResults.get(payload.request_id)?.resolve();
         }
       } catch (error) {
-        synchronised.reject(error);
-        for (const pending of actionResults.values()) pending.reject(error);
+        fail(error);
       }
     });
-    socket.on('error', (error) => {
-      synchronised.reject(error);
-      for (const pending of actionResults.values()) pending.reject(error);
+    socket.on('error', fail);
+    socket.on('close', (code, reason) => {
+      fail(
+        new Error(
+          `WebSocket closed before completion: ${code}${reason.length ? `: ${reason.toString()}` : ''}.`,
+        ),
+      );
     });
     await withTimeout(
       new Promise<void>((resolvePromise, reject) => {
@@ -793,10 +815,12 @@ async function runWsReplicate(
       `WebSocket connection to ${url}`,
     );
     await withTimeout(synchronised.promise, 'Initial state sync');
+    if (failure) throw failure;
 
     const timingsMs: number[] = [];
     const totalActions = warmupActions + measuredActions;
     for (let actionIndex = 0; actionIndex < totalActions; actionIndex += 1) {
+      if (failure) throw failure;
       const message = actionMessage(workload, actionIndex);
       const requestId = (message.payload as { request_id: string }).request_id;
       const done = deferred<void>();
@@ -807,8 +831,9 @@ async function runWsReplicate(
         rendererToSimulator: wireBytes.rendererToSimulator + byteLength(encoded),
       };
       const started = nowMs();
-      socket.send(typeof encoded === 'string' ? encoded : Buffer.from(encoded));
+      send(encoded);
       await withTimeout(done.promise, `Action ${requestId}`);
+      if (failure) throw failure;
       actionResults.delete(requestId);
       if (actionIndex >= warmupActions) timingsMs.push(nowMs() - started);
     }
@@ -822,6 +847,11 @@ async function runWsReplicate(
       correctness: assertProtocolCorrectness(workload, config, validator, totalActions),
       process: processMeasurement(processStartedAt),
     };
+  } catch (error) {
+    throw new Error(
+      `${error instanceof Error ? error.message : String(error)}\nWebSocket replicate: ${workload.id}, config=${stableJson(config)}, encoding=${encoding}, validation=${validation}, block=${index + 1}; received=${stableJson(counts)}; wireBytes=${stableJson(wireBytes)}.`,
+      { cause: error },
+    );
   } finally {
     if (socket) await closeSocket(socket);
     await host.close();
@@ -991,9 +1021,9 @@ async function runProtocolBrowserReplicate(
       incrementCount(counts, message.type);
       wireBytes = { ...wireBytes, simulatorToRenderer: wireBytes.simulatorToRenderer + bytes };
       try {
-        validator.observe(message);
-        assertActionResult(message);
         if (message.type === 'error') simulatorErrors.push(message.payload);
+        validator.observe(message);
+        assertSimulatorResult(message);
       } catch (error) {
         observerError = error;
       }
