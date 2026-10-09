@@ -20,6 +20,8 @@ Go subjects use the evaluation `go.mod` through `-modfile` with `-mod=readonly`.
 
 `doctor` checks every profile/lock hash, Python dependencies, local Python/Julia binding resolution, Go dependency resolution and Chromium startup before any timed experiment. Runtime versions and source fingerprints are saved with the batch. Publication runs require a clean source commit; diagnostic runs record the dirty source bytes.
 
+Source checks exclude `benchmark-results/`, `evaluation-results/`, the selected batch output, and configured work/cache directories, even when Git can track their contents. Creating or updating these generated files does not invalidate the running batch. Benchmark child processes use the same exclusions. Changes to tracked or untracked source outside those directories still invalidate the batch; committing any change during a run also changes its recorded revision. Use dedicated generated directories, never a source directory, for output, work or cache paths.
+
 ## Commands
 
 From the repository root:

@@ -5,16 +5,24 @@ import { chromium } from 'playwright';
 import { checkProfileLocks } from './config';
 import { hashBytes } from './files';
 import { execute } from './process';
+import { sourcePathspecs } from '../node/source';
 import type { EvaluationSpecification, ExecutionContext } from './types';
 
-/** Includes uncommitted source bytes for diagnostics; ignored run products never enter the fingerprint. */
+/** Includes uncommitted source bytes for diagnostics; generated evidence and caches are excluded. */
 export async function sourceIdentity(
   context: ExecutionContext,
 ): Promise<{ commit: string; dirty: boolean; filesSha256: string }> {
+  const paths = sourcePathspecs(context.repositoryRoot, [
+    context.workDirectory,
+    context.cacheDirectory,
+    context.env.TENSNAP_EVALUATION_OUTPUT_DIR,
+  ]);
   const commit = await execute(context, 'git', ['rev-parse', 'HEAD'], { quiet: true });
-  const status = await execute(context, 'git', ['status', '--porcelain'], { quiet: true });
+  const status = await execute(context, 'git', ['status', '--porcelain', ...paths], {
+    quiet: true,
+  });
   const names = (
-    await execute(context, 'git', ['ls-files', '-c', '-o', '--exclude-standard', '-z'], {
+    await execute(context, 'git', ['ls-files', '-c', '-o', '--exclude-standard', '-z', ...paths], {
       quiet: true,
     })
   )

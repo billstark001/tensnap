@@ -103,6 +103,8 @@ export function executionContext(
       PYTHONPYCACHEPREFIX: path.join(cacheDirectory, 'python'),
       GOCACHE: path.join(cacheDirectory, 'go'),
       TENSNAP_EVALUATION_VITE_CACHE_DIR: path.join(cacheDirectory, 'vite'),
+      TENSNAP_EVALUATION_WORK_DIR: workDirectory,
+      TENSNAP_EVALUATION_CACHE_DIR: cacheDirectory,
       PATH: path.isAbsolute(interpreter)
         ? `${path.dirname(interpreter)}${path.delimiter}${process.env.PATH ?? ''}`
         : process.env.PATH,

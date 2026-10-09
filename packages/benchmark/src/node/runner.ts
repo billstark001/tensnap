@@ -62,6 +62,7 @@ import {
   type SampleFileCache,
   type SamplesReference,
 } from './sample-files';
+import { sourcePathspecs } from './source';
 
 const EMPTY_BYTES: BenchmarkWireBytes = { rendererToSimulator: 0, simulatorToRenderer: 0 };
 const benchmarkRequire = createRequire(import.meta.url);
@@ -2369,7 +2370,15 @@ async function collectArtifactContext(repositoryRoot: string): Promise<Benchmark
   const packageJson = JSON.parse(
     await readFile(path.join(repositoryRoot, 'packages/benchmark/package.json'), 'utf8'),
   ) as { version: string };
-  const status = git(repositoryRoot, ['status', '--porcelain']);
+  const status = git(repositoryRoot, [
+    'status',
+    '--porcelain',
+    ...sourcePathspecs(repositoryRoot, [
+      process.env.TENSNAP_EVALUATION_OUTPUT_DIR,
+      process.env.TENSNAP_EVALUATION_WORK_DIR,
+      process.env.TENSNAP_EVALUATION_CACHE_DIR,
+    ]),
+  ]);
   const gitSha = git(repositoryRoot, ['rev-parse', 'HEAD']);
   return {
     harness: { package: '@tensnap/benchmark', version: packageJson.version, gitSha },

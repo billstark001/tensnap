@@ -16,13 +16,17 @@ import type {
 } from './types';
 
 export async function runBatch(
-  context: ExecutionContext,
+  baseContext: ExecutionContext,
   directory: string,
   specification: EvaluationSpecification,
   mode: EvaluationMode,
   resume: boolean,
   exportOptions: ExportOptions = {},
 ): Promise<void> {
+  const context: ExecutionContext = {
+    ...baseContext,
+    env: { ...baseContext.env, TENSNAP_EVALUATION_OUTPUT_DIR: path.resolve(directory) },
+  };
   const source = await sourceIdentity(context);
   if (mode === 'publication' && source.dirty)
     throw new Error(
