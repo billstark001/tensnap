@@ -1,0 +1,68 @@
+{
+  "protocol": [
+    { "operation": "Core update", "runId": "core-trace-10k-c100|node|-|-" },
+    {
+      "operation": "Validated WS sparse",
+      "runId": "tensnap-random-walk-10k-c100|ws|msgpack|error"
+    },
+    {
+      "operation": "Validated WS dense",
+      "runId": "tensnap-random-walk-10k-c10000|ws|msgpack|error"
+    },
+    {
+      "operation": "Browser rAF sparse",
+      "runId": "tensnap-random-walk-10k-c100|browser|msgpack|error"
+    },
+    {
+      "operation": "Browser rAF dense",
+      "runId": "tensnap-random-walk-10k-c10000|browser|msgpack|error"
+    },
+    { "operation": "State synchronization", "runId": "state-sync-10k|node|-|-" },
+    { "operation": "Recording and restoration", "runId": "snapshot-restore-10k|node|-|-" }
+  ],
+  "schelling": [
+    {
+      "platform": "Python/Mesa",
+      "kernelExperiment": "schelling-kernel",
+      "kernelRun": "mesa|node|-|-",
+      "uiExperiment": "schelling-ui-mesa",
+      "rafRun": "mesa-tensnap-web-raf|browser|-|-",
+      "timeoutRun": "mesa-tensnap-web-timeout|browser|-|-"
+    },
+    {
+      "platform": "Go",
+      "kernelExperiment": "schelling-kernel",
+      "kernelRun": "go|node|-|-",
+      "uiExperiment": "schelling-ui-go",
+      "rafRun": "go-tensnap-web-raf|browser|-|-",
+      "timeoutRun": "go-tensnap-web-timeout|browser|-|-"
+    },
+    {
+      "platform": "JavaScript",
+      "kernelExperiment": "schelling-ui-js",
+      "kernelRun": "js-headless|node|-|-",
+      "uiExperiment": "schelling-ui-js",
+      "rafRun": "js-tensnap-web-raf|browser|-|-",
+      "timeoutRun": "js-tensnap-web-timeout|browser|-|-"
+    },
+    {
+      "platform": "Julia/Agents.jl",
+      "kernelExperiment": "schelling-kernel",
+      "kernelRun": "julia|node|-|-",
+      "uiExperiment": "schelling-ui-julia",
+      "rafRun": "agents-tensnap-web-raf|browser|-|-",
+      "timeoutRun": "agents-tensnap-web-timeout|browser|-|-"
+    }
+  ],
+  "conformance": [
+    { "id": "identity_handshake", "label": "Identity handshake" },
+    { "id": "atomic_sync", "label": "Atomic sync" },
+    { "id": "host_only_transition", "label": "Host-only transition" },
+    { "id": "action_correlation", "label": "Action correlation" },
+    { "id": "parameter_control", "label": "Parameter control" },
+    { "id": "reconnect", "label": "Reconnect" },
+    { "id": "negative_identity_capability", "label": "Identity/capability rejection" },
+    { "id": "exact_checkpoint", "label": "Checkpoint restore" },
+    { "id": "future_replay", "label": "Matching rerun after restore" }
+  ]
+}

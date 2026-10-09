@@ -1,18 +1,22 @@
 # Protocol conformance
 
-The [cross-binding matrix](MATRIX.md) reports protocol v0.3 results for Python/Mesa, Go, JavaScript/TypeScript, Julia, and the renderer client. Each invariant links to retained JSON evidence in [`evidence/`](evidence/). The deterministic hosts and their private state sidecars live in [`fixtures/`](fixtures/).
+The deterministic hosts and independent private-state sidecars live in [`fixtures/`](fixtures/). The probe drives four language bindings over JSON and MessagePack, the public renderer client, schema traces and harness canaries.
 
-From the repository root, after installing the Python, Node, Go, and Julia dependencies:
-
-```bash
+```sh
+# Live regression checks; does not require or write saved results.
 python conformance/run_matrix.py --check
 pnpm exec tsc --noEmit -p conformance/tsconfig.json
+
+# Publish new saved evidence to a fresh, ignored directory.
+python conformance/run_matrix.py --write --out benchmark-results/conformance
+
+# Offline validation; does not launch hosts.
+python conformance/run_matrix.py --verify --input benchmark-results/conformance
+
+# Optionally compare saved source digests while also running live checks.
+python conformance/run_matrix.py --check --input benchmark-results/conformance
 ```
 
-`--check` reruns every supported binding and encoding, drives the renderer through each live connection, validates the protocol traces and canaries, and checks the retained matrix and source digests. To refresh the evidence after a binding, protocol, or harness change:
+`--write` requires all four bindings and publishes through a staging directory. `--check --bindings python` is available for a diagnostic subset. Saved results contain `results.json`, `MATRIX.md` and sixteen per-property files under `evidence/`; they are generated outputs, not source fixtures. The CI workflow runs live `--check` and needs no retained matrix in the source checkout.
 
-```bash
-python conformance/run_matrix.py --write
-```
-
-The [CI workflow](../.github/workflows/conformance-matrix.yml) runs `--check` on pull requests and `main`. The transport-neutral protocol trajectories live in [`traces/`](traces/) and are validated by [`validate_traces.ts`](validate_traces.ts).
+For the paper's locked environment, full batch, gzip evidence and table export, use [`benchmarks/evaluation`](../benchmarks/evaluation/README.md). Historical results are retained in the companion paper archive and source Git history. The transport-neutral trajectories under [`traces/`](traces/) remain test inputs.

@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "tensnap-paper-2026",
+  "experiments": [
+    { "id": "conformance", "kind": "conformance" },
+    { "id": "schelling-workflow", "kind": "workflow" },
+    {
+      "id": "protocol-core",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-paper-v0.3.json"
+    },
+    {
+      "id": "schelling-kernel",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-schelling-kernel-v2.json"
+    },
+    {
+      "id": "schelling-ui-go",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-go-v2.json"
+    },
+    {
+      "id": "schelling-ui-js",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-js-v2.json"
+    },
+    {
+      "id": "schelling-ui-julia",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-julia-v2.json"
+    },
+    {
+      "id": "schelling-ui-mesa",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-mesa-v2.json"
+    },
+    {
+      "id": "schelling-netlogo-render",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/evaluation-2026-schelling-netlogo-render-v2.json"
+    },
+    { "id": "fire-dqn", "kind": "fire" }
+  ]
+}

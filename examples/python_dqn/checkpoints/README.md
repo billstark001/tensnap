@@ -4,7 +4,7 @@ Place trained DQN guide checkpoints (`.pt` or `.pth`) in this directory.
 
 `evac_viz.py` scans this directory at startup and exposes the file names through the TenSnap `Guide Model` parameter. The built-in reset action and the `Reset Guide Model` action reload the currently selected checkpoint.
 
-`dqn_latest.pt` is the bundled reference policy trained for 500 episodes with training seed 7 and checkpoint schema `fire-evacuation-v2`. It is intended for the runnable demo, not as a general pretrained evacuation policy.
+Historical reference checkpoints are retained in the companion paper evidence archive and Git history. Train a local policy or copy a verified checkpoint from a new evidence batch into this directory; generated policy binaries are not bundled with the source. The demo uses the `fire-evacuation-v2` checkpoint schema.
 
 Checkpoint compatibility, state semantics, and the evaluation standard are documented in [../MODEL.md](../MODEL.md#reinforcement-learning-formulation). Retrain checkpoints made for the earlier environment before using them with this version:
 

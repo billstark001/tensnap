@@ -60,3 +60,12 @@ tmp-*
 
 # Locally generated reproducible benchmark artifacts. Workload specifications live in benchmarks/.
 /benchmark-results/
+
+# Dedicated publication environment and generated evidence.
+.evaluation-venv/
+/evaluation-results/
+/artifacts/*/results/
+/conformance/results.json
+/conformance/MATRIX.md
+/conformance/evidence/
+/examples/python_dqn/artifacts/

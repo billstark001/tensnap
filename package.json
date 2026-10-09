@@ -74,7 +74,8 @@
     "test:julia": "pnpm --dir examples/julia run test",
     "lint:js": "oxlint .",
     "format:js": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}' .pnpmfile.cjs",
-    "format:md": "oxfmt --write '**/*.md' '.agents/**/*.md' '.github/**/*.md'"
+    "format:md": "oxfmt --write '**/*.md' '.agents/**/*.md' '.github/**/*.md'",
+    "evaluation": "pnpm --filter @tensnap/benchmark evaluation"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

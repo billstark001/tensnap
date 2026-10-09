@@ -17,7 +17,8 @@
     "build": "tsc && vite build",
     "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
     "preview": "vite preview",
-    "clean": "rm -rf dist node_modules"
+    "clean": "rm -rf dist node_modules",
+    "evaluation": "node --import tsx src/evaluation/cli.ts"
   },
   "dependencies": {
     "@leafer-ui/core": "^2.3.0",
