@@ -3,6 +3,11 @@ import { createReadStream } from 'node:fs';
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
+/** Original images and plots belong in the separately downloadable figure archive. */
+export function isFigure(file: string): boolean {
+  return /\.(png|apng|jpg|jpeg|gif|webp|avif|svg|pdf|tif|tiff|bmp)$/i.test(file);
+}
+
 export async function exists(file: string): Promise<boolean> {
   try {
     await access(file);

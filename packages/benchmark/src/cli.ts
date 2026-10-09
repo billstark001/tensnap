@@ -20,6 +20,7 @@ import {
   writeArtifact,
 } from './node/runner';
 import type { BenchmarkArtifact, BenchmarkSuite } from './harness/types';
+import { readBenchmarkArtifact } from './node/sample-files';
 
 function option(args: readonly string[], name: string): string | undefined {
   const index = args.indexOf(name);
@@ -105,8 +106,7 @@ async function findRepositoryRoot(start: string): Promise<string> {
 }
 
 async function readArtifact(input: string): Promise<BenchmarkArtifact> {
-  const manifest = input.endsWith('.json') ? input : path.join(input, 'manifest.json');
-  return JSON.parse(await readFile(manifest, 'utf8')) as BenchmarkArtifact;
+  return readBenchmarkArtifact(input);
 }
 
 function usage(): string {

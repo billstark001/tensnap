@@ -1,11 +1,11 @@
 // @vitest-environment node
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { diagnosticProfile, loadBenchmarkProfile } from './config';
 import { renderCsv, renderTex, selectRun } from './tables';
-import { archiveCommand, withEvidence } from './archive';
+import { archiveCommand, extractEvidence, listFiles, withEvidence } from './archive';
 import { execute, executionContext } from './process';
 import { exists } from './files';
 import type { BenchmarkArtifact } from '../harness/types';
@@ -75,7 +75,10 @@ describe('evaluation planning and table semantics', () => {
 describe('compressed evidence trust boundary', () => {
   it('rejects traversal and link members before creating an extraction directory', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'tensnap-unsafe-archive-test-'));
-    const context = executionContext(root, process.env.TENSNAP_TEST_PYTHON ?? 'python3');
+    const context = executionContext(root, process.env.TENSNAP_TEST_PYTHON ?? 'python3', {
+      workDirectory: path.join(directory, 'work'),
+      cacheDirectory: path.join(directory, 'cache'),
+    });
     try {
       for (const kind of ['traversal', 'link']) {
         const archive = path.join(directory, `${kind}.tar.gz`);
@@ -112,10 +115,12 @@ describe('compressed evidence trust boundary', () => {
 
   it('produces deterministic gzip bytes, checks inventory and rejects altered payloads', async () => {
     const directory = await mkdtemp(path.join(tmpdir(), 'tensnap-archive-test-'));
-    const context = executionContext(root, process.env.TENSNAP_TEST_PYTHON ?? 'python3');
+    const context = executionContext(root, process.env.TENSNAP_TEST_PYTHON ?? 'python3', {
+      workDirectory: path.join(directory, 'work'),
+      cacheDirectory: path.join(directory, 'cache'),
+    });
     try {
       const input = path.join(directory, 'input');
-      const { mkdir } = await import('node:fs/promises');
       await mkdir(input);
       await writeFile(path.join(input, 'sample.jsonl'), '{"sample":1}\n');
       const first = path.join(directory, 'first.tar.gz');
@@ -123,14 +128,118 @@ describe('compressed evidence trust boundary', () => {
       for (const archive of [first, second])
         await archiveCommand(context, ['create', '--input', input, '--out', archive]);
       expect(await readFile(first)).toEqual(await readFile(second));
-      const extracted = await withEvidence(context, first, (folder) =>
-        readFile(path.join(folder, 'sample.jsonl'), 'utf8'),
-      );
+      const extracted = await withEvidence(context, first, (folder) => {
+        expect(path.relative(context.workDirectory, path.dirname(folder))).toMatch(/^evidence-/);
+        return readFile(path.join(folder, 'sample.jsonl'), 'utf8');
+      });
       expect(extracted).toBe('{"sample":1}\n');
       const altered = await readFile(first);
       altered[Math.floor(altered.length / 2)]! ^= 0xff;
       await writeFile(first, altered);
       await expect(archiveCommand(context, ['verify', '--input', first])).rejects.toThrow();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('joins disjoint data and figure archives, extracts figures on demand and supports empty figures', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'tensnap-split-archive-test-'));
+    const context = executionContext(root, process.env.TENSNAP_TEST_PYTHON ?? 'python3', {
+      workDirectory: path.join(directory, 'work'),
+      cacheDirectory: path.join(directory, 'cache'),
+    });
+    try {
+      const data = path.join(directory, 'data');
+      const figures = path.join(directory, 'figures');
+      const exported = path.join(directory, 'export');
+      await mkdir(data);
+      await mkdir(figures);
+      await mkdir(exported);
+      await writeFile(path.join(data, 'sample.jsonl'), '{"sample":1}\n');
+      await writeFile(path.join(figures, 'scene.png'), 'original PNG bytes');
+      for (const [name, source] of [
+        ['data', data],
+        ['figures', figures],
+      ])
+        await archiveCommand(context, [
+          'create',
+          '--input',
+          source!,
+          '--out',
+          path.join(exported, `${name}.tar.gz`),
+          '--gzip-level',
+          '9',
+        ]);
+      const joined = await withEvidence(context, exported, listFiles);
+      expect(joined).toEqual(['sample.jsonl', 'scene.png']);
+      const extracted = path.join(directory, 'extracted-figures');
+      await extractEvidence(context, exported, extracted, true);
+      expect(await listFiles(extracted)).toEqual(['scene.png']);
+      expect(await readFile(path.join(extracted, 'scene.png'), 'utf8')).toBe('original PNG bytes');
+      await expect(extractEvidence(context, exported, extracted, true)).rejects.toThrow(
+        /already exists/,
+      );
+      const full = path.join(directory, 'extracted-all');
+      await extractEvidence(context, path.join(exported, 'data.tar.gz'), full);
+      expect(await listFiles(full)).toEqual(joined);
+      await expect(
+        archiveCommand(context, [
+          'create',
+          '--input',
+          data,
+          '--out',
+          path.join(directory, 'invalid.tar.gz'),
+          '--gzip-level',
+          '10',
+        ]),
+      ).rejects.toThrow();
+      await rm(path.join(figures, 'scene.png'));
+      await rm(path.join(exported, 'figures.tar.gz'));
+      await archiveCommand(context, [
+        'create',
+        '--input',
+        figures,
+        '--out',
+        path.join(exported, 'figures.tar.gz'),
+        '--allow-empty',
+      ]);
+      expect(await withEvidence(context, exported, listFiles)).toEqual(['sample.jsonl']);
+      await rm(path.join(exported, 'figures.tar.gz'));
+      await expect(withEvidence(context, exported, listFiles)).rejects.toThrow(/Missing companion/);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects misplaced payloads in split archives before publishing an extraction', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'tensnap-split-boundary-test-'));
+    const context = executionContext(root, process.env.TENSNAP_TEST_PYTHON ?? 'python3', {
+      workDirectory: path.join(directory, 'work'),
+      cacheDirectory: path.join(directory, 'cache'),
+    });
+    try {
+      const data = path.join(directory, 'data');
+      const figures = path.join(directory, 'figures');
+      const exported = path.join(directory, 'export');
+      await mkdir(data);
+      await mkdir(figures);
+      await mkdir(exported);
+      await writeFile(path.join(data, 'sample.jsonl'), '{}\n');
+      await writeFile(path.join(figures, 'not-a-figure.json'), '{}\n');
+      for (const [name, source] of [
+        ['data', data],
+        ['figures', figures],
+      ])
+        await archiveCommand(context, [
+          'create',
+          '--input',
+          source!,
+          '--out',
+          path.join(exported, `${name}.tar.gz`),
+        ]);
+      const output = path.join(directory, 'rejected');
+      await expect(extractEvidence(context, exported, output)).rejects.toThrow(/Non-figure/);
+      expect(await exists(output)).toBe(false);
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

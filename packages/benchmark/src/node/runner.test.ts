@@ -27,6 +27,9 @@ import {
   type BenchmarkJournalSample,
 } from './runner';
 import type { BenchmarkArtifact } from '../harness/types';
+import { readBenchmarkArtifact } from './sample-files';
+import { compactEvidence } from '../evaluation/compact';
+import type { EvaluationBatch } from '../evaluation/types';
 
 function completeNodeArtifact(): BenchmarkArtifact {
   const profile = validateProfile({
@@ -460,6 +463,71 @@ describe('benchmark artifact schema v2', () => {
       await expect(verifyArtifactFiles(output, manifest)).resolves.toBeUndefined();
       await appendFile(path.join(output, 'report.md'), 'tampered\n');
       await expect(verifyArtifactFiles(output)).rejects.toThrow(/report.md was not regenerated/);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('compacts samples and PNGs by reference without changing verification or journal merge data', async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'tensnap-compact-test-'));
+    try {
+      const artifact = completeNodeArtifact();
+      const run = artifact.runs[0]!;
+      const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+      const sample = {
+        ...run.samples[0]!,
+        visual: {
+          checkpoints: { final: createHash('sha256').update(png).digest('hex') },
+          inlinePngBase64: { final: png.toString('base64') },
+        },
+      };
+      const folder = path.join(directory, 'raw/fixture');
+      const journal = path.join(directory, 'raw/fixture.journal.jsonl');
+      await writeArtifact(folder, { ...artifact, runs: [{ ...run, samples: [sample] }] });
+      await initializeBenchmarkJournal(journal, {
+        type: 'header',
+        schemaVersion: 1,
+        profile: artifact.profile,
+        profileSha256: sha256(artifact.profile),
+        suites: ['node'],
+        implementationGitSha: 'fixture',
+        expectedRunIds: [run.id],
+        artifactContext: {
+          harness: artifact.harness,
+          implementation: artifact.implementation,
+          environment: artifact.environment,
+        },
+      });
+      await appendBenchmarkJournalSample(journal, {
+        type: 'sample',
+        runId: run.id,
+        block: 0,
+        sample,
+      });
+      const original = await readBenchmarkArtifact(folder);
+      const batch = {
+        specification: { experiments: [{ id: 'fixture', kind: 'benchmark' }] },
+      } as EvaluationBatch;
+      await compactEvidence(directory, batch);
+      const stored = JSON.parse(await readFile(path.join(folder, 'manifest.json'), 'utf8'));
+      expect(stored.runs[0].samples).toBeUndefined();
+      expect(stored.runs[0].samplesReference.path).toBe('samples.jsonl');
+      const journalText = await readFile(journal, 'utf8');
+      expect(journalText).not.toContain('inlinePngBase64');
+      expect(journalText).not.toContain('timingsMs');
+      expect(await readBenchmarkArtifact(folder)).toEqual(original);
+      await verifyArtifactFiles(folder);
+      expect((await readBenchmarkJournal(journal)).samples[0]!.sample).toEqual(sample);
+      await compactEvidence(directory, batch);
+      expect(await readFile(journal, 'utf8')).toBe(journalText);
+      const merged = path.join(directory, 'merged');
+      await writeArtifact(merged, {
+        ...artifact,
+        runs: [{ ...run, samples: [(await readBenchmarkJournal(journal)).samples[0]!.sample] }],
+      });
+      await verifyArtifactFiles(merged);
+      await appendFile(path.join(folder, 'samples.jsonl'), 'tampered\n');
+      await expect(readBenchmarkArtifact(folder)).rejects.toThrow();
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

@@ -109,7 +109,7 @@ Comprehensive documentation is available in the `/docs` folder:
 
 ### For Maintainers
 
-- **[Paper Evaluation](./benchmarks/evaluation/README.md)** - Locked experiment batches, recovery, gzip evidence and CSV/LaTeX export
+- **[Paper Evaluation](./benchmarks/evaluation/README.md)** - Locked experiment batches, recovery, separate data/figure gzip archives and CSV/LaTeX export
 - **[Protocol Conformance](./conformance/README.md)** - Reproducible cross-binding wire and client probes
 - **[Architecture Overview](./docs/maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment

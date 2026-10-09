@@ -41,7 +41,9 @@ def relative_name(name: str) -> str:
     return path.as_posix()
 
 
-def source_files(root: Path, includes: list[str]) -> list[Path]:
+def source_files(
+    root: Path, includes: list[str], allow_empty: bool = False
+) -> list[Path]:
     files: set[Path] = set()
     for name in includes or [""]:
         selected = root / name
@@ -51,19 +53,29 @@ def source_files(root: Path, includes: list[str]) -> list[Path]:
             raise ValueError(f"symbolic links cannot be archived: {selected}")
         candidates = sorted(selected.rglob("*")) if selected.is_dir() else [selected]
         for candidate in candidates:
+            if candidate.name == ".DS_Store":
+                continue
             if candidate.is_symlink():
                 raise ValueError(f"symbolic links cannot be archived: {candidate}")
             if candidate.is_file():
                 files.add(candidate)
-    if not files:
+    if not files and not allow_empty:
         raise ValueError("no evidence files selected")
     return sorted(files, key=lambda file: file.relative_to(root).as_posix())
 
 
-def create_archive(root: Path, output: Path, includes: list[str]) -> None:
+def create_archive(
+    root: Path,
+    output: Path,
+    includes: list[str],
+    gzip_level: int = 6,
+    allow_empty: bool = False,
+) -> None:
+    if gzip_level not in range(10):
+        raise ValueError("gzip level must be an integer from 0 through 9")
     if output.exists():
         raise FileExistsError(f"refusing to overwrite archive: {output}")
-    files = source_files(root, includes)
+    files = source_files(root, includes, allow_empty)
     if output.resolve() in {file.resolve() for file in files}:
         raise ValueError("archive destination must not be part of its input")
     inventory = []
@@ -81,7 +93,7 @@ def create_archive(root: Path, output: Path, includes: list[str]) -> None:
     ) as temporary:
         stage = Path(temporary) / "evidence.tar.gz"
         with stage.open("wb") as raw, gzip.GzipFile(
-            fileobj=raw, mode="wb", filename="", mtime=0, compresslevel=6
+            fileobj=raw, mode="wb", filename="", mtime=0, compresslevel=gzip_level
         ) as compressed, tarfile.open(
             fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT
         ) as archive:
@@ -162,6 +174,8 @@ def main() -> None:
     create.add_argument("--input", type=Path, required=True)
     create.add_argument("--out", type=Path, required=True)
     create.add_argument("--include", action="append", default=[])
+    create.add_argument("--gzip-level", type=int, choices=range(10), default=6)
+    create.add_argument("--allow-empty", action="store_true")
     verify = commands.add_parser("verify")
     verify.add_argument("--input", type=Path, required=True)
     extract = commands.add_parser("extract")
@@ -169,7 +183,13 @@ def main() -> None:
     extract.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     if args.command == "create":
-        create_archive(args.input.resolve(), args.out.resolve(), args.include)
+        create_archive(
+            args.input.resolve(),
+            args.out.resolve(),
+            args.include,
+            args.gzip_level,
+            args.allow_empty,
+        )
     elif args.command == "verify":
         verify_archive(args.input.resolve())
     else:

@@ -6,11 +6,13 @@ import {
   listFiles,
   verifyExportChecksums,
   withEvidence,
+  createWorkDirectory,
 } from './archive';
-import { exists, readJson, writeJson } from './files';
+import { exists, isFigure, readJson, writeJson } from './files';
 import { buildTables, writeTables } from './tables';
 import { verifyEvidence } from './verify';
-import type { EvaluationBatch, ExecutionContext } from './types';
+import { compactEvidence } from './compact';
+import type { EvaluationBatch, ExecutionContext, ExportOptions } from './types';
 
 async function copyResults(
   evidence: string,
@@ -23,36 +25,43 @@ async function copyResults(
     await mkdir(report, { recursive: true });
     for (const name of ['report.md', 'analysis', 'MATRIX.md', 'summary.json', 'evidence'])
       if (await exists(path.join(raw, name)))
-        await cp(path.join(raw, name), path.join(report, name), { recursive: true });
-    for (const relative of await listFiles(raw)) {
-      if (!relative.endsWith('.png')) continue;
-      const target = path.join(output, 'figures', experiment.id, relative);
-      await mkdir(path.dirname(target), { recursive: true });
-      await cp(path.join(raw, relative), target);
-    }
+        await cp(path.join(raw, name), path.join(report, name), {
+          recursive: true,
+          filter: (source) => path.basename(source) !== '.DS_Store' && !isFigure(source),
+        });
   }
 }
 
 /**
  * Export checks all raw evidence, then checks its compressed round trip before publication.
- * Heavy manifests, samples, journals, checkpoints and logs live only inside evidence.tar.gz.
+ * Data and original figures occupy separate archives; external reports contain no figures.
  */
 export async function exportBatch(
   context: ExecutionContext,
   input: string,
   output: string,
+  options: ExportOptions = {},
 ): Promise<void> {
+  const gzipLevel = options.gzipLevel ?? 6;
+  if (!Number.isInteger(gzipLevel) || gzipLevel < 0 || gzipLevel > 9)
+    throw new Error('--gzip-level must be an integer from 0 through 9.');
   if (await exists(output))
     throw new Error(`Export already exists; verify it or choose a new --out: ${output}`);
   await mkdir(path.dirname(output), { recursive: true });
   const stage = await mkdtemp(path.join(path.dirname(output), '.evaluation-export-'));
+  let payload: string | undefined;
   try {
+    payload = await createWorkDirectory(context, 'export-payload-');
+    const payloadDirectory = payload;
     await withEvidence(context, input, async (evidence) => {
       const batch = await verifyEvidence(context, evidence);
       const tables = await buildTables(context.repositoryRoot, evidence, batch);
       await writeTables(path.join(stage, 'tables'), tables, batch);
       await copyResults(evidence, stage, batch);
-      const archive = path.join(stage, 'evidence.tar.gz');
+      const data = path.join(payloadDirectory, 'data');
+      const figures = path.join(payloadDirectory, 'figures');
+      await mkdir(data);
+      await mkdir(figures);
       const includes = [
         'batch.json',
         'table-selection.json',
@@ -61,11 +70,31 @@ export async function exportBatch(
         'logs',
         'doctor.json',
       ];
-      const selected = [];
       for (const name of includes)
-        if (await exists(path.join(evidence, name))) selected.push('--include', name);
-      await archiveCommand(context, ['create', '--input', evidence, '--out', archive, ...selected]);
-      await withEvidence(context, archive, async (roundTrip) => {
+        if (await exists(path.join(evidence, name)))
+          await cp(path.join(evidence, name), path.join(data, name), { recursive: true });
+      await compactEvidence(data, batch);
+      for (const relative of await listFiles(data)) {
+        if (!isFigure(relative)) continue;
+        const target = path.join(figures, relative);
+        await mkdir(path.dirname(target), { recursive: true });
+        await rename(path.join(data, relative), target);
+      }
+      for (const [name, source] of [
+        ['data', data],
+        ['figures', figures],
+      ] as const)
+        await archiveCommand(context, [
+          'create',
+          '--input',
+          source,
+          '--out',
+          path.join(stage, `${name}.tar.gz`),
+          '--gzip-level',
+          String(gzipLevel),
+          ...(name === 'figures' ? ['--allow-empty'] : []),
+        ]);
+      await withEvidence(context, path.join(stage, 'data.tar.gz'), async (roundTrip) => {
         await verifyEvidence(context, roundTrip);
         const rebuilt = await buildTables(context.repositoryRoot, roundTrip, batch);
         if (JSON.stringify(rebuilt) !== JSON.stringify(tables))
@@ -77,7 +106,10 @@ export async function exportBatch(
         `Mode: ${batch.mode}. Source: ${batch.source.commit}.`,
         `Started: ${batch.createdAt}. Every declared experiment passed offline verification.`,
         '',
-        'Raw evidence, full manifests, checkpoints and execution logs are retained in `evidence.tar.gz`.',
+        'Raw samples, compact manifests, checkpoints and logs are retained in `data.tar.gz`.',
+        'Original PNGs and plots are retained only in `figures.tar.gz`; paths and SHA-256 checks remain verifiable.',
+        `Gzip compression level: ${gzipLevel}. Manifest and journal samples reference the checked samples.jsonl rows.`,
+        'Use `pnpm evaluation extract --input EXPORT --out DIRECTORY --figures-only` to extract figures on demand.',
         'CSV tables preserve full precision; LaTeX tables round displayed fractional values to three decimal places.',
         'Performance measurement intervals are defined by each recorded profile; model-step and GUI intervals remain separate.',
         '',
@@ -86,7 +118,9 @@ export async function exportBatch(
       ].join('\n');
       await writeFile(path.join(stage, 'summary.md'), summary);
       await writeJson(path.join(stage, 'index.json'), {
-        schemaVersion: 1,
+        schemaVersion: 2,
+        archives: { data: 'data.tar.gz', figures: 'figures.tar.gz' },
+        compression: { algorithm: 'gzip', level: gzipLevel },
         mode: batch.mode,
         source: batch.source,
         environment: batch.environment,
@@ -99,6 +133,8 @@ export async function exportBatch(
   } catch (error) {
     await rm(stage, { recursive: true, force: true });
     throw error;
+  } finally {
+    if (payload) await rm(payload, { recursive: true, force: true });
   }
 }
 
@@ -106,12 +142,10 @@ export async function exportBatch(
 export async function pruneBatch(context: ExecutionContext, batchDirectory: string): Promise<void> {
   const output = path.join(batchDirectory, 'export');
   await verifyExportChecksums(output);
-  await withEvidence(context, path.join(output, 'evidence.tar.gz'), (evidence) =>
-    verifyEvidence(context, evidence),
-  );
+  await withEvidence(context, output, (evidence) => verifyEvidence(context, evidence));
   const retained = await readJson<EvaluationBatch>(path.join(batchDirectory, 'batch.json'));
   const exported = await readFile(path.join(batchDirectory, 'batch.json'));
-  await withEvidence(context, path.join(output, 'evidence.tar.gz'), async (evidence) => {
+  await withEvidence(context, output, async (evidence) => {
     if (!exported.equals(await readFile(path.join(evidence, 'batch.json'))))
       throw new Error('Archived batch metadata differs from the working copy.');
   });

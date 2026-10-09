@@ -36,6 +36,25 @@ export interface EvaluationBatch {
 export interface ExecutionContext {
   repositoryRoot: string;
   python: string;
+  workDirectory: string;
+  cacheDirectory: string;
   env: NodeJS.ProcessEnv;
   signal?: AbortSignal;
+}
+
+export interface ExecutionDirectories {
+  workDirectory?: string;
+  cacheDirectory?: string;
+}
+
+export interface ExportOptions {
+  /** Gzip levels 0 through 9; the default is 6. */
+  gzipLevel?: number;
+}
+
+export interface ExportIndex {
+  schemaVersion: 1 | 2;
+  filesSha256: Record<string, string>;
+  archives?: { data: 'data.tar.gz'; figures: 'figures.tar.gz' };
+  compression?: { algorithm: 'gzip'; level: number };
 }

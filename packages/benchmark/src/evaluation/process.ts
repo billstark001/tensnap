@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { ExecutionContext } from './types';
+import type { ExecutionContext, ExecutionDirectories } from './types';
 
 /** Arguments are passed directly to the executable, never through a shell. */
 export async function execute(
@@ -12,6 +12,7 @@ export async function execute(
   options: { cwd?: string; log?: string; quiet?: boolean } = {},
 ): Promise<string> {
   context.signal?.throwIfAborted();
+  await prepareDirectories(context);
   if (options.log) await mkdir(path.dirname(options.log), { recursive: true });
   const log = options.log ? createWriteStream(options.log, { flags: 'a' }) : undefined;
   let output = '';
@@ -64,15 +65,44 @@ export async function execute(
   }
 }
 
-export function executionContext(root: string, python?: string): ExecutionContext {
+export async function prepareDirectories(context: ExecutionContext): Promise<void> {
+  await mkdir(context.workDirectory, { recursive: true });
+  await mkdir(context.cacheDirectory, { recursive: true });
+}
+
+export function executionContext(
+  root: string,
+  python?: string,
+  directories: ExecutionDirectories = {},
+): ExecutionContext {
   const selected = python ?? process.env.TENSNAP_EVALUATION_PYTHON ?? '.evaluation-venv/bin/python';
   const interpreter =
     selected.includes('/') || selected.includes('\\') ? path.resolve(root, selected) : selected;
+  const workDirectory = path.resolve(
+    root,
+    directories.workDirectory ??
+      process.env.TENSNAP_EVALUATION_WORK_DIR ??
+      'benchmark-results/.work',
+  );
+  const cacheDirectory = path.resolve(
+    root,
+    directories.cacheDirectory ??
+      process.env.TENSNAP_EVALUATION_CACHE_DIR ??
+      'benchmark-results/.cache',
+  );
   return {
     repositoryRoot: root,
     python: interpreter,
+    workDirectory,
+    cacheDirectory,
     env: {
       ...process.env,
+      TMPDIR: workDirectory,
+      TMP: workDirectory,
+      TEMP: workDirectory,
+      PYTHONPYCACHEPREFIX: path.join(cacheDirectory, 'python'),
+      GOCACHE: path.join(cacheDirectory, 'go'),
+      TENSNAP_EVALUATION_VITE_CACHE_DIR: path.join(cacheDirectory, 'vite'),
       PATH: path.isAbsolute(interpreter)
         ? `${path.dirname(interpreter)}${path.delimiter}${process.env.PATH ?? ''}`
         : process.env.PATH,

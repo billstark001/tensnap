@@ -3,6 +3,7 @@ import { sha256, stableJson } from '../node/runner';
 import { readJson } from './files';
 import { readBenchmark, verifyExperiment } from './experiments';
 import { withEvidence } from './archive';
+import { verifyRetainedJournal } from './compact';
 import type { EvaluationBatch, ExecutionContext } from './types';
 
 export async function verifyEvidence(
@@ -27,6 +28,10 @@ export async function verifyEvidence(
     let revision: string;
     if (experiment.kind === 'benchmark') {
       const artifact = await readBenchmark(folder);
+      await verifyRetainedJournal(
+        path.join(directory, 'raw', `${experiment.id}.journal.jsonl`),
+        artifact,
+      );
       revision = artifact.implementation.gitSha!;
       const declared = await readJson(path.join(directory, 'profiles', `${experiment.id}.json`));
       if (sha256(declared) !== artifact.integrity.profileSha256)

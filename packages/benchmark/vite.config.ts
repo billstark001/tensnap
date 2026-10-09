@@ -6,6 +6,7 @@ import path from 'path';
 import { tensnapCodeSplitting } from '../../scripts/vite-chunks.mjs';
 
 export default defineConfig({
+  cacheDir: process.env.TENSNAP_EVALUATION_VITE_CACHE_DIR,
   define: {
     __APP_VERSION__: JSON.stringify('benchmark'),
   },

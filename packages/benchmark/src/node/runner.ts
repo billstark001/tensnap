@@ -54,6 +54,14 @@ import type {
 } from '../harness/types';
 import { resolveBrowserBenchmarkRunOptions } from '../browser-options';
 import type { ResolvedBrowserBenchmarkRunOptions } from '../browser-types';
+import {
+  journalSampleWithImages,
+  readBenchmarkArtifact,
+  referencedSamples,
+  referencePath,
+  type SampleFileCache,
+  type SamplesReference,
+} from './sample-files';
 
 const EMPTY_BYTES: BenchmarkWireBytes = { rendererToSimulator: 0, simulatorToRenderer: 0 };
 const benchmarkRequire = createRequire(import.meta.url);
@@ -1004,7 +1012,7 @@ async function runProtocolBrowserReplicate(
       browser = await chromium.launch({ headless: true });
     } catch (error) {
       throw new Error(
-        `Chromium is unavailable. Run \"pnpm bench:browser:install\" first. ${error instanceof Error ? error.message : String(error)}`,
+        `Chromium is unavailable. Run "pnpm bench:browser:install" first. ${error instanceof Error ? error.message : String(error)}`,
       );
     }
     try {
@@ -2226,18 +2234,30 @@ export async function readBenchmarkJournal(file: string): Promise<BenchmarkJourn
   ) {
     throw new Error(`Benchmark journal ${file} has an invalid header.`);
   }
-  const samples = lines.slice(1).map((line, index) => {
-    const record = JSON.parse(line) as BenchmarkJournalSample;
-    if (
-      record.type !== 'sample' ||
-      !record.runId ||
-      !Number.isInteger(record.block) ||
-      !record.sample
-    ) {
+  const cache: SampleFileCache = new Map();
+  const samples: BenchmarkJournalSample[] = [];
+  for (const [index, line] of lines.slice(1).entries()) {
+    const record = JSON.parse(line) as Omit<BenchmarkJournalSample, 'sample'> & {
+      sample?: BenchmarkReplicate;
+      sampleReference?: SamplesReference;
+    };
+    const { sampleReference, sample, ...metadata } = record;
+    let loaded = sample;
+    if (sampleReference) {
+      if (
+        sample ||
+        sampleReference.runId !== record.runId ||
+        sampleReference.block !== record.block
+      )
+        throw new Error(`Benchmark journal ${file} has an invalid sample reference.`);
+      const [retained] = await referencedSamples(file, sampleReference, cache);
+      loaded = await journalSampleWithImages(retained!, referencePath(file, sampleReference.path));
+    }
+    if (record.type !== 'sample' || !record.runId || !Number.isInteger(record.block) || !loaded) {
       throw new Error(`Benchmark journal ${file} has an invalid sample on line ${index + 2}.`);
     }
-    return record;
-  });
+    samples.push({ ...metadata, sample: loaded });
+  }
   const keys = samples.map(journalSampleKey);
   if (new Set(keys).size !== keys.length)
     throw new Error(`Benchmark journal ${file} contains duplicate run/block samples.`);
@@ -2901,8 +2921,7 @@ export async function verifyArtifactSourceFiles(
 ): Promise<void> {
   const manifestPath = input.endsWith('.json') ? input : path.join(input, 'manifest.json');
   const directory = path.dirname(manifestPath);
-  const loaded =
-    artifact ?? (JSON.parse(await readFile(manifestPath, 'utf8')) as BenchmarkArtifact);
+  const loaded = artifact ?? (await readBenchmarkArtifact(manifestPath));
   verifyArtifact(loaded);
   if (!loaded.integrity.samplesSha256)
     throw new Error('Artifact manifest does not contain a samples.jsonl checksum.');
@@ -2928,8 +2947,7 @@ export async function verifyArtifactFiles(
 ): Promise<void> {
   const manifestPath = input.endsWith('.json') ? input : path.join(input, 'manifest.json');
   const directory = path.dirname(manifestPath);
-  const loaded =
-    artifact ?? (JSON.parse(await readFile(manifestPath, 'utf8')) as BenchmarkArtifact);
+  const loaded = artifact ?? (await readBenchmarkArtifact(manifestPath));
   await verifyArtifactSourceFiles(input, loaded);
   const expectedDerived = { 'report.md': renderReport(loaded), ...analysisFiles(loaded) };
   const declaredDerived = loaded.integrity.filesSha256;

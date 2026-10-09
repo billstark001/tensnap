@@ -12,6 +12,7 @@ import type {
   EvaluationMode,
   EvaluationSpecification,
   ExecutionContext,
+  ExportOptions,
 } from './types';
 
 export async function runBatch(
@@ -20,6 +21,7 @@ export async function runBatch(
   specification: EvaluationSpecification,
   mode: EvaluationMode,
   resume: boolean,
+  exportOptions: ExportOptions = {},
 ): Promise<void> {
   const source = await sourceIdentity(context);
   if (mode === 'publication' && source.dirty)
@@ -125,7 +127,7 @@ export async function runBatch(
       await verifyBatch(context, directory);
     }
     const output = path.join(directory, 'export');
-    if (!(await exists(output))) await exportBatch(context, directory, output);
+    if (!(await exists(output))) await exportBatch(context, directory, output, exportOptions);
     await pruneBatch(context, directory);
     process.stdout.write(`\n[evaluation] Verified archive and tables: ${output}\n`);
   } catch (error) {

@@ -2,8 +2,9 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { BenchmarkArtifact } from '../harness/types';
 import { verifyArtifactFiles } from '../node/runner';
+import { readBenchmarkArtifact } from '../node/sample-files';
 import { diagnosticProfile, loadBenchmarkProfile } from './config';
-import { exists, readJson, writeJson } from './files';
+import { exists, writeJson } from './files';
 import { execute } from './process';
 import { verifyWorkflow } from './workflow';
 import type { EvaluationMode, ExecutionContext, Experiment } from './types';
@@ -105,5 +106,5 @@ export async function runExperiment(
 }
 
 export async function readBenchmark(directory: string): Promise<BenchmarkArtifact> {
-  return readJson<BenchmarkArtifact>(path.join(directory, 'manifest.json'));
+  return readBenchmarkArtifact(directory);
 }

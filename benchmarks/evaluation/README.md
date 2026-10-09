@@ -27,19 +27,49 @@ From the repository root:
 ```sh
 pnpm evaluation plan
 pnpm evaluation doctor
-pnpm evaluation run --smoke --out benchmark-results/evaluation-smoke
+pnpm evaluation run --smoke --out benchmark-results/evaluation-smoke --gzip-level 6
 pnpm evaluation verify --input benchmark-results/evaluation-smoke
 
 # Commit the reviewed source before the publication run.
 pnpm evaluation run --out benchmark-results/evaluation-2026
 pnpm evaluation resume --input benchmark-results/evaluation-2026
-pnpm evaluation verify --input benchmark-results/evaluation-2026/export/evidence.tar.gz
+pnpm evaluation verify --input benchmark-results/evaluation-2026/export/data.tar.gz
 
 # A second export can go directly into the companion paper repository.
-pnpm evaluation export --input benchmark-results/evaluation-2026 --out /absolute/path/to/paper/artifacts/evaluation-2026
+pnpm evaluation export --input benchmark-results/evaluation-2026 --out /absolute/path/to/paper/artifacts/evaluation-2026 --gzip-level 9
+
+# Extract original figures only when needed, or unpack the complete checked evidence.
+pnpm evaluation extract --input benchmark-results/evaluation-2026 --out benchmark-results/evaluation-figures --figures-only
+pnpm evaluation extract --input benchmark-results/evaluation-2026 --out benchmark-results/evaluation-unpacked
+pnpm bench verify --input benchmark-results/evaluation-unpacked/raw/protocol-core
 ```
 
 `--spec PATH` selects a reusable experiment specification. Each experiment has a unique ID and one of four adapters: benchmark, conformance, workflow or Fire/DQN. `archive` is an alias for `export`, which emits both evidence and tables.
+
+`--gzip-level 0..9` selects the compression level for both archives, defaulting to 6. It is accepted by `run`, `resume`, `export` and `archive`, and recorded in the export index. A resume with an existing verified export retains that export's compression level; choose a fresh export destination to recompress it. The extraction destination must be a fresh directory outside the export. `--figures-only` retains original evidence-relative paths, such as `raw/schelling-ui-mesa/screenshots/...png`.
+
+## Working directories and caches
+
+All commands accept `--work-dir PATH` and `--cache-dir PATH`. Relative paths resolve from the checkout root. Their environment equivalents are `TENSNAP_EVALUATION_WORK_DIR` and `TENSNAP_EVALUATION_CACHE_DIR`; explicit flags take precedence. Both directories must be outside `--out` so creating scratch space cannot create or alter the evidence destination.
+
+| Purpose | Default | Lifetime |
+| --- | --- | --- |
+| Raw results, journals, profiles and logs | The required `--out` batch directory | Retained for recovery; pruned after the checked export |
+| Temporary extraction and large export copies | `benchmark-results/.work/` | Unique operation directories; removed in `finally` |
+| Runtime temporary files and workflow daemon contexts | `benchmark-results/.work/` through `TMPDIR`, `TMP` and `TEMP` | Runners remove their own temporary directories on completion |
+| Python bytecode, Go build and Vite caches | `benchmark-results/.cache/{python,go,vite}/` | Reusable across runs; may be deleted when no run is active |
+| Atomic output staging | Beside the selected output, with `.evaluation-export-`, `.archive-` or similar prefixes | Removed after successful publication or normal failure |
+
+The final archive staging remains on the output filesystem so publishing uses an atomic rename/link even when `--work-dir` is on another disk. Large uncompressed copies and temporary extractions use the selected work directory. These defaults are Git-ignored. `plan` does not create working directories; `doctor` displays the selected work/cache locations.
+
+Dependency installations remain separate from disposable caches: the Python environment is `.evaluation-venv`, browser downloads normally use `~/Library/Caches/ms-playwright` on macOS (`PLAYWRIGHT_BROWSERS_PATH`), Go module downloads use `go env GOMODCACHE` (`GOMODCACHE`), and Julia packages/precompilation use `DEPOT_PATH` (`JULIA_DEPOT_PATH`). These standard environment controls are inherited; moving dependency stores may require installing the locked dependencies at the new location.
+
+```sh
+pnpm evaluation run --smoke --out benchmark-results/evaluation-smoke \
+  --work-dir /absolute/path/to/scratch --cache-dir /absolute/path/to/cache
+```
+
+Archive creation, gzip compression, sample compaction and batch table export run only after all declared experiments finish and the complete batch verifies. Each performance profile writes its raw artifact/report after its measured replicates finish, before the next profile starts. Journal records are synchronously persisted between replicates. Figure capture remains part of the existing correctness audit, outside the measured action intervals; archival processing is never inserted into a timed interval.
 
 The complete matrix contains eight conformance connections, four Schelling workflow hosts, seven performance profiles with 1,680 fresh-process replicates, and five 500-episode Fire/DQN training runs plus their declared holdouts. Profile order is fixed; each performance profile retains its own randomized blocks. Performance experiments run sequentially to avoid concurrent experiment load.
 
@@ -58,15 +88,21 @@ batch.json
 export/
   index.json
   summary.md
-  evidence.tar.gz
+  data.tar.gz             # samples, compact manifests/journals, checkpoints and logs
+  figures.tar.gz          # original PNGs and plots, with their original paths
   tables/                 # JSON, full-precision CSV and standalone LaTeX tables
   reports/                # human reports and compact analyses
-  figures/                # retained PNG evidence
 ```
 
-The gzip inventory checks every file's size and SHA-256. Timestamps, ownership and ordering are fixed for deterministic compression. Extraction rejects links, duplicate members and paths outside the destination. The export index also checks the complete external result-file set. `verify` performs offline checks; it never starts a simulator, training loop or timing workload.
+No figures remain outside the archives, including SVG plots formerly copied into reports. Figure bytes are not reencoded. Each gzip inventory checks every file's size and SHA-256. Timestamps, ownership and ordering are fixed for deterministic compression. Extraction rejects links, duplicate members and paths outside the destination. Split archives must contain disjoint data and figure file sets. The export index also checks the complete external result-file set. `verify` performs offline checks; it never starts a simulator, training loop or timing workload.
 
-`export` accepts a live batch, a completed/pruned batch or its `evidence.tar.gz`. Use `--prune` only with `--out INPUT/export` to request verified pruning manually. Failures leave the original evidence available; incomplete batches cannot export.
+Finder's `.DS_Store` files are excluded from evidence inventories and archives; opening an export in Finder does not invalidate it.
+
+The compact archive keeps benchmark samples once in `samples.jsonl`. Each manifest run has a `samplesReference` containing a relative path, SHA-256 and run ID. Journal entries use `sampleReference` with the same fields plus the replicate block. These references replace embedded sample arrays and screenshot base64. The retained sample rows refer to original PNG paths and checkpoint hashes. Compaction verifies each journal record against its retained row before removing the embedded copy; resume journals remain unchanged while a batch is running.
+
+Readers verify the referenced file hash and load the original samples in memory, so `bench verify`, `bench report`, `bench analyze`, journal merge and evaluation commands retain their behavior. Journal merge rehydrates referenced PNG bytes in memory for the existing artifact writer. Compacting an already compact export is supported. Tables are rebuilt from the checked archive and compared with the source tables before export succeeds.
+
+`export` and `verify` accept a live batch, a completed/pruned batch, an export directory or `data.tar.gz` beside its required `figures.tar.gz`. Legacy `evidence.tar.gz` and schema-1 export indexes remain readable. `extract` supports both layouts and does not overwrite a destination. Use `--prune` only with `--out INPUT/export` to request verified pruning manually. Failures leave the original evidence available; incomplete batches cannot export.
 
 ## Tables and scope
 
