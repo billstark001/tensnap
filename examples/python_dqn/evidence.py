@@ -9,17 +9,18 @@ that every published aggregate can be reconstructed from those rows.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict, dataclass
-from hashlib import sha256
 import json
 import os
-from pathlib import Path
 import platform
 import random
 import shutil
-from statistics import mean, stdev
 import subprocess
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from hashlib import sha256
+from pathlib import Path
+from statistics import mean, stdev
+from typing import Any
 
 import mesa
 import torch
@@ -72,6 +73,9 @@ class EvidencePlan:
             raise ValueError("use distinct training seeds including reference seed 7")
 
 
+DEFAULT_EVIDENCE_PLAN = EvidencePlan()
+
+
 def _sha256_file(path: Path) -> str:
     digest = sha256()
     with path.open("rb") as source:
@@ -91,10 +95,42 @@ def _source_commit() -> str:
         return "unknown"
 
 
-def _require_clean_source() -> None:
+def _source_pathspecs(generated_directories: Iterable[str | Path] = ()) -> list[str]:
+    """Exclude result paths using the same Git rules as the evaluation runner."""
+    root = REPOSITORY_ROOT.resolve()
+    exclusions = set()
+    for directory in (
+        root / "benchmark-results",
+        root / "evaluation-results",
+        *generated_directories,
+    ):
+        selected = (root / directory).resolve()
+        if selected == root:
+            raise SystemExit(
+                "generated evidence directories must not be the repository root"
+            )
+        try:
+            relative = selected.relative_to(root)
+        except ValueError:
+            continue
+        exclusions.add(f":(top,literal,exclude){relative.as_posix()}")
+    return ["--", ".", *sorted(exclusions)]
+
+
+def _require_clean_source(output: Path | None = None) -> None:
+    generated: list[str | Path] = [output.resolve()] if output is not None else []
+    generated.extend(
+        value
+        for name in (
+            "TENSNAP_EVALUATION_OUTPUT_DIR",
+            "TENSNAP_EVALUATION_WORK_DIR",
+            "TENSNAP_EVALUATION_CACHE_DIR",
+        )
+        if (value := os.environ.get(name))
+    )
     try:
         status = subprocess.check_output(
-            ["git", "status", "--short"],
+            ["git", "status", "--short", *_source_pathspecs(generated)],
             cwd=REPOSITORY_ROOT,
             text=True,
         ).strip()
@@ -165,7 +201,7 @@ def _group_rows(
 
 
 def _derive_summary(
-    rows: list[dict[str, Any]], plan: EvidencePlan = EvidencePlan()
+    rows: list[dict[str, Any]], plan: EvidencePlan = DEFAULT_EVIDENCE_PLAN
 ) -> dict[str, Any]:
     reference = {
         policy: _summary(
@@ -248,11 +284,11 @@ def _evaluate_reference_policy(
     raise ValueError(f"unknown reference policy: {policy}")
 
 
-def build_artifact(output: Path, plan: EvidencePlan = EvidencePlan()) -> None:
+def build_artifact(output: Path, plan: EvidencePlan = DEFAULT_EVIDENCE_PLAN) -> None:
     if output.exists():
         raise SystemExit(f"refusing to overwrite existing evidence artifact: {output}")
     if plan.purpose == "publication":
-        _require_clean_source()
+        _require_clean_source(output)
     stage = output.with_name(f".{output.name}.staging-{os.getpid()}")
     if stage.exists():
         shutil.rmtree(stage)
