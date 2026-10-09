@@ -41,6 +41,7 @@ from .layer_utils import _identity_item_to_dict, resolve_layer_getter
 
 TClass = TypeVar("TClass")
 
+
 class BindAgentLayerConfig(BindLayerConfig[AgentLayerMetadataFields, AgentItemFields]):
     def __init__(
         self,

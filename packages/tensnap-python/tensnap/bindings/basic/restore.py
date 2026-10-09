@@ -104,9 +104,7 @@ def scene_restore(  # noqa: PLR0913 - declarative callbacks are independent phas
                 "Declarative scene_restore cannot also name an imperative restore hook"
             )
         restore_spec = _ProjectedRestore(time, validate, before_apply, after_apply)
-    binding = SceneRestoreBinding(
-        restore_spec, checkpoint_capture, checkpoint_restore
-    )
+    binding = SceneRestoreBinding(restore_spec, checkpoint_capture, checkpoint_restore)
 
     def decorator(target: type[Any]) -> type[Any]:
         require_class(target, "@scene_restore")

@@ -34,8 +34,14 @@ TSourceMetadataKeys = BackportedTypeVar(
 )
 
 SourceSelector: TypeAlias = (
-    str | Callable[..., Any] | ProjectorAttrSelector | ProjectorLiteralValue
-    | int | float | bool | None
+    str
+    | Callable[..., Any]
+    | ProjectorAttrSelector
+    | ProjectorLiteralValue
+    | int
+    | float
+    | bool
+    | None
 )
 SourceProjector: TypeAlias = Callable[[Any, Any, Any], dict[str, Any]]
 ContainerGetter: TypeAlias = str | Callable[[Any], Any]
@@ -167,7 +173,7 @@ def _source_projection_plan(
             )
         root_match = re.match(r"^(model|key|value|row|col)(?=\.|\[|$)", selector_text)
         root = root_match.group() if root_match else "value"
-        suffix = selector_text[len(root):] if root_match else f".{selector_text}"
+        suffix = selector_text[len(root) :] if root_match else f".{selector_text}"
         if root not in roots or (suffix and not validate_attr_path(f"base{suffix}")):
             raise ValueError(f"unsupported source selector: {selector_text!r}")
         expression: ast.expr = roots[root]

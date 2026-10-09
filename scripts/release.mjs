@@ -326,7 +326,9 @@ function releaseCore(version) {
     tagName: `core-v${version}`,
   });
 
-  log('\nThis tag marks the core release; publish later with a manual js-publish run after npm setup.');
+  log(
+    '\nThis tag marks the core release; publish later with a manual js-publish run after npm setup.',
+  );
 }
 
 function releaseJs(version) {
@@ -373,7 +375,9 @@ function releaseAgent(version) {
     tagName: `agent-v${version}`,
   });
 
-  log('\nThis tag marks the agent release; publish later with a manual js-publish run after npm setup.');
+  log(
+    '\nThis tag marks the agent release; publish later with a manual js-publish run after npm setup.',
+  );
 }
 
 function releaseApp(version) {
