@@ -5,10 +5,10 @@
 //   2. checks its protocol projection against an independently read model sidecar;
 //   3. captures, advances, restores, and replays an exact checkpoint;
 //   4. forks two threshold trajectories from that checkpoint and renders a PNG.
-// Hosts run sequentially so CLI builds and temporary contexts cannot race.
+// Hosts run sequentially; each audit owns one CLI daemon connection.
 import { createHash } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { tmpdir, platform, arch } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -16,17 +16,39 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const results = join(root, 'artifacts/schelling-headless/results');
+let interrupted = false;
+let activeCleanup;
+async function interrupt(signal) {
+  if (interrupted) return;
+  interrupted = true;
+  try {
+    await activeCleanup?.();
+  } finally {
+    process.exit(signal === 'SIGINT' ? 130 : 143);
+  }
+}
+process.once('SIGINT', () => void interrupt('SIGINT'));
+process.once('SIGTERM', () => void interrupt('SIGTERM'));
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
+const arguments_ = process.argv.slice(2);
+function option(name) {
+  const index = arguments_.indexOf(name);
+  if (index < 0) return undefined;
+  const value = arguments_[index + 1];
+  if (!value || value.startsWith('--')) throw new Error(`${name} requires a value`);
+  return value;
+}
+const output = resolve(root, option('--out') ?? 'benchmark-results/schelling-headless');
+let results;
 const cliPath = join(root, 'packages/tensnap-agent/dist/cli.js');
 const hosts = ['python', 'go', 'julia', 'js'];
-const selected = process.argv.slice(2).length ? process.argv.slice(2) : hosts;
+const selected = option('--hosts')?.split(',') ?? hosts;
 if (selected.some((host) => !hosts.includes(host)))
   throw new Error(`Choose hosts from ${hosts.join(', ')}`);
 // The working tree may be uncommitted. Hash the sources that determine this
 // experiment so a report identifies the implementation it actually exercised.
 const sourceFiles = [
-  'artifacts/schelling-headless/run.mjs',
+  'benchmarks/schelling/headless/run.mjs',
   'examples/python_mesa/schelling.py',
   'examples/python_mesa/schelling_tensnap.py',
   'examples/python_mesa/schelling_viz.py',
@@ -59,6 +81,7 @@ const assert = (condition, message) => {
 async function command(binary, args, options = {}) {
   // CLI invocations are separate processes, but --context points each one at
   // the same local agent daemon and its single simulator connection.
+  if (interrupted) throw new Error('Workflow interrupted.');
   const { stdout } = await exec(binary, args, {
     cwd: root,
     maxBuffer: 32 * 1024 * 1024,
@@ -110,7 +133,13 @@ function launch(host, port, auditPath) {
       ],
     ],
     go: ['go', ['run', './schelling', ...common], join(root, 'examples/go')],
-    julia: ['julia', ['--project=examples/julia', 'examples/julia/schelling_viz.jl']],
+    julia: [
+      'julia',
+      [
+        `--project=${process.env.TENSNAP_JULIA_PROJECT ?? 'benchmarks/evaluation/environments/julia'}`,
+        'examples/julia/schelling_viz.jl',
+      ],
+    ],
     js: [
       'pnpm',
       ['--filter', '@tensnap/examples-js', 'demo:ws', 'schelling', ...common, '--encoding', 'json'],
@@ -178,7 +207,8 @@ async function stop(processInfo) {
     if (platform() !== 'win32') process.kill(-child.pid, 'SIGTERM');
     else child.kill('SIGTERM');
   } catch (error) {
-    if (error.code !== 'ESRCH') throw error;
+    if (!['ESRCH', 'EPERM'].includes(error.code)) throw error;
+    child.kill('SIGTERM');
   }
   await Promise.race([new Promise((done) => child.once('exit', done)), sleep(2_000)]);
 }
@@ -225,6 +255,13 @@ async function runHost(host, revision, sourceDigest) {
     JSON.parse(await command(process.execPath, [cliPath, ...args, ...context]));
   const cliFile = (args) => command(process.execPath, [cliPath, ...args, ...context]);
   let connected = false;
+  activeCleanup = async () => {
+    await exec(process.execPath, [cliPath, 'runtime', 'down', ...context], { cwd: root }).catch(
+      () => {},
+    );
+    await stop(simulator);
+    await rm(contextRoot, { recursive: true, force: true });
+  };
 
   async function observation(expectedTime) {
     // Actions and parameter changes are asynchronous. Wait until the model
@@ -461,10 +498,10 @@ async function runHost(host, revision, sourceDigest) {
       },
     };
     await writeFile(join(outputDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
-    await writeFile(join(outputDir, 'checkpoint.json'), `${JSON.stringify(checkpoint)}\n`);
+    await writeFile(join(outputDir, 'checkpoint.json'), await readFile(checkpointPath));
     await rm(join(outputDir, 'failure.log'), { force: true });
     console.log(`${host}: exact restore, deterministic replay, threshold branches, render passed`);
-    return { host, report: join(outputDir, 'report.json'), pass: true };
+    return { host, report: `${host}/report.json`, pass: true };
   } catch (error) {
     // Preserve the simulator's last output when a phase fails.
     await writeFile(
@@ -478,14 +515,27 @@ async function runHost(host, revision, sourceDigest) {
     if (connected) await cliFile(['runtime', 'down']).catch(() => {});
     await stop(simulator);
     await rm(contextRoot, { recursive: true, force: true });
+    activeCleanup = undefined;
   }
 }
 
 async function main() {
   // Build once before opening any host. Per-host runs stay serial because the
   // CLI build replaces dist/ and each result has a fixed output location.
-  await mkdir(results, { recursive: true });
-  await command('pnpm', ['--filter', '@tensnap/agent', 'build']);
+  if (
+    await stat(output).then(
+      () => true,
+      (error) => {
+        if (error.code === 'ENOENT') return false;
+        throw error;
+      },
+    )
+  )
+    throw new Error(`Refusing to overwrite workflow evidence: ${output}`);
+  await mkdir(dirname(output), { recursive: true });
+  results = await mkdtemp(join(dirname(output), '.schelling-workflow-'));
+  if (!arguments_.includes('--skip-build'))
+    await command('pnpm', ['--filter', '@tensnap/agent', 'build']);
   const revision = await command('git', ['rev-parse', 'HEAD']);
   const sourceHashes = Object.fromEntries(
     await Promise.all(
@@ -509,6 +559,8 @@ async function main() {
     // A partial summary still records which hosts finished before a failure.
     await writeFile(join(results, 'summary.json'), `${JSON.stringify(summary, null, 2)}\n`);
   }
+  await rename(results, output);
+  console.log(`Workflow evidence: ${output}`);
 }
 
 main().catch((error) => {

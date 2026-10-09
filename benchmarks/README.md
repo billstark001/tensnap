@@ -102,6 +102,10 @@ pnpm bench merge --profile benchmarks/profiles/paper-v0.3.json \
 
 ## Artifact contents and verification
 
+The historical outputs, including the extracted protocol/core profile, are archived in the companion paper repository as `artifacts/evaluation-before-rerun-2026-10-09.tar.gz`. Generated results no longer live in the source checkout. New local runs write to the ignored `benchmark-results/` directory.
+
+For the complete October 2026 rerun, environment preflight, recovery, gzip evidence and CSV/LaTeX tables, use [`evaluation/README.md`](evaluation/README.md) and `pnpm evaluation`. The immutable historical profiles remain unchanged; the new `evaluation-2026-*` profiles declare current dependency locks.
+
 A complete artifact contains:
 
 - `manifest.json`: profile, commit, environment, planned matrix, runs, summaries, comparisons, and checksums;

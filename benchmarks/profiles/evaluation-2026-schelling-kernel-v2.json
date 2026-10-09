@@ -1,0 +1,315 @@
+{
+  "schemaVersion": 2,
+  "id": "evaluation-2026-schelling-kernel-v2",
+  "description": "October 2026 rerun. Distributional Schelling kernel case study at similarity threshold 0.8. Each system executes exactly 500 steps of the v1 steady-state specification in a fresh process; startup, JIT and model time remain separate measurements.",
+  "suites": ["node"],
+  "repetitions": 15,
+  "warmupActions": 0,
+  "measuredActions": 1,
+  "encodings": ["json"],
+  "validation": ["error"],
+  "requireCleanGit": true,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "comparisons": [
+    {
+      "id": "schelling-kernel",
+      "metric": "cycle",
+      "baseline": "mesa",
+      "treatments": ["go", "julia"]
+    }
+  ],
+  "workloads": [
+    {
+      "id": "mesa",
+      "system": "Mesa (Python)",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": {
+        "grid": "50x50",
+        "steps": 500,
+        "similarityThreshold": 0.8,
+        "instrumentation": "none"
+      },
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "python3",
+        "args": [
+          "kernel.py",
+          "--width",
+          "50",
+          "--height",
+          "50",
+          "--density",
+          "0.8",
+          "--balance",
+          "0.5",
+          "--thresholds",
+          "0.80",
+          "--warmup-steps",
+          "25",
+          "--steps",
+          "500",
+          "--seeds",
+          "1",
+          "--seed",
+          "{seed}",
+          "--mode",
+          "steady",
+          "--instrumentation",
+          "none",
+          "--benchmark-json"
+        ],
+        "cwd": "benchmarks/schelling/v1/subjects/mesa",
+        "timeoutMs": 120000,
+        "environmentLocks": {
+          "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a",
+          "benchmarks/environments/python-evaluation.requirements.lock": "2754b87ff29070f5e41474cce9cee9dccc8ca91e06604d31116e74169f79f010"
+        },
+        "seed": 20260718,
+        "expected": {
+          "mode": "steady",
+          "actionCount": 1,
+          "metrics": {
+            "totalTicks": {
+              "min": 500,
+              "max": 500
+            },
+            "elapsedMs": {
+              "min": 0
+            }
+          },
+          "state": {
+            "instrumentation": "none",
+            "actualSteps": {
+              "min": 500,
+              "max": 500
+            },
+            "satisfiedPct": {
+              "min": 0,
+              "max": 1
+            },
+            "segregationIndex": {
+              "min": 0,
+              "max": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "go",
+      "system": "Go reference implementation",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": {
+        "grid": "50x50",
+        "steps": 500,
+        "similarityThreshold": 0.8,
+        "instrumentation": "none"
+      },
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "go",
+        "args": [
+          "run",
+          "-mod=readonly",
+          "-modfile=../../../../evaluation/environments/go/go.mod",
+          "./kernel",
+          "--width",
+          "50",
+          "--height",
+          "50",
+          "--density",
+          "0.8",
+          "--balance",
+          "0.5",
+          "--thresholds",
+          "0.80",
+          "--warmup-steps",
+          "25",
+          "--steps",
+          "500",
+          "--seeds",
+          "1",
+          "--seed",
+          "{seed}",
+          "--mode",
+          "steady",
+          "--benchmark-json"
+        ],
+        "cwd": "benchmarks/schelling/v1/subjects/go",
+        "timeoutMs": 120000,
+        "environmentLocks": {
+          "benchmarks/evaluation/environments/go/go.mod": "38fd30b29f6e778f9d8abea130f67fd36f038649287bb953b82da72d72031e29",
+          "benchmarks/evaluation/environments/go/go.sum": "5d9e0a9753367c2e11a8e669600d05e2b8af00b96a358f112510e1a49b7e1b63"
+        },
+        "seed": 20260718,
+        "expected": {
+          "mode": "steady",
+          "actionCount": 1,
+          "metrics": {
+            "totalTicks": {
+              "min": 500,
+              "max": 500
+            },
+            "elapsedMs": {
+              "min": 0
+            }
+          },
+          "state": {
+            "actualSteps": {
+              "min": 500,
+              "max": 500
+            },
+            "satisfiedPct": {
+              "min": 0,
+              "max": 1
+            },
+            "segregationIndex": {
+              "min": 0,
+              "max": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "julia",
+      "system": "Agents.jl",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": {
+        "grid": "50x50",
+        "steps": 500,
+        "similarityThreshold": 0.8,
+        "instrumentation": "none"
+      },
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "julia",
+        "args": [
+          "--project=benchmarks/evaluation/environments/julia",
+          "benchmarks/schelling/v1/subjects/julia/kernel.jl",
+          "--width=50",
+          "--height=50",
+          "--density=0.8",
+          "--balance=0.5",
+          "--thresholds=0.80",
+          "--warmup-steps=25",
+          "--steps=500",
+          "--seeds=1",
+          "--seed={seed}",
+          "--mode=steady",
+          "--benchmark-json=true"
+        ],
+        "cwd": ".",
+        "timeoutMs": 180000,
+        "environmentLocks": {
+          "benchmarks/evaluation/environments/julia/Project.toml": "533863cbb5286c130975583ccc6358277970b6c79686ce27857ef997251e7fac",
+          "benchmarks/evaluation/environments/julia/Manifest.toml": "459cd6f19eca60a590967d001a0cd9bff7d4ddd80beaea8c54616418490b1dda"
+        },
+        "seed": 20260718,
+        "expected": {
+          "mode": "steady",
+          "actionCount": 1,
+          "metrics": {
+            "totalTicks": {
+              "min": 500,
+              "max": 500
+            },
+            "elapsedMs": {
+              "min": 0
+            }
+          },
+          "state": {
+            "instrumentation": "none",
+            "actualSteps": {
+              "min": 500,
+              "max": 500
+            },
+            "satisfiedPct": {
+              "min": 0,
+              "max": 1
+            },
+            "segregationIndex": {
+              "min": 0,
+              "max": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "netlogo",
+      "system": "NetLogo headless",
+      "primaryMetric": "cycle",
+      "featureLevel": "kernel-only",
+      "dimensions": {
+        "grid": "50x50",
+        "steps": 500,
+        "similarityThreshold": 0.8,
+        "instrumentation": "scientific"
+      },
+      "module": "../schelling/external-process.ts",
+      "config": {
+        "executable": "python3",
+        "args": [
+          "kernel.py",
+          "--thresholds",
+          "0.80",
+          "--warmup-steps",
+          "25",
+          "--steps",
+          "500",
+          "--seeds",
+          "1",
+          "--seed",
+          "{seed}",
+          "--density",
+          "0.8",
+          "--balance",
+          "0.5",
+          "--mode",
+          "steady",
+          "--benchmark-json"
+        ],
+        "cwd": "benchmarks/schelling/v1/subjects/netlogo",
+        "timeoutMs": 180000,
+        "environmentLocks": {
+          "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a",
+          "benchmarks/environments/python-evaluation.requirements.lock": "2754b87ff29070f5e41474cce9cee9dccc8ca91e06604d31116e74169f79f010"
+        },
+        "seed": 20260718,
+        "expected": {
+          "mode": "steady",
+          "actionCount": 1,
+          "metrics": {
+            "totalTicks": {
+              "min": 500,
+              "max": 500
+            },
+            "elapsedMs": {
+              "min": 0
+            }
+          },
+          "state": {
+            "instrumentation": "scientific",
+            "actualSteps": {
+              "min": 500,
+              "max": 500
+            },
+            "satisfiedPct": {
+              "min": 0,
+              "max": 1
+            },
+            "segregationIndex": {
+              "min": 0,
+              "max": 1
+            }
+          }
+        }
+      }
+    }
+  ]
+}

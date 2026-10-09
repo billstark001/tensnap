@@ -9,7 +9,7 @@ that every published aggregate can be reconstructed from those rows.
 from __future__ import annotations
 
 import argparse
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from hashlib import sha256
 import json
 import os
@@ -38,12 +38,38 @@ TRAINING_SEEDS = (7, 11, 23, 37, 53)
 REFERENCE_EPISODES = 100
 STABILITY_EPISODES = 500
 EVALUATION_SEED = 4000
-DEFAULT_OUTPUT = Path(__file__).resolve().parent / "artifacts" / "fire-dqn-v2"
+DEFAULT_OUTPUT = Path(__file__).resolve().parents[2] / "benchmark-results" / "fire-dqn"
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _json_bytes(value: Any) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
+
+
+@dataclass(frozen=True)
+class EvidencePlan:
+    """Declared training/evaluation sizes, recorded with every artifact."""
+
+    training_episodes: int = 500
+    reference_episodes: int = REFERENCE_EPISODES
+    stability_episodes: int = STABILITY_EPISODES
+    training_seeds: tuple[int, ...] = TRAINING_SEEDS
+    purpose: str = "publication"
+
+    def __post_init__(self) -> None:
+        if (
+            min(
+                self.training_episodes, self.reference_episodes, self.stability_episodes
+            )
+            < 1
+        ):
+            raise ValueError("episode counts must be positive")
+        if (
+            len(set(self.training_seeds)) != len(self.training_seeds)
+            or len(self.training_seeds) < 2
+            or 7 not in self.training_seeds
+        ):
+            raise ValueError("use distinct training seeds including reference seed 7")
 
 
 def _sha256_file(path: Path) -> str:
@@ -73,7 +99,9 @@ def _require_clean_source() -> None:
             text=True,
         ).strip()
     except (OSError, subprocess.CalledProcessError) as error:
-        raise SystemExit("fire evidence requires an identifiable Git checkout") from error
+        raise SystemExit(
+            "fire evidence requires an identifiable Git checkout"
+        ) from error
     if status:
         raise SystemExit(
             "fire evidence requires a clean Git source tree; commit the declared implementation first"
@@ -136,12 +164,14 @@ def _group_rows(
     ]
 
 
-def _derive_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
+def _derive_summary(
+    rows: list[dict[str, Any]], plan: EvidencePlan = EvidencePlan()
+) -> dict[str, Any]:
     reference = {
         policy: _summary(
             _group_rows(
                 rows,
-                cohort="reference-100",
+                cohort=f"reference-{plan.reference_episodes}",
                 policy=policy,
                 training_seed=7 if policy == "dqn" else None,
             )
@@ -152,31 +182,33 @@ def _derive_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         str(seed): _summary(
             _group_rows(
                 rows,
-                cohort="stability-500",
+                cohort=f"stability-{plan.stability_episodes}",
                 policy="dqn",
                 training_seed=seed,
             )
         )
-        for seed in TRAINING_SEEDS
+        for seed in plan.training_seeds
     }
     stability_baselines = {
         policy: _summary(
             _group_rows(
                 rows,
-                cohort="stability-500",
+                cohort=f"stability-{plan.stability_episodes}",
                 policy=policy,
                 training_seed=None,
             )
         )
         for policy in ("no-guide", "random", "safe-heuristic")
     }
-    evacuated = [stability_by_seed[str(seed)]["evacuated"] for seed in TRAINING_SEEDS]
+    evacuated = [
+        stability_by_seed[str(seed)]["evacuated"] for seed in plan.training_seeds
+    ]
     return {
-        "reference100": reference,
-        "stability500": {
+        f"reference{plan.reference_episodes}": reference,
+        f"stability{plan.stability_episodes}": {
             "dqnByTrainingSeed": stability_by_seed,
             "dqnAcrossTrainingSeeds": {
-                "trainingSeeds": list(TRAINING_SEEDS),
+                "trainingSeeds": list(plan.training_seeds),
                 "meanEvacuated": mean(evacuated),
                 "sampleSdEvacuated": stdev(evacuated),
                 "minEvacuated": min(evacuated),
@@ -216,10 +248,11 @@ def _evaluate_reference_policy(
     raise ValueError(f"unknown reference policy: {policy}")
 
 
-def build_artifact(output: Path) -> None:
+def build_artifact(output: Path, plan: EvidencePlan = EvidencePlan()) -> None:
     if output.exists():
         raise SystemExit(f"refusing to overwrite existing evidence artifact: {output}")
-    _require_clean_source()
+    if plan.purpose == "publication":
+        _require_clean_source()
     stage = output.with_name(f".{output.name}.staging-{os.getpid()}")
     if stage.exists():
         shutil.rmtree(stage)
@@ -233,7 +266,7 @@ def build_artifact(output: Path) -> None:
     trained_agents: dict[int, Any] = {}
 
     try:
-        for seed in TRAINING_SEEDS:
+        for seed in plan.training_seeds:
             print(f"training_seed={seed}", flush=True)
             _set_training_seed(seed)
             seed_directory = checkpoints / f"seed-{seed}"
@@ -241,50 +274,56 @@ def build_artifact(output: Path) -> None:
                 env_config,
                 dqn_config,
                 TrainingConfig(
-                    episodes=500,
+                    episodes=plan.training_episodes,
                     seed=seed,
                     checkpoint_dir=seed_directory,
-                    checkpoint_every=500,
+                    checkpoint_every=plan.training_episodes,
                     log_every=100,
                 ),
                 device="cpu",
             )
             trained_agents[seed] = artifacts.agent
             latest = seed_directory / "dqn_latest.pt"
-            periodic = seed_directory / "dqn_ep_500.pt"
+            periodic = seed_directory / f"dqn_ep_{plan.training_episodes}.pt"
             if periodic.exists():
                 periodic.unlink()
             checkpoint_hashes[str(seed)] = _sha256_file(latest)
 
-        print("evaluating_reference_100", flush=True)
+        print(f"evaluating_reference_{plan.reference_episodes}", flush=True)
         reference_dqn = evaluate_policy(
             env_config,
             lambda _seed: trained_agents[7],
-            episodes=REFERENCE_EPISODES,
+            episodes=plan.reference_episodes,
             seed=EVALUATION_SEED,
         )
-        rows.extend(_episode_rows("reference-100", "dqn", 7, reference_dqn))
+        rows.extend(
+            _episode_rows(
+                f"reference-{plan.reference_episodes}", "dqn", 7, reference_dqn
+            )
+        )
         for policy in ("no-guide", "random", "safe-heuristic"):
             rows.extend(
                 _episode_rows(
-                    "reference-100",
+                    f"reference-{plan.reference_episodes}",
                     policy,
                     None,
-                    _evaluate_reference_policy(policy, env_config, REFERENCE_EPISODES),
+                    _evaluate_reference_policy(
+                        policy, env_config, plan.reference_episodes
+                    ),
                 )
             )
 
-        print("evaluating_stability_500", flush=True)
-        for seed in TRAINING_SEEDS:
+        print(f"evaluating_stability_{plan.stability_episodes}", flush=True)
+        for seed in plan.training_seeds:
             rows.extend(
                 _episode_rows(
-                    "stability-500",
+                    f"stability-{plan.stability_episodes}",
                     "dqn",
                     seed,
                     evaluate_policy(
                         env_config,
                         lambda _episode_seed, seed=seed: trained_agents[seed],
-                        episodes=STABILITY_EPISODES,
+                        episodes=plan.stability_episodes,
                         seed=EVALUATION_SEED,
                     ),
                 )
@@ -292,25 +331,30 @@ def build_artifact(output: Path) -> None:
         for policy in ("no-guide", "random", "safe-heuristic"):
             rows.extend(
                 _episode_rows(
-                    "stability-500",
+                    f"stability-{plan.stability_episodes}",
                     policy,
                     None,
-                    _evaluate_reference_policy(policy, env_config, STABILITY_EPISODES),
+                    _evaluate_reference_policy(
+                        policy, env_config, plan.stability_episodes
+                    ),
                 )
             )
 
-        raw = ("\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n").encode()
-        summary = _derive_summary(rows)
+        raw = (
+            "\n".join(json.dumps(row, sort_keys=True) for row in rows) + "\n"
+        ).encode()
+        summary = _derive_summary(rows, plan)
         (stage / "episodes.jsonl").write_bytes(raw)
         (stage / "summary.json").write_bytes(_json_bytes(summary))
         manifest = {
             "schemaVersion": SCHEMA_VERSION,
             "sourceCommit": _source_commit(),
+            "purpose": plan.purpose,
             "checkpointSchema": "fire-evacuation-v2",
-            "trainingSeeds": list(TRAINING_SEEDS),
-            "trainingEpisodes": 500,
-            "referenceEpisodes": REFERENCE_EPISODES,
-            "stabilityEpisodes": STABILITY_EPISODES,
+            "trainingSeeds": list(plan.training_seeds),
+            "trainingEpisodes": plan.training_episodes,
+            "referenceEpisodes": plan.reference_episodes,
+            "stabilityEpisodes": plan.stability_episodes,
             "evaluationSeed": EVALUATION_SEED,
             "envConfig": asdict(env_config),
             "dqnConfig": asdict(dqn_config),
@@ -341,6 +385,13 @@ def verify_artifact(output: Path) -> None:
     manifest = json.loads((output / "manifest.json").read_text())
     if manifest.get("schemaVersion") != SCHEMA_VERSION:
         raise SystemExit("unsupported fire evidence schema")
+    plan = EvidencePlan(
+        training_episodes=manifest["trainingEpisodes"],
+        reference_episodes=manifest["referenceEpisodes"],
+        stability_episodes=manifest["stabilityEpisodes"],
+        training_seeds=tuple(manifest["trainingSeeds"]),
+        purpose=manifest.get("purpose", "publication"),
+    )
     for relative, expected in manifest["filesSha256"].items():
         actual = _sha256_file(output / relative)
         if actual != expected:
@@ -350,20 +401,64 @@ def verify_artifact(output: Path) -> None:
         if _sha256_file(path) != expected:
             raise SystemExit(f"checkpoint checksum mismatch for training seed {seed}")
 
-    rows = [json.loads(line) for line in (output / "episodes.jsonl").read_text().splitlines()]
-    expected_rows = (
-        REFERENCE_EPISODES * 4
-        + STABILITY_EPISODES * (len(TRAINING_SEEDS) + 3)
+    rows = [
+        json.loads(line)
+        for line in (output / "episodes.jsonl").read_text().splitlines()
+    ]
+    expected_rows = plan.reference_episodes * 4 + plan.stability_episodes * (
+        len(plan.training_seeds) + 3
     )
     if len(rows) != expected_rows:
         raise SystemExit(f"expected {expected_rows} episode rows, found {len(rows)}")
+    expected_groups = {
+        (
+            f"reference-{plan.reference_episodes}",
+            policy,
+            7 if policy == "dqn" else None,
+        ): plan.reference_episodes
+        for policy in ("dqn", "no-guide", "random", "safe-heuristic")
+    }
+    expected_groups.update(
+        {
+            (
+                f"stability-{plan.stability_episodes}",
+                "dqn",
+                seed,
+            ): plan.stability_episodes
+            for seed in plan.training_seeds
+        }
+    )
+    expected_groups.update(
+        {
+            (
+                f"stability-{plan.stability_episodes}",
+                policy,
+                None,
+            ): plan.stability_episodes
+            for policy in ("no-guide", "random", "safe-heuristic")
+        }
+    )
+    actual_groups: dict[tuple, set[int]] = {}
     for row in rows:
+        key = (row["cohort"], row["policy"], row["trainingSeed"])
+        indices = actual_groups.setdefault(key, set())
+        if row["evaluationIndex"] in indices:
+            raise SystemExit("duplicate episode in an evaluation cohort")
+        indices.add(row["evaluationIndex"])
         if row["episodeSeed"] != EVALUATION_SEED + 1000 + row["evaluationIndex"]:
             raise SystemExit("episode seed/index contract mismatch")
-        if row["evacuated"] + row["dead"] + row["unresolved"] != 28:
+        if (
+            row["evacuated"] + row["dead"] + row["unresolved"]
+            != manifest["envConfig"]["num_evacuees"]
+        ):
             raise SystemExit("episode population conservation failed")
 
-    derived = _derive_summary(rows)
+    if set(actual_groups) != set(expected_groups):
+        raise SystemExit("evaluation cohort matrix differs from the declared plan")
+    for key, count in expected_groups.items():
+        if actual_groups[key] != set(range(count)):
+            raise SystemExit(f"incomplete evaluation cohort: {key}")
+    derived = _derive_summary(rows, plan)
     stored = json.loads((output / "summary.json").read_text())
     if derived != stored:
         raise SystemExit("summary.json does not match the per-episode rows")
@@ -373,13 +468,32 @@ def verify_artifact(output: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
-    run_parser = subparsers.add_parser("run", help="train, evaluate, and atomically publish evidence")
+    run_parser = subparsers.add_parser(
+        "run", help="train, evaluate, and atomically publish evidence"
+    )
     run_parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
-    verify_parser = subparsers.add_parser("verify", help="verify checksums and reconstruct all aggregates")
+    run_parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="diagnostic two-episode training and evaluation",
+    )
+    verify_parser = subparsers.add_parser(
+        "verify", help="verify checksums and reconstruct all aggregates"
+    )
     verify_parser.add_argument("--input", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
     if args.command == "run":
-        build_artifact(args.out.resolve())
+        plan = (
+            EvidencePlan(
+                training_episodes=2,
+                reference_episodes=2,
+                stability_episodes=2,
+                purpose="smoke",
+            )
+            if args.smoke
+            else EvidencePlan()
+        )
+        build_artifact(args.out.resolve(), plan)
     else:
         verify_artifact(args.input.resolve())
 

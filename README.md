@@ -109,7 +109,8 @@ Comprehensive documentation is available in the `/docs` folder:
 
 ### For Maintainers
 
-- **[Protocol Conformance](./conformance/README.md)** - Cross-binding matrix, reproducible wire probes, and retained evidence
+- **[Paper Evaluation](./benchmarks/evaluation/README.md)** - Locked experiment batches, recovery, gzip evidence and CSV/LaTeX export
+- **[Protocol Conformance](./conformance/README.md)** - Reproducible cross-binding wire and client probes
 - **[Architecture Overview](./docs/maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./docs/maintainer-guide/contributing.md)** - How to contribute to TenSnap

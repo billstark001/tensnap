@@ -33,5 +33,5 @@ jobs:
         with:
           version: '1.11'
       - run: julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.instantiate()'
-      - name: Verify retained matrix against all four bindings
+      - name: Run live conformance against all four bindings
         run: python conformance/run_matrix.py --check
