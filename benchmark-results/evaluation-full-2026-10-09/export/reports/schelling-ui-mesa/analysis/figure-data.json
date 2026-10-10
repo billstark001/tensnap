@@ -1,0 +1,100 @@
+[
+  {
+    "runId": "mesa-headless|node|-|-",
+    "system": "Mesa headless (kernel baseline)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8,
+      "instrumentation": "none"
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 1075.5351528666667,
+      "medianMs": 1064.857958,
+      "p95Ms": 1149.161584,
+      "madMs": 11.934333000000152,
+      "bootstrapMedianCi95Ms": [
+        1058.24125,
+        1097.020917
+      ]
+    }
+  },
+  {
+    "runId": "mesa-solara|browser|-|-",
+    "system": "Mesa + Solara (agents + summary)",
+    "featureLevel": "agents+two-statistics",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 142.07185185173947,
+      "medianMs": 132.69999998807907,
+      "p95Ms": 198.5999999642372,
+      "madMs": 3.300000011920929,
+      "bootstrapMedianCi95Ms": [
+        132.29999995231628,
+        133
+      ]
+    }
+  },
+  {
+    "runId": "mesa-tensnap-web-raf|browser|-|-",
+    "system": "Mesa + TenSnap binding + Web host (rAF frame latency)",
+    "featureLevel": "agents+two-statistics",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 22.93687542090111,
+      "medianMs": 18.900000035762787,
+      "p95Ms": 33.299999952316284,
+      "madMs": 2.1000000834465027,
+      "bootstrapMedianCi95Ms": [
+        18.899999976158142,
+        19
+      ]
+    }
+  },
+  {
+    "runId": "mesa-tensnap-web-timeout|browser|-|-",
+    "system": "Mesa + TenSnap binding + Web host (timeout throughput)",
+    "featureLevel": "agents+two-statistics",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "setTimeout"
+    },
+    "primaryMetric": "actionToRunCompletionMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 16.722154882146853,
+      "medianMs": 16.600000023841858,
+      "p95Ms": 18.69999998807907,
+      "madMs": 0.699999988079071,
+      "bootstrapMedianCi95Ms": [
+        16.599999964237213,
+        16.600000023841858
+      ]
+    }
+  }
+]

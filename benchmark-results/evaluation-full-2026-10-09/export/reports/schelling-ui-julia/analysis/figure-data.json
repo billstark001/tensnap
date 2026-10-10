@@ -1,0 +1,99 @@
+[
+  {
+    "runId": "agents-headless|node|-|-",
+    "system": "Agents.jl headless (kernel baseline)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 123.795214,
+      "medianMs": 99.183875,
+      "p95Ms": 224.697458,
+      "madMs": 1.8395419999999945,
+      "bootstrapMedianCi95Ms": [
+        97.976417,
+        113.480792
+      ]
+    }
+  },
+  {
+    "runId": "agents-wglmakie|browser|-|-",
+    "system": "Agents.jl + WGLMakie (agents-only)",
+    "featureLevel": "agents-only",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 11.187340067203598,
+      "medianMs": 12.700000047683716,
+      "p95Ms": 16.400000035762787,
+      "madMs": 4.800000071525574,
+      "bootstrapMedianCi95Ms": [
+        12.600000023841858,
+        12.900000035762787
+      ]
+    }
+  },
+  {
+    "runId": "agents-tensnap-web-raf|browser|-|-",
+    "system": "Agents.jl + TenSnap binding + Web host (rAF frame latency)",
+    "featureLevel": "agents-only",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 18.947474747482776,
+      "medianMs": 16.700000047683716,
+      "p95Ms": 31.599999964237213,
+      "madMs": 0.5,
+      "bootstrapMedianCi95Ms": [
+        16.700000047683716,
+        16.799999952316284
+      ]
+    }
+  },
+  {
+    "runId": "agents-tensnap-web-timeout|browser|-|-",
+    "system": "Agents.jl + TenSnap binding + Web host (timeout throughput)",
+    "featureLevel": "agents-only",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "setTimeout"
+    },
+    "primaryMetric": "actionToRunCompletionMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 17.176525252523646,
+      "medianMs": 16.400000035762787,
+      "p95Ms": 18.899999976158142,
+      "madMs": 0.800000011920929,
+      "bootstrapMedianCi95Ms": [
+        16.399999976158142,
+        16.5
+      ]
+    }
+  }
+]

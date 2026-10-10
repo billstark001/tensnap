@@ -1,0 +1,20 @@
+% Generated evidence table; mode=publication. Requires booktabs, tabularx and array.
+\begin{table}[htbp]
+\centering
+\small
+\caption{Protocol/core costs. Median and P95 are measured-action statistics; recording/restoration is a compound workflow.}
+\label{tab:protocol-stages}
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X>{\raggedleft\arraybackslash}X>{\raggedleft\arraybackslash}X}
+\toprule
+Operation & Median (ms) & P95 (ms) \\
+\midrule
+Core update & 0.035 & 0.043 \\
+Validated WS sparse & 0.542 & 0.816 \\
+Validated WS dense & 39.391 & 50.154 \\
+Browser rAF sparse & 16.700 & 31.400 \\
+Browser rAF dense & 51.700 & 58.600 \\
+State synchronization & 28.034 & 30.613 \\
+Recording and restoration & 110.066 & 166.537 \\
+\bottomrule
+\end{tabularx}
+\end{table}

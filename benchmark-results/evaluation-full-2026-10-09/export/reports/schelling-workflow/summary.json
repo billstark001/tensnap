@@ -1,0 +1,55 @@
+{
+  "experiment": "schelling-headless-v1",
+  "generatedAt": "2026-10-10T00:18:59.055Z",
+  "revision": "c80c882396beb4b4da0703616b8af7c10de0534b",
+  "sourceDigest": "11fb0188377af9a15c913df533bb02880f30e1dce5a4cca5dc0fb5a1e2696b03",
+  "sourceHashes": {
+    "benchmarks/schelling/headless/run.mjs": "dbc583f80cc027b05105df2c62a3abe5d3c7abd4c97c403c3788978739f3157e",
+    "examples/python_mesa/schelling.py": "eb4031fd39f96ec3bd8ac559bafffcc148370336dcfebcf699b0c38c4b5686d3",
+    "examples/python_mesa/schelling_tensnap.py": "bfd1f24441d9e5316b5e23798cc0a774c854b842f443c63fbdd0ea365fd69e83",
+    "examples/python_mesa/schelling_viz.py": "26e4471edb868bff76d8effaa29e91a75f58ad5da46d06843cb06c57a3980acf",
+    "examples/python_mesa/schelling_audit.py": "43b779014246c32b6695062e582b438a3bf475aaf356465ad308a57b72c06b8e",
+    "examples/python_mesa/schelling_checkpoint.py": "f805328c4a3c4009892b471252a55561cca8f0bb640d4e6ca9f776bde326b419",
+    "examples/go/internal/schelling/model.go": "1ff88b5c02c69fd0f86d0463d5c13b4024b10c9d4a401a122966ce942180bb8c",
+    "examples/go/internal/schelling/checkpoint.go": "74625ab77dd32bdfad2fc8a307df9469d146f7e7bd8860e6b4e9ccaf6b5928cc",
+    "examples/go/internal/schelling/audit.go": "8b7a359850f237ff417fd76f2891b7ebc2fa6513e3f28a02e5a175b73686bade",
+    "examples/go/internal/schelling/viz.go": "2199533af637cfe18533986d8cc1a6bcf8c858858143622dc6f80f9081457eb7",
+    "examples/go/internal/schelling/server.go": "011b9ac72aef25d5aa7925c6903ab8ab68ebac058c3ad61deff52e2d33750753",
+    "examples/julia/schelling.jl": "d45d971b0035a8de1a2c83e186da78aa97786c409eb4900b10830a9b06ce6839",
+    "examples/julia/schelling_tensnap.jl": "4ffbd8b26ed4aae64b86684d693f44c26acfb70d2bb989d0249f4a3ca256fc5f",
+    "examples/julia/schelling_viz.jl": "cd53164aa1bf860683632ff077939de6489e972377fee29326231ee309bb2a37",
+    "examples/julia/schelling_audit.jl": "9b2e3d79bbba0fb0830e481aeeeb480e05f7730ac7c685660b4eca67feac4b49",
+    "examples/js/src/models/schelling.ts": "3354c96c257f64096f088d31a45affb0215ed3e1f41bb84b4778882ed74eaee5",
+    "examples/js/src/renderers/schelling.ts": "98a13bcd2784570f43df15b28b0b11a49161f50cb8efa1a4781cb80965c10b36",
+    "examples/js/src/entries/main-ws.ts": "5d3d9e66a2268f7a07dff6d248fe81d52baf4c45d843bc7f2f5893af33d5735f",
+    "examples/js/src/entries/schelling-audit.ts": "9d7ae506f01f0313917ba8cbaa543b1eff4f18e3e253b705c7b0de27c10e1470"
+  },
+  "scriptSha256": "dbc583f80cc027b05105df2c62a3abe5d3c7abd4c97c403c3788978739f3157e",
+  "environment": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.8.1"
+  },
+  "hosts": [
+    {
+      "host": "python",
+      "report": "python/report.json",
+      "pass": true
+    },
+    {
+      "host": "go",
+      "report": "go/report.json",
+      "pass": true
+    },
+    {
+      "host": "julia",
+      "report": "julia/report.json",
+      "pass": true
+    },
+    {
+      "host": "js",
+      "report": "js/report.json",
+      "pass": true
+    }
+  ]
+}

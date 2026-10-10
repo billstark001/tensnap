@@ -1,0 +1,9 @@
+comparison_id,metric,suite,baseline,treatment,pairs,median_ratio,ratio_ci95_low,ratio_ci95_high,median_difference_ms,difference_ci95_low_ms,difference_ci95_high_ms
+renderer-1k-c10:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-1k-c10,leafer-1k-c10,15,0.14285708811818476,0.12499995343387196,0.14285709420028916,-0.6000000536441803,-0.7000000476837158,-0.6000000238418579
+renderer-1k-c10:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-1k-c10,tensnap-renderer-1k-c10,15,0.14285713677503614,0.12499999068677439,0.14285717934978315,-0.6000000238418579,-0.7000000178813934,-0.5999999642372131
+renderer-1k-c1000:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-1k-c1000,leafer-1k-c1000,15,1.9999998297010266,1.8571429057997109,2,0.6999999284744263,0.6000000238418579,0.699999988079071
+renderer-1k-c1000:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-1k-c1000,tensnap-renderer-1k-c1000,15,2.1428571793497833,2,2.2857142735500724,0.800000011920929,0.7999999523162842,0.8499999940395355
+renderer-10k-c100:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-10k-c100,leafer-10k-c100,15,0.0454545288292831,0.043478272136984124,0.045454555306552645,-2.1000000536441803,-2.1999999582767487,-2.0999999940395355
+renderer-10k-c100:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-10k-c100,tensnap-renderer-10k-c100,15,0.09090908352008552,0.08695651835890476,0.09090908598308718,-2.0000000596046448,-2.099999964237213,-2
+renderer-10k-c10000:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-10k-c10000,leafer-10k-c10000,15,2.359999990463257,2.339999997615814,2.4,3.399999976158142,3.3499999940395355,3.5
+renderer-10k-c10000:browserMutationMs:browser:-:-,browserMutationMs,browser,canvas-10k-c10000,tensnap-renderer-10k-c10000,15,3.4,3.3200000047683718,3.5200000047683715,6,5.800000011920929,6.200000017881393

@@ -1,0 +1,2 @@
+comparison_id,metric,suite,baseline,treatment,pairs,median_ratio,ratio_ci95_low,ratio_ci95_high,median_difference_ms,difference_ci95_low_ms,difference_ci95_high_ms
+mesa-ui-render-complete:actionToRenderCompleteMs:browser:-:-,actionToRenderCompleteMs,browser,mesa-solara,mesa-tensnap-web-raf,15,0.14210526342678786,0.13581984529752444,0.1432903713386994,-114.09999996423721,-114.60000002384186,-113.5

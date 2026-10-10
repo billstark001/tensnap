@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "mode": "publication",
+  "specification": {
+    "schemaVersion": 1,
+    "id": "tensnap-paper-2026",
+    "experiments": [
+      {
+        "id": "conformance",
+        "kind": "conformance"
+      },
+      {
+        "id": "schelling-workflow",
+        "kind": "workflow"
+      },
+      {
+        "id": "protocol-core",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-paper-v0.3.json"
+      },
+      {
+        "id": "schelling-kernel",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-kernel-v2.json"
+      },
+      {
+        "id": "schelling-ui-go",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-go-v2.json"
+      },
+      {
+        "id": "schelling-ui-js",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-js-v2.json"
+      },
+      {
+        "id": "schelling-ui-julia",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-julia-v2.json"
+      },
+      {
+        "id": "schelling-ui-mesa",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-mesa-v2.json"
+      },
+      {
+        "id": "schelling-netlogo-render",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-netlogo-render-v2.json"
+      },
+      {
+        "id": "fire-dqn",
+        "kind": "fire"
+      }
+    ]
+  },
+  "specificationSha256": "aa05a347cdc89a953a05276c7dde76061c2d1d0effca7f47c896207c68178e8c",
+  "source": {
+    "commit": "c80c882396beb4b4da0703616b8af7c10de0534b",
+    "dirty": false,
+    "filesSha256": "37c17bec73baf50cbf3d14cd6a89b0fd1803881ee393cd959568ca06939530c4"
+  },
+  "environment": {
+    "host": {
+      "os": "darwin",
+      "release": "25.6.0",
+      "arch": "arm64",
+      "cpu": "Apple M3",
+      "memoryBytes": 17179869184
+    },
+    "node": "v26.8.1",
+    "pnpm": "12.6.0",
+    "python": {
+      "version": "3.13.15",
+      "packages": {
+        "mesa": "3.5.1",
+        "solara": "1.57.3",
+        "ipyvue": "1.12.0",
+        "ipyvuetify": "1.11.3",
+        "torch": "2.11.0",
+        "pynetlogo": "0.5.2",
+        "jpype1": "1.7.1",
+        "Pillow": "11.3.0",
+        "websockets": "16.0",
+        "msgpack": "1.1.2",
+        "numpy": "2.4.4"
+      },
+      "bindingPath": "/Users/billstark001/Desktop/programs/tensnap/packages/tensnap-python/tensnap/__init__.py"
+    },
+    "pythonFreezeSha256": "6f9f940eafec958162583e3e81cc3017dd12fc8e45691c6529bc4f58175ea313",
+    "go": "go version go1.27.1 darwin/arm64",
+    "julia": {
+      "version": "1.12.6",
+      "bindingPath": "/Users/billstark001/Desktop/programs/tensnap/packages/tensnap-julia/src/TenSnap.jl",
+      "agents": "7.0.2",
+      "wglmakie": "0.13.11"
+    },
+    "chromium": {
+      "version": "153.0.8010.12",
+      "executable": "/Users/billstark001/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+    },
+    "netlogoHome": "/Applications/NetLogo 7.0.4",
+    "locks": {
+      "benchmarks/profiles/evaluation-2026-paper-v0.3.json": "d68b5962415849fe817c565aca21679223697ae94e4733d774ebdcb11179827e",
+      "benchmarks/profiles/evaluation-2026-schelling-kernel-v2.json": "a45428c2f37fd0cf622f5ca62ff67f135012874259c59b752115217d3e689dea",
+      "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a",
+      "benchmarks/environments/python-evaluation.requirements.lock": "2754b87ff29070f5e41474cce9cee9dccc8ca91e06604d31116e74169f79f010",
+      "benchmarks/evaluation/environments/go/go.mod": "38fd30b29f6e778f9d8abea130f67fd36f038649287bb953b82da72d72031e29",
+      "benchmarks/evaluation/environments/go/go.sum": "5d9e0a9753367c2e11a8e669600d05e2b8af00b96a358f112510e1a49b7e1b63",
+      "benchmarks/evaluation/environments/julia/Project.toml": "533863cbb5286c130975583ccc6358277970b6c79686ce27857ef997251e7fac",
+      "benchmarks/evaluation/environments/julia/Manifest.toml": "459cd6f19eca60a590967d001a0cd9bff7d4ddd80beaea8c54616418490b1dda",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-go-v2.json": "648cf747eabde42568912853c29557a865ac7802cd4ba7e25551e20b3447f71e",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-js-v2.json": "8c17969ff488d7694d91d3e6dc4427b2eea333977ace42073b9599917ac3daf0",
+      "examples/js/package.json": "0d8503aa6135ab127fb2fa36711982aa35cba1a772afcec8d33bc21eb4990dcb",
+      "pnpm-lock.yaml": "8167b4eaccf12f7125934cac1fa3ee941e108ebe03b09604aeb9ac92b70344dc",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-julia-v2.json": "939c7c1ed97b524d1a92e6e3a76bc7370037f701bfd529b4ad30662b518325ca",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-mesa-v2.json": "c14a52298f080e3f2b9f31cd4fa27d8cc94919c351e6c509fa0b0c434e9dc4be",
+      "benchmarks/profiles/evaluation-2026-schelling-netlogo-render-v2.json": "c6fb4b9764d3e4c23c392d916e83395ac5e9984d21860089af12ee0d45f5e029",
+      "benchmarks/environments/python-netlogo7-render.requirements.lock": "f95974adf0dffaa44700a7db48cff47b3346607d025d3078cb89e5e727d5fa23",
+      "examples/python_mesa/schelling.nlogox": "371526d99d12c8cd798b7a996870031e38ae08760db43c81e73a858be55d02ec"
+    }
+  },
+  "createdAt": "2026-10-10T00:17:44.660Z",
+  "status": "complete",
+  "experiments": {
+    "conformance": {
+      "status": "complete",
+      "startedAt": "2026-10-10T00:17:45.917Z",
+      "completedAt": "2026-10-10T00:18:58.816Z"
+    },
+    "schelling-workflow": {
+      "status": "complete",
+      "startedAt": "2026-10-10T00:18:59.010Z",
+      "completedAt": "2026-10-10T00:19:56.624Z"
+    },
+    "protocol-core": {
+      "status": "complete",
+      "startedAt": "2026-10-10T00:19:56.824Z",
+      "completedAt": "2026-10-10T01:04:47.640Z"
+    },
+    "schelling-kernel": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:04:47.836Z",
+      "completedAt": "2026-10-10T01:06:58.801Z"
+    },
+    "schelling-ui-go": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:06:59.008Z",
+      "completedAt": "2026-10-10T01:10:26.758Z"
+    },
+    "schelling-ui-js": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:10:26.972Z",
+      "completedAt": "2026-10-10T01:13:52.244Z"
+    },
+    "schelling-ui-julia": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:13:52.451Z",
+      "completedAt": "2026-10-10T01:31:55.147Z"
+    },
+    "schelling-ui-mesa": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:31:55.390Z",
+      "completedAt": "2026-10-10T01:57:25.245Z"
+    },
+    "schelling-netlogo-render": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:57:25.487Z",
+      "completedAt": "2026-10-10T01:58:29.396Z"
+    },
+    "fire-dqn": {
+      "status": "complete",
+      "startedAt": "2026-10-10T01:58:29.614Z",
+      "completedAt": "2026-10-10T02:00:40.511Z"
+    }
+  }
+}

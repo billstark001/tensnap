@@ -1,0 +1,595 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "33fc3662135d40ad1f1592b75e21dbadcc6d5d4e82b4c0625238ad86487f7977",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "33fc3662135d40ad1f1592b75e21dbadcc6d5d4e82b4c0625238ad86487f7977",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "a0554409308e27c865a5dcadc2a806d43a90d87601dc177bcdbbe444c87c3d69",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "a0554409308e27c865a5dcadc2a806d43a90d87601dc177bcdbbe444c87c3d69",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "ba66eba6059f72ca3d06db13c2287bcfcea6529a2b18406e62a697ed69d59516",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "ba66eba6059f72ca3d06db13c2287bcfcea6529a2b18406e62a697ed69d59516",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "798ba98d2ade189b09e5b475d7f1406b47405a1ba010205cbceae8b10c087ffa",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "steps_compared": 6,
+          "trajectory": [
+            {
+              "births": 3,
+              "deaths": 2,
+              "host_sha256": "c45833ccb939eb9f281df3dcc82c7a1c2c13c295296572305a8aa271340d50b6",
+              "population": 5,
+              "steps": 7
+            },
+            {
+              "births": 4,
+              "deaths": 2,
+              "host_sha256": "3392d8bb981e32c8838796272b8c7c3e10f6c83c9655ff82c86d70378ede500c",
+              "population": 6,
+              "steps": 8
+            },
+            {
+              "births": 4,
+              "deaths": 3,
+              "host_sha256": "50bb36d25d6852f0db8d0386be595ce68a7da61f169f05fc5eab1958218a87ee",
+              "population": 5,
+              "steps": 9
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0ef9f4ac350a0364c9554c7597991a176e48e297063bc64943c3b9766b240239",
+              "population": 6,
+              "steps": 10
+            },
+            {
+              "births": 5,
+              "deaths": 3,
+              "host_sha256": "0b4cbaf50769d99c1c2c783c5ddff559bb6f80520e3e33a3a8d9b28c603ca907",
+              "population": 6,
+              "steps": 11
+            },
+            {
+              "births": 6,
+              "deaths": 4,
+              "host_sha256": "dc16b216a764fe006dfedc8bcc289442d8c4e2a8bd77e5f69f41eb5c1d796b4d",
+              "population": 6,
+              "steps": 12
+            }
+          ]
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "births": 3,
+          "deaths": 2,
+          "projection_checked_each_step": true,
+          "steps": 6
+        },
+        "status": "pass"
+      },
+      "source_sha256": "798ba98d2ade189b09e5b475d7f1406b47405a1ba010205cbceae8b10c087ffa",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "population_churn",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "detail": "all eight live renderer probes",
+    "status": "pass"
+  },
+  "revision": "c80c882396beb4b4da0703616b8af7c10de0534b"
+}

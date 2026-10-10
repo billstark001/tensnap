@@ -1,0 +1,94 @@
+[
+  {
+    "runId": "mesa|node|-|-",
+    "system": "Mesa (Python)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8,
+      "instrumentation": "none"
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 1073.5496638666666,
+      "medianMs": 1066.359417,
+      "p95Ms": 1110.5635,
+      "madMs": 11.30824900000016,
+      "bootstrapMedianCi95Ms": [
+        1059.953291,
+        1083.090333
+      ]
+    }
+  },
+  {
+    "runId": "go|node|-|-",
+    "system": "Go reference implementation",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8,
+      "instrumentation": "none"
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 23.982536066666665,
+      "medianMs": 22.916333,
+      "p95Ms": 37.521125,
+      "madMs": 0.2616240000000012,
+      "bootstrapMedianCi95Ms": [
+        22.682959,
+        23.096125
+      ]
+    }
+  },
+  {
+    "runId": "julia|node|-|-",
+    "system": "Agents.jl",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8,
+      "instrumentation": "none"
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 122.65164173333336,
+      "medianMs": 97.827166,
+      "p95Ms": 224.230459,
+      "madMs": 1.002875000000003,
+      "bootstrapMedianCi95Ms": [
+        97.466917,
+        102.882209
+      ]
+    }
+  },
+  {
+    "runId": "netlogo|node|-|-",
+    "system": "NetLogo headless",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8,
+      "instrumentation": "scientific"
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 919.5487944666664,
+      "medianMs": 910.686375,
+      "p95Ms": 1002.79625,
+      "madMs": 13.354791999999975,
+      "bootstrapMedianCi95Ms": [
+        893.506583,
+        923.114583
+      ]
+    }
+  }
+]

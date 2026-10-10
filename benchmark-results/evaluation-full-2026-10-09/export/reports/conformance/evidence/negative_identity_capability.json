@@ -1,0 +1,331 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "33fc3662135d40ad1f1592b75e21dbadcc6d5d4e82b4c0625238ad86487f7977",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "33fc3662135d40ad1f1592b75e21dbadcc6d5d4e82b4c0625238ad86487f7977",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "a0554409308e27c865a5dcadc2a806d43a90d87601dc177bcdbbe444c87c3d69",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "a0554409308e27c865a5dcadc2a806d43a90d87601dc177bcdbbe444c87c3d69",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "ba66eba6059f72ca3d06db13c2287bcfcea6529a2b18406e62a697ed69d59516",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "ba66eba6059f72ca3d06db13c2287bcfcea6529a2b18406e62a697ed69d59516",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "798ba98d2ade189b09e5b475d7f1406b47405a1ba010205cbceae8b10c087ffa",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.2",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "missing_capability": {
+            "capture": "unsupported_capability",
+            "restore": "unsupported_capability"
+          },
+          "restore": [
+            "model_mismatch",
+            "instance_mismatch",
+            "state_schema_mismatch"
+          ],
+          "sync": "model_mismatch"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "expected_model_mismatch_blocked": true,
+          "host_unchanged": true,
+          "missing_capability": {
+            "capability_guarded_before_send": true,
+            "host_unchanged": true
+          }
+        },
+        "status": "pass"
+      },
+      "source_sha256": "798ba98d2ade189b09e5b475d7f1406b47405a1ba010205cbceae8b10c087ffa",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "negative_identity_capability",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "detail": "all eight live renderer probes",
+    "status": "pass"
+  },
+  "revision": "c80c882396beb4b4da0703616b8af7c10de0534b"
+}

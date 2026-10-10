@@ -1,0 +1,10 @@
+Property,python,go,js,julia
+Identity handshake,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Atomic sync,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Host-only transition,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Action correlation,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Parameter control,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Reconnect,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Identity/capability rejection,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Checkpoint restore,pass 2/2,pass 2/2,pass 2/2,pass 2/2
+Matching rerun after restore,pass 2/2,pass 2/2,pass 2/2,pass 2/2

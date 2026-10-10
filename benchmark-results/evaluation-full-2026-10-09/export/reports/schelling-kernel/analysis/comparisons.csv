@@ -1,0 +1,3 @@
+comparison_id,metric,suite,baseline,treatment,pairs,median_ratio,ratio_ci95_low,ratio_ci95_high,median_difference_ms,difference_ci95_low_ms,difference_ci95_high_ms
+schelling-kernel:cycle:node:-:-,cycle,node,mesa,go,15,0.021376952029662177,0.02134030933627516,0.021658855946503075,-1043.2632919999999,-1060.04925,-1037.2985820000001
+schelling-kernel:cycle:node:-:-,cycle,node,mesa,julia,15,0.09287672315868391,0.0916357901145499,0.09438890344065212,-965.851334,-978.4250410000001,-947.436166

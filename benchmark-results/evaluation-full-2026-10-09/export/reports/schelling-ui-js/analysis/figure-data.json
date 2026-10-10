@@ -1,0 +1,74 @@
+[
+  {
+    "runId": "js-headless|node|-|-",
+    "system": "JavaScript headless (kernel baseline)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 300.50036380000006,
+      "medianMs": 300.561792,
+      "p95Ms": 311.02695800000004,
+      "madMs": 2.714334000000008,
+      "bootstrapMedianCi95Ms": [
+        298.81475,
+        304.573416
+      ]
+    }
+  },
+  {
+    "runId": "js-tensnap-web-raf|browser|-|-",
+    "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
+    "featureLevel": "agents+charts+monitor",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 16.69854545454385,
+      "medianMs": 16.600000023841858,
+      "p95Ms": 18.30000001192093,
+      "madMs": 0.2999999523162842,
+      "bootstrapMedianCi95Ms": [
+        16.600000023841858,
+        16.69999998807907
+      ]
+    }
+  },
+  {
+    "runId": "js-tensnap-web-timeout|browser|-|-",
+    "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
+    "featureLevel": "agents+charts+monitor",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "setTimeout"
+    },
+    "primaryMetric": "actionToRunCompletionMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 7.1537239057287225,
+      "medianMs": 5.399999976158142,
+      "p95Ms": 11.099999964237213,
+      "madMs": 0.8999999761581421,
+      "bootstrapMedianCi95Ms": [
+        5.300000011920929,
+        5.400000035762787
+      ]
+    }
+  }
+]

@@ -1,0 +1,5 @@
+Policy,Episodes,Mean evacuated,Mean dead
+dqn,100,27.64,0.15
+no-guide,100,14.28,4.63
+random,100,18.65,2.73
+safe-heuristic,100,27.87,0.08

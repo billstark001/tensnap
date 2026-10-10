@@ -1,0 +1,27 @@
+[
+  {
+    "runId": "netlogo-v7-in-memory-view|node|-|-",
+    "system": "NetLogo 7.0.4 headless in-memory view",
+    "featureLevel": "native-view-in-memory-raster",
+    "dimensions": {
+      "grid": "50x50",
+      "density": 0.8,
+      "balance": 0.5,
+      "threshold": 0.8,
+      "finalTick": 500,
+      "rendering": "HeadlessWorkspace.exportView() to BufferedImage after every action; final PNG encoding outside timing; no file I/O"
+    },
+    "primaryMetric": "actionToInMemoryViewMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 4.623648683232306,
+      "medianMs": 3.49225,
+      "p95Ms": 10.450083,
+      "madMs": 0.49337500000000034,
+      "bootstrapMedianCi95Ms": [
+        3.412875,
+        3.463167
+      ]
+    }
+  }
+]
