@@ -171,7 +171,7 @@ cd packages/tensnap-python
 pytest
 cd ../..
 
-# JavaScript tests
+# All workspace tests, including native language wrappers and version checks
 pnpm test
 
 # Go tests
@@ -209,7 +209,7 @@ Then create a Pull Request on GitHub.
 
 TenSnap follows PEP 8 with some modifications:
 
-- **Formatter**: Black (line length: 88)
+- **Formatter**: Ruff (line length: 88)
 - **Linter**: Ruff
 - **Type hints**: Required for public APIs
 - **Docstrings**: Google style
@@ -222,21 +222,21 @@ from dataclasses import dataclass
 
 @dataclass
 class SimulationConfig:
-  """Configuration for a renderer-driven TenSnap scenario.
+    """Configuration for a renderer-driven TenSnap scenario.
 
-  Args:
-    population: Number of agents to initialize.
-    step_size: Movement amount per simulation step.
-    debug_mode: Whether to expose extra runtime diagnostics.
-  """
+    Args:
+        population: Number of agents to initialize.
+        step_size: Movement amount per simulation step.
+        debug_mode: Whether to expose extra runtime diagnostics.
+    """
 
-  population: int = 100
-  step_size: float = 1.0
-  debug_mode: bool = False
+    population: int = 100
+    step_size: float = 1.0
+    debug_mode: bool = False
 
-  def scaled_step_size(self, scale: float) -> float:
-    """Return a scaled step size without mutating the config."""
-    return self.step_size * scale
+    def scaled_step_size(self, scale: float) -> float:
+        """Return a scaled step size without mutating the config."""
+        return self.step_size * scale
 ```
 
 **Running Code Formatters**:
@@ -245,7 +245,7 @@ class SimulationConfig:
 cd packages/tensnap-python
 
 # Format code
-black tensnap/
+ruff format tensnap/
 
 # Lint
 ruff check tensnap/
@@ -319,7 +319,10 @@ export const ParameterSlider: React.FC<ParameterSliderProps> = ({
 ```bash
 cd packages/tensnap-web
 pnpm lint
-pnpm lint --fix  # Auto-fix issues
+
+# From the repository root, apply supported JavaScript fixes and formatting.
+pnpm exec oxlint --fix packages/tensnap-web
+pnpm exec oxfmt --write 'packages/tensnap-web/src/**/*.{ts,tsx}'
 ```
 
 ### General Guidelines
@@ -469,6 +472,9 @@ Closes #123 Related to #456
 Use Google-style docstrings:
 
 ```python
+import math
+
+
 def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
     """Calculate Euclidean distance between two points.
 
@@ -494,121 +500,96 @@ def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
 
 ### Python Testing
 
-Use pytest for Python tests:
+Install the Python binding's `.[dev]` extra and activate that interpreter before using pytest. From the repository root:
+
+```bash
+(cd packages/tensnap-python && pytest)
+PYTHONPATH=examples pytest -q examples/python_dqn/tests
+```
+
+Binding tests live in `packages/tensnap-python/tests/`; Fire model tests are a separate suite. Prefer assertions against model-visible state and protocol behavior. This minimal example uses the current decorator registration surface:
 
 ```python
-# tests/test_environment.py
-import pytest
-from tensnap import SimulationScenario, agent, agent_layer, env, grid_layer
+from tensnap import SimulationScenario, agent, agent_layer, env
 
 
 @agent()
 class Bird:
-  def __init__(self, bird_id: str, x: int, y: int) -> None:
-    self.id = bird_id
-    self.x = x
-    self.y = y
+    def __init__(self, bird_id: str, x: int, y: int) -> None:
+        self.id = bird_id
+        self.x = x
+        self.y = y
 
 
-@grid_layer()
 @agent_layer("agents")
-@env(id="test")
-class GridEnv:
-  def __init__(self) -> None:
-    self.width = 50
-    self.height = 50
-    self.agents = [Bird("a1", 25, 25)]
+@env(id="aviary")
+class Aviary:
+    def __init__(self) -> None:
+        self.agents = [Bird("a1", 2, 3)]
 
 
-@pytest.mark.asyncio
-async def test_server_broadcast():
-  """Test async server functionality."""
-  # Test async code here
-  pass
-
-
-@pytest.fixture
-def sample_environment():
-  """Fixture for a decorator-backed environment."""
-  return GridEnv()
-
-
-def test_environment_with_fixture(sample_environment):
-  """Test using fixture."""
-  scenario = SimulationScenario()
-  scenario.add_all(sample_environment)
-  registration = scenario.environments["main"]
-  state = registration.build_state()
-  grid = next(layer for layer in state["layers"] if layer["layer_id"] == "grid")
-  assert grid["data"]["width"] == 50
+def test_registered_agents_match_model():
+    model = Aviary()
+    scenario = SimulationScenario()
+    scenario.add_all(model)
+    state = scenario.environments["aviary"].build_state()
+    layer = next(item for item in state["layers"] if item["layer_id"] == "agents")
+    assert layer["agents"] == [{"id": "a1", "x": 2, "y": 3}]
 ```
 
-### JavaScript Testing
+For async behavior use `pytest.mark.asyncio` with real assertions; a placeholder `pass` does not test broadcasting. See the existing scenario/environment tests for action correlation, diffs and restore behavior.
 
-Use Vitest and React Testing Library:
+### TypeScript Testing
+
+Use each package's Vitest suite rather than passing coverage arguments through the root's composite `test` script:
+
+```bash
+pnpm --filter @tensnap/core test
+pnpm --filter @tensnap/core test:watch
+pnpm --filter @tensnap/web test
+pnpm --filter @tensnap/agent test
+```
+
+A core test can exercise projected-state round trips without inventing a UI component:
 
 ```typescript
-// src/components/ParameterSlider.test.tsx
-import { render, screen, fireEvent } from '@testing-library/react';
-import { ParameterSlider } from './ParameterSlider';
+import { expect, it } from 'vitest';
+import { Scenario } from '../scenario';
 
-describe('ParameterSlider', () => {
-  const mockOnChange = vi.fn();
-
-  it('renders with correct label', () => {
-    render(
-      <ParameterSlider
-        id="test"
-        label="Test Parameter"
-        value={50}
-        min={0}
-        max={100}
-        step={1}
-        onChange={mockOnChange}
-      />
-    );
-
-    expect(screen.getByText('Test Parameter')).toBeInTheDocument();
-  });
-
-  it('calls onChange when value changes', () => {
-    render(
-      <ParameterSlider
-        id="test"
-        label="Test"
-        value={50}
-        min={0}
-        max={100}
-        step={1}
-        onChange={mockOnChange}
-      />
-    );
-
-    const slider = screen.getByRole('number');
-    fireEvent.change(slider, { target: { value: '75' } });
-
-    expect(mockOnChange).toHaveBeenCalledWith(75);
-  });
+it('preserves the current monitor value in a snapshot', () => {
+  const scenario = new Scenario();
+  scenario.apply({ type: 'monitor_create', payload: { id: 'health', label: 'Health' } });
+  scenario.apply({ type: 'monitor_update', payload: { id: 'health', value: ['ok'] } });
+  const restored = new Scenario();
+  restored.load(scenario.dump());
+  expect(restored.monitors.get('health')?.value).toEqual(['ok']);
 });
 ```
 
-### Test Coverage
+This import layout assumes a test beside `packages/core/src/monitor/MonitorStorage.test.ts`. UI tests use React Testing Library; range inputs have the `slider` role, and mocks should be reset between tests.
 
-Aim for:
-
-- **Line coverage**: >80%
-- **Branch coverage**: >70%
-- **Function coverage**: >80%
-
-Check coverage:
+### Native Tests and Protocol Conformance
 
 ```bash
-# Python
-pytest --cov=tensnap --cov-report=html
-
-# JavaScript
-pnpm test -- --coverage
+(cd packages/tensnap-go && go test ./...)
+pnpm run test:go:examples
+pnpm run test:julia
+python conformance/run_matrix.py --check
+pnpm exec tsc --noEmit -p conformance/tsconfig.json
 ```
+
+`test:julia` invokes native binding package tests through the examples wrapper; it does not run every example. Live conformance checks start fixture hosts. For saved evidence, `pnpm evaluation verify --input benchmark-results/evaluation-full-2026-10-09` is offline and starts no host or timing workload. See the [conformance guide](../../conformance/README.md) and [evaluation guide](../../benchmarks/evaluation/README.md).
+
+### Coverage
+
+Coverage is diagnostic; the repository does not enforce a shared 80%/70% threshold. Use supported package-level commands:
+
+```bash
+(cd packages/tensnap-python && pytest --cov=tensnap --cov-report=html)
+pnpm --filter @tensnap/core test --coverage
+```
+
+Python coverage support comes from `.[dev]`; core declares `@vitest/coverage-v8`. Native suites, conformance and performance profiles establish different properties and are not substitutes for each other. Generated HTML/coverage output is disposable, and smoke estimates are not publication evidence.
 
 ## Recognition
 

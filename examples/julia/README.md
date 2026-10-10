@@ -15,7 +15,7 @@ pnpm --dir examples/julia run standalone:schelling
 pnpm --dir examples/julia run test
 ```
 
-The root package forwards the TenSnap demos:
+The `test` command invokes native binding package tests through `test_package.jl`; it does not run every example or benchmark. The root package forwards the TenSnap demos:
 
 ```bash
 pnpm run dev:julia:el-farol
@@ -24,7 +24,7 @@ pnpm run dev:julia:schelling:makie
 pnpm run standalone:julia:schelling
 ```
 
-The publication adapters and their locked environment are separate, under `../../benchmarks/schelling/v1/subjects/julia/` and `../../benchmarks/schelling/v1/environments/julia/`. The examples do not expose hidden browser revision/state signals or benchmark JSON output, and they do not require the benchmark `Manifest.toml`.
+The publication adapters are under `../../benchmarks/schelling/v1/subjects/julia/`; the current full evaluation uses the lock in `../../benchmarks/evaluation/environments/julia/`. Older standalone profiles retain their original `../../benchmarks/schelling/v1/environments/julia/` environment. The examples do not expose hidden browser revision/state signals or benchmark JSON output, and they do not require the benchmark `Manifest.toml`.
 
 The example code is split by responsibility: `schelling.jl` owns scientific dynamics and `SchellingConfig`; `schelling_study.jl` owns reusable trials and sweeps; `schelling_tensnap.jl` builds a configurable TenSnap scenario; and `schelling_makie_app.jl` builds the native teaching UI. Benchmark entry points call these factories instead of copying the model or app.
 

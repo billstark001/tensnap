@@ -52,7 +52,7 @@ pnpm bench verify --input benchmark-results/evaluation-unpacked/raw/protocol-cor
 
 ## Working directories and caches
 
-All commands accept `--work-dir PATH` and `--cache-dir PATH`. Relative paths resolve from the checkout root. Their environment equivalents are `TENSNAP_EVALUATION_WORK_DIR` and `TENSNAP_EVALUATION_CACHE_DIR`; explicit flags take precedence. Both directories must be outside `--out` so creating scratch space cannot create or alter the evidence destination.
+All commands accept `--work-dir PATH` and `--cache-dir PATH`. Relative paths resolve from the checkout root. Their environment equivalents are `TENSNAP_EVALUATION_WORK_DIR` and `TENSNAP_EVALUATION_CACHE_DIR`; explicit flags take precedence. `TENSNAP_EVALUATION_OUTPUT_DIR` is an internal child-process source-check exclusion, not a replacement for the required `run --out` or `resume --input` flags. Both directories must be outside `--out` so creating scratch space cannot create or alter the evidence destination.
 
 | Purpose | Default | Lifetime |
 | --- | --- | --- |
@@ -62,7 +62,7 @@ All commands accept `--work-dir PATH` and `--cache-dir PATH`. Relative paths res
 | Python bytecode, Go build and Vite caches | `benchmark-results/.cache/{python,go,vite}/` | Reusable across runs; may be deleted when no run is active |
 | Atomic output staging | Beside the selected output, with `.evaluation-export-`, `.archive-` or similar prefixes | Removed after successful publication or normal failure |
 
-The final archive staging remains on the output filesystem so publishing uses an atomic rename/link even when `--work-dir` is on another disk. Large uncompressed copies and temporary extractions use the selected work directory. These defaults are Git-ignored. `plan` does not create working directories; `doctor` displays the selected work/cache locations.
+The final archive staging remains on the output filesystem so publishing uses an atomic rename/link even when `--work-dir` is on another disk. Large uncompressed copies and temporary extractions use the selected work directory. The default work/cache directories are Git-ignored; `benchmark-results/` as a whole is not. Published result directories can be tracked. `plan` does not create working directories; `doctor` displays the selected work/cache locations.
 
 Dependency installations remain separate from disposable caches: the Python environment is `.evaluation-venv`, browser downloads normally use `~/Library/Caches/ms-playwright` on macOS (`PLAYWRIGHT_BROWSERS_PATH`), Go module downloads use `go env GOMODCACHE` (`GOMODCACHE`), and Julia packages/precompilation use `DEPOT_PATH` (`JULIA_DEPOT_PATH`). These standard environment controls are inherited; moving dependency stores may require installing the locked dependencies at the new location.
 
@@ -112,4 +112,19 @@ Readers verify the referenced file hash and load the original samples in memory,
 
 CSV preserves numeric precision. LaTeX rounds fractional display values to three decimal places and requires `booktabs`, `tabularx` and `array`. The exporter additionally retains the recording storage metrics, all sixteen conformance properties and the Fire/DQN policy/stability results. It does not edit manuscript prose or widen scientific claims. Table selectors are retained in the evidence archive for later exports.
 
-Historical outputs were moved to the companion paper repository as `artifacts/evaluation-before-rerun-2026-10-09.tar.gz`, which includes its original file inventory. The source Git history retains the old measured revisions and result snapshots. The immutable historical profiles remain available; the `evaluation-2026-*` profiles record current locks for the new batch.
+## Published batch and source changes
+
+The complete batch is `benchmark-results/evaluation-full-2026-10-09`, publicly retained at [c959a34](https://github.com/billstark001/tensnap/tree/c959a345dee17b2bc6e10f8573d0088f2bf5e553/benchmark-results/evaluation-full-2026-10-09). The measured source is `c80c882396beb4b4da0703616b8af7c10de0534b`; execution started October 10, 2026 at 09:17 JST. All seven profiles retain 15 blocks; the batch contains 112 performance conditions and 1,680 replicates.
+
+```sh
+# Inspect the existing published batch without running experiments.
+pnpm evaluation verify --input benchmark-results/evaluation-full-2026-10-09
+pnpm evaluation extract --input benchmark-results/evaluation-full-2026-10-09 \
+  --out benchmark-results/evaluation-inspection --figures-only
+```
+
+Offline verification uses recorded evidence and does not require the current checkout revision to equal the measured source. Resume does require the original commit, source bytes and environment; it cannot append a changed implementation to the same batch. After source changes, review and commit the new implementation, use a fresh output, and let the runner record its actual revision. Do not edit old manifests, exports, or their checksums. A documentation-only source change still changes source identity on a new publication run.
+
+Change a profile only if its workload, metric, repetition plan or environment changes; a source commit alone does not require inserting a SHA into profile JSON. If a profile/lock changes, add a clearly named new profile, update the experiment specification and table selectors when run IDs/metrics change, and run `plan`/`doctor` before fresh execution. The immutable earlier profiles and companion paper archives retain their original interpretation.
+
+Protocol/core P95 pools 1,500 actions per condition; GUI P95 pools 7,425. Kernel P95/P99 are maxima of 15 total-duration samples, not step percentiles. No percentile is a bound on rare pauses. All measured samples remain in the checked archives.

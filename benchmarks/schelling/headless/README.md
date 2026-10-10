@@ -14,4 +14,4 @@ Each host retains a report, the original checkpoint capture bytes and a PNG. Has
 
 Temporary daemon contexts and sidecar files are cleaned up after each host. A failed run leaves its staging evidence and failure log for diagnosis and never publishes a completed output. The batch adapter restarts a failed workflow and performs an independent offline check before accepting its output.
 
-See [`../../evaluation`](../../evaluation/README.md) for the complete paper matrix, standalone verification, gzip archive and table exporter. Historical results are retained in the companion paper archive and Git history.
+See [`../../evaluation`](../../evaluation/README.md) for the complete paper matrix, standalone verification, gzip archive and table exporter. The published summary is in `benchmark-results/evaluation-full-2026-10-09/export/reports/schelling-workflow/`. Full extraction supplies original per-host reports/checkpoints under `raw/schelling-workflow/`; figures-only extraction supplies its original PNGs. Use `pnpm evaluation verify` for offline validation; it does not launch any host.

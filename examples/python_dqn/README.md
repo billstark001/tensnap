@@ -60,13 +60,13 @@ pnpm evidence:fire:run
 pnpm evidence:fire:verify
 ```
 
-The generated artifact lives under the ignored repository-root `benchmark-results/fire-dqn/`. Use `pnpm evaluation` for locked batch execution, compressed evidence and CSV/LaTeX table exports; historical artifacts are retained in the companion paper archive and Git history. Its `summary.json` is derived entirely from `episodes.jsonl`; `manifest.json` records the source commit, full configurations, runtime versions, and SHA-256 checksums for every retained checkpoint and evidence file. The verifier checks the planned matrix, population conservation, seed mapping, checksums, and exact summary reconstruction. A run requires a clean Git tree so `sourceCommit` identifies the implementation that produced the retained rows and checkpoints.
+The standalone command writes a fresh repository-root `benchmark-results/fire-dqn/` directory; this path is not globally Git-ignored. The complete published batch retains Fire evidence in `benchmark-results/evaluation-full-2026-10-09/export/data.tar.gz` under `raw/fire-dqn/`, with its summary and tables outside. Use `pnpm evaluation` for locked batch execution, compressed evidence and CSV/LaTeX exports. Its `summary.json` is derived entirely from `episodes.jsonl`; `manifest.json` records the source commit, full configurations, runtime versions, and SHA-256 checksums for every retained checkpoint and evidence file. The verifier checks the planned matrix, population conservation, seed mapping, checksums, and exact summary reconstruction. A publication run requires clean source outside generated directories, including the selected output and configured work/cache directories. These exclusions allow evidence to be Git-tracked without invalidating source checks. Committing any change during execution still changes the recorded revision.
 
-The archived reference result is 27.64 evacuated people for DQN, versus 14.28 for no guide and 18.65 for random over 100 common holdout scenarios. The safe-exit heuristic reaches 27.87 and is interpreted as a transparent ceiling. Across five training seeds and 500 common holdout scenarios per seed, DQN reaches 27.6524 mean evacuations with 0.1656 sample standard deviation. The simple binary map therefore demonstrates an auditable RL integration; it is not evidence that the scenario needs a learned controller.
+The archived reference result is 27.64 evacuated people for DQN, versus 14.28 for no guide and 18.65 for random over 100 common holdout scenarios. The safe-exit heuristic reaches 27.87 and is a transparent reference policy, not a proven optimal ceiling. Across five training seeds and 500 common holdout scenarios per seed, DQN reaches 27.6524 mean evacuations with 0.1656 sample standard deviation. The simple binary map therefore demonstrates an auditable RL integration; it is not evidence that the scenario needs a learned controller.
 
 ## Compare against reference policies
 
-`compare` runs the learned policy, no-guide, random, and oracle-like safe-exit heuristic on the same episode seeds:
+`compare` runs the learned policy, no-guide, random, and safe-exit heuristic on the same episode seeds:
 
 ```bash
 # From the examples/ directory

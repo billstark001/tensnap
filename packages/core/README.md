@@ -130,7 +130,7 @@ Storage classes are reactive data containers. Layers subscribe to them and re-re
 ## Testing & Benchmarks
 
 ```bash
-# Vitest unit tests
+# Vitest unit tests (from packages/core/)
 pnpm test
 
 # Browser benchmark profiles (from the repository root)
@@ -143,4 +143,4 @@ The benchmark app contains three suites:
 - Axelrod, Schelling, and Wolf–Sheep through the full Web transport/session/UI path;
 - one seeded random walk through raw Leafer, core layers without transport, and the full Web transport path.
 
-All suites report cycle latency/TPS under the Web render-trigger settings. No-transport cases also report mutation cost, while complete models preserve their actual completed-step count and simulator stop reason.
+These diagnostic suites are distinct from the locked paper evaluation; use [the evaluation guide](../../benchmarks/evaluation/README.md) for its current profiles and published archives. All suites report cycle latency/TPS under the Web render-trigger settings. No-transport cases also report mutation cost, while complete models preserve their actual completed-step count and simulator stop reason.

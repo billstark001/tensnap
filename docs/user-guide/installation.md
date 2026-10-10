@@ -50,7 +50,7 @@ pip install -e .  # Editable install for development
 Or with optional development dependencies:
 
 ```bash
-pip install -e ".[dev]"  # Includes pytest, mypy, ruff, black
+pip install -e ".[dev]"  # Includes pytest, coverage tools, mypy and Ruff
 ```
 
 #### 3. Install JavaScript Dependencies
@@ -227,8 +227,7 @@ The development installation includes:
 - **pytest-asyncio**: Async test support
 - **pytest-cov**: Code coverage
 - **mypy**: Static type checking
-- **ruff**: Fast Python linter
-- **black**: Code formatter
+- **ruff**: Python linting and formatting used by the package scripts
 
 ### JavaScript Development Tools
 
@@ -236,7 +235,8 @@ Included in the monorepo:
 
 - **TypeScript**: Type-safe JavaScript
 - **Vite**: Fast build tool
-- **ESLint**: JavaScript linter
+- **Oxlint**: JavaScript/TypeScript linting
+- **Oxfmt**: JavaScript/TypeScript and Markdown formatting
 - **Vitest**: Testing framework
 - **React Testing Library**: Component testing
 

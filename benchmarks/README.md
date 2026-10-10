@@ -32,45 +32,31 @@ The language implementations intentionally remain independent so they are readab
 
 ## Quick start
 
-```bash
-# Protocol/codec/WebSocket smoke test.
-pnpm bench run --profile benchmarks/profiles/smoke.json
+For the complete current paper matrix, follow the [evaluation setup and commands](evaluation/README.md). It supplies the current scientific locks, source preflight, recovery, separate gzip archives and checked tables:
 
-# Install the pinned browser once, then run all registered browser cases.
+```bash
+pnpm evaluation plan
+pnpm evaluation doctor
+# Publication execution requires reviewed, committed source and a fresh output.
+pnpm evaluation run --out benchmark-results/evaluation-new
+# Offline verification never launches hosts or timing workloads.
+pnpm evaluation verify --input benchmark-results/evaluation-full-2026-10-09
+```
+
+For isolated diagnostics:
+
+```bash
+pnpm bench run --profile benchmarks/profiles/smoke.json \
+  --out benchmark-results/protocol-smoke
 pnpm bench:browser:install
 pnpm bench:browser:all
-
-# Submission profiles require a clean commit and all declared suites.
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
-  --out benchmark-results/paper-v0.3
-pnpm bench verify --input benchmark-results/paper-v0.3
-pnpm bench report --input benchmark-results/paper-v0.3
 ```
 
-The NetLogo 7 rendering profile is intentionally separate from browser UI profiles:
+The `evaluation-2026-*` profiles preserve workload definitions while selecting the current evaluation locks. Profiles without this prefix remain available for their original environments; do not silently rewrite a published profile.
 
-```bash
-python3 -m venv .benchmark-venv
-.benchmark-venv/bin/pip install -r \
-  benchmarks/environments/python-netlogo7-render.requirements.lock
-export PATH="$PWD/.benchmark-venv/bin:$PATH"
-export NETLOGO_HOME='/Applications/NetLogo 7.0.4'
+The NetLogo rendering pilot uses a separate headless Java API boundary. The current `evaluation-2026-schelling-netlogo-render-v2.json` profile times model transition, recoloring and in-memory `BufferedImage` rasterization, excluding PNG encoding and file I/O. It encodes the final frame after timing and independently checks its pixel palette against authoritative patch state. The older v1 `actionToPngMs` profile includes PNG encoding and file I/O. Neither pilot establishes pixel presentation timing or cross-language microscopic equality. NetLogo cannot enter a paired browser-latency ranking because its completion event differs.
 
-pnpm bench:netlogo:render
-pnpm bench verify --input benchmark-results/schelling-netlogo-render-v1
-
-# Current no-I/O profile: 0.8 threshold, exactly 500 ticks.
-pnpm bench:netlogo:render-memory
-pnpm bench verify --input benchmark-results/schelling-netlogo-render-v2
-```
-
-NetLogo is not browser based and a running GUI may skip display refreshes. The adapter avoids an implicit frame-cadence claim by calling NetLogo's built-in headless `export-view` after every action. It independently reads the 50x50 patch `group` state and checks every pixel block in the 400x400 PNG against the documented NetLogo white/blue/red palette. The final checksummed PNG is retained by the ordinary artifact writer.
-
-This establishes exact agreement between the authoritative NetLogo patch state and the exported native view. It does not establish cell-for-cell equality with the independently implemented Mesa/Go/JavaScript/Julia models, whose random number generators and scheduling differ. Cross-runtime dynamics remain a distributional/specification comparison. The immutable v1 profile's declared `actionToPngMs` metric includes model transition, patch recoloring, PNG encoding, and file I/O; the artifact also reports those stages separately.
-
-The v2 profile instead calls the public headless Java API to paint each view into a `BufferedImage`. Its `actionToInMemoryViewMs` metric includes model transition, patch recoloring, and in-memory view rasterization, but excludes PNG encoding and all file I/O. It encodes only the final frame, after timing, to retain the same state-to-pixel audit evidence. Both results are descriptive: a headless CPU raster is not the same completion boundary as a browser-presented `requestAnimationFrame`, so v2 must not enter a paired browser latency comparison even though it removes the v1 I/O confound.
-
-An output directory is published only after every planned run and replicate is present and verified. It is created through a staging directory and atomic rename, and an existing output directory is never overwritten.
+Individual profile artifacts publish through atomic staging only after every planned replicate verifies. Existing outputs are never overwritten. Full-batch execution additionally verifies and compacts the evidence after all experiments.
 
 ## Long runs: journal, resume, shard, and merge
 
@@ -78,33 +64,41 @@ Every completed replicate is appended immediately to a journal. A late crash the
 
 ```bash
 # Resume one interrupted full run.
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
-  --out benchmark-results/paper-v0.3 --resume
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
+  --out benchmark-results/protocol-current --resume
 
 # Run four deterministic block shards on the same locked execution host; each
 # writes a distinct journal.
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
-  --out benchmark-results/paper-v0.3 --shard 1/4
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
-  --out benchmark-results/paper-v0.3 --shard 2/4
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
-  --out benchmark-results/paper-v0.3 --shard 3/4
-pnpm bench run --profile benchmarks/profiles/paper-v0.3.json \
-  --out benchmark-results/paper-v0.3 --shard 4/4
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
+  --out benchmark-results/protocol-current --shard 1/4
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
+  --out benchmark-results/protocol-current --shard 2/4
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
+  --out benchmark-results/protocol-current --shard 3/4
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
+  --out benchmark-results/protocol-current --shard 4/4
 
 # Merge fails on duplicate samples or an incomplete profile matrix.
-pnpm bench merge --profile benchmarks/profiles/paper-v0.3.json \
-  --input benchmark-results/paper-v0.3.shard-1-of-4.journal.jsonl,benchmark-results/paper-v0.3.shard-2-of-4.journal.jsonl,benchmark-results/paper-v0.3.shard-3-of-4.journal.jsonl,benchmark-results/paper-v0.3.shard-4-of-4.journal.jsonl \
-  --out benchmark-results/paper-v0.3
+pnpm bench merge --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
+  --input benchmark-results/protocol-current.shard-1-of-4.journal.jsonl,benchmark-results/protocol-current.shard-2-of-4.journal.jsonl,benchmark-results/protocol-current.shard-3-of-4.journal.jsonl,benchmark-results/protocol-current.shard-4-of-4.journal.jsonl \
+  --out benchmark-results/protocol-current
 ```
 
 `--block 1,5,9` is also available for explicit one-based block selection. `--block` and `--shard` are mutually exclusive. A submission profile cannot be run with a `--suite` subset; diagnostic profiles may opt into subsets. Use `--journal PATH` to override the deterministic journal name when an external job scheduler owns shard paths. Starting without `--resume` never overwrites an existing journal; the error points to `--resume` or a new output/journal path. The output path is also checked before any replicate starts, so an immutable published artifact cannot cause a complete run to be discarded at the end.
 
 ## Artifact contents and verification
 
-The historical outputs, including the extracted protocol/core profile, are archived in the companion paper repository as `artifacts/evaluation-before-rerun-2026-10-09.tar.gz`. Generated results no longer live in the source checkout. New local runs write to the ignored `benchmark-results/` directory.
+The complete published batch lives at `benchmark-results/evaluation-full-2026-10-09`, retained in [frozen snapshot c959a34](https://github.com/billstark001/tensnap/tree/c959a345dee17b2bc6e10f8573d0088f2bf5e553/benchmark-results/evaluation-full-2026-10-09) and measured from source `c80c882`. Its external reports/tables and separate `data.tar.gz`/`figures.tar.gz` are described in the [evaluation guide](evaluation/README.md). The directory name is not its execution date; metadata records October 10, 2026.
 
-For the complete October 2026 rerun, environment preflight, recovery, gzip evidence and CSV/LaTeX tables, use [`evaluation/README.md`](evaluation/README.md) and `pnpm evaluation`. The immutable historical profiles remain unchanged; the new `evaluation-2026-*` profiles declare current dependency locks.
+`benchmark-results/` is not globally Git-ignored: publication evidence can be tracked, while `.work/`, `.cache/` and other scratch paths are ignored. Generated execution paths are excluded from source fingerprints independently of Git tracking. Earlier results remain in source Git history and companion paper archives.
+
+The following layout describes an individual unpruned profile. To inspect a completed compact batch, extract it to a fresh disposable directory first:
+
+```bash
+pnpm evaluation extract --input benchmark-results/evaluation-full-2026-10-09 \
+  --out benchmark-results/evaluation-inspection
+pnpm bench verify --input benchmark-results/evaluation-inspection/raw/protocol-core
+```
 
 A complete artifact contains:
 
@@ -118,11 +112,11 @@ A complete artifact contains:
 `verify` checks the profile hash and complete run matrix, reconstructs the raw JSONL rows, summaries, and paired comparisons, enforces canonical-state equivalence groups, regenerates every report/analysis byte, and validates all declared SHA-256 checksums. Screenshots are audit evidence and are also hashed; they are not used as a substitute for semantic correctness.
 
 ```bash
-pnpm bench verify --input benchmark-results/paper-v0.3
+pnpm bench verify --input benchmark-results/protocol-current
 
 # Rebuild analysis files only after manifest, samples, and screenshots pass
 # source verification; the regenerated bytes must match manifest checksums.
-pnpm bench analyze --input benchmark-results/paper-v0.3
+pnpm bench analyze --input benchmark-results/protocol-current
 ```
 
 Do not publish or interpret an artifact whose verification fails. Preserve the whole directory and its journal with the tagged source release.
@@ -133,39 +127,19 @@ Every comparable Schelling UI exposes two independent, machine-readable signals:
 
 TenSnap conditions obtain their state from the production renderer's `Scenario.dump()` snapshot. Solara and WGLMakie expose the same canonical agent fields through hidden benchmark DOM nodes. The oracle validates population, unique IDs and positions, grid bounds, positive size, revision count, and population conservation. A profile `stateEquivalenceGroup` additionally requires byte-equivalent canonical hashes for the same seed and replicate block across native UI and TenSnap conditions.
 
-PNG capture happens outside the timed action series. External native UIs must also produce three consecutive byte-identical full-page PNGs before a visual checkpoint is accepted. This prevents an early DOM-ready signal from retaining a Solara hydration state or a WGLMakie loading canvas as publication evidence. The shared primary UI metric is `actionToRenderCompleteMs`; old screenshot-polling and self-equality checks are not accepted as correctness evidence.
+PNG capture happens outside the timed action series. External native UIs must also produce three consecutive byte-identical full-page PNGs before a visual checkpoint is accepted. This prevents an early DOM-ready signal from retaining a Solara hydration state or a WGLMakie loading canvas as publication evidence. rAF conditions declare `actionToRenderCompleteMs`; timeout conditions declare `actionToRunCompletionMs`. Revision observation and canonical-state checks establish the declared completion/state contract; they do not establish the time physical pixels appear on a display.
 
-## Reproducing a submission environment
+## Reproducing the current publication environment
 
-Use a fresh checkout at the commit being reported:
+Use a checkout of the actual measured revision for execution, install the committed locks and follow [the evaluation guide](evaluation/README.md). `pnpm evaluation doctor` checks profile/lock hashes, runtime imports, local binding resolution and Chromium startup. Publication source must be clean outside generated output/work/cache paths. A bare `git status --short` can show tracked result changes even when source checks are clean; committing anything during an active run still changes its revision.
 
-```bash
-pnpm install --frozen-lockfile
-pnpm bench:browser:install
-
-python3 -m venv .benchmark-venv
-.benchmark-venv/bin/pip install -r benchmarks/environments/python-mesa.requirements.lock
-export PATH="$PWD/.benchmark-venv/bin:$PATH"
-PYTHONPATH="$PWD/packages/tensnap-python" python -c \
-  'import mesa, solara, tensnap; print(mesa.__version__, solara.__version__)'
-
-julia --project=benchmarks/schelling/v1/environments/julia -e \
-  'using Agents, Bonito, TenSnap, WGLMakie; println(VERSION)'
-
-# Required only for the NetLogo kernel condition. Use NetLogo 7.0.4.
-python -c 'import pynetlogo; print(pynetlogo.__version__)'
-
-# Must print nothing before a submission run.
-git status --short
-```
-
-The Python lock includes Mesa/Solara and their required runtime dependencies. The Julia benchmark has a separate committed `Project.toml`/`Manifest.toml`; the example directory intentionally does not carry the publication lock. Each profile validates declared environment-lock hashes before launching a subject. If NetLogo needs a local installation path, configure it without changing the recorded version.
+Current profiles use `.evaluation-venv`, `benchmarks/environments/python-evaluation.requirements.lock`, and `benchmarks/evaluation/environments/{go,julia}`. The older Mesa/NetLogo locks and `schelling/v1/environments/julia` describe older standalone profiles, not the current full-batch setup. Recorded runtime versions and environment fingerprints remain authoritative.
 
 ## Profiles and measured layers
 
-`paper-v0.3` predeclares stable workload IDs, dimensions, feature levels, and a primary metric for every run. Its renderer comparisons use `browserMutationMs`, with Canvas as the baseline and direct Leafer/TenSnap as treatments for each agent-count/change-rate tuple. Protocol and core workloads remain separate from these renderer-only comparisons.
+The `paper-v0.3` workload and its current `evaluation-2026-*` profile predeclare stable workload IDs, dimensions, feature levels, and a primary metric for every run. Its renderer comparisons use `browserMutationMs`, with Canvas as the baseline and direct Leafer/TenSnap as treatments for each agent-count/change-rate tuple. Protocol and core workloads remain separate from these renderer-only comparisons.
 
-The Schelling profiles separate model, framework UI, and TenSnap layers. The immutable `v1` profiles retain the original 0.7-threshold evidence. The current `v2` profiles use a 0.8 similarity threshold and end every scientific or UI trajectory at tick 500 (5 warm-up actions plus 495 measured UI actions):
+The Schelling profiles separate model, framework UI, and TenSnap layers. The immutable `v1` profiles retain the original 0.7-threshold evidence. The `v2` workload definitions, including their current `evaluation-2026-*` variants, use a 0.8 similarity threshold and end every scientific or UI trajectory at tick 500 (5 warm-up actions plus 495 measured UI actions):
 
 - `schelling-kernel-v2`: Mesa, Go, Agents.jl, and descriptive NetLogo kernels;
 - `schelling-ui-mesa-v2`: Mesa kernel, Solara, and Mesa + TenSnap;
@@ -173,16 +147,19 @@ The Schelling profiles separate model, framework UI, and TenSnap layers. The imm
 - `schelling-ui-go-v2`: Go kernel and Go + TenSnap;
 - `schelling-ui-js-v2`: JavaScript kernel and JavaScript + TenSnap.
 
-Run the four binding-specific UI profiles directly from the repository root:
+After installing the current evaluation locks, select its Python interpreter for standalone profile commands (the full `pnpm evaluation` runner sets this environment itself). Run from the repository root:
 
 ```bash
-pnpm bench run --profile benchmarks/profiles/schelling-ui-mesa-v2.json \
+export PATH="$PWD/.evaluation-venv/bin:$PATH"
+export TENSNAP_JULIA_PROJECT="$PWD/benchmarks/evaluation/environments/julia"
+
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-schelling-ui-mesa-v2.json \
   --out benchmark-results/schelling-ui-mesa-v2
-pnpm bench run --profile benchmarks/profiles/schelling-ui-go-v2.json \
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-schelling-ui-go-v2.json \
   --out benchmark-results/schelling-ui-go-v2
-pnpm bench run --profile benchmarks/profiles/schelling-ui-js-v2.json \
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-schelling-ui-js-v2.json \
   --out benchmark-results/schelling-ui-js-v2
-pnpm bench run --profile benchmarks/profiles/schelling-ui-julia-v2.json \
+pnpm bench run --profile benchmarks/profiles/evaluation-2026-schelling-ui-julia-v2.json \
   --out benchmark-results/schelling-ui-julia-v2
 ```
 
@@ -190,7 +167,7 @@ Each `--out` directory must be new. If a run is interrupted, repeat its exact co
 
 Only conditions with the same declared `featureLevel`, dimensions, semantic contract, and primary metric belong in a paired comparison. NetLogo remains a descriptive kernel result because its statistics instrumentation differs.
 
-`browserOptions.renderTriggerMode` records scheduling policy. The default `requestAnimationFrame` mode represents presentable frame latency; `setTimeout` measures maximum-throughput scheduling as `actionToRunCompletionMs`, and `auto` uses production cadence selection. Only rAF runs use `actionToRenderCompleteMs` and enter native-UI render-completion comparisons; results from different modes are not the same metric.
+`browserOptions.renderTriggerMode` records scheduling policy. The default `requestAnimationFrame` mode measures scheduled dispatch intervals with a final run-completion boundary; its callback does not prove pixel presentation time. `setTimeout` measures maximum-throughput scheduling as `actionToRunCompletionMs`, and `auto` uses production cadence selection. Only rAF runs use `actionToRenderCompleteMs` and enter native-UI render-completion comparisons; results from different modes are not the same metric.
 
 ## Process and CPU measurements
 
@@ -200,7 +177,7 @@ Every external-browser replicate receives a fresh loopback port. On POSIX hosts,
 
 ## Statistical inference
 
-Profiles use 15 randomized, process-isolated replicate blocks. Confidence intervals resample one median per independent replicate, never correlated individual actions. Declared comparisons use randomized-block paired ratios and differences; ratios below one favour the treatment. Diagnostic runs with fewer blocks must not be presented as submission confidence intervals.
+Profiles use 15 randomized, process-isolated replicate blocks. Action median/P95 values pool the declared measured actions; P95 uses nearest rank `ceil(n × 0.95)`. Confidence intervals resample one median per independent replicate, never correlated individual actions. A 500-step kernel reports one total per replicate, so with 15 replicates its P95/P99 equal the maximum total, not a single-step tail latency. Model-step table medians divide the median 500-step total by 500. Declared comparisons use randomized-block paired ratios and differences; ratios below one favour the treatment. Diagnostic runs with fewer blocks must not be presented as submission confidence intervals.
 
 ## Adding a benchmark
 

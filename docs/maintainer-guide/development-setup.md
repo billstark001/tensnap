@@ -32,7 +32,7 @@ The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed
 
 `pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
 
-Oxfmt excludes generated Lingui modules, Tauri schemas, conformance matrix, and retained benchmark reports. Regenerate these files with their owning tools.
+Oxfmt excludes generated Lingui modules, Tauri schemas, the conformance matrix, and all `benchmark-results/` evidence, including published reports whose bytes are hashed. Regenerate these files with their owning tools.
 
 To refresh the npm toolchain, run both root and workspace updates, then verify cross-package tool versions before installing:
 
@@ -201,32 +201,28 @@ julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.test()'
 
 ## Testing
 
-### Python
-
-Python tests live in `packages/tensnap-python/tests/`:
+Run commands from the repository root with the intended Python environment active. The complete command is:
 
 ```bash
-cd packages/tensnap-python
-pytest
+pnpm test
 ```
 
-### TypeScript
+It checks version consistency, runs workspace package tests (including native Python/Go/Julia wrappers), then runs Go example tests and the Julia examples wrapper. It requires installed native runtimes and dependencies; it is not only a TypeScript test command. The Julia wrapper runs native binding package tests, so the full root command can exercise that suite more than once.
 
-The repository already includes TypeScript/Vitest coverage in multiple packages:
-
-```bash
-pnpm test              # All packages
-```
-
-### Go and Julia
+For focused checks:
 
 ```bash
-cd packages/tensnap-go
-go test ./...
-cd ../..
-
+pnpm --filter @tensnap/core test
+pnpm --filter @tensnap/web test
+pnpm --filter @tensnap/agent test
+(cd packages/tensnap-python && pytest)
+PYTHONPATH=examples pytest -q examples/python_dqn/tests
+(cd packages/tensnap-go && go test ./...)
+pnpm run test:go:examples
 pnpm run test:julia
 ```
+
+Live [conformance checks](../../conformance/README.md) and publication [evaluation profiles](../../benchmarks/evaluation/README.md) are separate from unit suites. The latter use their own committed scientific environment locks and output/work/cache directories. Existing published evidence can be checked with `pnpm evaluation verify --input benchmark-results/evaluation-full-2026-10-09`; this is offline and runs no experiment. Do not run timing profiles concurrently with unit suites.
 
 ## Building
 
@@ -249,7 +245,7 @@ Configure Python interpreter to use `packages/tensnap-python/venv/bin/python`.
 
 ```bash
 source packages/tensnap-python/venv/bin/activate
-pip install -e ".[dev]"
+pip install -e "./packages/tensnap-python[dev]"
 ```
 
 **TypeScript errors:**

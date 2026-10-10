@@ -21,7 +21,8 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 
 - **[Contributing Guidelines](./maintainer-guide/contributing.md)** - How to contribute to TenSnap
 - **[Protocol Package](../packages/protocol/README.md)** - Source of truth for protocol schemas, codecs, and generated Markdown documentation
-- **[Protocol Conformance](../conformance/README.md)** - Cross-binding integrity matrix, executable probes, and retained evidence
+- **[Protocol Conformance](../conformance/README.md)** - Cross-binding wire/client checks and schema traces
+- **[Paper Evaluation](../benchmarks/evaluation/README.md)** - Current locked batch, offline evidence verification, separate data/figure archives and table export
 - **[Internationalization (i18n)](./maintainer-guide/i18n.md)** - Translation and localization guide
 
 ## Documentation Status

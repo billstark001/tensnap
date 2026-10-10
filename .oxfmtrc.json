@@ -7,6 +7,7 @@
     "packages/*/src/locales/*/messages.mjs",
     "packages/tensnap-tauri/src-tauri/gen/**",
     "artifacts/benchmark-results/**/report.md",
-    "conformance/MATRIX.md"
+    "conformance/MATRIX.md",
+    "benchmark-results/**"
   ]
 }

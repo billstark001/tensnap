@@ -193,9 +193,13 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+## Published evaluation evidence
+
+The complete paper evaluation is retained at [frozen snapshot c959a34](https://github.com/billstark001/tensnap/tree/c959a345dee17b2bc6e10f8573d0088f2bf5e553/benchmark-results/evaluation-full-2026-10-09), measured from source `c80c882`. Its directory name contains October 9, but execution metadata records October 10, 2026. The checked export separates `data.tar.gz` from `figures.tar.gz`; reports and full-precision tables remain outside. See the [evaluation guide](benchmarks/evaluation/README.md) for offline verification, extraction and fresh execution. Git can track published evidence while source checks exclude generated execution directories.
+
 ## Notes on the Current Research Release
 
-TenSnap v0.3.0 is a research release. Its current evidence covers implemented routes and repository models; "platform agnostic" is an architectural scope claim, not a claim that every host is equally easy or fast to support. Likewise, the integrity-preserving boundary reduces opportunities for state, parameter, identity, and timing drift, but does not replace mapping tests or scientific validation.
+TenSnap's 0.3 release line is a research release. Its current evidence covers implemented routes and repository models; "platform agnostic" is an architectural scope claim, not a claim that every host is equally easy or fast to support. Likewise, the integrity-preserving boundary reduces opportunities for state, parameter, identity, and timing drift, but does not replace mapping tests or scientific validation.
 
 - `SimulationScenario` is the recommended high-level Python runtime.
 - `abm.Scenario` is the recommended declarative Go surface for simulator-visible state.

@@ -12,7 +12,7 @@ The extra example files in the table are an intentional reuse boundary, not a cl
 | Julia | `subjects/julia/` | model/config, study, TenSnap scenario and WGLMakie app factories in `examples/julia` | version assertion, profile environment, JSON and hidden WGLMakie probes |
 | NetLogo | `subjects/netlogo/kernel.py`, `subjects/netlogo/render_memory.py` | model and PyNetLogo study helper in `examples/python_mesa` | benchmark JSON/runtime record and audited in-memory native-view raster |
 
-The locked Julia publication environment lives in `environments/julia/`. Python dependencies are shared from `benchmarks/environments/python-mesa.requirements.lock`; Go subjects have their own `go.mod` and `go.sum`.
+The current `evaluation-2026-*` profiles use `benchmarks/evaluation/environments/julia/`, `benchmarks/environments/python-evaluation.requirements.lock`, and the evaluation Go `-modfile`. The older profiles retain `environments/julia/`, the Mesa Python lock, and subject-local Go modules for their original environments. The adapter directory name `v1` describes the subject layer; it does not identify which profile/environment is being executed. See the [evaluation guide](../../evaluation/README.md) for current setup.
 
 UI subjects must expose a non-negative integer revision and canonical agent state, and advance the revision exactly once per action. The common oracle in `../oracle.ts` converts native and TenSnap renderer states to sorted `{id,x,y,color,size}` agents, validates invariants, and enables exact cross-renderer hashing within a profile equivalence group.
 

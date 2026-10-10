@@ -1,24 +1,21 @@
-# Agent CLI smoke artifact
+# Agent CLI diagnostic smoke runner
 
-This artifact exercises the built `tensnap-agent` executable against the repository's JavaScript Schelling model. It is intentionally small: the retained evidence is one normalized JSON summary and one rendered scene. The temporary daemon context, checkpoint payload, raw snapshots, and process logs are deleted after verification.
+This small diagnostic drives the built agent CLI against the JavaScript Schelling example with a 20×16 grid, seed 7 and strict protocol validation. It checks connection/inspection, a parameter update, a run bounded by `time >= 5`, checkpoint capture, one advance/restore comparison and offscreen PNG rendering. It does not supply the paper's four-host restoration or three-step rerun evidence.
 
-The recorded run uses a 20x16 grid with seed 7 and bidirectional protocol validation set to `error`. It verifies that the CLI can:
+From the repository root with dependencies installed:
 
-1. connect and inspect a simulator;
-2. change a runtime parameter;
-3. execute a bounded run stopped by `time >= 5`;
-4. capture an exact, versioned model checkpoint;
-5. advance once, restore the checkpoint, and recover the same canonical model state hash; and
-6. render the scene offscreen as a 640x480 PNG.
-
-## Reproduce
-
-From the repository root, with workspace dependencies already installed:
-
-```bash
+```sh
 node artifacts/agent-cli-smoke/run.mjs
 ```
 
-The runner builds the agent CLI, launches the example simulator and a temporary agent daemon, checks every assertion, replaces `results/summary.json` and `results/scene.png`, and then tears down both processes. A successful run prints the summary and exits with status 0.
+The runner builds the CLI, launches a simulator and daemon, and replaces its own `artifacts/agent-cli-smoke/results/summary.json` and `scene.png`. The summary records the actual checkout revision; there is no fixed implementation commit in this guide. Temporary contexts, checkpoint payloads, snapshots and process logs are removed after verification, while the two diagnostic results remain until explicitly deleted. Do not run it concurrently with another instance using its fixed context/output paths.
 
-The implementation under test is commit `8328a0a`, which includes the bounded run/build fix (`8641349`) and the targeted-render isolation fix. The artifact itself is committed separately so that its summary can identify the exact implementation it exercised.
+For the current paper evidence use [the full evaluation guide](../../benchmarks/evaluation/README.md) and `benchmark-results/evaluation-full-2026-10-09`. That batch retains the four-host reports and original checkpoint bytes in `data.tar.gz` and images in `figures.tar.gz`.
+
+After inspecting a diagnostic run, remove its generated `results/` directory. For example, from the repository root:
+
+```sh
+rm -rf artifacts/agent-cli-smoke/results
+```
+
+These disposable smoke outputs are not publication results.
