@@ -2,7 +2,11 @@ package abm
 
 import (
 	"fmt"
+	"maps"
+	"math"
 	"reflect"
+	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -26,12 +30,26 @@ func DictDiff(a, b ItemSnapshot) ItemSnapshot {
 	return diff
 }
 
-func cloneSnapshot(item ItemSnapshot) ItemSnapshot {
-	snap := make(ItemSnapshot, len(item))
-	for key, value := range item {
-		snap[key] = value
+// diffSnapshot compares complete projections. Unlike DictDiff's partial-map
+// contract, omitted fields must be cleared explicitly on the renderer.
+func diffSnapshot(previous, current ItemSnapshot) ItemSnapshot {
+	diff := DictDiff(previous, current)
+	if diff == nil && len(previous) == len(current) {
+		return nil
 	}
-	return snap
+	for key := range previous {
+		if _, present := current[key]; !present {
+			if diff == nil {
+				diff = make(ItemSnapshot)
+			}
+			diff[key] = nil
+		}
+	}
+	return diff
+}
+
+func cloneSnapshot(item ItemSnapshot) ItemSnapshot {
+	return maps.Clone(item)
 }
 
 // #region ItemDiffTracker — precise change tracking
@@ -43,6 +61,7 @@ func cloneSnapshot(item ItemSnapshot) ItemSnapshot {
 // T is the item type stored in your model (e.g. a struct or pointer).
 // Use [NewItemDiffTracker] to create an instance; embed or store in your Model struct.
 // Call [Reset] when re-initializing the model (e.g. on Setup).
+// Seed and Compute panic if an identity is a non-finite numeric value.
 type ItemDiffTracker[T any] struct {
 	prev map[any]ItemSnapshot
 }
@@ -64,6 +83,7 @@ func (t *ItemDiffTracker[T]) Seed(items []T, idFn func(T) any, projFn func(T) It
 	t.prev = make(map[any]ItemSnapshot, len(items))
 	for _, item := range items {
 		id := idFn(item)
+		checkScalarKey(id) // Reject non-finite numeric identities before inserting a map key.
 		t.prev[id] = cloneSnapshot(projFn(item))
 	}
 }
@@ -80,7 +100,9 @@ func (t *ItemDiffTracker[T]) SeedSnapshots(
 		if index >= len(snapshots) {
 			break
 		}
-		t.prev[idFn(item)] = cloneSnapshot(snapshots[index])
+		id := idFn(item)
+		checkScalarKey(id)
+		t.prev[id] = cloneSnapshot(snapshots[index])
 	}
 }
 
@@ -102,6 +124,7 @@ func (t *ItemDiffTracker[T]) Compute(
 
 	for _, item := range items {
 		id := idFn(item)
+		checkScalarKey(id)
 		currentIDs[id] = struct{}{}
 
 		prev, seen := t.prev[id]
@@ -113,12 +136,10 @@ func (t *ItemDiffTracker[T]) Compute(
 		} else if changedFn(item) {
 			// Changed item — project and emit only differing fields.
 			snap := projFn(item)
-			diff := DictDiff(prev, snap)
+			diff := diffSnapshot(prev, snap)
 			t.prev[id] = cloneSnapshot(snap)
 			if len(diff) > 0 {
-				if _, ok := diff["id"]; !ok {
-					diff["id"] = id
-				}
+				diff["id"] = id
 				updated = append(updated, diff)
 			}
 		}
@@ -147,6 +168,7 @@ func (t *ItemDiffTracker[T]) Compute(
 // keyFields names the fields that together form the primary key (e.g. "id").
 // Updated payloads contain only the changed fields plus the key fields.
 // Use [NewNaiveItemDiffTracker] to create an instance.
+// Non-finite numeric key values panic before they enter the cache.
 type NaiveItemDiffTracker struct {
 	keyFields []string
 	prev      map[any]ItemSnapshot
@@ -159,7 +181,7 @@ func NewNaiveItemDiffTracker(keyFields ...string) *NaiveItemDiffTracker {
 		panic("abm: NaiveItemDiffTracker requires at least one key field")
 	}
 	return &NaiveItemDiffTracker{
-		keyFields: keyFields,
+		keyFields: slices.Clone(keyFields),
 		prev:      make(map[any]ItemSnapshot),
 	}
 }
@@ -174,18 +196,56 @@ func (t *NaiveItemDiffTracker) Reset() {
 func (t *NaiveItemDiffTracker) itemKey(item ItemSnapshot) any {
 	if len(t.keyFields) == 1 {
 		value := item[t.keyFields[0]]
-		switch value.(type) {
-		case nil, bool, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		if checkScalarKey(value) {
 			return value
-		default:
-			return fmt.Sprintf("%T:%v", value, value)
+		}
+		return fmt.Sprintf("%T:%v", value, value)
+	}
+	// Edge keys are the common compound case. A comparable pair preserves
+	// endpoint types and embedded separators without formatting or allocations.
+	if len(t.keyFields) == 2 {
+		first, second := item[t.keyFields[0]], item[t.keyFields[1]]
+		if checkScalarKey(first) && checkScalarKey(second) {
+			return [2]any{first, second}
 		}
 	}
-	parts := make([]string, len(t.keyFields))
-	for i, f := range t.keyFields {
-		parts[i] = fmt.Sprintf("%v", item[f])
+	var key strings.Builder
+	for _, field := range t.keyFields {
+		value := item[field]
+		checkScalarKey(value)
+		part := fmt.Sprintf("%T:%v", value, value)
+		key.WriteString(strconv.Itoa(len(part)))
+		key.WriteByte(':')
+		key.WriteString(part)
 	}
-	return strings.Join(parts, "\x00")
+	return key.String()
+}
+
+// checkScalarKey recognizes scalar identities and rejects non-finite numbers.
+func checkScalarKey(value any) bool {
+	switch number := value.(type) {
+	case float32:
+		if math.IsNaN(float64(number)) || math.IsInf(float64(number), 0) {
+			panic("abm: numeric item keys must be finite")
+		}
+		return true
+	case float64:
+		if math.IsNaN(number) || math.IsInf(number, 0) {
+			panic("abm: numeric item keys must be finite")
+		}
+		return true
+	case nil, bool, string, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return true
+	default:
+		kind := reflect.TypeOf(value).Kind()
+		if kind == reflect.Float32 || kind == reflect.Float64 {
+			number := reflect.ValueOf(value).Float()
+			if math.IsNaN(number) || math.IsInf(number, 0) {
+				panic("abm: numeric item keys must be finite")
+			}
+		}
+		return false
+	}
 }
 
 func (t *NaiveItemDiffTracker) itemDeleteKey(item ItemSnapshot) any {
@@ -207,11 +267,7 @@ func (t *NaiveItemDiffTracker) Seed(projected []ItemSnapshot) {
 	t.prev = make(map[any]ItemSnapshot, len(projected))
 	for _, item := range projected {
 		key := t.itemKey(item)
-		snap := make(ItemSnapshot, len(item))
-		for k, v := range item {
-			snap[k] = v
-		}
-		t.prev[key] = snap
+		t.prev[key] = cloneSnapshot(item)
 	}
 }
 
@@ -219,7 +275,7 @@ func (t *NaiveItemDiffTracker) Seed(projected []ItemSnapshot) {
 // returns:
 //   - created: full snapshots for newly appearing keys.
 //   - updated: diff snapshots (changed fields + key fields) for changed items.
-//   - deleted: key values (or "\x00"-joined tuples) for disappeared items.
+//   - deleted: scalar keys, or maps of key fields for compound keys, for disappeared items.
 //
 // After Compute returns, the tracker's internal state reflects the current step.
 func (t *NaiveItemDiffTracker) Compute(
@@ -234,14 +290,10 @@ func (t *NaiveItemDiffTracker) Compute(
 		prev, seen := t.prev[key]
 		if !seen {
 			// New item.
-			snap := make(ItemSnapshot, len(item))
-			for k, v := range item {
-				snap[k] = v
-			}
-			t.prev[key] = snap
+			t.prev[key] = cloneSnapshot(item)
 			created = append(created, item)
 		} else {
-			diff := DictDiff(prev, item)
+			diff := diffSnapshot(prev, item)
 			if len(diff) > 0 {
 				// Emit diff + key fields so the renderer can identify the item.
 				payload := make(ItemSnapshot, len(diff)+len(t.keyFields))
@@ -252,10 +304,8 @@ func (t *NaiveItemDiffTracker) Compute(
 					payload[kf] = item[kf]
 				}
 				updated = append(updated, payload)
-				// Update stored snapshot.
-				for k, v := range item {
-					prev[k] = v
-				}
+				// Replace rather than merge: omitted fields are no longer present.
+				t.prev[key] = cloneSnapshot(item)
 			}
 		}
 	}
