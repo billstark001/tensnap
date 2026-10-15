@@ -23,6 +23,34 @@ from tensnap.models import (
     LayerBinding,
     LayerRegistration,
 )
+from tensnap.models.environment import (
+    EnvironmentState,
+    clone_environment_metadata_state,
+    clone_environment_state,
+)
+
+
+def test_environment_clones_own_nested_metadata_and_item_values():
+    state: EnvironmentState = {
+        "id": "main",
+        "type": "2d",
+        "layers": [
+            {
+                "layer_id": "agents",
+                "layer_type": "agent",
+                "data": {"palette": ["red"]},
+                "items": [{"id": "a", "data": {"levels": [1]}}],
+            }
+        ],
+    }
+    full = clone_environment_state(state)
+    metadata = clone_environment_metadata_state(state)
+    state["layers"][0]["data"]["palette"].append("blue")
+    state["layers"][0]["items"][0]["data"]["levels"].append(2)
+    assert full["layers"][0]["data"] == {"palette": ["red"]}
+    assert full["layers"][0]["items"][0]["data"] == {"levels": [1]}
+    assert metadata["layers"][0]["data"] == {"palette": ["red"]}
+    assert "items" not in metadata["layers"][0]
 
 
 class TestBindingsPackage:

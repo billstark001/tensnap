@@ -6,7 +6,8 @@ Only projected records are retained for field-level wire diffs.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Generic, Literal, TypeVar
 
@@ -80,7 +81,10 @@ class KeyedSource:
         return record
 
     def snapshot(self, model: Any) -> list[dict[str, Any]]:
-        records: list[dict[str, Any]] = []
+        """Return projected records detached from mutable model values."""
+        return [deepcopy(record) for record in self._records(model)]
+
+    def _records(self, model: Any) -> Iterator[dict[str, Any]]:
         seen: set[SourceKey] = set()
         for key, value in self.entries(model):
             if self.omit is not None and self.omit(model, key, value):
@@ -90,8 +94,7 @@ class KeyedSource:
             if item_id in seen:
                 raise ValueError(f"duplicate source item id: {item_id!r}")
             seen.add(item_id)
-            records.append(record)
-        return records
+            yield record
 
     def plan(
         self,
@@ -138,6 +141,10 @@ class KeyedSource:
                     plan.deletes.append(item_id)
                 continue
             record = self._project(model, change.key, value)
+            if old is not None and record == old:
+                plan.replacements[item_id] = old
+                continue
+            record = deepcopy(record)
             if old is None:
                 plan.creates.append(record)
             else:
@@ -154,13 +161,18 @@ class KeyedSource:
         previous: dict[SourceKey, dict[str, Any]],
         shape: Any,
     ) -> SourceDeltaPlan:
-        records = self.snapshot(model)
-        current = {record["id"]: record for record in records}
+        current: dict[SourceKey, dict[str, Any]] = {}
         plan = SourceDeltaPlan(
             [], [], [], current, self.current_revision(model), shape, True
         )
-        for item_id, record in current.items():
+        for projected in self._records(model):
+            item_id = projected["id"]
             old = previous.get(item_id)
+            if old is not None and projected == old:
+                current[item_id] = old
+                continue
+            record = deepcopy(projected)
+            current[item_id] = record
             if old is None:
                 plan.creates.append(record)
             else:

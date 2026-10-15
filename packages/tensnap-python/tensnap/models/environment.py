@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -158,7 +159,7 @@ def clone_environment_metadata_state(state: EnvironmentState) -> EnvironmentStat
         if "dependency_layer_ids" in layer:
             layer_copy["dependency_layer_ids"] = dict(layer["dependency_layer_ids"])
         if "data" in layer:
-            layer_copy["data"] = dict(layer["data"])
+            layer_copy["data"] = deepcopy(layer["data"])
         layers.append(cast(EnvironmentLayerState, layer_copy))
 
     return {
@@ -170,30 +171,14 @@ def clone_environment_metadata_state(state: EnvironmentState) -> EnvironmentStat
 
 def clone_environment_state(state: EnvironmentState) -> EnvironmentState:
     """Return a detached environment snapshot copy."""
-
-    layers: list[EnvironmentLayerState] = []
-    for layer in state["layers"]:
-        layer_copy: dict[str, Any] = {
-            "layer_id": layer["layer_id"],
-            "layer_type": layer["layer_type"],
-        }
-        if "dependency_layer_ids" in layer:
-            layer_copy["dependency_layer_ids"] = dict(layer["dependency_layer_ids"])
-        if "data" in layer:
-            layer_copy["data"] = dict(layer["data"])
-        if "items" in layer:
-            layer_copy["items"] = [dict(item) for item in layer["items"]]
-        if "agents" in layer:
-            layer_copy["agents"] = [dict(item) for item in layer["agents"]]
-        if "edges" in layer:
-            layer_copy["edges"] = [dict(item) for item in layer["edges"]]
-        layers.append(cast(EnvironmentLayerState, layer_copy))
-
-    return {
-        "id": state["id"],
-        "type": state["type"],
-        "layers": layers,
-    }
+    result = clone_environment_metadata_state(state)
+    for source, target in zip(state["layers"], result["layers"], strict=True):
+        source_fields = cast(dict[str, Any], source)
+        target_fields = cast(dict[str, Any], target)
+        for collection in ("items", "agents", "edges"):
+            if collection in source_fields:
+                target_fields[collection] = deepcopy(source_fields[collection])
+    return result
 
 
 # endregion

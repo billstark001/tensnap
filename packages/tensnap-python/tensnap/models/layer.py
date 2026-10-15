@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import (
     TYPE_CHECKING,
@@ -237,11 +238,11 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             current_ids.add(item_id)
             item_changed = self.item_changed_getter(item)
             if item_id not in last_items:
-                p = projector(item)
+                p = deepcopy(projector(item))
                 created.append(p)
                 current_items[item_id] = p
             elif item_changed:
-                p = projector(item)
+                p = deepcopy(projector(item))
                 updated.append(p)
                 current_items[item_id] = p
         for item_id in last_items:
@@ -264,27 +265,28 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         created: list[dict[TItemFieldKeys, Any]] = []
         updated: list[dict[TItemFieldKeys, Any]] = []
         deleted: list[Any] = []
-        current_ids = set()
-        current_items: dict[Any, dict[TItemFieldKeys, Any]] = {
-            k: v for k, v in last_items.items()
-        }
-        for item in projected_items:
-            item_id = self.get_item_id_naive(item)
-            current_ids.add(item_id)
-            if item_id not in last_items:
+        current_items: dict[Any, dict[TItemFieldKeys, Any]] = {}
+        for projected in projected_items:
+            item_id = self.get_item_id_naive(projected)
+            previous = last_items.get(item_id)
+            if previous is not None and projected == previous:
+                current_items[item_id] = previous
+                continue
+            # Only new/changed records need an owned nested snapshot. The common
+            # unchanged path can reuse its previous snapshot without deep copies.
+            item = deepcopy(projected)
+            current_items[item_id] = item
+            if previous is None:
                 created.append(item)
-                current_items[item_id] = item
             else:
-                diff = dict_diff(last_items[item_id], item)
+                diff = dict_diff(previous, item)
                 if diff:
                     for key in self.item_keys:
                         diff[key] = item.get(key)
                     updated.append(diff)
-                current_items[item_id] = item
         for item_id in last_items:
-            if item_id not in current_ids:
+            if item_id not in current_items:
                 deleted.append(item_id)
-                current_items.pop(item_id, None)
         return created, updated, deleted, current_items
 
     def build_create_payload(
@@ -388,7 +390,7 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         elif "edges" in state:
             items = cast(list[dict[TItemFieldKeys, Any]], state["edges"])
         self.last_items = {
-            self.binding.get_projected_item_cache_key(item): dict(item)
+            self.binding.get_projected_item_cache_key(item): deepcopy(item)
             for item in items
         }
         if self.binding.source is not None:
