@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { listen } from '@tauri-apps/api/event';
-import { useFileOperations } from '@tensnap/web/hooks';
+import { useFileOperations } from '@tensnap/web/file-operations';
 import { useSettingsStore } from '@tensnap/web/store';
 import { setNativeMenuLocale } from '../adapters/common';
 

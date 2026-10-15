@@ -76,8 +76,7 @@
     ".": "./index.ts",
     "./i18n": "./src/i18n.ts",
     "./store": "./src/store/index.ts",
-    "./hooks": "./src/hooks/index.ts",
     "./benchmark": "./src/benchmark.tsx",
-    "./utils": "./src/utils/index.ts"
+    "./file-operations": "./src/components/toolbar/useFileOperations.ts"
   }
 }
