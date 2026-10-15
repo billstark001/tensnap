@@ -6,6 +6,9 @@ import type {
   StringParameter,
 } from '@tensnap/protocol';
 
+const MIN_POWER_MAGNITUDE = 1e-10;
+const DEFAULT_RANGE_DIVISIONS = 100;
+
 export interface RangeHint {
   value: number;
   min?: number;
@@ -19,32 +22,35 @@ export interface EstimatedRange {
   step: number;
 }
 
+/**
+ * Fill missing UI constraints while preserving valid simulator-provided bounds
+ * and increments. Non-finite current values cannot produce a usable range.
+ */
 export function estimateNumericRange(hint: RangeHint): EstimatedRange {
   const { value, min, max, step } = hint;
+  if (!Number.isFinite(value)) throw new RangeError('Parameter value must be finite.');
 
-  // 检查是否所有提供的数值都是整数
   const isIntegerValue = Number.isInteger(value) && value !== 0;
   const isIntegerMin = min == undefined || Number.isInteger(min);
   const isIntegerMax = max == undefined || Number.isInteger(max);
   const isIntegerStep = step == undefined || Number.isInteger(step);
   const shouldUseInteger = isIntegerValue && isIntegerMin && isIntegerMax && isIntegerStep;
 
-  // 辅助函数:将数值转换为10的整数次幂
   function toPowerOfTen(val: number, roundUp: boolean = false): number {
     if (val === 0) return 0;
 
     const absVal = Math.abs(val);
     const sign = val < 0 ? -1 : 1;
 
-    // 防止太小的值,直接截断为0或1
-    if (absVal < 1e-10) return val < 0 ? -1 : val === 0 ? 0 : 1;
+    // Clamp tiny nonzero magnitudes to a signed unit.
+    if (absVal < MIN_POWER_MAGNITUDE) return val < 0 ? -1 : val === 0 ? 0 : 1;
 
     const log10Val = Math.log10(absVal);
     const exponent = roundUp ? Math.ceil(log10Val) : Math.floor(log10Val);
 
-    const result = sign * Math.pow(10, exponent);
+    const result = sign * Math.min(Number.MAX_VALUE, Math.pow(10, exponent));
 
-    // 如果应该使用整数,确保结果至少为整数
+    // Keep inferred bounds integral when all supplied constraints are integral.
     if (shouldUseInteger && Math.abs(result) < 1) {
       return sign;
     }
@@ -52,8 +58,12 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     return result;
   }
 
-  // 检查hint是否合理
   function isValidHint(min?: number, max?: number, value?: number): boolean {
+    if (
+      (min !== undefined && !Number.isFinite(min)) ||
+      (max !== undefined && !Number.isFinite(max))
+    )
+      return false;
     if (min !== undefined && max !== undefined && min >= max) return false;
     if (value !== undefined) {
       if (min !== undefined && value < min) return false;
@@ -62,27 +72,17 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
     return true;
   }
 
-  // 验证hint的合理性
-  const validMin = isValidHint(min, max, value) ? min : undefined;
-  const validMax = isValidHint(min, max, value) ? max : undefined;
-  const validStep = step !== undefined && step > 0 ? step : undefined;
+  const validBounds = isValidHint(min, max, value);
+  const validMin = validBounds ? min : undefined;
+  const validMax = validBounds ? max : undefined;
+  const validStep = step !== undefined && Number.isFinite(step) && step > 0 ? step : undefined;
 
-  // 如果全部都有且合理，就直接返回（转换为10的幂）
+  // Explicit constraints are simulator-owned, not candidates for rounding.
   if (validMin !== undefined && validMax !== undefined && validStep !== undefined) {
-    const convertedMin = toPowerOfTen(validMin);
-    const convertedMax = toPowerOfTen(validMax, true);
-    const convertedStep = toPowerOfTen(validStep);
-
-    // 确保 step 不会大于 min 的绝对值（当 min 不为 0 时）
-    let finalStep = convertedStep;
-    if (convertedMin !== 0 && Math.abs(convertedMin) < convertedStep) {
-      finalStep = toPowerOfTen(Math.abs(convertedMin));
-    }
-
     return {
-      min: convertedMin,
-      max: convertedMax,
-      step: finalStep,
+      min: validMin,
+      max: validMax,
+      step: validStep,
     };
   }
 
@@ -94,90 +94,80 @@ export function estimateNumericRange(hint: RangeHint): EstimatedRange {
   let estimatedMax: number;
 
   if (validMin !== undefined && validMax !== undefined) {
-    // 两个边界都给定且合理
-    estimatedMin = toPowerOfTen(validMin);
-    estimatedMax = toPowerOfTen(validMax, true);
+    estimatedMin = validMin;
+    estimatedMax = validMax;
   } else if (validMin !== undefined) {
-    // 只给定最小值
-    estimatedMin = toPowerOfTen(validMin);
+    estimatedMin = validMin;
     if (isZero) {
       estimatedMax = toPowerOfTen(validMin + 10);
     } else {
-      // 基于value和min确定max
       const range = Math.abs(value - validMin) * 10;
       estimatedMax = toPowerOfTen(Math.max(value, validMin) + range, true);
     }
   } else if (validMax !== undefined) {
-    // 只给定最大值
-    estimatedMax = toPowerOfTen(validMax, true);
+    estimatedMax = validMax;
     if (isZero) {
       estimatedMin = toPowerOfTen(validMax - 10);
     } else {
-      // 基于value和max确定min
       const range = Math.abs(validMax - value) * 10;
       estimatedMin = toPowerOfTen(Math.min(value, validMax) - range);
     }
   } else {
-    // 都没给定，基于value估计
+    // Infer both bounds from the current value when neither is supplied.
     if (isZero) {
       estimatedMin = -1;
       estimatedMax = 1;
     } else if (isNegative) {
-      // 负数情况：扩展到两个方向
+      // Extend negative values in both directions.
       const magnitude = toPowerOfTen(absVal, true);
       estimatedMin = -magnitude * 10;
       estimatedMax = magnitude;
     } else {
-      // 正数情况
       const magnitude = toPowerOfTen(value, true);
-      estimatedMin = toPowerOfTen(value / 100);
+      estimatedMin = toPowerOfTen(value / DEFAULT_RANGE_DIVISIONS);
       estimatedMax = magnitude * 10;
     }
   }
 
-  // 确保 min < max
+  // Clamp overflow from expanding finite extrema and retain the current value.
+  estimatedMin = Math.max(-Number.MAX_VALUE, Math.min(estimatedMin, value));
+  estimatedMax = Math.min(Number.MAX_VALUE, Math.max(estimatedMax, value));
+
   if (estimatedMin >= estimatedMax) {
     if (isZero) {
       estimatedMin = -1;
       estimatedMax = 1;
     } else {
-      const center = (estimatedMin + estimatedMax) / 2;
+      const center = estimatedMin / 2 + estimatedMax / 2;
       const magnitude = Math.max(Math.abs(estimatedMin), Math.abs(estimatedMax));
       const powerMagnitude = toPowerOfTen(magnitude, true);
-      estimatedMin = center - powerMagnitude;
-      estimatedMax = center + powerMagnitude;
+      estimatedMin = Math.max(-Number.MAX_VALUE, center - powerMagnitude);
+      estimatedMax = Math.min(Number.MAX_VALUE, center + powerMagnitude);
     }
   }
 
-  // 估算步幅
-  let estimatedStep: number;
-  if (validStep !== undefined) {
-    estimatedStep = toPowerOfTen(validStep);
-  } else {
-    const range = estimatedMax - estimatedMin;
-    if (range === 0) {
-      estimatedStep = isZero ? 0.1 : toPowerOfTen(Math.abs(value) / 100);
-    } else {
-      // 步幅通常是范围的1%到10%之间的10的幂
-      const targetStep = range / 100;
-      estimatedStep = toPowerOfTen(targetStep);
-    }
+  if (validStep !== undefined) return { min: estimatedMin, max: estimatedMax, step: validStep };
 
-    // 如果所有输入都是整数,确保步幅至少为1
-    if (shouldUseInteger && estimatedStep < 1) {
-      estimatedStep = 1;
-    }
-  }
+  // Divide before subtracting so opposite finite extrema do not overflow.
+  const targetStep =
+    estimatedMax / DEFAULT_RANGE_DIVISIONS - estimatedMin / DEFAULT_RANGE_DIVISIONS;
+  let estimatedStep =
+    targetStep === 0
+      ? isZero
+        ? 0.1
+        : toPowerOfTen(Math.abs(value) / DEFAULT_RANGE_DIVISIONS)
+      : toPowerOfTen(targetStep);
+  if (shouldUseInteger && estimatedStep < 1) estimatedStep = 1;
 
-  // 修正: 确保 step 不会大于 min 的绝对值（当 min 不为 0 时）
+  // Keep the inferred step no larger than the magnitude of a nonzero lower bound.
   if (estimatedMin !== 0 && Math.abs(estimatedMin) < estimatedStep) {
     estimatedStep = toPowerOfTen(Math.abs(estimatedMin));
   }
 
-  // 同时也要确保 step 合理，不能太大导致无法在范围内滑动
+  // Keep the inferred step small enough to move within the range.
   const range = estimatedMax - estimatedMin;
   if (estimatedStep > range / 2) {
-    estimatedStep = toPowerOfTen(range / 100);
+    estimatedStep = toPowerOfTen(targetStep);
   }
 
   return {
