@@ -1,10 +1,10 @@
 import { EventEmitter } from 'node:events';
 import {
-  decodeProtocolMessage,
-  encodeProtocolMessage,
+  ProtocolCodec,
   type AnyProtocolMessage,
   type ProtocolEncoding,
   type ProtocolValidationLevel,
+  type ProtocolValidationWarning,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import type {
@@ -63,6 +63,11 @@ export class NodeWebSocketTransport implements ISimulatorTransport {
   readonly transportKind = 'node-ws';
 
   private readonly emitter = new EventEmitter();
+  private readonly clientCodec = new ProtocolCodec();
+  private readonly serverCodec = new ProtocolCodec();
+  private readonly onValidationWarning = (warning: ProtocolValidationWarning): void => {
+    this.emitter.emit('validation-warning', warning);
+  };
   private socket: WebSocket | null = null;
   private state: TransportConnectionState = 'closed';
 
@@ -213,25 +218,24 @@ export class NodeWebSocketTransport implements ISimulatorTransport {
       throw new Error('Transport is not connected.');
     }
 
-    const payload = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding, {
-      validation: {
-        level: this.validation.clientMessages ?? 'off',
-        direction: 'renderer-to-simulator',
-        onWarning: (warning) => this.emitter.emit('validation-warning', warning),
-      },
+    // Read the caller's current policy as before, without discarding scratch state.
+    this.clientCodec.setValidation({
+      level: this.validation.clientMessages ?? 'off',
+      direction: 'renderer-to-simulator',
+      onWarning: this.onValidationWarning,
     });
+    const payload = this.clientCodec.encode(message as AnyProtocolMessage, this.encoding);
     this.socket.send(typeof payload === 'string' ? payload : Buffer.from(payload));
   }
 
   private handleMessage(data: string | Uint8Array | ArrayBuffer): void {
     try {
-      const message = decodeProtocolMessage(data, {
-        validation: {
-          level: this.validation.serverMessages ?? 'off',
-          direction: 'simulator-to-renderer',
-          onWarning: (warning) => this.emitter.emit('validation-warning', warning),
-        },
-      }) as AnyProtocolMessage;
+      this.serverCodec.setValidation({
+        level: this.validation.serverMessages ?? 'off',
+        direction: 'simulator-to-renderer',
+        onWarning: this.onValidationWarning,
+      });
+      const message = this.serverCodec.decode(data);
       this.emitter.emit('message', message);
     } catch (error) {
       this.emitter.emit('error', error);

@@ -82,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/agent
 
+- **Changed:** Retain directional codecs in the Node WebSocket transport so repeated frames reuse MessagePack state while continuing to honor current validation options.
 - **Fixed:** Validate finite CLI numeric options, integer port ranges, and context paths before starting a runtime; return HTTP 400 for invalid JSON control bodies.
 - **Fixed:** Encode binary render artifacts as Base64 with `dataEncoding` in both scene and inspection HTTP responses, while retaining native bytes in painter APIs.
 - **Tests:** Wait for checkpoint cleanup and scene persistence to finish before asserting save completion.
