@@ -3,6 +3,36 @@ import { TrajectoryStorage } from './TrajectoryStorage';
 import { DEFAULT_TRAJECTORY_CONFIG } from '../utils/trajectory';
 
 describe('TrajectoryStorage – config items', () => {
+  it('loads a replacement without stale configs or intermediate notifications', () => {
+    const storage = new TrajectoryStorage({ color: '#f00' });
+    storage.upsertConfig({ id: 'stale', length: 2 });
+    storage.appendTrajectoryPoint('stale', { x: 1, y: 1, time: 0 });
+    const incoming = new TrajectoryStorage();
+    incoming.upsertConfig({ id: 'new', color: '#0f0' });
+    incoming.appendTrajectoryPoint('new', { x: 2, y: 2, time: 1 });
+    const observed: unknown[] = [];
+    storage.subscribe(() => {
+      observed.push(storage.dump());
+    });
+
+    storage.load(incoming.dump());
+    expect(storage.dump()).toEqual(incoming.dump());
+    expect(observed).toEqual([incoming.dump()]);
+    storage.load({});
+    expect(storage.dump()).toEqual(new TrajectoryStorage().dump());
+  });
+
+  it('leaves live state intact when snapshot reconstruction fails', () => {
+    const storage = new TrajectoryStorage();
+    storage.upsertConfig({ id: 'kept' });
+    const before = storage.dump();
+    const listener = vi.fn();
+    storage.subscribe(listener);
+    expect(() => storage.load({ configs: [null] })).toThrow();
+    expect(storage.dump()).toEqual(before);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
   it('upsertConfigs stores per-agent config items', () => {
     const storage = new TrajectoryStorage();
     storage.upsertConfigs([{ id: 'a1', color: '#0f0', width: 3 }]);

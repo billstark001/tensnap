@@ -20,9 +20,7 @@ import { BaseStorage } from './BaseStorage';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { GraphEdge } from '../types';
 
-// ---------------------------------------------------------------------------
-// Delta / diff type
-// ---------------------------------------------------------------------------
+// #region Delta / diff type
 
 export type EdgeDelta =
   | {
@@ -77,9 +75,7 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     this.setEdges(edges);
   }
 
-  // -------------------------------------------------------------------------
-  // Bulk / replace
-  // -------------------------------------------------------------------------
+  // #region Bulk / replace
 
   setEdges(edges: GraphEdge[]): void {
     this._data.edges.clear();
@@ -88,9 +84,9 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     this.notify({ replaced: true });
   }
 
-  // -------------------------------------------------------------------------
-  // Static helpers
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Static helpers
 
   /** Helper: resolve source/target to AgentId (handle both raw id and object). */
   static resolveId(endpoint: AgentId | { id: AgentId }): AgentId {
@@ -104,9 +100,9 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     return JSON.stringify([source, target]);
   }
 
-  // -------------------------------------------------------------------------
-  // O(1) CRUD operations
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region O(1) CRUD operations
 
   /** Add a single edge. O(1). */
   addEdge(edge: GraphEdge): void {
@@ -189,9 +185,7 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     const key = EdgeStorage.edgeKey(source, target);
     const edge = this._data.edges.get(key);
     if (!edge) return;
-    this._data.edges.delete(key);
-    this._data.adjacentMap.get(source)?.delete(key);
-    this._data.adjacentMap.get(target)?.delete(key);
+    this._deleteEdge(key, edge);
     const delta: EdgeDelta = { added: [], updated: [], removed: [edge], replaced: false };
     this.notify(delta);
   }
@@ -202,9 +196,7 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
       const key = EdgeStorage.edgeKey(pair.source, pair.target);
       const edge = this._data.edges.get(key);
       if (!edge) continue;
-      this._data.edges.delete(key);
-      this._data.adjacentMap.get(pair.source)?.delete(key);
-      this._data.adjacentMap.get(pair.target)?.delete(key);
+      this._deleteEdge(key, edge);
       delta.removed.push(edge);
     }
     if (delta.removed.length > 0) {
@@ -222,11 +214,7 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     const delta: EdgeDelta = { added: [], updated: [], removed: [], replaced: false };
     for (const key of toDelete) {
       const edge = this._data.edges.get(key)!;
-      const src = EdgeStorage.resolveId(edge.source);
-      const tgt = EdgeStorage.resolveId(edge.target);
-      this._data.edges.delete(key);
-      this._data.adjacentMap.get(src)?.delete(key);
-      this._data.adjacentMap.get(tgt)?.delete(key);
+      this._deleteEdge(key, edge);
       delta.removed.push(edge);
     }
     this.notify(delta);
@@ -249,7 +237,7 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     return result;
   }
 
-  /** Resolve the induced edge set in O(sum(degree)) rather than scanning E. */
+  /** Return deduplicated incident edges in O(sum(degree)); either endpoint may be selected. */
   getEdgesForAgents(agentIds: Iterable<AgentId>): GraphEdge[] {
     const keys = new Set<string>();
     for (const id of agentIds) {
@@ -275,9 +263,22 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
     this.notify({ replaced: true });
   }
 
-  // -------------------------------------------------------------------------
-  // Internal helpers
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Internal helpers
+
+  private _deleteEdge(key: string, edge: GraphEdge): void {
+    this._data.edges.delete(key);
+    this._removeAdjacentKey(EdgeStorage.resolveId(edge.source), key);
+    this._removeAdjacentKey(EdgeStorage.resolveId(edge.target), key);
+  }
+
+  private _removeAdjacentKey(id: AgentId, key: string): void {
+    const adjacent = this._data.adjacentMap.get(id);
+    if (!adjacent) return;
+    adjacent.delete(key);
+    if (adjacent.size === 0) this._data.adjacentMap.delete(id);
+  }
 
   private _adjIndex(id: AgentId): Set<string> {
     let set = this._data.adjacentMap.get(id);
@@ -307,4 +308,7 @@ export class EdgeStorage extends BaseStorage<EdgeStorageData, EdgeDelta> {
       this._adjIndex(tgt).add(key);
     }
   }
+  // #endregion
 }
+
+// #endregion

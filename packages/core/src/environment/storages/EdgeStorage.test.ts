@@ -4,6 +4,29 @@ import { EdgeStorage } from './EdgeStorage';
 // ── Basic CRUD ────────────────────────────────────────────────────────────────
 
 describe('EdgeStorage – addEdge / addEdges', () => {
+  it('releases empty adjacency buckets as IDs churn through every removal API', () => {
+    const storage = new EdgeStorage();
+    for (let index = 0; index < 1_000; index++) {
+      storage.addEdge({ source: index, target: index + 1 });
+      if (index % 3 === 0) storage.removeEdge(index, index + 1);
+      else if (index % 3 === 1) storage.removeEdgePairs([{ source: index, target: index + 1 }]);
+      else storage.removeEdges(() => true);
+    }
+    expect(storage.getData().adjacentMap.size).toBe(0);
+    expect(storage.getEdgeCount()).toBe(0);
+  });
+
+  it('prunes self-loops without deleting buckets still needed by other edges', () => {
+    const storage = new EdgeStorage([
+      { source: 'a', target: 'a' },
+      { source: 'a', target: 'b' },
+    ]);
+    storage.removeEdge('a', 'a');
+    expect(storage.getEdgesForAgent('a')).toEqual([{ source: 'a', target: 'b' }]);
+    storage.removeEdge('a', 'b');
+    expect(storage.getData().adjacentMap.size).toBe(0);
+  });
+
   it('adds a single edge', () => {
     const s = new EdgeStorage();
     s.addEdge({ source: 'a', target: 'b' });

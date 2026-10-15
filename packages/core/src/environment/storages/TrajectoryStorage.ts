@@ -3,7 +3,7 @@ import type { AgentId, TrajectoryItem, TrajectoryPoint } from '@tensnap/protocol
 import type { GlobalTrajectoryConfig } from '../types';
 import { DEFAULT_TRAJECTORY_CONFIG, resolveTrajectoryConfig, RingBuffer } from '../utils';
 
-// ── Public types ──────────────────────────────────────────────────────────────
+// #region Public types
 
 /** Renderer-owned trajectory state grouped into per-agent segments. */
 export interface TrajectoryStorageData {
@@ -30,7 +30,9 @@ export interface TrajectoryStorageSnapshot {
   trajectories: TrajectorySnapshotItem[];
 }
 
-// ── TrajectoryEntry ───────────────────────────────────────────────────────────
+// #endregion
+
+// #region TrajectoryEntry
 
 /**
  * Per-agent storage wrapper.
@@ -81,7 +83,9 @@ export type TrajectoryDelta =
       replaced: true;
     };
 
-// ── TrajectoryStorage ─────────────────────────────────────────────────────────
+// #endregion
+
+// #region TrajectoryStorage
 
 export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, TrajectoryDelta> {
   constructor(defaultConfig?: Partial<GlobalTrajectoryConfig>) {
@@ -93,7 +97,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     });
   }
 
-  // ── Snapshot ────────────────────────────────────────────────────────────────
+  // #region Snapshot
 
   override dump(): TrajectoryStorageSnapshot {
     const { config, configs, trajectories } = this._data;
@@ -121,14 +125,19 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     };
   }
 
+  /** Replace the entire snapshot in one notification; invalid input leaves this storage untouched. */
   override load(snapshot: unknown): void {
     const value = snapshot as TrajectoryStorageSnapshot;
-    this.setConfig(value?.config ?? {});
-    this.upsertConfigs(value?.configs ?? []);
-    this.setTrajectories(value?.trajectories ?? []);
+    const replacement = new TrajectoryStorage(value?.config);
+    replacement.upsertConfigs(value?.configs ?? []);
+    replacement.setTrajectories(value?.trajectories ?? []);
+    this._data = replacement.getData();
+    this.notify({ replaced: true });
   }
 
-  // ── Config ──────────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Config
 
   setConfig(config: Partial<GlobalTrajectoryConfig>): void {
     const nextConfig = resolveTrajectoryConfig(config, this._data.config);
@@ -245,7 +254,9 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
     }
   }
 
-  // ── Trajectory ──────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Trajectory
 
   appendTrajectoryPoint(id: AgentId, point: TrajectoryPoint): void {
     const resolved = this.resolveConfig(id);
@@ -371,4 +382,7 @@ export class TrajectoryStorage extends BaseStorage<TrajectoryStorageData, Trajec
       color: point.color || defaultColor,
     }));
   }
+  // #endregion
 }
+
+// #endregion
