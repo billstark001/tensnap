@@ -1,4 +1,4 @@
-import { decode, encode } from '@msgpack/msgpack';
+import { decode, Decoder, encode, Encoder } from '@msgpack/msgpack';
 import { decodeBinaryString, encodeBytesAsDataUrl } from './binary';
 import {
   AnyProtocolMessageSchema,
@@ -20,6 +20,10 @@ export type ProtocolCodecMode = 'strict' | 'legacy';
 export type ProtocolValidationLevel = 'off' | 'warning' | 'error';
 /** Direction selects the complete envelope schema used for a single validation pass. */
 export type ProtocolMessageDirection = 'renderer-to-simulator' | 'simulator-to-renderer' | 'any';
+
+// Keep ordinary item batches warm without retaining an oversized asset/checkpoint
+// buffer for the rest of a session. Encoder capacity can exceed the encoded size.
+const MAX_RETAINED_MESSAGEPACK_BYTES = 1024 * 1024;
 
 export interface ProtocolValidationIssue {
   code: string;
@@ -114,11 +118,15 @@ export function selectProtocolCodecMode(protocolVersion: string | undefined): Pr
  * message/field aliases implemented below: arbitrary user maps are untouched,
  * conflicting aliases reject the message, and lossy outbound conversion throws
  * UnsupportedLegacyMessageError. JSON and MessagePack share the same semantic
- * normalization and optional validation path.
+ * normalization and optional validation path. Retain one codec per session to
+ * reuse MessagePack scratch state. Encoded frames own their bytes and remain
+ * valid across subsequent calls; decoded binary fields may view the input frame.
  */
 export class ProtocolCodec {
   readonly mode: ProtocolCodecMode;
   private readonly onWarning?: (warning: ProtocolCodecWarning) => void;
+  private messagePackEncoder?: Encoder;
+  private messagePackDecoder?: Decoder;
   private validation: Required<Pick<ProtocolValidationOptions, 'level' | 'direction'>> &
     Pick<ProtocolValidationOptions, 'onWarning'>;
 
@@ -154,22 +162,29 @@ export class ProtocolCodec {
       this.legacyStateSyncRequestId = (canonical.payload as { request_id: string }).request_id;
     }
     const semantic = this.mode === 'legacy' ? encodeLegacyMessage(canonical) : canonical;
-    // JSON.stringify omits undefined object fields. Apply the same canonical
-    // wire normalization to MessagePack so both encodings preserve one
-    // protocol value, including optional schema fields that bindings leave
-    // undefined in object literals.
-    const normalized = stripUndefined(normalizeBinarySemanticMessage(semantic, encoding)) as Record<
-      string,
-      unknown
-    >;
-    return encoding === 'json' ? JSON.stringify(normalized) : encode(normalized);
+    const normalized = normalizeBinarySemanticMessage(semantic, encoding);
+    // Canonical records contain portable values, not class instances or toJSON
+    // hooks. JSON.stringify already omits undefined fields and writes undefined
+    // array entries as null. MessagePack's ignoreUndefined option provides the
+    // same map semantics (array entries encode as nil), without cloning the tree.
+    if (encoding === 'json') return JSON.stringify(normalized);
+    const encoder = (this.messagePackEncoder ??= new Encoder({ ignoreUndefined: true }));
+    try {
+      // encodeSharedRef would let the next message overwrite a pending frame.
+      const bytes = encoder.encode(normalized);
+      if (bytes.byteLength > MAX_RETAINED_MESSAGEPACK_BYTES) this.messagePackEncoder = undefined;
+      return bytes;
+    } catch (error) {
+      this.messagePackEncoder = undefined;
+      throw error;
+    }
   }
 
   decode(data: string | Uint8Array | ArrayBuffer): AnyProtocolMessage {
     const decoded =
       typeof data === 'string'
         ? (JSON.parse(data) as unknown)
-        : decode(data instanceof Uint8Array ? data : new Uint8Array(data));
+        : this.decodeMessagePack(data instanceof Uint8Array ? data : new Uint8Array(data));
     const normalized =
       this.mode === 'legacy'
         ? normalizeLegacyMessage(
@@ -186,6 +201,22 @@ export class ProtocolCodec {
       this.mode === 'legacy' ? stripUndefined(normalized) : normalized,
     );
     return normalizeDecodedBinarySemanticMessage(canonical);
+  }
+
+  private decodeMessagePack(bytes: Uint8Array): unknown {
+    const decoder = (this.messagePackDecoder ??= new Decoder());
+    try {
+      return decoder.decode(bytes);
+    } catch (error) {
+      // A failed decode can retain a partial object tree in the decoder stack.
+      this.messagePackDecoder = undefined;
+      throw error;
+    } finally {
+      // The decoder retains its input, which may be a view of a larger buffer.
+      if (bytes.buffer.byteLength > MAX_RETAINED_MESSAGEPACK_BYTES) {
+        this.messagePackDecoder = undefined;
+      }
+    }
   }
 
   private validate(message: unknown): AnyProtocolMessage {
@@ -232,7 +263,7 @@ export function createProtocolCodec(options: ProtocolCodecOptions = {}): Protoco
   return new ProtocolCodec(options);
 }
 
-/** Canonical convenience encoder; runtime schema validation remains opt-in. */
+/** One-shot encoder; retain a ProtocolCodec for session state and scratch reuse. */
 export function encodeProtocolMessage(
   message: AnyProtocolMessage,
   encoding: ProtocolEncoding,
@@ -241,7 +272,7 @@ export function encodeProtocolMessage(
   return new ProtocolCodec(options).encode(message, encoding);
 }
 
-/** Canonical convenience decoder; runtime schema validation remains opt-in. */
+/** One-shot decoder; retain a ProtocolCodec for session state and scratch reuse. */
 export function decodeProtocolMessage(
   data: string | Uint8Array | ArrayBuffer,
   options: ProtocolCodecOptions = {},

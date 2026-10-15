@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/protocol
 
+- **Changed:** Reuse session-local MessagePack encoder/decoder state with owned output frames and discard oversized or failed scratch state. Use native JSON omission and MessagePack `ignoreUndefined` instead of recursively cloning outbound wire records; generic persistence helper semantics are unchanged. Add focused codec benchmarks and frame-ownership regression tests.
 - **Fixed:** Validate Base64 consistently across browser and Node decoders, reject misplaced padding before decoding, and accept empty binary payloads.
 
 ### @tensnap/core

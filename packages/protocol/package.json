@@ -33,6 +33,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench:codec": "vitest bench --run src/codec.bench.ts",
     "lint": "pnpm run typecheck",
     "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
     "clean": "rm -rf dist node_modules"

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   decodeProtocolMessage,
+  decodeMessagePack,
+  encodeMessagePack,
   encodeProtocolMessage,
   ProtocolCodec,
   ProtocolValidationError,
@@ -14,6 +16,116 @@ import {
   ScreenshotResponsePayloadSchema,
 } from './schemas';
 import type { AnyProtocolMessage } from './types';
+
+describe('session codec ownership and reuse', () => {
+  it.each(['strict', 'legacy'] as const)(
+    'preserves optional map fields and array positions in %s mode without mutating inputs',
+    (mode) => {
+      // Undefined nested values are outside validated ProtocolValue, but the
+      // validation-off encoder still preserves its existing JSON-like behavior.
+      const data = {
+        absent: undefined,
+        nested: { present: 1, absent: undefined },
+        list: [undefined, null, { present: false, absent: undefined }],
+        sparse: Object.assign(Array<unknown>(2), { 1: 'tail' }),
+      };
+      const message = {
+        type: 'item_update',
+        payload: { env_id: 'env', layer_id: 'agents', items: [{ id: 'a', data }] },
+      } as unknown as AnyProtocolMessage;
+      const codec = new ProtocolCodec({ mode });
+      const expected = JSON.parse(JSON.stringify(message));
+      for (const encoding of ['json', 'msgpack'] as const) {
+        expect(codec.decode(codec.encode(message, encoding))).toEqual(expected);
+      }
+      expect(Object.prototype.hasOwnProperty.call(data, 'absent')).toBe(true);
+      expect(data.list[0]).toBeUndefined();
+      expect(0 in data.sparse).toBe(false);
+    },
+  );
+
+  it('retains earlier encoded frames across buffer growth and other sessions', () => {
+    const first = { type: 'error', payload: { code: 'first', message: 'one' } } as const;
+    const codec = new ProtocolCodec();
+    const encoded = codec.encode(first, 'msgpack') as Uint8Array;
+    const saved = encoded.slice();
+    const other = new ProtocolCodec();
+    for (const size of [8, 8192, 2 * 1024 * 1024, 8]) {
+      const message: AnyProtocolMessage = {
+        type: 'asset_data',
+        payload: {
+          id: 'asset',
+          hash: 'hash',
+          mime: 'application/octet-stream',
+          data: new Uint8Array(size).fill(7),
+        },
+      };
+      const frame = codec.encode(message, 'msgpack');
+      expect(codec.decode(frame)).toEqual(message);
+      other.encode(message, 'msgpack');
+      expect(encoded).toEqual(saved);
+      expect(codec.decode(encoded)).toEqual(first);
+    }
+    const padded = new Uint8Array(encoded.byteLength + 8);
+    padded.set(encoded, 4);
+    expect(codec.decode(padded.subarray(4, 4 + encoded.byteLength))).toEqual(first);
+    expect(codec.decode(encoded.slice().buffer as ArrayBuffer)).toEqual(first);
+  });
+
+  it('recovers after failed encoding and decoding without changing previous results', () => {
+    const codec = new ProtocolCodec();
+    const message = { type: 'error', payload: { code: 'first', message: 'three' } } as const;
+    const encoded = codec.encode(message, 'msgpack') as Uint8Array;
+    const previous = codec.decode(encoded);
+    // Includes a truncated nested container and trailing bytes after a valid frame.
+    for (const invalid of [
+      encoded.subarray(0, 4),
+      new Uint8Array([0x81, 0xa1, 0x78, 0x92, 1]),
+      new Uint8Array([...encoded, 0]),
+    ]) {
+      expect(() => codec.decode(invalid)).toThrow();
+      expect(codec.decode(encoded)).toEqual(message);
+    }
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() =>
+      codec.encode(
+        { type: 'item_update', payload: circular } as unknown as AnyProtocolMessage,
+        'msgpack',
+      ),
+    ).toThrow();
+    codec.decode(
+      codec.encode({ type: 'error', payload: { code: 'next', message: 'nine' } }, 'msgpack'),
+    );
+    expect(previous).toEqual(message);
+    expect(codec.decode(codec.encode(message, 'msgpack'))).toEqual(message);
+  });
+
+  it('keeps decoded binary data stable when the decoder is reused', () => {
+    const codec = new ProtocolCodec();
+    const message: AnyProtocolMessage = {
+      type: 'asset_data',
+      payload: {
+        id: 'asset',
+        hash: 'hash',
+        mime: 'application/octet-stream',
+        data: new Uint8Array([1, 2, 3]),
+      },
+    };
+    const decoded = codec.decode(codec.encode(message, 'msgpack'));
+    codec.decode(
+      codec.encode({ type: 'error', payload: { code: 'next', message: 'four' } }, 'msgpack'),
+    );
+    expect(decoded).toEqual(message);
+  });
+
+  it('preserves generic persistence helper semantics for undefined map values', () => {
+    expect(decodeMessagePack(encodeMessagePack({ field: undefined, list: [undefined] }))).toEqual({
+      field: null,
+      list: [null],
+    });
+  });
+});
 
 describe('protocol runtime validation', () => {
   const invalidRendererMessage = {
