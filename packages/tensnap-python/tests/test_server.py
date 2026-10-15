@@ -245,3 +245,90 @@ class TestTenSnapServer:
 
         assert future.done()
         assert future.result() == {"request_id": "shot-1", "data": "abc"}
+
+
+@pytest.mark.asyncio
+async def test_failed_connection_setup_releases_registration_and_pending_requests():
+    server = TenSnapServer()
+    ws = AsyncMock()
+    server.on_client_connect = AsyncMock(side_effect=RuntimeError("setup failed"))
+    server.on_client_disconnect = AsyncMock()
+    pending = asyncio.get_running_loop().create_future()
+    server._pending_screenshots["waiting"] = pending
+    await server.handle_client(ws)
+    assert ws not in server.clients
+    server.on_client_disconnect.assert_awaited_once_with(ws)
+    with pytest.raises(ConnectionError, match="connections closed"):
+        await pending
+
+
+def test_simulator_identity_is_detached_from_caller_owned_values():
+    server = TenSnapServer()
+    info = {"model": {"id": "original"}, "capabilities": ["scene.restore.projected"]}
+    server.set_simulator_info(info)
+    info["model"]["id"] = "changed"
+    info["capabilities"].clear()
+    assert server.simulator_info_payload == {
+        "model": {"id": "original"},
+        "capabilities": ["scene.restore.projected"],
+    }
+
+
+@pytest.mark.asyncio
+async def test_stop_releases_the_run_coroutine_and_listener(monkeypatch):
+    started = asyncio.Event()
+    exited = asyncio.Event()
+
+    class Listener:
+        async def __aenter__(self):
+            started.set()
+
+        async def __aexit__(self, *_args):
+            exited.set()
+
+    monkeypatch.setattr("tensnap.server.serve", lambda *_args: Listener())
+    server = TenSnapServer()
+    running = asyncio.create_task(server.run())
+    await asyncio.wait_for(started.wait(), timeout=1)
+    server.stop()
+    await asyncio.wait_for(running, timeout=1)
+    assert exited.is_set()
+    assert server._bg_task is not None and server._bg_task.done()
+    assert server._stop_event is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("message_type", "callback"),
+    [
+        ("state_sync", "on_state_sync"),
+        ("param_change", "on_param_change"),
+        ("action_invoke", "on_action_invoke"),
+        ("scene_restore", "on_scene_restore"),
+        ("scene_capture", "on_scene_capture"),
+    ],
+)
+async def test_incoming_callbacks_resolve_the_current_handler(message_type, callback):
+    server = TenSnapServer()
+    ws = AsyncMock()
+    first, second = AsyncMock(), AsyncMock()
+    setattr(server, callback, first)
+    frame = json.dumps({"type": message_type, "payload": {"request_id": "request"}})
+    await server._dispatch(ws, frame)
+    setattr(server, callback, second)
+    await server._dispatch(ws, frame)
+    first.assert_awaited_once_with(ws, {"request_id": "request"})
+    second.assert_awaited_once_with(ws, {"request_id": "request"})
+
+
+@pytest.mark.asyncio
+async def test_action_callback_compatibility_fallback_keeps_primary_precedence():
+    server = TenSnapServer()
+    server.on_action_start = AsyncMock()
+    ws = AsyncMock()
+    frame = json.dumps({"type": "action_invoke", "payload": {"id": "step"}})
+    await server._dispatch(ws, frame)
+    server.on_action_invoke = AsyncMock()
+    await server._dispatch(ws, frame)
+    server.on_action_start.assert_awaited_once()
+    server.on_action_invoke.assert_awaited_once()

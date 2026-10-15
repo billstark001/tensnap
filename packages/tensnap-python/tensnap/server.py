@@ -11,13 +11,14 @@ import datetime
 import hashlib
 import json
 import logging
-import time
+from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, Optional, Set, Union, cast
+from typing import Any, cast
 from uuid import uuid4
 
 import msgpack
-from websockets.asyncio.server import serve, ServerConnection
+from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State as WebSocketState
 
@@ -35,8 +36,7 @@ class ServerToClientMessageType(Enum):
     STATE_SYNC_BEGIN = "state_sync_begin"
     STATE_SYNC_END = "state_sync_end"
     ACTION_RESULT = "action_result"
-    # Source-compatible name for callers of the old helper.  The wire value is
-    # deliberately canonical v0.3.
+    # Source-compatible alias with the canonical v0.3 wire value.
     ACTION_END = "action_result"
     ACTION_CREATE = "action_create"
     ACTION_UPDATE = "action_update"
@@ -88,13 +88,24 @@ class ClientToServerMessageType(Enum):
 # region Codec
 
 
+# Handler names stay dynamic so assigning public callbacks after construction works.
+_INCOMING_HANDLERS = {
+    ClientToServerMessageType.STATE_SYNC.value: "on_state_sync",
+    ClientToServerMessageType.PARAM_CHANGE.value: "on_param_change",
+    ClientToServerMessageType.ACTION_INVOKE.value: "on_action_invoke",
+    ClientToServerMessageType.ASSET_SYNC.value: "_handle_asset_sync",
+    ClientToServerMessageType.SCENE_RESTORE.value: "on_scene_restore",
+    ClientToServerMessageType.SCENE_CAPTURE.value: "on_scene_capture",
+}
+
+
 def encode_message(
     msg_type: ServerToClientMessageType, payload: Any, use_msgpack: bool = False
-) -> Union[str, bytes]:
+) -> str | bytes:
     msg = {"type": msg_type.value, "payload": payload}
     try:
         return cast(
-            Union[str, bytes],
+            str | bytes,
             (
                 msgpack.packb(msg, default=msgpack_default, use_bin_type=True)
                 if use_msgpack
@@ -109,7 +120,7 @@ def encode_message(
         ) from e
 
 
-def decode_message(raw: Union[str, bytes]) -> tuple[str, Any]:
+def decode_message(raw: str | bytes) -> tuple[str, Any]:
     """Decode an incoming WebSocket frame. Returns ``(type_str, payload)``."""
     data = (
         msgpack.unpackb(raw, raw=False) if isinstance(raw, bytes) else json.loads(raw)
@@ -131,7 +142,7 @@ class TenSnapServer:
     to push messages to clients.
 
     Event slot signatures:
-        on_state_sync / on_param_change / on_action_start / on_asset_sync:
+        on_state_sync / on_param_change / on_action_invoke / on_asset_sync:
             async (ws: ServerConnection, payload: Any) -> None
         on_screenshot_response:
             async (payload: Any) -> None
@@ -146,46 +157,46 @@ class TenSnapServer:
         self.port = port
         self.use_msgpack = use_msgpack
 
-        self.clients: Set[ServerConnection] = set()
+        self.clients: set[ServerConnection] = set()
         # Asset cache: id → {id, hash, mime, size, label, data}
-        self._assets: Dict[str, Dict[str, Any]] = {}
-        self._pending_screenshots: Dict[str, "asyncio.Future[Dict[str, Any]]"] = {}
+        self._assets: dict[str, dict[str, Any]] = {}
+        self._pending_screenshots: dict[str, asyncio.Future[dict[str, Any]]] = {}
         self._running = False
         self._queue = BatchedMessageQueue()
-        self._bg_task: Optional[asyncio.Task] = None
-        self.simulator_info_payload: Optional[Dict[str, Any]] = None
+        self._bg_task: asyncio.Task | None = None
+        self._stop_event: asyncio.Event | None = None
+        self.simulator_info_payload: dict[str, Any] | None = None
 
         # Incoming-message event slots (single callable each for zero-overhead dispatch)
-        self.on_state_sync: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
-        self.on_param_change: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
-        self.on_action_invoke: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
-        # Compatibility spelling for existing embedding code.  Incoming v0.3
-        # frames still use ``action_invoke``.
-        self.on_action_start: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
-        self.on_asset_sync: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
-        self.on_screenshot_response: Optional[Callable[[Any], Awaitable[None]]] = None
-        self.on_client_connect: Optional[
-            Callable[[ServerConnection], Awaitable[None]]
-        ] = None
-        self.on_client_disconnect: Optional[
-            Callable[[ServerConnection], Awaitable[None]]
-        ] = None
-        self.on_scene_restore: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
-        self.on_scene_capture: Optional[
-            Callable[[ServerConnection, Any], Awaitable[None]]
-        ] = None
+        self.on_state_sync: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
+        self.on_param_change: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
+        self.on_action_invoke: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
+        # Compatibility spelling for embedding code; frames use action_invoke.
+        self.on_action_start: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
+        self.on_asset_sync: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
+        self.on_screenshot_response: Callable[[Any], Awaitable[None]] | None = None
+        self.on_client_connect: Callable[[ServerConnection], Awaitable[None]] | None = (
+            None
+        )
+        self.on_client_disconnect: (
+            Callable[[ServerConnection], Awaitable[None]] | None
+        ) = None
+        self.on_scene_restore: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
+        self.on_scene_capture: (
+            Callable[[ServerConnection, Any], Awaitable[None]] | None
+        ) = None
 
     # region Low-level transport
 
@@ -216,21 +227,21 @@ class TenSnapServer:
 
     # region Typed outgoing helpers
 
-    async def send_action_end(
+    async def send_action_end(  # noqa: PLR0913 - Preserve public wire-helper options.
         self,
         ws: ServerConnection,
         action_id: str,
         *,
-        tick_id: Optional[str] = None,
-        continue_: Optional[bool] = None,
-        request_id: Optional[str] = None,
-        error: Optional[Dict[str, Any]] = None,
-        simulate_ms: Optional[float] = None,
+        tick_id: str | None = None,
+        request_id: str | None = None,
+        continue_: bool | None = None,
+        error: dict[str, Any] | None = None,
+        simulate_ms: float | None = None,
     ) -> None:
         correlation_id = request_id or tick_id
         if correlation_id is None:
             raise ValueError("action_result requires request_id")
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             "id": action_id,
             "request_id": correlation_id,
         }
@@ -249,18 +260,18 @@ class TenSnapServer:
         error: str,
         *,
         code: str = "runtime_error",
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> None:
-        payload: Dict[str, Any] = {"code": code, "message": error}
+        payload: dict[str, Any] = {"code": code, "message": error}
         if request_id is not None:
             payload["request_id"] = request_id
         await self.send(ws, ServerToClientMessageType.ERROR, payload)
 
-    def set_simulator_info(self, payload: Dict[str, Any]) -> None:
+    def set_simulator_info(self, payload: dict[str, Any]) -> None:
         """Set the immutable v0.3 handshake emitted before any other frame."""
-        self.simulator_info_payload = dict(payload)
+        self.simulator_info_payload = deepcopy(payload)
 
-    async def broadcast_metadata_update(self, metadata: Dict[str, Any]) -> None:
+    async def broadcast_metadata_update(self, metadata: dict[str, Any]) -> None:
         await self.broadcast(ServerToClientMessageType.METADATA_UPDATE, metadata)
 
     async def broadcast_param_sync(self, param_id: str, value: Any) -> None:
@@ -284,7 +295,7 @@ class TenSnapServer:
         return hashlib.sha256(data).hexdigest()[:16]
 
     @staticmethod
-    def _asset_meta_payload(asset: Dict[str, Any]) -> Dict[str, Any]:
+    def _asset_meta_payload(asset: dict[str, Any]) -> dict[str, Any]:
         return {
             "id": asset["id"],
             "hash": asset["hash"],
@@ -293,7 +304,7 @@ class TenSnapServer:
             "label": asset.get("label"),
         }
 
-    def _encode_asset_data(self, data: bytes, mime: str) -> Union[str, bytes]:
+    def _encode_asset_data(self, data: bytes, mime: str) -> str | bytes:
         if self.use_msgpack:
             return data
         return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
@@ -316,7 +327,7 @@ class TenSnapServer:
         asset_id: str,
         data: bytes,
         mime: str,
-        label: Optional[str] = None,
+        label: str | None = None,
     ) -> None:
         h = self._asset_hash(data)
         existing = self._assets.get(asset_id)
@@ -354,16 +365,16 @@ class TenSnapServer:
 
     # region Screenshot (bidirectional I/O; lives here not in scenario)
 
-    async def request_screenshot(
+    async def request_screenshot(  # noqa: PLR0913 - Preserve public screenshot options.
         self,
-        env_id: Optional[str] = None,
-        chart_id: Optional[str] = None,
+        env_id: str | None = None,
+        chart_id: str | None = None,
         *,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
         format: str = "png",
-        quality: Optional[float] = None,
-        timeout: Optional[float] = None,
-    ) -> Dict[str, Any]:
+        quality: float | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
         """Request a rendered screenshot from a connected renderer."""
         if (env_id is None) == (chart_id is None):
             raise ValueError("Exactly one of env_id or chart_id must be specified.")
@@ -378,7 +389,7 @@ class TenSnapServer:
         if rid in self._pending_screenshots:
             raise ValueError(f"Screenshot request '{rid}' already pending.")
 
-        payload: Dict[str, Any] = {"request_id": rid}
+        payload: dict[str, Any] = {"request_id": rid}
         if env_id is not None:
             payload["env_id"] = env_id
         if chart_id is not None:
@@ -388,7 +399,7 @@ class TenSnapServer:
         if quality is not None:
             payload["quality"] = quality
 
-        future: asyncio.Future[Dict[str, Any]] = (
+        future: asyncio.Future[dict[str, Any]] = (
             asyncio.get_running_loop().create_future()
         )
         self._pending_screenshots[rid] = future
@@ -408,18 +419,21 @@ class TenSnapServer:
     # region Incoming message dispatch
 
     async def handle_client(self, ws: ServerConnection) -> None:
+        """Run a renderer connection and release registration even if setup fails."""
         self.clients.add(ws)
         logger.info(f"Client connected: {ws.remote_address}")
-        if self.simulator_info_payload is not None:
-            await self.send(
-                ws,
-                ServerToClientMessageType.SIMULATOR_INFO,
-                self.simulator_info_payload,
-            )
-        await self.send_asset_meta(ws)
-        if self.on_client_connect:
-            await self.on_client_connect(ws)
         try:
+            if self.simulator_info_payload is not None:
+                await self.send(
+                    ws,
+                    ServerToClientMessageType.SIMULATOR_INFO,
+                    self.simulator_info_payload,
+                )
+            await self.send_asset_meta(ws)
+            if ws not in self.clients:
+                return
+            if self.on_client_connect:
+                await self.on_client_connect(ws)
             async for raw in ws:
                 try:
                     await self._dispatch(ws, raw)
@@ -431,37 +445,37 @@ class TenSnapServer:
             logger.exception(f"Connection error: {e}")
         finally:
             self.clients.discard(ws)
+            if not self.clients:
+                for future in self._pending_screenshots.values():
+                    if not future.done():
+                        future.set_exception(
+                            ConnectionError("All renderer connections closed.")
+                        )
             logger.info(f"Client disconnected: {ws.remote_address}")
             if self.on_client_disconnect:
                 await self.on_client_disconnect(ws)
 
-    async def _dispatch(self, ws: ServerConnection, raw: Union[str, bytes]) -> None:
+    async def _dispatch(self, ws: ServerConnection, raw: str | bytes) -> None:
         try:
             msg_type, payload = decode_message(raw)
-            if msg_type == ClientToServerMessageType.STATE_SYNC.value:
-                if self.on_state_sync:
-                    await self.on_state_sync(ws, payload)
-            elif msg_type == ClientToServerMessageType.PARAM_CHANGE.value:
-                if self.on_param_change:
-                    await self.on_param_change(ws, payload)
-            elif msg_type == ClientToServerMessageType.ACTION_INVOKE.value:
-                handler = self.on_action_invoke or self.on_action_start
-                if handler:
-                    await handler(ws, payload)
-            elif msg_type == ClientToServerMessageType.ASSET_SYNC.value:
-                await self._handle_asset_sync(ws, payload)
-            elif msg_type == ClientToServerMessageType.SCREENSHOT_RESPONSE.value:
+            if msg_type == ClientToServerMessageType.SCREENSHOT_RESPONSE.value:
                 await self._handle_screenshot_response(payload)
-            elif msg_type == ClientToServerMessageType.ERROR.value:
+                return
+            if msg_type == ClientToServerMessageType.ERROR.value:
                 logger.error(f"Client error: {payload.get('message')}")
-            elif msg_type == ClientToServerMessageType.SCENE_RESTORE.value:
-                if self.on_scene_restore:
-                    await self.on_scene_restore(ws, payload)
-            elif msg_type == ClientToServerMessageType.SCENE_CAPTURE.value:
-                if self.on_scene_capture:
-                    await self.on_scene_capture(ws, payload)
-            else:
+                return
+            handler_name = _INCOMING_HANDLERS.get(msg_type)
+            if handler_name is None:
                 logger.warning(f"Unknown message type: {msg_type}")
+                return
+            handler = getattr(self, handler_name)
+            if (
+                handler is None
+                and msg_type == ClientToServerMessageType.ACTION_INVOKE.value
+            ):
+                handler = self.on_action_start
+            if handler is not None:
+                await handler(ws, payload)
         except Exception as e:
             logger.exception(f"Dispatch error: {e}")
             try:
@@ -470,9 +484,9 @@ class TenSnapServer:
                 pass
 
     async def _handle_asset_sync(
-        self, ws: ServerConnection, payload: Dict[str, Any]
+        self, ws: ServerConnection, payload: dict[str, Any]
     ) -> None:
-        client_hashes: Dict[str, str] = payload.get("assets", {})
+        client_hashes: dict[str, str] = payload.get("assets", {})
         for asset_id, asset in self._assets.items():
             if client_hashes.get(asset_id) != asset["hash"]:
                 await self.send(
@@ -486,7 +500,7 @@ class TenSnapServer:
                     },
                 )
 
-    async def _handle_screenshot_response(self, payload: Dict[str, Any]) -> None:
+    async def _handle_screenshot_response(self, payload: dict[str, Any]) -> None:
         rid = payload.get("request_id")
         if not rid:
             logger.warning("screenshot_response missing request_id")
@@ -514,12 +528,16 @@ class TenSnapServer:
                 logger.error(f"Background maintenance error: {e}")
 
     async def run(self) -> None:
+        """Serve until stop() is called or this coroutine is cancelled."""
+        if self._stop_event is not None:
+            raise RuntimeError("Server is already running.")
         self._running = True
+        self._stop_event = asyncio.Event()
         logger.info(f"Starting TenSnap server on {self.host}:{self.port}")
         self._bg_task = asyncio.create_task(self._background_maintenance())
         try:
             async with serve(self.handle_client, self.host, self.port):
-                await asyncio.Event().wait()
+                await self._stop_event.wait()
         finally:
             self._running = False
             if self._bg_task:
@@ -528,9 +546,14 @@ class TenSnapServer:
                     await self._bg_task
                 except asyncio.CancelledError:
                     pass
+            await self._queue.flush()
+            self._stop_event = None
 
     def stop(self) -> None:
+        """Request shutdown on the server's event loop, including its listener."""
         self._running = False
+        if self._stop_event is not None:
+            self._stop_event.set()
 
     # endregion
 

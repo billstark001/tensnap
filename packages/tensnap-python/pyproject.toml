@@ -26,7 +26,7 @@ classifiers = [
 dependencies = [
   "numpy>=1.24.0",
   "msgpack>=1.0.5",
-  "websockets>=12.0",
+  "websockets>=13.0",
   "typing-extensions>=4.13.0",
 ]
 
@@ -91,12 +91,10 @@ extend-exclude = [
   "tensnap/bindings/basic/chart.py",
   "tensnap/bindings/mesa/datacollector.py",
   "tensnap/bindings/mesa/handler.py",
-  "tensnap/server.py",
   "tensnap/scenario.py",
   "tensnap/utils/environment_state.py",
   "tensnap/utils/model.py",
   "tensnap/utils/object.py",
-  "tensnap/utils/ws.py",
 ]
 
 [tool.pyright]
