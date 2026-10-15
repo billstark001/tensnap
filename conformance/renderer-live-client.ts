@@ -112,8 +112,9 @@ function project(session: RendererSession, host: HostState): void {
   assert.equal(grid?.metadata.width, 64);
   assert.equal(grid?.metadata.height, 64);
   const layer = study.layers.find((entry) => entry.id === 'agents');
+  assert.ok(layer, 'Expected the agents layer in the synchronized scene');
   const agents = (
-    layer?.storageSnapshot as {
+    layer.storageSnapshot as {
       agents: Array<{ id: number; x: number; y: number; color: string; data: { health: string } }>;
     }
   ).agents;

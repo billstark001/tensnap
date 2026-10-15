@@ -130,7 +130,6 @@ export class ScenarioRegistry {
   }
 
   createSession(options: ScenarioSessionOptions): SimulatorSession {
-    const registry = this;
     const simulatorInfo = structuredClone(options.simulatorInfo);
     let stateRevision = 0;
     const { onStateSync, simulatorInfo: _simulatorInfo, ...handlers } = options;
@@ -138,7 +137,7 @@ export class ScenarioRegistry {
     return new SimulatorSession({
       ...handlers,
       simulatorInfo,
-      async onStateSync(payload, session) {
+      onStateSync: async (payload, session) => {
         if (payload.model_id !== simulatorInfo.model.id) {
           await session.emitter.error({
             code: 'model_mismatch',
@@ -153,7 +152,7 @@ export class ScenarioRegistry {
           instance_id: simulatorInfo.instance_id,
           mode: 'replace',
         });
-        await registry.replay(session.emitter);
+        await this.replay(session.emitter);
         await onStateSync?.(payload, session);
         await session.emitter.stateSyncEnd({
           request_id: payload.request_id,

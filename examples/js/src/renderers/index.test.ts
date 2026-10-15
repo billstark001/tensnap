@@ -5,7 +5,7 @@ import {
   type SimulatorToRendererMessage,
   type StateSyncRequest,
 } from '@tensnap/protocol';
-import { describe, expect, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 import bindingPackage from '../../../../packages/tensnap-js/package.json';
 import { getJsExampleDefinition, getJsExampleDefinitions } from './index';
 
@@ -208,7 +208,8 @@ describe('JS example sessions', () => {
       return payload.env_id === 'main' && payload.layer_id === 'agents';
     });
     expect(initialAgents?.type).toBe('item_create');
-    const items = (initialAgents?.payload as { items: Array<Record<string, ProtocolValue>> }).items;
+    assert(initialAgents, 'Expected initial agent items after state synchronization');
+    const items = (initialAgents.payload as { items: Array<Record<string, ProtocolValue>> }).items;
     messages.length = 0;
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-schelling' } });
     expect(messages).toContainEqual(
@@ -355,7 +356,8 @@ describe('JS example sessions', () => {
       return payload.env_id === 'main' && payload.layer_id === 'culture';
     });
     expect(initialAgents?.type).toBe('item_create');
-    const items = (initialAgents?.payload as { items: Array<Record<string, ProtocolValue>> }).items;
+    assert(initialAgents, 'Expected initial agent items after state synchronization');
+    const items = (initialAgents.payload as { items: Array<Record<string, ProtocolValue>> }).items;
     expect(items[0]).toEqual(
       expect.objectContaining({
         id: 'cell:0:0',
@@ -460,8 +462,9 @@ describe('JS example sessions', () => {
     await session.dispatch({ type: 'scene_capture', payload: { request_id: 'capture-axelrod' } });
     const captured = messages.find((message) => message.type === 'scene_capture_result');
     expect(captured?.type).toBe('scene_capture_result');
+    assert(captured, 'Expected a scene capture result');
     const checkpoint = (
-      captured?.payload as { checkpoint: { encoding: 'application/msgpack'; data: Uint8Array } }
+      captured.payload as { checkpoint: { encoding: 'application/msgpack'; data: Uint8Array } }
     ).checkpoint;
 
     messages.length = 0;

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { assert, describe, it, expect, vi } from 'vitest';
 import { Scenario } from './Scenario';
 import { AgentStorage, BackgroundStorage, BaseStorage } from '../environment/storages';
 import { EdgeStorage } from '../environment/storages/EdgeStorage';
@@ -694,7 +694,8 @@ describe('Scenario – item_create / item_update / item_delete', () => {
 
     const retainedLayer = retainedScenario.getEnvironment('env1')?.layers.get('trails');
     expect(retainedLayer?.storage).toBeInstanceOf(TrajectoryStorage);
-    expect((retainedLayer?.storage as TrajectoryStorage).dump().trajectories[0]?.points).toEqual([
+    assert(retainedLayer?.storage instanceof TrajectoryStorage);
+    expect(retainedLayer.storage.dump().trajectories[0]?.points).toEqual([
       { x: 0, y: 0, time: 0, color: '#f00' },
     ]);
   });

@@ -2,7 +2,7 @@ import { access, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, assert, describe, expect, it } from 'vitest';
 import { collectRenderData } from '@tensnap/core/scenario';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentPainter } from './HeadlessEnvironmentPainter';
@@ -119,7 +119,8 @@ describe('HeadlessEnvironmentPainter', () => {
     expect(artifacts).toHaveLength(1);
     expect(artifacts?.[0].mime).toBe('image/png');
     expect(artifacts?.[0].data).toBeInstanceOf(Uint8Array);
-    expect((artifacts?.[0].data as Uint8Array).byteLength).toBeGreaterThan(0);
+    assert(artifacts?.[0].data instanceof Uint8Array);
+    expect(artifacts[0].data.byteLength).toBeGreaterThan(0);
     expect(artifacts?.[0].metadata).toMatchObject({
       width: 320,
       height: 240,

@@ -5,7 +5,7 @@ import type {
   TransportEventMap,
 } from '../transport';
 import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
-import { describe, expect, it, vi } from 'vitest';
+import { assert, describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
 import { materializeSnapshot, type Snapshot } from '../snapshot';
 
@@ -628,7 +628,9 @@ describe('RendererSession', () => {
     announce(session, 'test-instance', ['scene.restore.checkpoint']);
 
     const capture = session.captureScene();
-    const requestId = (sent[sent.length - 1]?.payload as { request_id: string }).request_id;
+    const request = sent[sent.length - 1];
+    assert(request?.type === 'scene_capture', 'Expected a scene capture request');
+    const requestId = (request.payload as { request_id: string }).request_id;
     session.handleIncoming({
       type: 'scene_capture_result',
       payload: {
