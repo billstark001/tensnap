@@ -5,10 +5,6 @@ import {
   type BundledExampleTransportOptions,
   type JsExampleTransportMode,
 } from './entries/main-bundle';
-import {
-  type RunningJsExampleDemo,
-  type StartJsExampleWebSocketDemoOptions,
-} from './entries/main-ws';
 import { getJsExampleDefinitions } from './renderers';
 
 export interface JsExampleEntry {
@@ -19,7 +15,6 @@ export interface JsExampleEntry {
   protocolVersion: typeof PROTOCOL_VERSION;
   defaultTransportMode: JsExampleTransportMode;
   createTransport: (options?: BundledExampleTransportOptions) => ISimulatorTransport;
-  startDemoServer: (options?: StartJsExampleWebSocketDemoOptions) => Promise<RunningJsExampleDemo>;
 }
 
 const jsExampleEntries: JsExampleEntry[] = getJsExampleDefinitions().map((definition) => ({
@@ -29,10 +24,6 @@ const jsExampleEntries: JsExampleEntry[] = getJsExampleDefinitions().map((defini
   protocolVersion: PROTOCOL_VERSION,
   defaultTransportMode: 'inmemory',
   createTransport: (options) => createBundledExampleTransport(definition.id, options),
-  startDemoServer: async (options) => {
-    const { startJsExampleWebSocketDemo } = await import('./entries/main-ws');
-    return startJsExampleWebSocketDemo(definition.id, options);
-  },
 }));
 
 export function getJsExampleEntries(): JsExampleEntry[] {

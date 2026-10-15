@@ -14,6 +14,8 @@ The Axelrod example binds its native `agents[row][col]` matrix through `.matrixA
 
 The package contains model sources, declarative renderer definitions, and manifest registration used by the main Web workspace. Publication-only kernel and server adapters live in `../../benchmarks/schelling/v1/subjects/js/`; benchmark environment parsing and JSON output are not part of the examples.
 
+The root and `./manifest` exports are browser-safe. `getJsExampleEntries()` provides metadata and `createTransport()` for local browser models. Node hosts start a demo with `startJsExampleWebSocketDemo(id, options)` from `@tensnap/examples-js/entries/main-ws`; the manifest does not expose `startDemoServer`. Browser entry points import simulator endpoint helpers from `@tensnap/js/transport/browser` so Node WebSocket and filesystem dependencies stay out of frontend bundles.
+
 ## Schelling entry points
 
 Run the standalone scientific sweep without a renderer:

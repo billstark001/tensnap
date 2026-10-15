@@ -3,7 +3,7 @@ import {
   createLinkedEndpoints,
   createPostMessageSimulatorHost,
   generateConnectionId,
-} from '@tensnap/js/transport';
+} from '@tensnap/js/transport/browser';
 import { createPostMessageTransport } from '@tensnap/web-adapter/transport';
 import { getJsExampleDefinition } from '../renderers';
 
