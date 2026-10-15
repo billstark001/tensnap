@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/js
 
+- **Changed:** Retain directional protocol codecs per WebSocket connection so repeated frames reuse MessagePack state without changing transport buffer copies or validation policies.
 - **Added:** A browser-safe `@tensnap/js/transport/browser` entry point that excludes the Node WebSocket host.
 - **Changed:** Compile field selectors once, preserve symbol selectors, own nested item snapshots, reuse structurally equal values, and encode typed scalar/compound identities without delimiter collisions.
 - **Fixed:** Deduplicate endpoint listeners, route postMessage replies to the negotiated renderer identity, reject stale peers, and detach sessions even when disconnect cleanup throws.

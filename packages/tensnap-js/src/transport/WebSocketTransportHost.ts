@@ -1,6 +1,5 @@
 import {
-  decodeProtocolMessage,
-  encodeProtocolMessage,
+  ProtocolCodec,
   type AnyProtocolMessage,
   type ProtocolEncoding,
   type ProtocolValidationLevel,
@@ -146,6 +145,20 @@ export class WebSocketTransportHost {
     const session = this.sessionFactory();
     const connectionId = this.connectionIdFactory(socket);
     this.sessions.set(socket, session);
+    const simulatorCodec = new ProtocolCodec({
+      validation: {
+        level: this.simulatorMessageValidation,
+        direction: 'simulator-to-renderer',
+        onWarning: this.onValidationWarning,
+      },
+    });
+    const rendererCodec = new ProtocolCodec({
+      validation: {
+        level: this.rendererMessageValidation,
+        direction: 'renderer-to-simulator',
+        onWarning: this.onValidationWarning,
+      },
+    });
 
     session.attach(async (message) => {
       if (socket.readyState !== WebSocket.OPEN) {
@@ -154,13 +167,7 @@ export class WebSocketTransportHost {
 
       let encoded: string | Uint8Array;
       try {
-        encoded = encodeProtocolMessage(message as AnyProtocolMessage, this.encoding, {
-          validation: {
-            level: this.simulatorMessageValidation,
-            direction: 'simulator-to-renderer',
-            onWarning: this.onValidationWarning,
-          },
-        });
+        encoded = simulatorCodec.encode(message as AnyProtocolMessage, this.encoding);
       } catch (error) {
         this.onValidationError?.(error);
         throw error;
@@ -177,13 +184,7 @@ export class WebSocketTransportHost {
       const normalized = normalizeWebSocketRawData(data, isBinary);
       let decoded: RendererToSimulatorMessage;
       try {
-        decoded = decodeProtocolMessage(normalized, {
-          validation: {
-            level: this.rendererMessageValidation,
-            direction: 'renderer-to-simulator',
-            onWarning: this.onValidationWarning,
-          },
-        }) as RendererToSimulatorMessage;
+        decoded = rendererCodec.decode(normalized) as RendererToSimulatorMessage;
       } catch (error) {
         this.onValidationError?.(error);
         void session.emitter.error({
