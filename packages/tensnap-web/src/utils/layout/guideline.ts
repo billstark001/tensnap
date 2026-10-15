@@ -47,7 +47,6 @@ type Boundary = {
 
 type Axis = 'horizontal' | 'vertical';
 
-// 轴向配置统一定义
 const AXIS_CONFIG = {
   vertical: {
     posKey: 'left' as const,
@@ -95,8 +94,10 @@ export class GuideLineGenerator {
 
     const newHash = this.hashViews(views);
     if (viewsUpdated === true || newHash !== this.viewsHash) {
-      this.views = views;
-      this.buildSpatialIndex(views);
+      // Own the geometry so cached size/spacing queries cannot observe edits
+      // before the edge index is rebuilt by the same invalidation.
+      this.views = views.map((view) => ({ ...view }));
+      this.buildSpatialIndex(this.views);
       this.viewsHash = newHash;
     }
 
@@ -109,7 +110,6 @@ export class GuideLineGenerator {
     this.matchEdgeGuidelines('vertical', coord, guidelines);
     this.matchEdgeGuidelines('horizontal', coord, guidelines);
 
-    // 等间距和等尺寸
     if (this.enableSpacing) {
       this.matchSpacingGuidelines('vertical', coord, guidelines);
       this.matchSpacingGuidelines('horizontal', coord, guidelines);
@@ -154,12 +154,11 @@ export class GuideLineGenerator {
         views: [v1, v2],
       },
     ] of spacings) {
-      // 检查 coord 能否在 v1 前或 v2 后形成等间距
+      // Look for equal spacing with coord before v1 or after v2.
       const coordEnd = coord[config.posKey] + coord[config.sizeKey];
       const v1Start = v1.view[config.posKey];
       const v2End = v2.view[config.posKey] + v2.view[config.sizeKey];
 
-      // coord 在 v1 之前
       const distBefore = v1Start - coordEnd;
       if (Math.abs(distBefore - distance) <= this.threshold && distBefore > 0) {
         guidelines.push(
@@ -173,7 +172,6 @@ export class GuideLineGenerator {
         );
       }
 
-      // coord 在 v2 之后
       const distAfter = coord[config.posKey] - v2End;
       if (Math.abs(distAfter - distance) <= this.threshold && distAfter > 0) {
         guidelines.push(
@@ -199,13 +197,13 @@ export class GuideLineGenerator {
     const sizeGroups = this.groupBySizes(dim);
 
     for (const { size, indices } of sizeGroups) {
-      if (indices.length < 2) return;
+      if (indices.length < 2) continue;
 
       if (Math.abs(coord[dim] - size) <= this.threshold) {
-        // 修复：size 类型的 position 应该表示尺寸本身，而非位置
+        // Match the shared dimension while keeping the current origin unchanged.
         guidelines.push({
           type: axis,
-          position: coord[config.posKey], // 保持当前位置不变
+          position: coord[config.posKey],
           alignType: config.sizeAlign,
           relatedSegments: this.createSizeSegments(axis, coord, indices.slice(0, 2)),
           spacingInfo: {
@@ -243,7 +241,7 @@ export class GuideLineGenerator {
       }
     }
 
-    // 聚合相近的间距
+    // Group spacing values that differ by no more than the threshold.
     return this.groupByDistance(spacings);
   }
 
@@ -257,7 +255,7 @@ export class GuideLineGenerator {
         groups.push([item]);
       }
     }
-    return groups.filter((g) => g.length >= 1).map((g) => g.slice(0, 1)); // 每组取一个代表
+    return groups.filter((g) => g.length >= 1).map((g) => g.slice(0, 1)); // Keep one representative per spacing group.
   }
 
   private groupBySizes(dim: 'width' | 'height') {
@@ -316,14 +314,10 @@ export class GuideLineGenerator {
 
   private calculateSegments(axis: Axis, viewIndex: number, coord: ViewBox): GuideLineSegment[] {
     const perpConfig = AXIS_CONFIG[axis === 'vertical' ? 'horizontal' : 'vertical'];
-    const viewBounds = this.boundaries[axis === 'vertical' ? 'horizontal' : 'vertical'].filter(
-      (b) => b.viewIndex === viewIndex,
-    );
-
-    if (viewBounds.length === 0) return [];
-
-    const viewStart = viewBounds.find((b) => b.type === perpConfig.edgeTypes[0])?.pos ?? 0;
-    const viewEnd = viewBounds.find((b) => b.type === perpConfig.edgeTypes[1])?.pos ?? 0;
+    const view = this.views[viewIndex];
+    if (!view) return [];
+    const viewStart = view[perpConfig.posKey];
+    const viewEnd = viewStart + view[perpConfig.sizeKey];
     const coordStart = coord[perpConfig.posKey];
     const coordEnd = coordStart + coord[perpConfig.sizeKey];
 
@@ -392,7 +386,11 @@ export class GuideLineGenerator {
       }
     }
 
-    return boundaries.slice(left).filter((b) => b.pos <= max);
+    const matches: Boundary[] = [];
+    for (let index = left; index < boundaries.length && boundaries[index]!.pos <= max; index++) {
+      matches.push(boundaries[index]!);
+    }
+    return matches;
   }
 
   private deduplicateGuidelines(guidelines: GuideLine[]): GuideLine[] {
@@ -439,6 +437,7 @@ export class GuideLineGenerator {
 
   clearCache(): void {
     this.viewsHash = '';
+    this.views = [];
     this.boundaries = { horizontal: [], vertical: [] };
   }
 }

@@ -19,7 +19,7 @@ import {
 import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
 import type { MonitorMetadata } from '@tensnap/protocol';
 import { getEffectiveViewBox } from './geometry';
-import { assertValidViewTree } from './container';
+import { assertValidViewTree, iterateViews } from './container';
 import {
   createDefaultRootLayout,
   createVerticalContainer,
@@ -32,40 +32,6 @@ import {
 
 // #region other utility functions
 
-interface WalkState {
-  halted: boolean;
-}
-
-function _walk(
-  view: AnyView,
-  condition: (view: AnyView) => boolean,
-  haltOnFirstTrue: boolean,
-  found: WeakSet<AnyView>,
-  state: WalkState,
-  result: AnyView[],
-): AnyView[] {
-  if (found.has(view) || state.halted) {
-    return result;
-  }
-
-  if (condition(view)) {
-    result.push(view);
-    found.add(view);
-    if (haltOnFirstTrue) {
-      state.halted = true;
-      return result;
-    }
-  }
-
-  if (view.type === 'container' && view.views) {
-    for (const child of view.views) {
-      _walk(child, condition, haltOnFirstTrue, found, state, result);
-    }
-  }
-
-  return result;
-}
-
 function walkAndFilter(
   view: AnyView | null | undefined,
   condition: (view: AnyView) => boolean,
@@ -73,11 +39,7 @@ function walkAndFilter(
   if (!view) {
     return [];
   }
-  const found = new WeakSet<AnyView>();
-  const state: WalkState = { halted: false };
-  const result: AnyView[] = [];
-  _walk(view, condition, false, found, state, result);
-  return result;
+  return Array.from(iterateViews(view)).filter(condition);
 }
 
 function walkAndFind(
@@ -87,11 +49,10 @@ function walkAndFind(
   if (!view) {
     return undefined;
   }
-  const found = new WeakSet<AnyView>();
-  const state: WalkState = { halted: false };
-  let result: AnyView[] = [];
-  _walk(view, condition, true, found, state, result);
-  return result[0];
+  for (const candidate of iterateViews(view)) {
+    if (condition(candidate)) return candidate;
+  }
+  return undefined;
 }
 
 function getParameterSignature(param: { id: string; type?: string }): string {
@@ -294,7 +255,7 @@ export function createAutoLayout(
         preservePosition: !buttonsContainerIsNew,
       },
     );
-    // 确保容器尺寸是整数
+    // Round container dimensions to whole pixels.
     buttonsContainer.width = Math.ceil(suggestedContainerWidth + WINDOW_X_DELTA);
     buttonsContainer.height = Math.ceil(suggestedContainerHeight + WINDOW_Y_DELTA);
     if (buttonsContainerIsNew) {
@@ -321,7 +282,7 @@ export function createAutoLayout(
         preservePosition: !parametersContainerIsNew,
       },
     );
-    // 确保容器尺寸是整数
+    // Round container dimensions to whole pixels.
     parametersContainer.width = Math.ceil(suggestedContainerWidth + WINDOW_X_DELTA);
     parametersContainer.height = Math.ceil(suggestedContainerHeight + WINDOW_Y_DELTA);
     if (parametersContainerIsNew) {
@@ -411,3 +372,5 @@ export function createAutoLayout(
 
   return view;
 }
+
+// #endregion
