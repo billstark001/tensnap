@@ -97,6 +97,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Repository maintenance
 
+- Refresh the active JS evaluation profile's pnpm lock hashes and check all active publication environment locks in the benchmark test suite.
 - Clear all remaining Oxlint warnings, assert fixture prerequisites before dereferencing optional values, and fail lint on new warnings. Use native ESM paths in shared Vite/Vitest configs, including the benchmark host.
 - Keep the JS examples manifest browser-safe; Node demo hosts use the explicit `entries/main-ws` entry instead of the unused manifest `startDemoServer` method.
 - Translate useful development comments to English and remove obsolete or self-evident notes; use paired folding regions and the existing Oxlint rule to warn about decorative separators.

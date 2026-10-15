@@ -3,16 +3,34 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { diagnosticProfile, loadBenchmarkProfile } from './config';
+import { diagnosticProfile, loadBenchmarkProfile, loadSpecification } from './config';
 import { renderCsv, renderTex, selectRun } from './tables';
 import { archiveCommand, extractEvidence, listFiles, withEvidence } from './archive';
 import { execute, executionContext } from './process';
-import { exists } from './files';
+import { exists, hashBytes } from './files';
 import type { BenchmarkArtifact } from '../harness/types';
 
 const root = path.resolve(import.meta.dirname, '../../../..');
 
 describe('evaluation planning and table semantics', () => {
+  it('keeps every active publication profile environment lock aligned with the checkout', async () => {
+    const specification = await loadSpecification(root);
+    const checked = new Set<string>();
+    for (const experiment of specification.experiments) {
+      if (!experiment.profile) continue;
+      const profile = await loadBenchmarkProfile(root, experiment.profile);
+      for (const workload of profile.workloads) {
+        const locks = workload.config?.environmentLocks as Record<string, string> | undefined;
+        for (const [relative, expected] of Object.entries(locks ?? {})) {
+          const actual = hashBytes(await readFile(path.join(root, relative)));
+          expect(actual, `${profile.id}/${workload.id}: ${relative}`).toBe(expected);
+          checked.add(relative);
+        }
+      }
+    }
+    expect(checked).toContain('pnpm-lock.yaml');
+  });
+
   it('retains every condition, transport and paired comparison in a diagnostic profile', async () => {
     const relative = 'benchmarks/profiles/evaluation-2026-paper-v0.3.json';
     const original = await loadBenchmarkProfile(root, relative);
