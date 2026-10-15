@@ -54,6 +54,7 @@ func restoreDeleteKey(item map[string]any, fields []string) map[string]any {
 
 type plannedLayer[T any] struct {
 	name        string
+	identity    [2]string
 	definition  RestoreLayer[T]
 	layer       restoreBinding[T]
 	keyFields   []string
@@ -63,7 +64,7 @@ type plannedLayer[T any] struct {
 	items       []map[string]any
 	current     map[string]map[string]any
 	incoming    map[string]map[string]any
-	deps        []string
+	deps        [][2]string
 }
 
 func restoreRecord(value any) (map[string]any, error) {
@@ -247,12 +248,12 @@ func (p *projectedRestore[T]) prepare(m *Model[T], payload *protocol.SceneRestor
 					return nil, err
 				}
 			}
-			dependencies := []string{}
+			dependencies := [][2]string{}
 			for _, dep := range declared.DependencyLayerIDs {
-				dependencies = append(dependencies, id+"/"+dep)
+				dependencies = append(dependencies, [2]string{id, dep})
 			}
 			_, hasData := layer["metadata"]
-			plans = append(plans, plannedLayer[T]{name: name, definition: spec, layer: bound, keyFields: keyFields, data: metadata, hasData: hasData, itemBearing: itemBearing, items: items, incoming: incoming, deps: dependencies})
+			plans = append(plans, plannedLayer[T]{name: name, identity: [2]string{id, layerID}, definition: spec, layer: bound, keyFields: keyFields, data: metadata, hasData: hasData, itemBearing: itemBearing, items: items, incoming: incoming, deps: dependencies})
 		}
 	}
 	seenParams := map[string]bool{}
@@ -298,10 +299,10 @@ func restoreRecordOrEmpty(value any) (map[string]any, error) {
 }
 
 func orderRestoreLayers[T any](plans []plannedLayer[T]) ([]plannedLayer[T], error) {
-	ids := make([]string, len(plans))
-	dependencies := make([][]string, len(plans))
+	ids := make([][2]string, len(plans))
+	dependencies := make([][][2]string, len(plans))
 	for i, plan := range plans {
-		ids[i] = plan.name
+		ids[i] = plan.identity
 		dependencies[i] = plan.deps
 	}
 	indices, err := orderLayerDependencies(ids, dependencies)

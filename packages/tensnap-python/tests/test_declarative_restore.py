@@ -17,6 +17,53 @@ from tensnap.scenario import SimulationScenario
 from tensnap.server import ServerToClientMessageType
 
 
+def test_restore_keeps_environment_and_layer_ids_with_slashes_distinct():
+    restored = []
+
+    def declaration(env_id, layer_id):
+        @layer_restore(
+            create=lambda item: restored.append((env_id, layer_id, "create", item)),
+            update=lambda item: restored.append((env_id, layer_id, "update", item)),
+            delete=lambda key: restored.append((env_id, layer_id, "delete", key)),
+        )
+        @agent_layer(layer_id, items_projector=lambda model: [{"id": "old"}])
+        @env(env_id)
+        class Environment:
+            pass
+
+        return Environment()
+
+    @scene_restore(validate=lambda payload: None)
+    class Model:
+        pass
+
+    scenario = SimulationScenario(model_id="slash-ids")
+    for env_id, layer_id in [("a/b", "c"), ("a", "b/c")]:
+        scenario.add_environment(declaration(env_id, layer_id))
+    scenario.add_scene_restore(Model())
+    restore = scenario._scene_restore
+    assert restore is not None
+    payload = {
+        "envs": [
+            {
+                "id": env_id,
+                "type": "2d",
+                "layers": [
+                    {
+                        "layer_id": layer_id,
+                        "layer_type": "agent",
+                        "items": [{"id": "new"}],
+                    }
+                ],
+            }
+            for env_id, layer_id in [("a/b", "c"), ("a", "b/c")]
+        ]
+    }
+    asyncio.run(restore(payload))
+    assert len(restored) == 4
+    assert {(entry[0], entry[1]) for entry in restored} == {("a/b", "c"), ("a", "b/c")}
+
+
 def test_restore_value_validates_before_applying_generic_time() -> None:
     def validate(model, value):
         if value < 0:

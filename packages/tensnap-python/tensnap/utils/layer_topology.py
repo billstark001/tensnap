@@ -2,22 +2,23 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Hashable, Iterable, Mapping
 from typing import TypeVar
 
 T = TypeVar("T")
+TKey = TypeVar("TKey", bound=Hashable)
 
 
 def order_layers(
     layers: Iterable[T],
-    layer_id: Callable[[T], str],
-    dependencies: Callable[[T], Mapping[str, str]],
+    layer_id: Callable[[T], TKey],
+    dependencies: Callable[[T], Mapping[str, TKey]],
     type_of: Callable[[T], str],
     *,
     allow_missing: bool = False,
 ) -> list[T]:
     entries = list(layers)
-    by_id: dict[str, T] = {}
+    by_id: dict[TKey, T] = {}
     for entry in entries:
         identifier = layer_id(entry)
         if not identifier or identifier in by_id:
@@ -26,9 +27,9 @@ def order_layers(
     position = {layer_id(entry): index for index, entry in enumerate(entries)}
 
     ordered: list[T] = []
-    state: dict[str, str] = {}
+    state: dict[TKey, str] = {}
 
-    def visit(identifier: str) -> None:
+    def visit(identifier: TKey) -> None:
         if state.get(identifier) == "done":
             return
         if state.get(identifier) == "visiting":

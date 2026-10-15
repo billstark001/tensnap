@@ -9,14 +9,15 @@ import (
 
 // orderLayerDependencies is shared by environment registration and projected
 // restore. The caller supplies IDs and dependencies in source order.
-func orderLayerDependencies(ids []string, dependencies [][]string) ([]int, error) {
-	position := make(map[string]int, len(ids))
+func orderLayerDependencies[K comparable](ids []K, dependencies [][]K) ([]int, error) {
+	position := make(map[K]int, len(ids))
+	var empty K
 	for i, id := range ids {
-		if id == "" {
+		if id == empty {
 			return nil, fmt.Errorf("empty layer id")
 		}
 		if _, exists := position[id]; exists {
-			return nil, fmt.Errorf("duplicate layer id: %s", id)
+			return nil, fmt.Errorf("duplicate layer id: %v", id)
 		}
 		position[id] = i
 	}
@@ -28,17 +29,17 @@ func orderLayerDependencies(ids []string, dependencies [][]string) ([]int, error
 			return nil
 		}
 		if state[i] == 1 {
-			return fmt.Errorf("cyclic layer dependency: %s", ids[i])
+			return fmt.Errorf("cyclic layer dependency: %v", ids[i])
 		}
 		state[i] = 1
-		refs := append([]string(nil), dependencies[i]...)
+		refs := append([]K(nil), dependencies[i]...)
 		sort.Slice(refs, func(a, b int) bool {
 			return position[refs[a]] < position[refs[b]]
 		})
 		for _, dependency := range refs {
 			j, exists := position[dependency]
 			if !exists {
-				return fmt.Errorf("layer %s depends on missing layer %s", ids[i], dependency)
+				return fmt.Errorf("layer %v depends on missing layer %v", ids[i], dependency)
 			}
 			if err := visit(j); err != nil {
 				return err

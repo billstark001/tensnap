@@ -8,6 +8,21 @@ import (
 	"github.com/billstark001/tensnap/packages/tensnap-go/protocol"
 )
 
+func TestRestoreLayersKeepEnvironmentAndLayerBoundaries(t *testing.T) {
+	plans := []plannedLayer[*testModel]{
+		{name: "a/b/c", identity: [2]string{"a/b", "c"}},
+		{name: "a/b/c", identity: [2]string{"a", "b/c"}},
+		{name: "a/b/edge", identity: [2]string{"a/b", "edge"}, deps: [][2]string{{"a/b", "c"}}},
+	}
+	ordered, err := orderRestoreLayers(plans)
+	if err != nil || len(ordered) != 3 {
+		t.Fatalf("ordered=%v err=%v", ordered, err)
+	}
+	if ordered[0].identity != plans[0].identity || ordered[1].identity != plans[1].identity || ordered[2].identity != plans[2].identity {
+		t.Fatalf("unexpected restore order: %v", ordered)
+	}
+}
+
 func TestRestorePlanReconcilesCompleteLayerAndRejectsDuplicates(t *testing.T) {
 	raw := &testModel{agents: []testAgent{{id: "old", x: 1}}}
 	phases := []string{}

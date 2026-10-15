@@ -176,6 +176,25 @@ end
 	@test model["right"] == "R"
 end
 
+@testset "restore identities preserve slash boundaries" begin
+	model = Dict{String, Any}()
+	scenario = Scenario(model_id = "slash-ids", restore_hooks = restore_hooks(scene_restore()))
+	register_model!(scenario, model)
+	for (env_id, layer_id, marker) in [("a/b", "c", "left"), ("a", "b/c", "right")]
+		add_environment!(scenario, environment(env_id; layers = [
+			grid_layer(layer_id, _ -> Any[];
+				restore = (metadata = (data, m) -> (m[marker] = data["value"]),)),
+		]))
+	end
+	payload = Dict{String, Any}("envs" => [
+		Dict("id" => env_id, "type" => "2d", "layers" => [
+			Dict("layer_id" => layer_id, "layer_type" => "grid", "metadata" => Dict("value" => marker)),
+		]) for (env_id, layer_id, marker) in [("a/b", "c", 1), ("a", "b/c", 2)]
+	])
+	TenSnap._apply_projected_restore!(scenario, payload)
+	@test model == Dict("left" => 1, "right" => 2)
+end
+
 @testset "declarative parameters from fields" begin
 	config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
 	scenario = Scenario()

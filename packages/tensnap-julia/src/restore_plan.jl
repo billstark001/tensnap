@@ -62,8 +62,11 @@ function _restore_index(items, fields)
 end
 
 function _restore_order(entries)
-	return _order_layer_dependencies(entries, entry -> entry.name,
-		entry -> Dict(role => entry.env_id * "/" * dependency
+	# JSON tuple encoding preserves the environment/layer boundary even when
+	# either ID contains a slash. Human-readable names remain diagnostics only.
+	identity(env_id, layer_id) = JSON3.write((env_id, layer_id))
+	return _order_layer_dependencies(entries, entry -> identity(entry.env_id, entry.layer.id),
+		entry -> Dict(role => identity(entry.env_id, dependency)
 			for (role, dependency) in entry.layer.dependency_layer_ids),
 		entry -> entry.layer.type)
 end

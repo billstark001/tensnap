@@ -83,7 +83,7 @@ class _BoundProjectedRestore:
         self._prepared: (
             list[
                 tuple[
-                    str,
+                    tuple[str, str],
                     _LayerRestore,
                     dict[str, Any],
                     dict[tuple[Any, ...], dict[str, Any]],
@@ -175,7 +175,7 @@ class _BoundProjectedRestore:
                 if "metadata" in layer and spec.metadata is None:
                     raise ValueError(f"no metadata restore declaration for {name}")
                 await _call(_resolve(self.target, spec.validate), layer)
-                prepared.append((name, spec, layer, current, incoming))
+                prepared.append(((env_id, layer_id), spec, layer, current, incoming))
 
         seen_params: set[str] = set()
         for change in payload.get("parameters", []):
@@ -237,9 +237,9 @@ class _BoundProjectedRestore:
         for _, spec, layer, _, _ in ordered:
             if "metadata" in layer:
                 await _call(_resolve(self.target, spec.metadata), layer["metadata"])
-        for name, spec, _, current, incoming in reversed(ordered):
+        for identity, spec, _, current, incoming in reversed(ordered):
             if spec.mode == "collection":
-                env_id, layer_id = name.split("/", 1)
+                env_id, layer_id = identity
                 key_fields = (
                     self.scenario.environments[env_id]
                     .layers[layer_id]
@@ -273,13 +273,13 @@ class _BoundProjectedRestore:
                 registration.reset_diff_state()
 
     def _ordered(self, entries: list[Any]) -> list[Any]:
-        def dependencies(entry: Any) -> dict[str, str]:
-            env_id, _ = entry[0].split("/", 1)
+        def dependencies(entry: Any) -> dict[str, tuple[str, str]]:
+            env_id, _ = entry[0]
             binding = (
                 self.scenario.environments[env_id].layers[entry[2]["layer_id"]].binding
             )
             return {
-                role: f"{env_id}/{dep}"
+                role: (env_id, dep)
                 for role, dep in binding.dependency_layer_ids.items()
             }
 
