@@ -275,6 +275,30 @@ def test_simulator_identity_is_detached_from_caller_owned_values():
 
 
 @pytest.mark.asyncio
+async def test_asset_metadata_edits_are_not_lost_when_bytes_are_unchanged():
+    server = TenSnapServer()
+    server.broadcast = AsyncMock()
+    await server.publish_asset("icon", b"hello", "text/plain", label="Before")
+    server.broadcast.reset_mock()
+    await server.publish_asset("icon", b"hello", "text/plain", label="Before")
+    server.broadcast.assert_not_awaited()
+    await server.publish_asset("icon", b"hello", "text/plain", label="After")
+    assert server.broadcast.await_count == 1
+    assert (
+        server.broadcast.await_args.args[0] == ServerToClientMessageType.ASSET_METADATA
+    )
+    assert server._assets["icon"]["label"] == "After"
+    server.broadcast.reset_mock()
+    await server.publish_asset(
+        "icon", b"hello", "application/octet-stream", label="After"
+    )
+    assert server.broadcast.await_count == 2
+    assert server.broadcast.await_args.args[1]["data"].startswith(
+        "data:application/octet-stream;"
+    )
+
+
+@pytest.mark.asyncio
 async def test_stop_releases_the_run_coroutine_and_listener(monkeypatch):
     started = asyncio.Event()
     exited = asyncio.Event()
@@ -332,3 +356,14 @@ async def test_action_callback_compatibility_fallback_keeps_primary_precedence()
     await server._dispatch(ws, frame)
     server.on_action_start.assert_awaited_once()
     server.on_action_invoke.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_asset_publication_owns_mutable_buffers_without_integer_coercion():
+    server = TenSnapServer()
+    data = bytearray(b"hello")
+    await server.publish_asset("owned", data, "application/octet-stream")
+    data[0] = 0
+    assert server._assets["owned"]["data"] == b"hello"
+    with pytest.raises(TypeError):
+        await server.publish_asset("invalid", 42, "application/octet-stream")

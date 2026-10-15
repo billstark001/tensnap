@@ -329,9 +329,19 @@ class TenSnapServer:
         mime: str,
         label: str | None = None,
     ) -> None:
+        """Publish owned bytes and announce metadata edits without resending data."""
+        if not isinstance(data, bytes):
+            data = memoryview(data).tobytes()
         h = self._asset_hash(data)
         existing = self._assets.get(asset_id)
-        if existing and existing["hash"] == h:
+        same_data = existing is not None and existing["hash"] == h
+        same_mime = existing is not None and existing["mime"] == mime
+        if (
+            same_data
+            and same_mime
+            and existing is not None
+            and existing.get("label") == label
+        ):
             return
         self._assets[asset_id] = {
             "id": asset_id,
@@ -345,6 +355,8 @@ class TenSnapServer:
             ServerToClientMessageType.ASSET_METADATA,
             {"assets": [self._asset_meta_payload(self._assets[asset_id])]},
         )
+        if same_data and same_mime:
+            return
         await self.broadcast(
             ServerToClientMessageType.ASSET_DATA,
             {
