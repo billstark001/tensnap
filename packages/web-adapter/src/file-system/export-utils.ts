@@ -6,6 +6,7 @@
  */
 
 import JSZip from 'jszip';
+import { encodeBytesAsBase64 } from '@tensnap/protocol/binary';
 import { FileSystemAdapter } from '@tensnap/web-common/types/file';
 
 export interface ExportOptions {
@@ -13,7 +14,8 @@ export interface ExportOptions {
 }
 
 /**
- * Export a directory and all its contents
+ * Export all descendants. JSON file contents are base64-encoded bytes;
+ * text files use UTF-8, matching their stored size and checksum.
  */
 export async function exportDirectory(
   fileSystem: FileSystemAdapter,
@@ -111,14 +113,7 @@ async function addDirectoryToZip(
  * Convert ArrayBuffer to base64 string
  */
 function arrayBufferToBase64(buffer: ArrayBuffer | string): string {
-  if (typeof buffer === 'string') {
-    return btoa(buffer);
-  }
-
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
+  const bytes =
+    typeof buffer === 'string' ? new TextEncoder().encode(buffer) : new Uint8Array(buffer);
+  return encodeBytesAsBase64(bytes);
 }
