@@ -76,6 +76,10 @@ function isExpandable(value: ProtocolData): boolean {
   return Array.isArray(value) || isRecord(value);
 }
 
+function tableCell(record: Record<string, ProtocolData>, column: string): ProtocolData {
+  return Object.prototype.hasOwnProperty.call(record, column) ? (record[column] ?? null) : null;
+}
+
 function clampInteger(
   value: number | undefined,
   fallback: number,
@@ -168,10 +172,12 @@ export function valueInspectorText(
       const record = current as Record<string, unknown>;
       let first = true;
       for (const key in record) {
+        if (truncated) break;
         if (!Object.prototype.hasOwnProperty.call(record, key)) continue;
         if (!first) append(', ');
         first = false;
         append(`${JSON.stringify(key)}: `);
+        if (truncated) break;
         try {
           render(record[key], depth + 1);
         } catch {
@@ -213,7 +219,12 @@ export class ValueInspector {
       let value: ProtocolData = this.root;
       for (const segment of path) {
         if (Array.isArray(value)) {
-          if (typeof segment !== 'number' || segment < 0 || segment >= value.length)
+          if (
+            !Number.isInteger(segment) ||
+            typeof segment !== 'number' ||
+            segment < 0 ||
+            segment >= value.length
+          )
             return undefined;
           value = value[segment]!;
         } else if (isRecord(value)) {
@@ -384,7 +395,7 @@ export class ValueInspector {
         if (!allRecords) return { value: row };
         const record = row as Record<string, ProtocolData>;
         return Object.fromEntries(
-          columns.map((column) => [column, record[column] ?? null]),
+          columns.map((column) => [column, tableCell(record, column)]),
         ) as Record<string, ProtocolData>;
       });
       const hasMore = end < value.length;
@@ -414,7 +425,7 @@ export class ValueInspector {
         const record = row as Record<string, ProtocolData>;
         return Object.fromEntries([
           [keyColumn, key],
-          ...recordColumns.map((column) => [column, record[column] ?? null] as const),
+          ...recordColumns.map((column) => [column, tableCell(record, column)] as const),
         ]) as Record<string, ProtocolData>;
       });
       return {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ProtocolData } from '@tensnap/protocol';
 import { ValueInspector, valueInspectorText } from './index';
 
 describe('ValueInspector', () => {
@@ -124,5 +125,49 @@ describe('ValueInspector', () => {
     const cyclic: unknown[] = [];
     cyclic.push(cyclic);
     expect(valueInspectorText(cyclic).text).toContain('[Circular]');
+  });
+
+  it('stops reading object fields after the text budget is exhausted', () => {
+    let reads = 0;
+    const values: Record<string, unknown> = { first: 'x'.repeat(100) };
+    Object.defineProperty(values, 'later', {
+      enumerable: true,
+      get() {
+        reads++;
+        return 'unused';
+      },
+    });
+    expect(valueInspectorText(values, 8).truncated).toBe(true);
+    expect(reads).toBe(0);
+    const longKey = {
+      get ['x'.repeat(100)]() {
+        reads++;
+        return 'unused';
+      },
+    };
+    expect(valueInspectorText(longKey, 8).truncated).toBe(true);
+    expect(reads).toBe(0);
+  });
+
+  it.each(['array', 'map'])('uses only own properties for %s table cells', (kind) => {
+    const records: Record<string, ProtocolData>[] = [
+      { constructor: 'own constructor', toString: 'own string' },
+      { other: 1 },
+    ];
+    const root = kind === 'array' ? records : { first: records[0]!, second: records[1]! };
+    const content = new ValueInspector(root).inspect({ hint: 'table' });
+    expect(content.kind).toBe('table');
+    if (content.kind !== 'table') return;
+    expect(content.rows[1]).toMatchObject({ constructor: null, toString: null, other: 1 });
+  });
+
+  it('rejects non-integer array paths even when local arrays have extra properties', () => {
+    const values = [1, 2];
+    Object.defineProperty(values, '0.5', { value: 42 });
+    Object.defineProperty(values, 'NaN', { value: 42 });
+    const inspector = new ValueInspector(values);
+    expect(inspector.valueAt([0.5])).toBeUndefined();
+    expect(inspector.valueAt([NaN])).toBeUndefined();
+    expect(inspector.valueAt([0])).toBe(1);
   });
 });
