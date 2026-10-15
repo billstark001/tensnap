@@ -9,19 +9,27 @@ interface ViewErrorBoundaryProps {
 
 interface ViewErrorBoundaryState {
   hasError: boolean;
+  kind: ViewErrorBoundaryProps['kind'];
+  identifier: string;
+  resetKey?: string | number;
 }
 
 export class ViewErrorBoundary extends React.Component<
   ViewErrorBoundaryProps,
   ViewErrorBoundaryState
 > {
-  state: ViewErrorBoundaryState = { hasError: false };
+  state: ViewErrorBoundaryState = {
+    hasError: false,
+    kind: this.props.kind,
+    identifier: this.props.identifier,
+    resetKey: this.props.resetKey,
+  };
 
   private handleRetry = (): void => {
     this.setState({ hasError: false });
   };
 
-  static getDerivedStateFromError(): ViewErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<ViewErrorBoundaryState> {
     return { hasError: true };
   }
 
@@ -29,15 +37,23 @@ export class ViewErrorBoundary extends React.Component<
     console.error(`Failed to render ${this.props.kind} view "${this.props.identifier}"`, error);
   }
 
-  override componentDidUpdate(prevProps: ViewErrorBoundaryProps): void {
+  static getDerivedStateFromProps(
+    props: ViewErrorBoundaryProps,
+    state: ViewErrorBoundaryState,
+  ): Partial<ViewErrorBoundaryState> | null {
     if (
-      this.state.hasError &&
-      (prevProps.identifier !== this.props.identifier ||
-        prevProps.kind !== this.props.kind ||
-        prevProps.resetKey !== this.props.resetKey)
+      state.identifier !== props.identifier ||
+      state.kind !== props.kind ||
+      !Object.is(state.resetKey, props.resetKey)
     ) {
-      this.setState({ hasError: false });
+      return {
+        hasError: false,
+        kind: props.kind,
+        identifier: props.identifier,
+        resetKey: props.resetKey,
+      };
     }
+    return null;
   }
 
   override render(): React.ReactNode {
