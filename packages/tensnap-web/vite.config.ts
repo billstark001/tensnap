@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { lingui } from '@lingui/vite-plugin';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
-import path from 'path';
-import pkg from './package.json';
+import path from 'node:path';
+import pkg from './package.json' with { type: 'json' };
 import { tensnapCodeSplitting } from '../../scripts/vite-chunks.mjs';
 
 export default defineConfig({
@@ -18,7 +18,7 @@ export default defineConfig({
     vanillaExtractPlugin(),
   ],
   resolve: {
-    alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(__dirname, './src/$1') }],
+    alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(import.meta.dirname, './src/$1') }],
     // Radix overlays must share one layer manager so modal teardown restores
     // body pointer events correctly across workspace packages.
     dedupe: ['@radix-ui/react-dismissable-layer'],

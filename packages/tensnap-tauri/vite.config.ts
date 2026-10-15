@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { lingui } from '@lingui/vite-plugin';
 import { vanillaExtractPlugin } from '@vanilla-extract/vite-plugin';
-import path from 'path';
-import pkg from './package.json';
+import path from 'node:path';
+import pkg from './package.json' with { type: 'json' };
 import { tensnapCodeSplitting } from '../../scripts/vite-chunks.mjs';
 
 // https://vite.dev/config/
@@ -33,7 +33,12 @@ export default defineConfig({
   },
 
   resolve: {
-    alias: [{ find: /^@\/(.*)$/, replacement: path.resolve(__dirname, '../tensnap-web/src/$1') }],
+    alias: [
+      {
+        find: /^@\/(.*)$/,
+        replacement: path.resolve(import.meta.dirname, '../tensnap-web/src/$1'),
+      },
+    ],
     // Radix overlays must share one layer manager across workspace packages.
     dedupe: ['@radix-ui/react-dismissable-layer'],
   },
