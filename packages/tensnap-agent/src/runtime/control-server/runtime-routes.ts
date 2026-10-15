@@ -4,6 +4,7 @@ import type { Hono } from 'hono';
 import type { AgentRuntime } from '../AgentRuntime';
 import type { RenderTriggerMode, RuntimeEvent, RuntimeLogEntry } from '../../types';
 import type { RuntimeSseBroker } from './sse-broker';
+import { readJsonObject } from './json-body';
 
 // #endregion
 
@@ -47,12 +48,14 @@ export function registerRuntimeRoutes(
   });
 
   app.post('/v1/runtime/connect', async (c) => {
-    const body = await c.req.json<{ simulatorUrl: string; encoding?: 'json' | 'msgpack' }>();
+    const body = await readJsonObject<{ simulatorUrl: string; encoding?: 'json' | 'msgpack' }>(
+      c.req,
+    );
     return c.json(await runtime.connect(body));
   });
 
   app.post('/v1/runtime/wait-ready', async (c) => {
-    const body = await c.req.json<{ timeoutMs?: number }>().catch(() => ({ timeoutMs: undefined }));
+    const body = await readJsonObject<{ timeoutMs?: number }>(c.req, { optional: true });
     return c.json(await runtime.waitUntilReady(body.timeoutMs));
   });
 
@@ -72,7 +75,7 @@ export function registerRuntimeRoutes(
   });
 
   app.post('/v1/runtime/render-trigger', async (c) => {
-    const body = await c.req.json<{ trigger: RenderTriggerMode }>();
+    const body = await readJsonObject<{ trigger: RenderTriggerMode }>(c.req);
     return c.json(await runtime.setRenderTrigger(body.trigger));
   });
 }

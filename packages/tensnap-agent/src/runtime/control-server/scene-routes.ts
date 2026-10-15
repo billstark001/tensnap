@@ -3,6 +3,22 @@ import type { Hono } from 'hono';
 import { encodeBytesAsBase64, ProtocolValueSchema } from '@tensnap/protocol';
 import type { RestoreChartPolicy } from '@tensnap/core/runtime';
 import type { AgentRuntime } from '../AgentRuntime';
+import { readJsonObject } from './json-body';
+import type { RenderArtifact } from '../painter';
+// #endregion
+
+// #region Serialization
+
+/** JSON has no byte-array primitive; use the same representation for every render route. */
+function serializeRenderArtifact(artifact: RenderArtifact) {
+  const { data, ...metadata } = artifact;
+  return {
+    ...metadata,
+    ...(data === undefined
+      ? {}
+      : { data: encodeBytesAsBase64(data), dataEncoding: 'base64' as const }),
+  };
+}
 
 // #endregion
 
@@ -41,7 +57,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
   });
 
   app.post('/v1/scene/restore', async (c) => {
-    const body = await c.req.json<Record<string, unknown>>();
+    const body = await readJsonObject<Record<string, unknown>>(c.req);
     const chartPolicy = body.chartPolicy;
     if (
       chartPolicy !== undefined &&
@@ -98,16 +114,12 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     });
     return c.json({
       inspection,
-      artifacts: artifacts.map((artifact) => ({
-        ...artifact,
-        data: artifact.data ? Buffer.from(artifact.data).toString('base64') : undefined,
-        dataEncoding: artifact.data ? 'base64' : undefined,
-      })),
+      artifacts: artifacts.map(serializeRenderArtifact),
     });
   });
 
   app.post('/v1/scene/render', async (c) => {
-    const body = await c.req.json<{
+    const body = await readJsonObject<{
       reason?: string;
       envId?: string;
       chartId?: string;
@@ -120,7 +132,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       outputPath?: string;
       persist?: boolean;
       includeData?: boolean;
-    }>();
+    }>(c.req);
 
     if (body.envId && body.chartId) {
       return c.json({ error: 'envId and chartId are mutually exclusive.' }, 400);
@@ -143,7 +155,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       body.reason ?? 'manual',
     );
 
-    return c.json({ artifacts });
+    return c.json({ artifacts: artifacts.map(serializeRenderArtifact) });
   });
 
   app.get('/v1/charts', (c) => {
@@ -172,7 +184,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       return c.json({ error: 'Missing parameter ID.' }, 404);
     }
 
-    const body = await c.req.json<{ value: unknown }>();
+    const body = await readJsonObject<{ value: unknown }>(c.req);
     const parsed = ProtocolValueSchema.safeParse(body.value);
     if (!parsed.success) {
       return c.json({ error: 'Parameter value is not a protocol value.' }, 400);

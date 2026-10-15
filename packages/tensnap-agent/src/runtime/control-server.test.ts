@@ -110,6 +110,9 @@ describe('RuntimeControlServer', () => {
       });
       const saved = await waitFor(async () => {
         try {
+          // A renamed checkpoint is visible before the writer's asynchronous
+          // temporary-file cleanup completes and clears sceneDirty.
+          if (runtime.getStatus().sceneDirty) return undefined;
           return JSON.parse(await readFile(runtime.context.snapshotFile, 'utf8')) as {
             metadata: { time?: number };
           };
