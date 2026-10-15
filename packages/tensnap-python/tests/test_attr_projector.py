@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+
 from tensnap.utils.attr import (
     make_attr_getter,
     make_attr_getter_and_setter,
@@ -38,6 +39,11 @@ class Agent:
 
 
 # region validation tests
+
+
+@pytest.mark.parametrize("path", ["name\n", "position.x\n", "values[0]\n", "name\r\n"])
+def test_attr_paths_reject_trailing_line_breaks(path: str) -> None:
+    assert not validate_attr_path(path)
 
 
 def test_validate_attr_path_accepts_nested_paths() -> None:

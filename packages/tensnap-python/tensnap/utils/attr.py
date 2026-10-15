@@ -42,7 +42,7 @@ def validate_attr_path(attr_path: str) -> bool:
     """Return whether *attr_path* is a safe dotted / indexed Python path."""
     if not isinstance(attr_path, str):
         return False
-    if not PYTHON_IDENTIFIER_PATTERN.match(attr_path):
+    if not PYTHON_IDENTIFIER_PATTERN.fullmatch(attr_path):
         return False
 
     # Validate every identifier segment, not just the first one. This rejects
@@ -66,7 +66,7 @@ def _validate_attr_path_or_raise(attr_path: str, label: str) -> None:
 
 
 def _validate_function_name_or_raise(function_name: str) -> None:
-    if not SAFE_FUNCTION_NAME_PATTERN.match(function_name):
+    if not SAFE_FUNCTION_NAME_PATTERN.fullmatch(function_name):
         raise ValueError(
             f"Invalid function name: {function_name!r}. "
             "Expected a valid Python identifier."
