@@ -16,8 +16,10 @@ from copy import deepcopy
 from enum import Enum
 from typing import Any, cast
 from uuid import uuid4
+from warnings import warn
 
 import msgpack
+from typing_extensions import deprecated
 from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State as WebSocketState
@@ -36,7 +38,7 @@ class ServerToClientMessageType(Enum):
     STATE_SYNC_BEGIN = "state_sync_begin"
     STATE_SYNC_END = "state_sync_end"
     ACTION_RESULT = "action_result"
-    # Source-compatible alias with the canonical v0.3 wire value.
+    # Deprecated: use ACTION_RESULT; this alias has the canonical v0.3 wire value.
     ACTION_END = "action_result"
     ACTION_CREATE = "action_create"
     ACTION_UPDATE = "action_update"
@@ -57,6 +59,7 @@ class ServerToClientMessageType(Enum):
     CHART_UPDATE = "chart_update"
     CHART_DELETE = "chart_delete"
     ASSET_METADATA = "asset_metadata"
+    # Deprecated: use ASSET_METADATA.
     ASSET_META = "asset_metadata"
     ASSET_DATA = "asset_data"
     ASSET_DELETE = "asset_delete"
@@ -75,6 +78,7 @@ class ClientToServerMessageType(Enum):
     STATE_SYNC = "state_sync"
     PARAM_CHANGE = "param_change"
     ACTION_INVOKE = "action_invoke"
+    # Deprecated: use ACTION_INVOKE.
     ACTION_START = "action_invoke"
     ASSET_SYNC = "asset_sync"
     SCREENSHOT_RESPONSE = "screenshot_response"
@@ -177,7 +181,7 @@ class TenSnapServer:
         self.on_action_invoke: (
             Callable[[ServerConnection, Any], Awaitable[None]] | None
         ) = None
-        # Compatibility spelling for embedding code; frames use action_invoke.
+        # Deprecated: assign on_action_invoke instead. Used only as a fallback.
         self.on_action_start: (
             Callable[[ServerConnection, Any], Awaitable[None]] | None
         ) = None
@@ -227,18 +231,40 @@ class TenSnapServer:
 
     # region Typed outgoing helpers
 
+    @deprecated("Use send_action_result() with request_id instead.")
     async def send_action_end(  # noqa: PLR0913 - Preserve public wire-helper options.
         self,
         ws: ServerConnection,
         action_id: str,
         *,
         tick_id: str | None = None,
+        continue_: bool | None = None,
+        request_id: str | None = None,
+        error: dict[str, Any] | None = None,
+        simulate_ms: float | None = None,
+    ) -> None:
+        """Deprecated spelling of send_action_result; tick_id maps to request_id."""
+        await self.send_action_result(
+            ws,
+            action_id,
+            request_id=request_id or tick_id,
+            continue_=continue_,
+            error=error,
+            simulate_ms=simulate_ms,
+        )
+
+    async def send_action_result(  # noqa: PLR0913 - Match action_result wire options.
+        self,
+        ws: ServerConnection,
+        action_id: str,
+        *,
         request_id: str | None = None,
         continue_: bool | None = None,
         error: dict[str, Any] | None = None,
         simulate_ms: float | None = None,
     ) -> None:
-        correlation_id = request_id or tick_id
+        """Flush pending scene messages, then send the correlated action result."""
+        correlation_id = request_id
         if correlation_id is None:
             raise ValueError("action_result requires request_id")
         payload: dict[str, Any] = {
@@ -486,6 +512,13 @@ class TenSnapServer:
                 and msg_type == ClientToServerMessageType.ACTION_INVOKE.value
             ):
                 handler = self.on_action_start
+                if handler is not None:
+                    warn(
+                        "on_action_start is deprecated; "
+                        "assign on_action_invoke instead.",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
             if handler is not None:
                 await handler(ws, payload)
         except Exception as e:

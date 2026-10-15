@@ -1,5 +1,5 @@
 // Package protocol defines the canonical TenSnap v0.3 wire types and constants.
-// No external dependencies. Safe to import anywhere.
+// Codec implementations are provided alongside the wire declarations.
 package protocol
 
 // #region Envelope
@@ -24,7 +24,7 @@ const (
 	TypeStateSyncBegin = "state_sync_begin"
 	TypeStateSyncEnd   = "state_sync_end"
 	TypeActionResult   = "action_result"
-	// TypeActionEnd is source-compatible only; canonical v0.3 emits action_result.
+	// Deprecated: Use TypeActionResult. This source alias emits canonical action_result.
 	TypeActionEnd          = TypeActionResult
 	TypeActionCreate       = "action_create"
 	TypeActionUpdate       = "action_update"
@@ -67,7 +67,7 @@ const (
 	TypeStateSync    = "state_sync"
 	TypeParamChange  = "param_change"
 	TypeActionInvoke = "action_invoke"
-	// TypeActionStart is source-compatible only; canonical v0.3 accepts action_invoke.
+	// Deprecated: Use TypeActionInvoke. This source alias accepts canonical action_invoke.
 	TypeActionStart        = TypeActionInvoke
 	TypeAssetSync          = "asset_sync"
 	TypeScreenshotResponse = "screenshot_response"

@@ -97,7 +97,7 @@ class TestTenSnapServer:
             ServerToClientMessageType.ITEM_UPDATE,
             {"env_id": "main", "layer_id": "agents", "items": [{"id": 1, "x": 2}]},
         )
-        await server.send_action_end(mock_client, "step", tick_id="tick-1")
+        await server.send_action_result(mock_client, "step", request_id="tick-1")
 
         sent_messages = [
             json.loads(call.args[0]) for call in mock_client.send.await_args_list
@@ -351,7 +351,8 @@ async def test_action_callback_compatibility_fallback_keeps_primary_precedence()
     server.on_action_start = AsyncMock()
     ws = AsyncMock()
     frame = json.dumps({"type": "action_invoke", "payload": {"id": "step"}})
-    await server._dispatch(ws, frame)
+    with pytest.warns(DeprecationWarning, match="on_action_invoke"):
+        await server._dispatch(ws, frame)
     server.on_action_invoke = AsyncMock()
     await server._dispatch(ws, frame)
     server.on_action_start.assert_awaited_once()
@@ -367,3 +368,14 @@ async def test_asset_publication_owns_mutable_buffers_without_integer_coercion()
     assert server._assets["owned"]["data"] == b"hello"
     with pytest.raises(TypeError):
         await server.publish_asset("invalid", 42, "application/octet-stream")
+
+
+@pytest.mark.asyncio
+async def test_legacy_action_result_helper_warns_and_preserves_wire_correlation():
+    server = TenSnapServer()
+    server.send_action_result = AsyncMock()
+    with pytest.warns(DeprecationWarning, match="send_action_result"):
+        await server.send_action_end(None, "step", tick_id="old", request_id="current")
+    server.send_action_result.assert_awaited_once_with(
+        None, "step", request_id="current", continue_=None, error=None, simulate_ms=None
+    )

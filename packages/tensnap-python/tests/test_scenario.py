@@ -753,7 +753,7 @@ class TestSimulationScenario:
 
         model = Model()
         scenario.add_actions(model)
-        scenario.server.send_action_end = AsyncMock()
+        scenario.server.send_action_result = AsyncMock()
 
         await asyncio.gather(
             scenario._on_action_invoke(object(), {"id": "slow", "request_id": "a"}),
@@ -764,7 +764,7 @@ class TestSimulationScenario:
         assert model.max_active == 1
         assert [
             call.kwargs["request_id"]
-            for call in scenario.server.send_action_end.await_args_list
+            for call in scenario.server.send_action_result.await_args_list
         ] == ["a", "b"]
 
 

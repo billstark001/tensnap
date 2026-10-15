@@ -213,5 +213,4 @@ __all__ = [
     "categorize_charts",
     "chart",
     "get_chart_metadata_from_namespace",
-    "_TENSNAP_CHART_FIELD",
 ]

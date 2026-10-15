@@ -610,10 +610,6 @@ class SimulationScenario:
             )
             await self.server.send_error(ws, f"Error setting param '{pid}': {e}")
 
-    async def _on_action_start(self, ws: Any, payload: Dict[str, Any]) -> None:
-        """Backward-compatible local hook name for the v0.3 action router."""
-        await self._on_action_invoke(ws, payload)
-
     def _resolve_action_target(
         self, action: ActionMetadata, target: Any
     ) -> Optional[Dict[str, Any]]:
@@ -729,7 +725,7 @@ class SimulationScenario:
             self._action_handlers.get(action_id) if isinstance(action_id, str) else None
         )
         if handler is None:
-            await self.server.send_action_end(
+            await self.server.send_action_result(
                 ws,
                 str(action_id),
                 request_id=request_id,
@@ -757,7 +753,7 @@ class SimulationScenario:
                 metadata, supplied_kwargs
             )
             if target_error or kwargs_error:
-                await self.server.send_action_end(
+                await self.server.send_action_result(
                     ws,
                     str(action_id),
                     request_id=request_id,
@@ -798,7 +794,7 @@ class SimulationScenario:
                     result_kwargs["simulate_ms"] = (
                         time.perf_counter() - started_at
                     ) * 1000.0
-                await self.server.send_action_end(ws, action_id, **result_kwargs)  # type: ignore[arg-type]
+                await self.server.send_action_result(ws, action_id, **result_kwargs)  # type: ignore[arg-type]
             except Exception as e:
                 logger.exception(f"Action handler error ({action_id}): {e}")
                 result_kwargs = {
@@ -809,7 +805,7 @@ class SimulationScenario:
                     result_kwargs["simulate_ms"] = (
                         time.perf_counter() - started_at
                     ) * 1000.0
-                await self.server.send_action_end(ws, str(action_id), **result_kwargs)  # type: ignore[arg-type]
+                await self.server.send_action_result(ws, str(action_id), **result_kwargs)  # type: ignore[arg-type]
 
     async def _on_scene_restore(self, ws: Any, payload: Dict[str, Any]) -> None:
         request_id = payload.get("request_id") or uuid4().hex
