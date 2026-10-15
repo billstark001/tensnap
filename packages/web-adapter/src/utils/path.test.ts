@@ -34,6 +34,10 @@ describe('path utils', () => {
   it('validates supported paths', () => {
     expect(validatePath('/projects/demo')).toBe(true);
     expect(validatePath('../secret')).toBe(false);
+    expect(validatePath('/report..draft.json')).toBe(true);
+    for (const path of ['/a/../b', '/a/./b', 'a\\..\\b', '/nul\0name', '']) {
+      expect(validatePath(path)).toBe(false);
+    }
   });
 
   it('produces the same checksum for equivalent text content', () => {

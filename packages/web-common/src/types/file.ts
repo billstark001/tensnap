@@ -65,12 +65,13 @@ export abstract class FileSystemAdapter {
   abstract initialize(): Promise<void>;
   abstract cleanup(): Promise<void>;
 
-  // Essential file operations
+  /** Persist content and metadata independently of subsequent caller mutations. */
   abstract writeFile(
     path: string,
     content: ArrayBuffer | string,
     metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
   ): Promise<FileContent>;
+  /** Return detached content/metadata, or null when the file is absent. */
   abstract readFile(path: string): Promise<FileContent | null>;
   abstract deleteFile(path: string): Promise<void>;
 
@@ -78,7 +79,7 @@ export abstract class FileSystemAdapter {
   abstract createDirectory(path: string, allowExist?: boolean): Promise<DirectoryMetadata>;
   abstract deleteDirectory(path: string, recursive?: boolean): Promise<void>;
 
-  // Unified list operation - lists all entries (files and directories) in a path
+  /** Return detached metadata for the immediate files and directories in a path. */
   abstract list(path: string): Promise<DirectoryEntry[]>;
 
   // Essential stat operations

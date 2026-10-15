@@ -58,6 +58,49 @@ export function runFileSystemAdapterContractSuite(
         expect(Array.from(readArray)).toEqual([1, 2, 3, 4, 5]);
       });
 
+      it('owns persisted bytes and metadata independently of callers', async () => {
+        const bytes = new Uint8Array([1, 2, 3]);
+        const tags = ['original'];
+        const written = await adapter.writeFile('/owned.bin', bytes.buffer, { tags });
+        bytes[0] = 9;
+        tags.push('external');
+        written.metadata.tags?.push('returned');
+        written.metadata.createdAt.setFullYear(1900);
+        new Uint8Array(written.content as ArrayBuffer)[1] = 9;
+        const first = (await adapter.readFile('/owned.bin'))!;
+        expect(Array.from(new Uint8Array(first.content as ArrayBuffer))).toEqual([1, 2, 3]);
+        expect(first.metadata.tags).toEqual(['original']);
+        expect(first.metadata.createdAt.getFullYear()).not.toBe(1900);
+        first.metadata.name = 'changed';
+        new Uint8Array(first.content as ArrayBuffer)[2] = 9;
+        const second = (await adapter.readFile('/owned.bin'))!;
+        expect(second.metadata.name).toBe('owned.bin');
+        expect(Array.from(new Uint8Array(second.content as ArrayBuffer))).toEqual([1, 2, 3]);
+        expect(second.checksum).toBe(first.checksum);
+        const entries = await adapter.list('/');
+        entries.find((entry) => entry.path === '/owned.bin')!.tags!.push('listed');
+        expect((await adapter.readFile('/owned.bin'))!.metadata.tags).toEqual(['original']);
+      });
+
+      it('keeps file and directory paths mutually exclusive', async () => {
+        await adapter.createDirectory('/folder');
+        await expect(adapter.writeFile('/folder', 'data')).rejects.toMatchObject({
+          code: 'INVALID_OPERATION',
+        });
+        await expect(adapter.writeFile('/', 'data')).rejects.toMatchObject({
+          code: 'INVALID_OPERATION',
+        });
+        await adapter.writeFile('/file', 'data');
+        await expect(adapter.createDirectory('/file', true)).rejects.toMatchObject({
+          code: 'PATH_EXISTS',
+        });
+        await expect(adapter.writeFile('/file/child', 'data')).rejects.toMatchObject({
+          code: 'INVALID_OPERATION',
+        });
+        expect(await adapter.directoryExists('/file')).toBe(false);
+        expect((await adapter.readFile('/file'))!.content).toBe('data');
+      });
+
       it('should delete a file', async () => {
         await adapter.writeFile('/test.txt', 'content');
         expect(await adapter.fileExists('/test.txt')).toBe(true);
@@ -92,6 +135,24 @@ export function runFileSystemAdapterContractSuite(
         await adapter.deleteDirectory('/testdir', true);
 
         expect(await adapter.directoryExists('/testdir')).toBe(false);
+      });
+
+      it('deletes only descendants across nested directories and shared name prefixes', async () => {
+        await adapter.writeFile('/tree/a/b/c/file.txt', 'inside');
+        await adapter.writeFile('/tree-also/file.txt', 'outside');
+        await adapter.deleteDirectory('/tree', true);
+        expect(await adapter.directoryExists('/tree/a/b/c')).toBe(false);
+        expect(await adapter.fileExists('/tree/a/b/c/file.txt')).toBe(false);
+        expect((await adapter.readFile('/tree-also/file.txt'))!.content).toBe('outside');
+      });
+
+      it('returns detached directory metadata', async () => {
+        const created = await adapter.createDirectory('/folder');
+        created.name = 'changed';
+        created.createdAt.setFullYear(1900);
+        const read = await adapter.createDirectory('/folder', true);
+        expect(read.name).toBe('folder');
+        expect(read.createdAt.getFullYear()).not.toBe(1900);
       });
 
       it('should throw error when deleting non-empty directory without recursive flag', async () => {

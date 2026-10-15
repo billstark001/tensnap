@@ -1,3 +1,4 @@
+import { FileSystemError } from './file-system-error';
 import LightningFS from '@isomorphic-git/lightning-fs';
 import * as PathUtils from '../utils/path';
 import {
@@ -9,25 +10,6 @@ import {
   type FileSystemError as FileSystemErrorType,
   FileSystemAdapter,
 } from '@tensnap/web-common/types/file';
-
-class FileSystemError extends Error {
-  public code: FileSystemErrorType['code'];
-  public path?: string;
-  public operation?: string;
-
-  constructor(
-    message: string,
-    code: FileSystemErrorType['code'],
-    path?: string,
-    operation?: string,
-  ) {
-    super(message);
-    this.name = 'FileSystemError';
-    this.code = code;
-    this.path = path;
-    this.operation = operation;
-  }
-}
 
 type ContentType = 'text' | 'binary';
 
@@ -227,7 +209,7 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       mimeType: persisted?.mimeType ?? inferMimeType(path),
       createdAt,
       modifiedAt,
-      tags: persisted?.tags,
+      tags: persisted?.tags?.slice(),
       description: persisted?.description,
     };
   }
@@ -292,6 +274,13 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
       if (await this.directoryExists(currentPath)) {
         continue;
       }
+      if (await this.fileExists(currentPath)) {
+        throw new FileSystemError(
+          'A file blocks the directory path',
+          'INVALID_OPERATION',
+          currentPath,
+        );
+      }
       await this.fsPromises.mkdir(currentPath);
       this.metadata.directories[currentPath] = {
         createdAt: this.metadata.directories[currentPath]?.createdAt ?? new Date().toISOString(),
@@ -355,6 +344,9 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     content: ArrayBuffer | string,
     metadata?: Partial<Omit<FileMetadata, 'path' | 'parentPath' | 'createdAt' | 'modifiedAt'>>,
   ): Promise<FileContent> {
+    // Capture caller-owned inputs before the first asynchronous filesystem step.
+    const ownedContent = typeof content === 'string' ? content : content.slice(0);
+    const ownedMetadata = metadata && { ...metadata, tags: metadata.tags?.slice() };
     return this.safeExecute(
       async () => {
         if (!PathUtils.validatePath(path)) {
@@ -369,17 +361,18 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
         }
 
         const existingCreatedAt = this.metadata.files[normalizedPath]?.createdAt;
-        const contentType: ContentType = typeof content === 'string' ? 'text' : 'binary';
-        const writable = typeof content === 'string' ? content : new Uint8Array(content);
+        const contentType: ContentType = typeof ownedContent === 'string' ? 'text' : 'binary';
+        const writable =
+          typeof ownedContent === 'string' ? ownedContent : new Uint8Array(ownedContent);
 
         await this.fsPromises.writeFile(normalizedPath, writable);
         const stat = await this.fsPromises.stat(normalizedPath);
 
         this.metadata.files[normalizedPath] = {
           createdAt: existingCreatedAt ?? new Date().toISOString(),
-          mimeType: metadata?.mimeType || inferMimeType(normalizedPath),
-          tags: metadata?.tags,
-          description: metadata?.description,
+          mimeType: ownedMetadata?.mimeType || inferMimeType(normalizedPath),
+          tags: ownedMetadata?.tags,
+          description: ownedMetadata?.description,
           contentType,
         };
         await this.persistMetadata();

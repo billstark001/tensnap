@@ -1,3 +1,4 @@
+import { FileSystemError } from './file-system-error';
 import * as PathUtils from '../utils/path';
 import {
   type FileMetadata,
@@ -5,35 +6,15 @@ import {
   type DirectoryMetadata,
   type DirectoryEntry,
   type FileSystemStats,
-  type FileSystemError as FileSystemErrorType,
   FileSystemAdapter,
 } from '@tensnap/web-common/types/file';
-
-class FileSystemError extends Error {
-  public code: FileSystemErrorType['code'];
-  public path?: string;
-  public operation?: string;
-
-  constructor(
-    message: string,
-    code: FileSystemErrorType['code'],
-    path?: string,
-    operation?: string,
-  ) {
-    super(message);
-    this.name = 'FileSystemError';
-    this.code = code;
-    this.path = path;
-    this.operation = operation;
-  }
-}
 
 export class MemoryFileSystemAdapter extends FileSystemAdapter {
   private files = new Map<string, FileContent>();
   private directories = new Map<string, DirectoryMetadata>();
   private initialized = false;
 
-  private async ensureDirectoryChain(path: string): Promise<void> {
+  private ensureDirectoryChain(path: string): void {
     const normalizedPath = PathUtils.normalizePath(path);
     if (!normalizedPath || normalizedPath === '/') {
       return;
@@ -44,6 +25,13 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     for (const component of components) {
       currentPath = currentPath ? `${currentPath}/${component}` : `/${component}`;
+      if (this.files.has(currentPath)) {
+        throw new FileSystemError(
+          'A file blocks the directory path',
+          'INVALID_OPERATION',
+          currentPath,
+        );
+      }
       if (this.directories.has(currentPath)) {
         continue;
       }
@@ -93,11 +81,14 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     const normalizedPath = PathUtils.normalizePath(path);
     const parentPath = PathUtils.getParentPath(normalizedPath);
+    if (this.directories.has(normalizedPath)) {
+      throw new FileSystemError('Cannot write a file over a directory', 'INVALID_OPERATION', path);
+    }
     const fileName = normalizedPath.split('/').pop() || '';
 
     // Ensure parent directory exists
-    if (parentPath && parentPath !== '/' && !(await this.directoryExists(parentPath))) {
-      await this.ensureDirectoryChain(parentPath);
+    if (parentPath && parentPath !== '/' && !this.directories.has(parentPath)) {
+      this.ensureDirectoryChain(parentPath);
     }
 
     const now = new Date();
@@ -125,13 +116,14 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       checksum,
     };
 
-    this.files.set(normalizedPath, file);
+    this.files.set(normalizedPath, structuredClone(file));
     return file;
   }
 
   async readFile(path: string): Promise<FileContent | null> {
     const normalizedPath = PathUtils.normalizePath(path);
-    return this.files.get(normalizedPath) || null;
+    const file = this.files.get(normalizedPath);
+    return file ? structuredClone(file) : null;
   }
 
   async deleteFile(path: string): Promise<void> {
@@ -157,9 +149,12 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     const normalizedPath = PathUtils.normalizePath(path);
 
-    if (await this.directoryExists(normalizedPath)) {
+    if (this.files.has(normalizedPath)) {
+      throw new FileSystemError('A file already exists at this path', 'PATH_EXISTS', path);
+    }
+    if (this.directories.has(normalizedPath)) {
       if (allowExist) {
-        return this.directories.get(normalizedPath)!;
+        return structuredClone(this.directories.get(normalizedPath)!);
       }
       throw new FileSystemError(
         `Directory already exists at ${normalizedPath}`,
@@ -170,8 +165,8 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
     // Ensure parent directory exists
     const parentPath = PathUtils.getParentPath(normalizedPath);
-    if (parentPath && parentPath !== '/' && !(await this.directoryExists(parentPath))) {
-      await this.ensureDirectoryChain(parentPath);
+    if (parentPath && parentPath !== '/' && !this.directories.has(parentPath)) {
+      this.ensureDirectoryChain(parentPath);
     }
 
     const now = new Date();
@@ -185,7 +180,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       modifiedAt: now,
     };
 
-    this.directories.set(normalizedPath, directory);
+    this.directories.set(normalizedPath, structuredClone(directory));
     return directory;
   }
 
@@ -201,21 +196,23 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       throw new FileSystemError('Cannot delete root directory', 'INVALID_OPERATION', path);
     }
 
+    const prefix = `${normalizedPath}/`;
     if (recursive) {
-      // Delete all subdirectories and files
-      const contents = await this.list(normalizedPath);
-      for (const entry of contents) {
-        if (entry.type === 'file') {
-          await this.deleteFile(entry.path);
-        } else {
-          await this.deleteDirectory(entry.path, true);
-        }
+      // Scan each map once: walking and listing every nested directory repeatedly
+      // scans the whole filesystem and becomes quadratic for deep directory trees.
+      for (const filePath of this.files.keys()) {
+        if (filePath.startsWith(prefix)) this.files.delete(filePath);
+      }
+      for (const directoryPath of this.directories.keys()) {
+        if (directoryPath.startsWith(prefix)) this.directories.delete(directoryPath);
       }
     } else {
-      // Check if directory is empty
-      const contents = await this.list(normalizedPath);
-      if (contents.length > 0) {
-        throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
+      for (const entries of [this.files, this.directories]) {
+        for (const entryPath of entries.keys()) {
+          if (entryPath.startsWith(prefix)) {
+            throw new FileSystemError('Directory is not empty', 'INVALID_OPERATION', path);
+          }
+        }
       }
     }
 
@@ -238,7 +235,7 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
       ...files.map((file) => ({ type: 'file' as const, ...file })),
     ];
 
-    return entries;
+    return structuredClone(entries);
   }
 
   async directoryExists(path: string): Promise<boolean> {
@@ -248,18 +245,12 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
 
   // File system operations
   async getStats(): Promise<FileSystemStats> {
-    const files = Array.from(this.files.values());
-    const directories = Array.from(this.directories.values());
-
-    const totalSize = files.reduce((sum, file) => {
-      const size =
-        typeof file.content === 'string' ? new Blob([file.content]).size : file.content.byteLength;
-      return sum + size;
-    }, 0);
+    let totalSize = 0;
+    for (const file of this.files.values()) totalSize += file.metadata.size;
 
     return {
-      totalFiles: files.length,
-      totalDirectories: directories.length - 1, // Exclude root
+      totalFiles: this.files.size,
+      totalDirectories: Math.max(0, this.directories.size - 1), // Exclude root
       totalSize,
       storageQuota: undefined, // Memory has no quota
       storageUsed: totalSize,

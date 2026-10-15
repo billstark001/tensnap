@@ -12,11 +12,11 @@ export function normalizePath(path: string): string {
   return normalized || '/';
 }
 
+/** Reject traversal segments while allowing ordinary names such as report..draft.json. */
 export function validatePath(path: string): boolean {
   if (!path || typeof path !== 'string') return false;
-  if (path.includes('..')) return false;
   if (path.includes('\0')) return false;
-  return true;
+  return !path.split(/[\\/]+/).some((segment) => segment === '.' || segment === '..');
 }
 
 export function getParentPath(path: string): string {
