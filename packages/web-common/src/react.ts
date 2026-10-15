@@ -1,17 +1,19 @@
 import { DialogProps } from '@radix-ui/react-dialog';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 /**
- * Return a callback that invokes the latest implementation; its identity follows deps.
+ * Return a stable event callback that invokes the latest committed implementation.
+ * Call it from events or effects, never while rendering; render component types directly.
  */
 export function useCallbackRef<T extends (...args: any[]) => any>(
   callback: T | undefined | null,
-  deps: React.DependencyList = [],
 ): T {
   const ref = useRef(callback);
-  ref.current = callback;
+  useLayoutEffect(() => {
+    ref.current = callback;
+  });
 
-  return useCallback(((...args) => ref.current?.(...args)) as T, deps);
+  return useCallback((...args: Parameters<T>) => ref.current?.(...args), []) as T;
 }
 
 export type DialogOpenProps = Pick<DialogProps, 'open' | 'onOpenChange'>;
@@ -131,15 +133,14 @@ function useDelayed<T extends (...args: any[]) => any, R>(
   delay: number,
   createFn: (fn: T, delay: number) => R & { cancel: () => void },
 ): R {
-  const callbackRef = useRef(callback);
-  callbackRef.current = callback;
+  const committedCallback = useCallbackRef(callback);
 
   const delayed = useMemo(
-    () => createFn(((...args) => callbackRef.current(...args)) as T, delay),
-    [delay],
+    () => createFn(committedCallback, delay),
+    [committedCallback, createFn, delay],
   );
 
-  useEffect(() => () => delayed.cancel(), [delayed]);
+  useLayoutEffect(() => () => delayed.cancel(), [delayed]);
 
   return delayed;
 }

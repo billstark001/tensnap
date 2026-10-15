@@ -27,6 +27,8 @@ const NaiveRenderer = (props: PropsWithChildren<object>) => {
   return <>{props.children}</>;
 };
 
+const defaultIsRunning = () => false;
+
 export default function ViewRoot({
   view: rootView,
   updateTrigger,
@@ -39,14 +41,12 @@ export default function ViewRoot({
   ViewContextMenuRenderer: _ViewContextMenuRenderer,
 }: ViewRendererProps) {
   const onButtonAction = useCallbackRef(_onButtonAction ?? (() => void 0));
-  const isRunning = useCallbackRef(_isRunning ?? (() => false));
+  const isRunning = _isRunning ?? defaultIsRunning;
   const onViewUpdate = useCallbackRef(_onViewUpdate ?? (() => void 0));
   const onViewCreateRequest = useCallbackRef(_onViewCreateRequest ?? (() => void 0));
 
-  const AnchoredViewRenderer = useCallbackRef(_AnchoredViewRenderer ?? (NaiveRenderer as any));
-  const ViewContextMenuRenderer = useCallbackRef(
-    _ViewContextMenuRenderer ?? (NaiveRenderer as any),
-  );
+  const AnchoredViewRenderer = _AnchoredViewRenderer ?? NaiveRenderer;
+  const ViewContextMenuRenderer = _ViewContextMenuRenderer ?? NaiveRenderer;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
