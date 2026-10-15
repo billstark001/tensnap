@@ -1,13 +1,18 @@
 {
   "name": "@tensnap/js",
   "version": "0.3.2",
-  "type": "module",
   "description": "JavaScript bindings and postMessage transport primitives for TenSnap",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/billstark001/tensnap.git",
     "directory": "packages/tensnap-js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -15,23 +20,10 @@
     "./bindings": "./src/bindings/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./scenario": "./src/scenario/index.ts",
-    "./transport": "./src/transport/index.ts"
-  },
-  "files": [
-    "dist",
-    "README.md"
-  ],
-  "scripts": {
-    "build": "node ./scripts/build.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "pnpm run typecheck",
-    "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
-    "clean": "rm -rf dist node_modules"
+    "./transport": "./src/transport/index.ts",
+    "./transport/browser": "./src/transport/browser.ts"
   },
   "publishConfig": {
-    "access": "public",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
@@ -54,16 +46,27 @@
       "./transport": {
         "types": "./dist/transport/index.d.ts",
         "import": "./dist/transport/index.js"
+      },
+      "./transport/browser": {
+        "types": "./dist/transport/browser.d.ts",
+        "import": "./dist/transport/browser.js"
       }
-    }
+    },
+    "access": "public"
   },
-  "license": "MIT",
-  "engines": {
-    "node": ">=18.0.0"
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm run typecheck",
+    "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
+    "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
     "@tensnap/protocol": "workspace:*",
     "@types/ws": "^8.18.2",
+    "dequal": "^2.0.3",
     "ws": "^8.22.0"
   },
   "devDependencies": {
@@ -71,5 +74,8 @@
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

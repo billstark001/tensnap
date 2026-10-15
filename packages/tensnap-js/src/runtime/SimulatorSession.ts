@@ -84,8 +84,11 @@ export class SimulatorSession {
       this.detach();
       return;
     }
-    await this.handlers.onDisconnect?.(this);
-    this.detach();
+    try {
+      await this.handlers.onDisconnect?.(this);
+    } finally {
+      this.detach();
+    }
   }
 
   async dispatch(message: RendererToSimulatorMessage): Promise<void> {

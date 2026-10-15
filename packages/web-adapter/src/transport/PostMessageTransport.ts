@@ -11,7 +11,7 @@ import {
   type PostMessageEndpoint,
   type PostMessageEnvelope,
   type PostMessageSimulatorHost,
-} from '@tensnap/js/transport';
+} from '@tensnap/js/transport/browser';
 
 export interface PostMessageTransportOptions {
   endpoint: PostMessageEndpoint;
@@ -25,6 +25,7 @@ export class PostMessageTransport implements ISimulatorTransport {
 
   private state: TransportConnectionState = 'closed';
   private destroyed = false;
+  private pendingConnect: Promise<void> | null = null;
   private readonly handlers = new Map<keyof TransportEventMap, Set<TransportEventHandler<any>>>();
   private readonly endpoint: PostMessageEndpoint;
   private readonly messageListener = (message: unknown) => {
@@ -40,9 +41,8 @@ export class PostMessageTransport implements ISimulatorTransport {
     if (this.destroyed) {
       throw new Error('Transport destroyed');
     }
-    if (this.state === 'open' || this.state === 'connecting') {
-      return;
-    }
+    if (this.state === 'open') return;
+    if (this.pendingConnect) return this.pendingConnect;
     if (signal?.aborted) {
       throw new Error('Connection aborted');
     }
@@ -51,7 +51,7 @@ export class PostMessageTransport implements ISimulatorTransport {
     this.endpoint.addMessageListener(this.messageListener);
     this.state = 'connecting';
 
-    await new Promise<void>((resolve, reject) => {
+    const pending = new Promise<void>((resolve, reject) => {
       const abort = () => {
         cleanup();
         this.state = 'closed';
@@ -71,22 +71,36 @@ export class PostMessageTransport implements ISimulatorTransport {
         reject(error instanceof Error ? error : new Error(String(error)));
       };
 
+      const onClose = () => onError(new Error('Connection closed before opening'));
+
       const cleanup = () => {
         signal?.removeEventListener('abort', abort);
         this.off('open', onOpen);
         this.off('error', onError);
+        this.off('close', onClose);
       };
 
       signal?.addEventListener('abort', abort, { once: true });
       this.on('open', onOpen);
       this.on('error', onError);
-      this.endpoint.postMessage({
-        source: '@tensnap/js',
-        protocol: 'postmessage/v1',
-        kind: 'connect',
-        connectionId: this.connectionId,
-      } satisfies PostMessageEnvelope);
+      this.on('close', onClose);
+      try {
+        this.endpoint.postMessage({
+          source: '@tensnap/js',
+          protocol: 'postmessage/v1',
+          kind: 'connect',
+          connectionId: this.connectionId,
+        } satisfies PostMessageEnvelope);
+      } catch (error) {
+        onError(error);
+      }
     });
+    this.pendingConnect = pending;
+    try {
+      await pending;
+    } finally {
+      if (this.pendingConnect === pending) this.pendingConnect = null;
+    }
   }
 
   disconnect(): void {
@@ -95,26 +109,33 @@ export class PostMessageTransport implements ISimulatorTransport {
     }
 
     this.state = 'closing';
-    this.endpoint.postMessage({
-      source: '@tensnap/js',
-      protocol: 'postmessage/v1',
-      kind: 'disconnect',
-      connectionId: this.connectionId,
-    } satisfies PostMessageEnvelope);
-    this.state = 'closed';
-    this.emit('close', undefined);
-    this.endpoint.removeMessageListener(this.messageListener);
+    this.pendingConnect = null;
+    try {
+      this.endpoint.postMessage({
+        source: '@tensnap/js',
+        protocol: 'postmessage/v1',
+        kind: 'disconnect',
+        connectionId: this.connectionId,
+      } satisfies PostMessageEnvelope);
+    } finally {
+      this.state = 'closed';
+      this.endpoint.removeMessageListener(this.messageListener);
+      this.emit('close', undefined);
+    }
   }
 
   destroy(): void {
     if (this.destroyed) {
       return;
     }
-    this.disconnect();
-    this.destroyed = true;
-    this.state = 'destroyed';
-    this.handlers.clear();
-    this.endpoint.close?.();
+    try {
+      this.disconnect();
+    } finally {
+      this.destroyed = true;
+      this.state = 'destroyed';
+      this.handlers.clear();
+      this.endpoint.close?.();
+    }
   }
 
   on<K extends keyof TransportEventMap>(
@@ -169,6 +190,7 @@ export class PostMessageTransport implements ISimulatorTransport {
   }
 
   private handleEnvelope(message: unknown): void {
+    if (this.destroyed || this.state === 'closed' || this.state === 'closing') return;
     if (!isPostMessageEnvelope(message)) {
       return;
     }
@@ -178,6 +200,7 @@ export class PostMessageTransport implements ISimulatorTransport {
 
     switch (message.kind) {
       case 'connected':
+        if (this.state !== 'connecting') return;
         this.state = 'open';
         this.emit('open', undefined);
         return;
@@ -189,6 +212,7 @@ export class PostMessageTransport implements ISimulatorTransport {
         return;
       case 'disconnect':
         this.state = 'closed';
+        this.endpoint.removeMessageListener(this.messageListener);
         this.emit('close', undefined);
         return;
       default:

@@ -29,6 +29,7 @@ function createEndpoint(target: PortLike): PostMessageEndpoint {
       target.postMessage(message, transfer);
     },
     addMessageListener(listener) {
+      if (listenerMap.has(listener)) return;
       const wrapped: EndpointMessageListener = (event) => {
         listener(event.data);
       };
@@ -48,10 +49,12 @@ function createEndpoint(target: PortLike): PostMessageEndpoint {
   };
 }
 
+/** Adapt a port with Set-like listener identity; the caller owns its lifetime. */
 export function adaptMessagePort(port: MessagePort): PostMessageEndpoint {
   return createEndpoint(port);
 }
 
+/** Adapt a worker with Set-like listener identity; removing a listener is idempotent. */
 export function adaptWorker(worker: Worker): PostMessageEndpoint {
   return createEndpoint(worker);
 }

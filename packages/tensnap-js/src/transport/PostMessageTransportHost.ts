@@ -39,8 +39,11 @@ export class PostMessageSimulatorHost {
 
     this.destroyed = true;
     this.endpoint.removeMessageListener(this.messageListener);
-    await this.session.close();
-    this.endpoint.close?.();
+    try {
+      await this.session.close();
+    } finally {
+      this.endpoint.close?.();
+    }
   }
 
   private async handleEnvelope(message: unknown): Promise<void> {
@@ -48,7 +51,10 @@ export class PostMessageSimulatorHost {
       return;
     }
 
-    if (message.connectionId && message.connectionId !== this.connectionId) {
+    // The renderer chooses the negotiated peer ID during connect. The host's
+    // generated fallback ID need not match it on independently created endpoints.
+    const activeConnectionId = this.session.connectionId ?? this.connectionId;
+    if (message.connectionId && message.connectionId !== activeConnectionId) {
       if (message.kind !== 'connect') {
         return;
       }
@@ -73,7 +79,7 @@ export class PostMessageSimulatorHost {
         source: '@tensnap/js',
         protocol: 'postmessage/v1',
         kind: 'error',
-        connectionId: this.connectionId,
+        connectionId: message.connectionId ?? activeConnectionId,
         error: {
           message: error instanceof Error ? error.message : String(error),
         },

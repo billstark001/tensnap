@@ -17,6 +17,7 @@ const entryPoints = [
   'src/runtime/index.ts',
   'src/scenario/index.ts',
   'src/transport/index.ts',
+  'src/transport/browser.ts',
 ];
 
 rmSync(DIST, { recursive: true, force: true });

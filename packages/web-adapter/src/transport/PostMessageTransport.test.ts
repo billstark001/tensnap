@@ -11,7 +11,7 @@ import {
 } from '@tensnap/js/bindings';
 import { SimulatorSession } from '@tensnap/js/runtime';
 import { createPostMessageSimulatorHost } from '@tensnap/js/transport';
-import { createLinkedEndpoints } from './endpoints';
+import { createLinkedEndpoints } from '@tensnap/js/transport/browser';
 import { InMemoryTransport } from './InMemoryTransport';
 import { createPostMessageTransport } from './PostMessageTransport';
 
