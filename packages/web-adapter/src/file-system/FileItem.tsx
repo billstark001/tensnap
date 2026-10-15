@@ -38,7 +38,6 @@ export const FileItem: React.FC<FileItemProps> = ({
     }
   }, [entry, onItemDoubleClick]);
 
-  // 格式化详情信息
   const detailsText =
     entry.type === 'file'
       ? `${formatFileSize(entry.size)} • ${formatDate(entry.modifiedAt)}`

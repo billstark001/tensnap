@@ -10,10 +10,10 @@ import { FilePickerProvider } from './FilePickerProvider';
 import { FilePickerBridge } from './FilePickerBridge';
 
 /**
- * InBrowserFilePicker: 在浏览器环境中实现的文件选择器
+ * Browser file picker with an independently mounted React root.
  *
- * 这个类创建一个隐藏的 React 根节点来渲染 FilePickerProvider，
- * 从而在非 React 应用或需要独立文件选择器的场景中使用。
+ * Mounts FilePickerProvider into the supplied root element so callers can use
+ * the picker outside an existing React application.
  */
 export class InBrowserFilePicker extends FileSystemPicker {
   private rootElement: HTMLElement;
@@ -42,7 +42,6 @@ export class InBrowserFilePicker extends FileSystemPicker {
 
     const { rootElement, fileSystem, Wrapper } = this;
 
-    // 创建 React 组件树
     const children = (
       <FilePickerProvider fileSystem={fileSystem}>
         <FilePickerBridge
@@ -55,13 +54,11 @@ export class InBrowserFilePicker extends FileSystemPicker {
 
     const rootNode = Wrapper ? <Wrapper>{children}</Wrapper> : children;
 
-    // 创建并渲染 React 根节点
     this.reactRootNode = ReactDOM.createRoot(rootElement);
     this.reactRootNode.render(rootNode);
 
     this.isInitialized = true;
 
-    // 等待一个 tick 确保 React 组件已渲染
     await Promise.resolve();
   }
 

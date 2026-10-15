@@ -40,7 +40,7 @@ import type { EnvironmentViewFitMode } from '../host';
 import { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';
 import { Viewport } from '../types';
 
-// ── LOD pixel-step thresholds ─────────────────────────────────────────────────
+// #region LOD pixel-step thresholds
 
 /** Minimum pixel-step to show the finest grid level. */
 const THRESHOLD_FINE = 10;
@@ -48,7 +48,9 @@ const THRESHOLD_FINE = 10;
 /** Absolute minimum pixel-step below which no lines are drawn. */
 const THRESHOLD_ANY = 2;
 
-// ── Per-level visual constants (index 0 = finest, 2 = coarsest) ─────────────
+// #endregion
+
+// #region Per-level visual constants (index 0 = finest, 2 = coarsest)
 
 /** Hex-alpha suffixes appended to the base stroke color. */
 const LEVEL_ALPHAS = ['66', '99', 'cc'] as const;
@@ -60,13 +62,17 @@ const LEVEL_WEIGHTS_PX = [0.6, 1.0, 1.5] as const;
 const VIEWPORT_MARGIN_FACTOR = 0.05;
 const MAX_GRID_LINES_PER_LEVEL = 10_000;
 
-// ── Exported interfaces ───────────────────────────────────────────────────────
+// #endregion
+
+// #region Exported interfaces
 
 export interface GridLayerConfig {
   // Reserved for future per-layer visual overrides.
 }
 
-// ── GridLayer ─────────────────────────────────────────────────────────────────
+// #endregion
+
+// #region GridLayer
 
 /** Infinite grid renderer with bounded line counts at each visible detail level. */
 export class GridLayer extends BaseLayer {
@@ -124,7 +130,9 @@ export class GridLayer extends BaseLayer {
     return levels;
   }
 
-  // ── Rebuild ─────────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Rebuild
 
   private _rebuild(): void {
     this.group.clear();
@@ -174,7 +182,7 @@ export class GridLayer extends BaseLayer {
     const horizontalMargin = Math.max(viewW * VIEWPORT_MARGIN_FACTOR, xUnit * xInterval);
     const verticalMargin = Math.max(viewH * VIEWPORT_MARGIN_FACTOR, yUnit * yInterval);
 
-    // ── Vertical lines (X axis) ──────────────────────────────────────────────
+    // #region Vertical lines (X axis)
     const xLevels = this._selectLevels(xUnit, xInterval, xRatio, scale.scaleX);
     this._drawLines(
       xLevels,
@@ -191,7 +199,9 @@ export class GridLayer extends BaseLayer {
       scale.scaleX,
     );
 
-    // ── Horizontal lines (Y axis) ────────────────────────────────────────────
+    // #endregion
+
+    // #region Horizontal lines (Y axis)
     const yLevels = this._selectLevels(yUnit, yInterval, yRatio, scale.scaleY);
     this._drawLines(
       yLevels,
@@ -207,9 +217,12 @@ export class GridLayer extends BaseLayer {
       strokeColor,
       scale.scaleY,
     );
+    // #endregion
   }
 
-  // ── Line drawing ────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Line drawing
 
   /**
    * Draw lines for all selected LOD levels on one axis.
@@ -284,7 +297,9 @@ export class GridLayer extends BaseLayer {
     }
   }
 
-  // ── Color helper ────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Color helper
 
   /**
    * Append (or replace) a 2-char hex alpha suffix on a CSS color string.
@@ -298,3 +313,5 @@ export class GridLayer extends BaseLayer {
 
   // #endregion
 }
+
+// #endregion

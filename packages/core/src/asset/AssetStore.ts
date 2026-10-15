@@ -26,9 +26,7 @@ import {
 } from '@tensnap/protocol';
 import type { AssetSnapshot, AssetStoreListener, ResolvedAsset } from './types';
 
-// ---------------------------------------------------------------------------
-// AssetStore
-// ---------------------------------------------------------------------------
+// #region AssetStore
 
 export class AssetStore {
   /** Known metadata (including assets whose data hasn't arrived yet). */
@@ -42,9 +40,7 @@ export class AssetStore {
   /** Listeners notified on any change. */
   private readonly _listeners = new Set<AssetStoreListener>();
 
-  // -------------------------------------------------------------------------
-  // Subscription
-  // -------------------------------------------------------------------------
+  // #region Subscription
 
   subscribe(listener: AssetStoreListener): () => void {
     this._listeners.add(listener);
@@ -55,16 +51,16 @@ export class AssetStore {
     for (const l of this._listeners) l(id, asset);
   }
 
-  // -------------------------------------------------------------------------
-  // Metadata
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Metadata
 
   /**
    * Record asset metadata.  If the asset was previously resolved with the same
-   * hash we keep the existing resolved data.  If the hash differs the old
-   * resolved entry is invalidated so callers will re-request.
+   * hash and MIME type we keep the resolved data. Otherwise the old resolved
+   * entry is invalidated so callers will re-request it.
    *
-   * @returns true if new data is needed (asset is missing or hash changed)
+   * @returns true if data is missing, its hash changed, or its MIME type changed
    */
   receiveMeta(meta: AssetMeta): boolean {
     this._announced.add(meta.id);
@@ -106,9 +102,9 @@ export class AssetStore {
     return result;
   }
 
-  // -------------------------------------------------------------------------
-  // Data
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Data
 
   /**
    * Receive raw asset data from the server and resolve it.
@@ -168,9 +164,9 @@ export class AssetStore {
     this._notify(id, resolved);
   }
 
-  // -------------------------------------------------------------------------
-  // Deletion
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Deletion
 
   delete(id: AssetId): void {
     this._revokeBlobUrl(id);
@@ -188,9 +184,9 @@ export class AssetStore {
     this.deleteBatch([...this._meta.keys()]);
   }
 
-  // -------------------------------------------------------------------------
-  // Read
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Read
 
   get(id: AssetId): ResolvedAsset | undefined {
     return this._resolved.get(id);
@@ -239,18 +235,18 @@ export class AssetStore {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Cleanup
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Cleanup
 
   destroy(): void {
     this.clear();
     this._listeners.clear();
   }
 
-  // -------------------------------------------------------------------------
-  // Private helpers
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Private helpers
 
   private _revokeBlobUrl(id: AssetId): void {
     const url = this._blobUrls.get(id);
@@ -259,4 +255,7 @@ export class AssetStore {
       this._blobUrls.delete(id);
     }
   }
+  // #endregion
 }
+
+// #endregion

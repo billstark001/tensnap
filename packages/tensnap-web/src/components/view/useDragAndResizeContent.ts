@@ -86,7 +86,6 @@ const getCalibratedCoordinates = (
   return ret;
 };
 
-// 提取拖拽指南线逻辑
 export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
   const matcherRef = useRef<GuideLineMatcher | null>(null);
 
@@ -125,7 +124,7 @@ export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
             : null;
         return { guidelines, snap };
       } else {
-        // Drag 模式：snapX 和 snapY 是 left 和 top
+        // In drag mode, snapX and snapY represent the left and top coordinates.
         const snap =
           snapX != null || snapY != null
             ? {
@@ -147,7 +146,6 @@ export function useDragGuidelines(mode: 'drag' | 'resize' = 'drag') {
   return { initMatcher, updateViews, match, clear };
 }
 
-// 提取拖拽状态管理
 export function useDragState() {
   const [state, setState] = useState<DragState>({
     content: null,
@@ -174,7 +172,6 @@ export function useDragState() {
   return { state, updateState, clearState };
 }
 
-// 提取 resize 状态管理
 export function useResizeState() {
   const [state, setState] = useState<ResizeState>({
     content: null,
@@ -356,7 +353,6 @@ export function useDragContent({
   };
 }
 
-// Resize 功能
 export function useResizeContent({
   rootView,
   onViewUpdate,

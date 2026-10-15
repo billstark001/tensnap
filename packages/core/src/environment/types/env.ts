@@ -10,9 +10,7 @@
  */
 export type GridCoordOffset = 'int' | 'float';
 
-// ---------------------------------------------------------------------------
-// Graph environment config
-// ---------------------------------------------------------------------------
+// #region Graph environment config
 
 export interface GraphEnvConfig {
   /** d3-force link distance. */
@@ -27,3 +25,5 @@ export interface GraphEnvConfig {
   max_component_distance?: number;
   component_spacing?: number;
 }
+
+// #endregion

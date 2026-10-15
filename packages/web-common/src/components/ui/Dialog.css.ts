@@ -1,7 +1,6 @@
 import { style, keyframes } from '@vanilla-extract/css';
 import { vars } from '../../styles/global.css';
 
-// 动画关键帧
 const overlayShow = keyframes({
   '0%': { opacity: 0 },
   '100%': { opacity: 1 },
@@ -34,7 +33,6 @@ const contentHide = keyframes({
   },
 });
 
-// Dialog Overlay 样式
 export const dialogOverlay = style({
   backgroundColor: vars.color.overlayLight,
   position: 'fixed',
@@ -52,7 +50,6 @@ export const dialogOverlay = style({
   },
 });
 
-// Dialog Content 基础样式
 export const dialogContent = style({
   backgroundColor: vars.color.background,
   borderRadius: vars.radius.lg,
@@ -77,7 +74,6 @@ export const dialogContent = style({
     '&[data-state="closed"]': {
       animation: `${contentHide} 200ms cubic-bezier(0.16, 1, 0.3, 1)`,
     },
-    // 暗色主题支持
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
       boxShadow: `${vars.shadow.xl}, 0 0 0 1px ${vars.color.darkBorder}`,
@@ -85,7 +81,6 @@ export const dialogContent = style({
   },
 });
 
-// 大尺寸 Dialog Content
 export const dialogContentLarge = style([
   dialogContent,
   {
@@ -104,7 +99,6 @@ export const dialogContentXLarge = style([
   },
 ]);
 
-// 超大尺寸 Dialog Content（如文件浏览器）
 const DIALOG_MARGIN = 32;
 export const dialogContentFull = style([
   dialogContent,
@@ -122,7 +116,6 @@ export const dialogContentFull = style([
   },
 ]);
 
-// Dialog Title 样式
 export const dialogTitle = style({
   margin: 0,
   fontSize: vars.fontSize.lg,
@@ -137,7 +130,6 @@ export const dialogTitle = style({
   },
 });
 
-// Dialog Description 样式
 export const dialogDescription = style({
   fontSize: vars.fontSize.sm,
   color: vars.color.secondary,
@@ -151,7 +143,6 @@ export const dialogDescription = style({
   },
 });
 
-// Dialog 关闭按钮
 export const dialogClose = style({
   position: 'absolute',
   top: vars.space.md,
@@ -187,7 +178,6 @@ export const dialogClose = style({
   },
 });
 
-// Dialog 主体内容区域
 export const dialogBody = style({
   minHeight: '200px',
   overflowY: 'auto',
@@ -204,7 +194,6 @@ export const dialogBody = style({
   },
 });
 
-// Dialog 底部区域（按钮区域）
 export const dialogFooter = style({
   display: 'flex',
   justifyContent: 'flex-end',
@@ -223,7 +212,6 @@ export const dialogFooter = style({
   },
 });
 
-// 按钮样式
 export const dialogButton = style({
   padding: `${vars.space.sm} ${vars.space.md}`,
   borderRadius: vars.radius.sm,
@@ -266,7 +254,6 @@ export const dialogButton = style({
   },
 });
 
-// 主要按钮样式
 export const dialogButtonPrimary = style([
   dialogButton,
   {
@@ -287,7 +274,6 @@ export const dialogButtonPrimary = style([
   },
 ]);
 
-// 危险按钮样式
 export const dialogButtonDanger = style([
   dialogButton,
   {

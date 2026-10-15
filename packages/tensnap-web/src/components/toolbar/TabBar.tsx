@@ -44,7 +44,6 @@ export const TabBar: React.FC<TabBarProps> = ({
     e.stopPropagation();
     onTabClose?.(tabId);
 
-    // 如果关闭的是当前活动标签，切换到另一个标签
     if (tabId === currentActiveTab && tabs.length > 1) {
       const currentIndex = tabs.findIndex((tab) => tab.id === tabId);
       const nextTab = tabs[currentIndex + 1] || tabs[currentIndex - 1];
@@ -77,13 +76,11 @@ export const TabBar: React.FC<TabBarProps> = ({
           ))}
         </Tabs.List>
 
-        {/* 新建标签页按钮 */}
         <button className={styles.newTabButton} onClick={onNewTab} aria-label={_(msg`New Tab`)}>
           +
         </button>
       </div>
 
-      {/* 标签页内容区域 */}
       {tabs.map((tab) => (
         <Tabs.Content key={tab.id} value={tab.id} style={{ flex: 1 }}>
           {tab.content}

@@ -1,17 +1,9 @@
-/**
- * 文件格式检测器
- * 通过读取文件头部的魔数（magic bytes）来识别文件格式
- */
-
 interface FileSignature {
   format: string;
   signature: number[][];
   offset?: number;
 }
 
-/**
- * 各种文件格式的魔数签名
- */
 const FILE_SIGNATURES: FileSignature[] = [
   {
     format: 'png',
@@ -35,9 +27,6 @@ const FILE_SIGNATURES: FileSignature[] = [
   },
 ];
 
-/**
- * 检查字节数组是否匹配给定的签名
- */
 function matchesSignature(bytes: Uint8Array, signature: number[], offset: number = 0): boolean {
   if (bytes.length < offset + signature.length) {
     return false;
@@ -52,6 +41,7 @@ function matchesSignature(bytes: Uint8Array, signature: number[], offset: number
   return true;
 }
 
+/** Identify a supported binary format from its magic bytes, or return null. */
 export function detectFileFormat(input: Uint8Array): string | null {
   for (const { format, signature, offset = 0 } of FILE_SIGNATURES) {
     for (const sig of signature) {

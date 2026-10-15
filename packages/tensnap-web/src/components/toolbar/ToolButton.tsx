@@ -6,7 +6,6 @@ export interface ToolBarProps {
   className?: string;
 }
 
-// 辅助组件：工具按钮
 interface ToolButtonProps {
   icon: React.ReactNode;
   tooltip: string;

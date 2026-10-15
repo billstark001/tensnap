@@ -117,7 +117,6 @@ export const Guidelines: React.FC<GuidelinesProps> = ({
               );
             })}
 
-            {/* 显示间距或尺寸标签 */}
             {showLabels && (isSpacing || isSize) && guideline.spacingInfo && (
               <div
                 className={styles.guidelineLabel}

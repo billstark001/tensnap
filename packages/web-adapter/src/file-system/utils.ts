@@ -6,14 +6,10 @@ import {
   normalizePath,
 } from '../utils/path';
 
-/**
- * 工具函数：文件系统相关的辅助功能
- */
-
 export { calculateChecksum, getBaseName, getParentPath, joinPath, normalizePath };
 
 /**
- * 格式化文件大小
+ * Format a byte count using powers of 1024 and at most one decimal place.
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -24,7 +20,7 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
- * 格式化日期
+ * Format a date and time using the current locale.
  */
 export function formatDate(date: Date): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -37,7 +33,7 @@ export function formatDate(date: Date): string {
 }
 
 /**
- * 解析路径为面包屑数组
+ * Build breadcrumbs containing the root and each cumulative path segment.
  */
 export function parseBreadcrumbs(path: string): Array<{ name: string; path: string }> {
   const normalized = normalizePath(path);
@@ -62,20 +58,18 @@ export function parseBreadcrumbs(path: string): Array<{ name: string; path: stri
 }
 
 /**
- * 验证文件/目录名称
+ * Validate a single file or directory name, rejecting separators and reserved dot names.
  */
 export function validateName(name: string): { valid: boolean; error?: string } {
   if (!name || name.trim() === '') {
     return { valid: false, error: 'Name cannot be empty' };
   }
 
-  // 检查非法字符
   const invalidChars = /[<>:"|?*/\\]/;
   if (invalidChars.test(name)) {
     return { valid: false, error: 'Name contains invalid characters' };
   }
 
-  // 检查保留名称
   const reserved = ['.', '..'];
   if (reserved.includes(name.trim())) {
     return { valid: false, error: 'Name cannot be a reserved keyword' };
@@ -85,7 +79,7 @@ export function validateName(name: string): { valid: boolean; error?: string } {
 }
 
 /**
- * 从 File 对象读取内容
+ * Read the complete file as an ArrayBuffer, rejecting on read failure.
  */
 export function readFileContent(file: File): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {

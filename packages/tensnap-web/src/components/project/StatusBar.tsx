@@ -105,16 +105,15 @@ export function StatusBar({
     try {
       await reconnect();
 
-      // 等待一小段时间让连接状态更新
+      // Allow the connection attempt to update its state before reporting the result.
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // 检查实际的连接状态
       const isNowConnected = transportStore.isConnected();
 
       if (isNowConnected) {
         toast.success(_(msg`Reconnected successfully`));
       } else {
-        // 连接失败，但会自动重试
+        // The transport will retry failed connections automatically.
         toast.info(_(msg`Connection failed, will retry automatically`));
       }
     } catch (error) {

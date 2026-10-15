@@ -46,13 +46,12 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<DirectoryEntry | null>(null);
 
-  // 加载目录内容
   const loadDirectory = useCallback(
     async (path: string) => {
       const normalizedPath = normalizePath(path);
       setLoading(true);
       setError(null);
-      setSelectedItems(new Set()); // 清除选择
+      setSelectedItems(new Set());
 
       try {
         const entries = await fileSystem.list(normalizedPath);
@@ -69,19 +68,16 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     [fileSystem, onCurrentDirectoryChange],
   );
 
-  // 初始化：加载初始目录
   useEffect(() => {
     queueMicrotask(() => {
       void loadDirectory(currentDirectory);
     });
   }, [currentDirectory, loadDirectory]);
 
-  // 刷新当前目录
   const refreshCurrentDirectory = useCallback(() => {
     loadDirectory(currentDirectory);
   }, [currentDirectory, loadDirectory]);
 
-  // 切换目录
   const setCurrentDirectory = useCallback(
     (path: string) => {
       loadDirectory(path);
@@ -89,7 +85,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     [loadDirectory],
   );
 
-  // 处理项目选择
   const toggleItemSelection = useCallback((itemId: string) => {
     setSelectedItems((prev) => {
       const newSet = new Set(prev);
@@ -105,20 +100,18 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const handleItemClick = useCallback(
     (entry: DirectoryEntry) => {
       if (entry.type === 'directory') {
-        // 如果有自定义的目录选择处理，使用它；否则导航到该目录
+        // Delegate directory selection when a handler is supplied; otherwise navigate into it.
         if (onDirectorySelect) {
           onDirectorySelect(entry);
         } else {
           setCurrentDirectory(entry.path);
         }
       } else {
-        // 文件选择
         if (onFileSelect) {
           onFileSelect(entry);
         }
       }
 
-      // 更新选择状态
       if (multiSelect) {
         toggleItemSelection(entry.path);
       } else {
@@ -131,10 +124,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const handleItemDoubleClick = useCallback(
     (entry: DirectoryEntry) => {
       if (entry.type === 'directory') {
-        // 双击目录时导航
         setCurrentDirectory(entry.path);
       } else {
-        // 双击文件时触发双击回调
         if (onFileDoubleClick) {
           onFileDoubleClick(entry);
         }
@@ -143,7 +134,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     [onFileDoubleClick, setCurrentDirectory],
   );
 
-  // 文件上传处理
   const handleFileUpload = useCallback(
     async (files: FileList) => {
       setLoading(true);
@@ -174,12 +164,11 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const { files } = event.target;
       if (files) handleFileUpload(files);
-      event.target.value = ''; // 重置以允许重复上传相同文件
+      event.target.value = ''; // Reset the input so selecting the same file triggers another change event.
     },
     [handleFileUpload],
   );
 
-  // 拖拽处理
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     setIsDragOver(true);
@@ -200,10 +189,8 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     [handleFileUpload],
   );
 
-  // 创建操作
   const handleCreateItem = useCallback(
     async (itemName: string, itemType: 'file' | 'directory') => {
-      // 验证名称
       const validation = validateName(itemName);
       if (!validation.valid) {
         setError(validation.error || t`Invalid name`);
@@ -261,7 +248,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     setPendingDeleteEntry(entry);
   }, []);
 
-  // 导出操作 - 现在由外部提供
   const handleExportDirectory = useCallback(() => {
     setShowExportDialog(true);
   }, []);
@@ -273,7 +259,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       onDragLeave={allowUpload ? handleDragLeave : undefined}
       onDrop={allowUpload ? handleDrop : undefined}
     >
-      {/* 头部导航 */}
       <div className={styles.browserHeader}>
         <Breadcrumbs currentDirectory={currentDirectory} onNavigate={setCurrentDirectory} />
         <ActionButtons
@@ -286,7 +271,6 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         />
       </div>
 
-      {/* 内容区域 */}
       <div className={styles.browserContent}>
         {loading && <div className={styles.loadingState}>{t`Loading...`}</div>}
 

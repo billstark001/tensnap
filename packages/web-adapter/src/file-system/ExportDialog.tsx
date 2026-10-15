@@ -42,7 +42,6 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
       try {
         const blob = await exportDirectory(fileSystem, currentPath, { format });
 
-        // 创建下载链接
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

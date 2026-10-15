@@ -28,9 +28,7 @@ const starPoints = (outerRadius: number, innerRadius: number): number[] => {
   return points;
 };
 
-// ---------------------------------------------------------------------------
-// Shape config map — returns the property bag for each icon type
-// ---------------------------------------------------------------------------
+// #region Shape config map — returns the property bag for each icon type
 
 export const SHAPE_CONFIGS: Record<BuiltinAgentIcon, (size: number) => Record<string, unknown>> = {
   arrow: (s) => ({ points: [s, 0, -s / 2, -s / 2, -s / 2, s / 2] }),
@@ -95,9 +93,9 @@ export const SHAPE_CLASSES: Record<BuiltinAgentIcon, new (props?: any) => UI> = 
   pentagon: Polygon,
 };
 
-// ---------------------------------------------------------------------------
-// Factory helpers
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Factory helpers
 
 export function createAgentShape(
   icon: BuiltinAgentIcon = 'circle',
@@ -157,3 +155,5 @@ export function disableCanvasSmoothing(canvas: HTMLCanvasElement): void {
   }
   canvas.style.imageRendering = 'pixelated';
 }
+
+// #endregion

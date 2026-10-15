@@ -62,14 +62,13 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
   create<FileSystemState>((set, get) => {
     let pendingOperations = 0;
     let initialization: Promise<void> | null = null;
-    // 统一的错误处理辅助函数
     const handleError = (error: unknown) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       set({ error: errorMessage });
       return errorMessage;
     };
 
-    // 包装异步操作，统一处理加载状态和错误
+    // Track loading and errors for mutating operations.
     const withLoading = async <T>(
       operation: () => Promise<T>,
       shouldRefresh = false,
@@ -100,7 +99,7 @@ export const createFileSystemStore = (adapter: FileSystemAdapter, adapterName: s
       }
     };
 
-    // 包装只读操作，只处理错误不处理加载状态
+    // Read operations report errors without changing the shared loading state.
     const withErrorHandling = async <T>(operation: () => Promise<T>): Promise<T> => {
       const { adapter } = get();
       if (!adapter) throw new Error('File system not initialized');

@@ -28,7 +28,6 @@ const formatChartDataPreview = (chartGroup: ChartGroup): string => {
   return `${JSON.stringify(preview, null, 2)}${suffix}`;
 };
 
-// 新系列表单组件
 const NewSeriesForm: React.FC<{
   formData: { id: string; label: string; color: string };
   onUpdate: (updates: Partial<ChartMetadata>) => void;
@@ -68,7 +67,6 @@ const NewSeriesForm: React.FC<{
   </div>
 );
 
-// 系列编辑表单组件
 const SeriesEditForm: React.FC<{
   metadata: ChartMetadata;
   onUpdateLabel: (label: string) => void;
@@ -104,7 +102,6 @@ const SeriesEditForm: React.FC<{
   );
 };
 
-// 系列项组件
 const SeriesItem: React.FC<{
   metadata: ChartMetadata;
   isEditing: boolean;
@@ -153,7 +150,6 @@ const SeriesItem: React.FC<{
   </div>
 );
 
-// 系列列表组件
 const SeriesList: React.FC<{
   metadataList: ChartMetadata[];
   editingId: string | null;
@@ -188,7 +184,6 @@ const SeriesList: React.FC<{
   );
 };
 
-// 主组件
 export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
   view,
   objectData: chartGroup,

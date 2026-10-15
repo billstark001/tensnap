@@ -81,7 +81,7 @@ class MaxRectsPacker {
     let bestNode: FreeRectangle | null = null;
     let bestScore = Infinity;
 
-    // 尝试找到最佳位置 (Best Short Side Fit)
+    // Choose a placement using Best Short Side Fit.
     for (const freeRect of this.freeRectangles) {
       if (freeRect.width >= paddedWidth && freeRect.height >= paddedHeight) {
         const leftoverHoriz = freeRect.width - paddedWidth;
@@ -89,8 +89,8 @@ class MaxRectsPacker {
         const shortSideFit = Math.min(leftoverHoriz, leftoverVert);
         const longSideFit = Math.max(leftoverHoriz, leftoverVert);
 
-        // 优先选择短边剩余最小的，其次是长边剩余最小的
-        // 同时优先选择左上角的位置
+        // Weight short-side waste most heavily, followed by long-side waste.
+        // Prefer positions near the top-left corner.
         const score =
           shortSideFit * 1000000 + longSideFit * 1000 + freeRect.y * 10 + freeRect.x * 0.1;
 
@@ -108,7 +108,6 @@ class MaxRectsPacker {
     const placed = this.createPlaced(rect, bestNode.x, bestNode.y);
     this.usedRectangles.push(placed);
 
-    // 使用Guillotine分割方法替代原来的分割
     this.splitFreeNodeGuillotine(bestNode, paddedWidth, paddedHeight, placed);
     this.pruneFreeList();
 
@@ -126,15 +125,14 @@ class MaxRectsPacker {
     let bestNode: FreeRectangle | null = null;
     let bestDistance = Infinity;
 
-    // 找到最接近原始位置的可用空间
+    // Prefer free space near the original position.
     for (const freeRect of this.freeRectangles) {
       if (freeRect.width >= paddedWidth && freeRect.height >= paddedHeight) {
-        // 计算到原始位置的距离
         const distance = Math.sqrt(
           Math.pow(freeRect.x - preferredX, 2) + Math.pow(freeRect.y - preferredY, 2),
         );
 
-        // 优先选择距离最近的，距离相同时优先左上角
+        // Weight distance most heavily, then prefer the top-left corner.
         const score = distance * 1000000 + freeRect.y * 10 + freeRect.x * 0.1;
 
         if (score < bestDistance) {
@@ -179,8 +177,7 @@ class MaxRectsPacker {
     this.freeRectangles = survivors;
     for (const split of newFreeRects) this.freeRectangles.push(split);
 
-    // 添加原节点的剩余空间
-    // 右侧剩余空间
+    // Split the selected free rectangle into disjoint right and bottom remainders.
     if (freeNode.width > usedWidth) {
       this.freeRectangles.push({
         x: freeNode.x + usedWidth,
@@ -190,7 +187,6 @@ class MaxRectsPacker {
       });
     }
 
-    // 下方剩余空间
     if (freeNode.height > usedHeight) {
       this.freeRectangles.push({
         x: freeNode.x,
@@ -223,7 +219,6 @@ class MaxRectsPacker {
   ): FreeRectangle[] {
     const result: FreeRectangle[] = [];
 
-    // 左侧剩余
     if (rect.x < placed.left) {
       result.push({
         x: rect.x,
@@ -233,7 +228,6 @@ class MaxRectsPacker {
       });
     }
 
-    // 右侧剩余
     if (rect.x + rect.width > placed.left + placedPaddedWidth) {
       result.push({
         x: Math.max(rect.x, placed.left + placedPaddedWidth),
@@ -243,7 +237,6 @@ class MaxRectsPacker {
       });
     }
 
-    // 上方剩余
     if (rect.y < placed.top) {
       result.push({
         x: rect.x,
@@ -253,7 +246,6 @@ class MaxRectsPacker {
       });
     }
 
-    // 下方剩余
     if (rect.y + rect.height > placed.top + placedPaddedHeight) {
       result.push({
         x: rect.x,
@@ -267,7 +259,7 @@ class MaxRectsPacker {
   }
 
   private pruneFreeList(): void {
-    // 移除被其他矩形完全包含的空闲矩形
+    // Remove free rectangles fully contained in another free rectangle.
     for (let i = 0; i < this.freeRectangles.length; i++) {
       for (let j = i + 1; j < this.freeRectangles.length;) {
         if (this.isContainedIn(this.freeRectangles[i], this.freeRectangles[j])) {
@@ -404,8 +396,8 @@ function sortRectangles(
   let sorted = [...rects];
 
   if (sortBy === 'area') {
-    // 按面积降序排列，面积相同时优先放置正方形（比例接近1的）
-    // 为了保证稳定性，添加索引作为最后的排序依据
+    // Sort by descending area, then prefer aspect ratios closer to a square.
+    // Use the original index as the final tie-breaker for deterministic ordering.
     const indexed = sorted.map((rect, idx) => ({ rect, idx }));
 
     indexed.sort((a, b) => {
@@ -417,19 +409,17 @@ function sortRectangles(
       const ratioB = Math.min(b.rect.width, b.rect.height) / Math.max(b.rect.width, b.rect.height);
       if (Math.abs(ratioA - ratioB) > 0.001) return ratioB - ratioA;
 
-      // 如果groupByType，按类型排序
       if (groupByType) {
         const typeCompare = a.rect.type.localeCompare(b.rect.type);
         if (typeCompare !== 0) return typeCompare;
       }
 
-      // 保持原始顺序以确保稳定性
       return a.idx - b.idx;
     });
 
     sorted = indexed.map((item) => item.rect);
   } else {
-    // 按位置排序，添加索引保证稳定性
+    // Sort by position, preserving input order when coordinates are effectively equal.
     const indexed = sorted.map((rect, idx) => ({ rect, idx }));
 
     indexed.sort((a, b) => {
@@ -462,7 +452,6 @@ function packWithMaxRects(
   const sorted = sortRectangles(rectangles, sortBy, options.groupByType, options.padding);
   const usePositionAware = preservePosition && sortBy === 'position';
 
-  // 动态调整容器大小的策略
   let containerWidth = options.containerWidth - options.paddingBorderX * 2;
   let containerHeight = options.containerHeight - options.paddingBorderY * 2;
   let packer: MaxRectsPacker;
@@ -510,7 +499,6 @@ function packWithMaxRects(
     }
 
     if (!allPlaced) {
-      // 增加容器尺寸
       attempts++;
       if (options.targetAspectRatio) {
         containerHeight = Math.ceil(containerHeight * 1.2);
@@ -550,10 +538,10 @@ export function pack(rectangles: Rectangle[], rawOptions: PackingOptions = {}): 
   const sortBy = options.sortBy || 'area';
   const preservePosition = options.preservePosition ?? sortBy === 'position';
 
-  // 创建副本以避免修改原数据（除非 inPlace 模式）
+  // Copy rectangles unless the caller explicitly allows in-place mutation.
   const processedRects = options.inPlace ? rectangles : rectangles.map((r) => ({ ...r }));
 
-  // 在 preservePosition 模式下，先移除已有的 paddingBorder 偏移
+  // Remove the existing border offset before packing preserved positions.
   if (preservePosition && (options.paddingBorderX || options.paddingBorderY)) {
     for (const rect of processedRects) {
       if (rect.left !== undefined) {
@@ -567,7 +555,7 @@ export function pack(rectangles: Rectangle[], rawOptions: PackingOptions = {}): 
 
   const { placed } = packWithMaxRects(processedRects, options, sortBy, preservePosition);
 
-  // 应用 paddingBorder 偏移
+  // Restore the border offset after packing.
   if (options.paddingBorderX || options.paddingBorderY) {
     for (const rect of placed) {
       rect.left += options.paddingBorderX;

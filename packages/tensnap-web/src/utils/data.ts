@@ -1,5 +1,5 @@
 /**
- * 将 Blob 转换为 Uint8Array
+ * Read at most maxBytes from the start of a Blob.
  */
 export async function blobToUint8Array(blob: Blob, maxBytes: number = 16): Promise<Uint8Array> {
   const slice = blob.slice(0, maxBytes);
@@ -8,7 +8,7 @@ export async function blobToUint8Array(blob: Blob, maxBytes: number = 16): Promi
 }
 
 /**
- * 标准化输入为 Uint8Array
+ * Return a byte view of binary input; Blob inputs read only the first 16 bytes.
  */
 export async function normalizeInput(
   input:
@@ -33,7 +33,6 @@ export async function normalizeInput(
     return input;
   }
 
-  // 处理其他 TypedArray
   return new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
 }
 

@@ -16,7 +16,12 @@
     {
       "files": ["packages/{tensnap-web,web-adapter,tensnap-tauri}/**/*.{js,jsx,ts,tsx}"],
       "rules": {
-        "react/only-export-components": ["warn", { "allowConstantExport": true }],
+        "react/only-export-components": [
+          "warn",
+          {
+            "allowConstantExport": true
+          }
+        ],
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "error"
       }
@@ -33,6 +38,19 @@
                 "message": "web-adapter must not import from @tensnap/web."
               }
             ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/*/src/**/*.{js,jsx,ts,tsx}"],
+      "excludeFiles": ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+      "rules": {
+        "no-warning-comments": [
+          "warn",
+          {
+            "terms": ["----", "====", "\u2500\u2500"],
+            "location": "start"
           }
         ]
       }

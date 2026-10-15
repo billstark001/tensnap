@@ -90,7 +90,7 @@ export const spinnerOverlay = style({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 9999, // 确保在所有dialogs之上
+  zIndex: 9999, // Keep the loading overlay above dialogs.
 
   selectors: {
     'body[data-theme="dark"] &': {

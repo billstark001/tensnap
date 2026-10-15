@@ -17,7 +17,8 @@ function mapListRemove<K, V>(map: Map<K, V[]>, key: K, item: V): void {
   const list = map.get(key);
   if (!list) return;
   const next = list.filter((x) => x !== item);
-  next.length ? map.set(key, next) : map.delete(key);
+  if (next.length > 0) map.set(key, next);
+  else map.delete(key);
 }
 
 /** First index whose point time is >= `time`. */

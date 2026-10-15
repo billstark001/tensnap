@@ -35,7 +35,7 @@ export const viewConstants = {
   windowTopDelta,
 } as const;
 
-// 确保窗口增量是整数
+// Keep cascade offsets on integer coordinates.
 export const WINDOW_X_DELTA = Math.ceil(viewConstants.windowBorderWidth * 2);
 export const WINDOW_Y_DELTA = Math.ceil(
   viewConstants.windowBorderWidth + viewConstants.windowHeaderHeight,

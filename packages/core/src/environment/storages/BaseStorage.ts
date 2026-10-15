@@ -20,9 +20,7 @@ export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta
     this._data = initialData;
   }
 
-  // -------------------------------------------------------------------------
-  // IStorage
-  // -------------------------------------------------------------------------
+  // #region IStorage
 
   getData(): T {
     return this._data;
@@ -38,9 +36,9 @@ export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta
     return () => this._listeners.delete(listener);
   }
 
-  // -------------------------------------------------------------------------
-  // IMutableStorage
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region IMutableStorage
 
   setData(data: T): void {
     this._data = data;
@@ -89,12 +87,13 @@ export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta
     this._notify(delta);
   }
 
-  // -------------------------------------------------------------------------
-  // Internal
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Internal
 
   private _notify(delta?: TDelta): void {
     this._revision += 1;
     this._listeners.forEach((l) => l(this._data, delta));
   }
+  // #endregion
 }

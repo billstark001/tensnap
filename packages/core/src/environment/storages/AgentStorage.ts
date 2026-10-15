@@ -13,9 +13,7 @@
 import { BaseStorage } from './BaseStorage';
 import type { AgentIcon, AgentId } from '@tensnap/protocol/layers';
 
-// ---------------------------------------------------------------------------
-// Data types
-// ---------------------------------------------------------------------------
+// #region Data types
 
 /** Unified agent record covering both grid- and graph-mode rendering. */
 export interface AgentRenderState {
@@ -25,7 +23,7 @@ export interface AgentRenderState {
   /** Logical size (abstract units). */
   size?: number;
 
-  // ---- Coordinates ----
+  // #region Coordinates
   /** X coordinate. For graph mode: scene units. For grid mode: grid column. */
   x?: number;
   /** Y coordinate. For graph mode: scene units. For grid mode: grid row. */
@@ -39,11 +37,14 @@ export interface AgentRenderState {
   /** d3-force: fixed y (non-null while dragging, graph mode). */
   fy?: number | null;
 
-  // ---- Grid extras ----
+  // #endregion
+
+  // #region Grid extras
   /** Heading angle in radians (grid mode). */
   heading?: number;
   /** Extra application data (unused by the layer). */
   data?: Record<string, unknown>;
+  // #endregion
 }
 
 export type AgentDelta =
@@ -116,9 +117,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     this.setAgents(value?.agents ?? []);
   }
 
-  // -------------------------------------------------------------------------
-  // Full-replace mutations (trigger listeners)
-  // -------------------------------------------------------------------------
+  // #region Full-replace mutations (trigger listeners)
 
   /** Replace the entire agent map and notify. */
   setAgents(agents: Iterable<AgentRenderState>): void {
@@ -129,9 +128,9 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     this.notify({ replaced: true });
   }
 
-  // -------------------------------------------------------------------------
-  // Back-channel position writes from d3-force (EdgeLayer)
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Back-channel position writes from d3-force (EdgeLayer)
 
   /**
    * Silently update node positions in the agent map.
@@ -165,9 +164,9 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     this.notify({ positionsFlushed: true });
   }
 
-  // -------------------------------------------------------------------------
-  // Drag pinning (AgentLayer drag events)
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Drag pinning (AgentLayer drag events)
 
   setAgentFixed(id: AgentId, fx: number | null, fy: number | null): void {
     const agent = this._data.agents.get(id);
@@ -177,9 +176,9 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Individual CRUD operations (maintain stable references)
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Individual CRUD operations (maintain stable references)
 
   /** Add a single agent. If it exists, updates it in place. */
   addAgent(agent: AgentRenderState): void {
@@ -427,4 +426,7 @@ export class AgentStorage extends BaseStorage<AgentStorageData, AgentDelta> {
     const size = AgentStorage.SPATIAL_CELL_SIZE;
     return `${Math.floor(x / size)}:${Math.floor(y / size)}`;
   }
+  // #endregion
 }
+
+// #endregion

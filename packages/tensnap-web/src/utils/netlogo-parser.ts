@@ -1,8 +1,5 @@
 // netlogo-parser.ts
 
-/**
- * NetLogo 界面组件的基础接口
- */
 interface BaseWidget {
   type: string;
   left: number;
@@ -11,9 +8,6 @@ interface BaseWidget {
   bottom: number;
 }
 
-/**
- * 图形窗口组件
- */
 interface GraphicsWindow extends BaseWidget {
   type: 'GRAPHICS-WINDOW';
   patchSize: number;
@@ -27,9 +21,6 @@ interface GraphicsWindow extends BaseWidget {
   frameRate: number;
 }
 
-/**
- * 按钮组件
- */
 interface Button extends BaseWidget {
   type: 'BUTTON';
   display: string;
@@ -40,9 +31,6 @@ interface Button extends BaseWidget {
   disableUntilTicksStart: boolean;
 }
 
-/**
- * 滑块组件
- */
 interface Slider extends BaseWidget {
   type: 'SLIDER';
   display: string;
@@ -55,9 +43,6 @@ interface Slider extends BaseWidget {
   horizontal: boolean;
 }
 
-/**
- * 开关组件
- */
 interface Switch extends BaseWidget {
   type: 'SWITCH';
   display: string;
@@ -65,9 +50,6 @@ interface Switch extends BaseWidget {
   defaultValue: boolean;
 }
 
-/**
- * 选择器组件
- */
 interface Chooser extends BaseWidget {
   type: 'CHOOSER';
   display: string;
@@ -76,9 +58,6 @@ interface Chooser extends BaseWidget {
   defaultIndex: number;
 }
 
-/**
- * 输入框组件
- */
 interface InputBox extends BaseWidget {
   type: 'INPUTBOX';
   variable: string;
@@ -87,9 +66,6 @@ interface InputBox extends BaseWidget {
   multiline: boolean;
 }
 
-/**
- * 监视器组件
- */
 interface Monitor extends BaseWidget {
   type: 'MONITOR';
   display: string;
@@ -98,9 +74,6 @@ interface Monitor extends BaseWidget {
   fontSize: number;
 }
 
-/**
- * 绘图组件
- */
 interface Plot extends BaseWidget {
   type: 'PLOT';
   display: string;
@@ -117,9 +90,6 @@ interface Plot extends BaseWidget {
   pens: PlotPen[];
 }
 
-/**
- * 绘图笔
- */
 interface PlotPen {
   display: string;
   interval: number;
@@ -130,17 +100,11 @@ interface PlotPen {
   updateCode: string;
 }
 
-/**
- * 输出框组件
- */
 interface Output extends BaseWidget {
   type: 'OUTPUT';
   fontSize: number;
 }
 
-/**
- * 文本标签组件
- */
 interface TextBox extends BaseWidget {
   type: 'TEXTBOX';
   display: string;
@@ -149,9 +113,6 @@ interface TextBox extends BaseWidget {
   transparent: boolean;
 }
 
-/**
- * 所有组件类型的联合类型
- */
 type Widget =
   | GraphicsWindow
   | Button
@@ -164,18 +125,15 @@ type Widget =
   | Output
   | TextBox;
 
-/**
- * NetLogo 模型接口定义
- */
 interface NetLogoModel {
   widgets: Widget[];
   version: string;
 }
 
 /**
- * 解析 NetLogo 模型文件内容
- * @param content 模型文件内容
- * @returns 解析后的模型对象
+ * Parse interface widgets and the version from a NetLogo model file.
+ * @param content Complete model file text.
+ * @returns Parsed widgets and version; absent interfaces produce an empty widget list.
  */
 export function parseNetLogoFile(content: string): NetLogoModel {
   const sections = splitSections(content);
@@ -190,32 +148,20 @@ export function parseNetLogoFile(content: string): NetLogoModel {
   return { widgets, version };
 }
 
-/**
- * 分割文件的各个部分
- */
 function splitSections(content: string): string[] {
   return content.split('@#$#@#$#@');
 }
 
-/**
- * 查找界面组件部分
- */
 function findWidgetSection(sections: string[]): string | null {
-  // 通常界面部分在第二个section（索引为1）
+  // The interface is the second section of the NetLogo file.
   return sections.length > 1 ? sections[1] : null;
 }
 
-/**
- * 提取版本信息
- */
 function extractVersion(content: string): string {
   const versionMatch = content.match(/NetLogo\s+([\d.]+)/i);
   return versionMatch ? versionMatch[1] : 'unknown';
 }
 
-/**
- * 解析所有组件
- */
 function parseWidgets(widgetSection: string): Widget[] {
   const widgets: Widget[] = [];
   const lines = widgetSection
@@ -244,9 +190,6 @@ function parseWidgets(widgetSection: string): Widget[] {
   return widgets;
 }
 
-/**
- * 解析单个组件
- */
 function parseWidget(
   widgetType: string,
   lines: string[],
@@ -278,9 +221,6 @@ function parseWidget(
   }
 }
 
-/**
- * 解析图形窗口
- */
 function parseGraphicsWindow(
   lines: string[],
   start: number,
@@ -304,9 +244,6 @@ function parseGraphicsWindow(
   return { widget, nextIndex: start + 16 };
 }
 
-/**
- * 解析按钮
- */
 function parseButton(lines: string[], start: number): { widget: Button; nextIndex: number } {
   const widget: Button = {
     type: 'BUTTON',
@@ -328,9 +265,6 @@ function parseButton(lines: string[], start: number): { widget: Button; nextInde
   return { widget, nextIndex: start + 11 };
 }
 
-/**
- * 解析滑块
- */
 function parseSlider(lines: string[], start: number): { widget: Slider; nextIndex: number } {
   const widget: Slider = {
     type: 'SLIDER',
@@ -354,9 +288,6 @@ function parseSlider(lines: string[], start: number): { widget: Slider; nextInde
   return { widget, nextIndex: start + 13 };
 }
 
-/**
- * 解析开关
- */
 function parseSwitch(lines: string[], start: number): { widget: Switch; nextIndex: number } {
   const widget: Switch = {
     type: 'SWITCH',
@@ -372,9 +303,6 @@ function parseSwitch(lines: string[], start: number): { widget: Switch; nextInde
   return { widget, nextIndex: start + 9 };
 }
 
-/**
- * 解析选择器
- */
 function parseChooser(lines: string[], start: number): { widget: Chooser; nextIndex: number } {
   const widget: Chooser = {
     type: 'CHOOSER',
@@ -391,19 +319,11 @@ function parseChooser(lines: string[], start: number): { widget: Chooser; nextIn
   return { widget, nextIndex: start + 9 };
 }
 
-/**
- * 解析选择器的选项列表
- */
 function parseChoices(choiceString: string): string[] {
-  // 移除开头和结尾的引号以及括号
   const cleaned = choiceString.replace(/^["']|["']$/g, '').trim();
-  // 分割选项
   return cleaned.split(/\s+/).filter((c) => c);
 }
 
-/**
- * 解析输入框
- */
 function parseInputBox(lines: string[], start: number): { widget: InputBox; nextIndex: number } {
   const widget: InputBox = {
     type: 'INPUTBOX',
@@ -420,17 +340,11 @@ function parseInputBox(lines: string[], start: number): { widget: InputBox; next
   return { widget, nextIndex: start + 9 };
 }
 
-/**
- * 解析输入框的默认值
- */
 function parseInputValue(value: string): string | number {
   const numValue = parseFloat(value);
   return isNaN(numValue) ? value : numValue;
 }
 
-/**
- * 解析监视器
- */
 function parseMonitor(lines: string[], start: number): { widget: Monitor; nextIndex: number } {
   const widget: Monitor = {
     type: 'MONITOR',
@@ -447,9 +361,6 @@ function parseMonitor(lines: string[], start: number): { widget: Monitor; nextIn
   return { widget, nextIndex: start + 10 };
 }
 
-/**
- * 解析绘图
- */
 function parsePlot(lines: string[], start: number): { widget: Plot; nextIndex: number } {
   let index = start;
 
@@ -473,7 +384,6 @@ function parsePlot(lines: string[], start: number): { widget: Plot; nextIndex: n
     pens: [],
   };
 
-  // 解析绘图笔
   index++;
   const penCount = parseInt(lines[index] || '0');
   index++;
@@ -494,9 +404,6 @@ function parsePlot(lines: string[], start: number): { widget: Plot; nextIndex: n
   return { widget, nextIndex: index };
 }
 
-/**
- * 解析输出框
- */
 function parseOutput(lines: string[], start: number): { widget: Output; nextIndex: number } {
   const widget: Output = {
     type: 'OUTPUT',
@@ -510,9 +417,6 @@ function parseOutput(lines: string[], start: number): { widget: Output; nextInde
   return { widget, nextIndex: start + 6 };
 }
 
-/**
- * 解析文本标签
- */
 function parseTextBox(lines: string[], start: number): { widget: TextBox; nextIndex: number } {
   const widget: TextBox = {
     type: 'TEXTBOX',

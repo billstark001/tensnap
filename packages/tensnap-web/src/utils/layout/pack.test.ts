@@ -11,7 +11,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       const result = pack(rectangles, { padding: 5 });
 
-      // 检查没有重叠
       for (let i = 0; i < result.rectangles.length; i++) {
         for (let j = i + 1; j < result.rectangles.length; j++) {
           const a = result.rectangles[i];
@@ -188,7 +187,6 @@ describe('Rectangle Packing with MaxRects', () => {
       const padding = 10;
       const result = pack(rectangles, { padding });
 
-      // 检查间距
       for (let i = 0; i < result.rectangles.length; i++) {
         for (let j = i + 1; j < result.rectangles.length; j++) {
           const a = result.rectangles[i];
@@ -205,7 +203,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
           const minGap = Math.min(horizontalGap, verticalGap);
 
-          // 如果矩形在同一行或同一列，检查间距
           if (minGap < 1) {
             expect(Math.max(horizontalGap, verticalGap)).toBeGreaterThanOrEqual(padding - 0.01);
           }
@@ -245,7 +242,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       const grouped = groupRectanglesByType(rectangles);
 
-      // 检查同类型的矩形是否相邻
       expect(grouped[0].type).toBe(grouped[1].type);
       expect(grouped[2].type).toBe(grouped[3].type);
     });
@@ -277,18 +273,14 @@ describe('Rectangle Packing with MaxRects', () => {
         paddingBorder: 0,
       });
 
-      // 检查所有矩形都被打包了
       expect(result.rectangles.length).toBe(rectangles.length);
 
-      // 检查相对位置关系是否大致保留
-      // A应该在B的左边
       const rectA = result.rectangles.find((r) => r.type === 'A')!;
       const rectB = result.rectangles.find((r) => r.type === 'B')!;
       const rectC = result.rectangles.find((r) => r.type === 'C')!;
 
       expect(rectA.left).toBeLessThanOrEqual(rectB.left);
 
-      // C应该在A下方
       expect(rectC.top).toBeGreaterThanOrEqual(rectA.top);
     });
 
@@ -305,12 +297,9 @@ describe('Rectangle Packing with MaxRects', () => {
         containerHeight: 300,
       });
 
-      // 矩形不应该被移动到容器的左上角（0,0）
-      // 它们应该尝试保持在原来的区域附近
       const rectA = result.rectangles.find((r) => r.type === 'A')!;
       const rectB = result.rectangles.find((r) => r.type === 'B')!;
 
-      // B应该在A的右边
       expect(rectB.left).toBeGreaterThan(rectA.left);
     });
 
@@ -330,7 +319,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(result.rectangles.length).toBe(4);
 
-      // 同类型的矩形应该大致保持相对位置
       const typeA = result.rectangles.filter((r) => r.type === 'A');
       const typeB = result.rectangles.filter((r) => r.type === 'B');
 
@@ -349,7 +337,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       const result = pack(rectangles, { sortBy: 'area' });
 
-      // 最大的矩形应该在左上角
       const largest = result.rectangles.find((r) => r.width === 30);
       expect(largest).toBeDefined();
       expect(largest!.left).toBeLessThanOrEqual(10);
@@ -432,7 +419,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(large).toBeDefined();
 
-      // 大矩形应该比大部分小矩形更靠近左上角
       const largeDistance = large!.left + large!.top;
       const avgSmallDistance =
         smallRects.reduce((sum, r) => sum + r.left + r.top, 0) / smallRects.length;
@@ -465,7 +451,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(result.rectangles.length).toBe(100);
 
-      // 检查没有重叠
       for (let i = 0; i < result.rectangles.length; i++) {
         for (let j = i + 1; j < result.rectangles.length; j++) {
           const a = result.rectangles[i];
@@ -495,7 +480,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(result.rectangles.length).toBe(5);
 
-      // 检查没有重叠
       for (let i = 0; i < result.rectangles.length; i++) {
         for (let j = i + 1; j < result.rectangles.length; j++) {
           const a = result.rectangles[i];
@@ -522,7 +506,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(result.rectangles.length).toBe(2);
 
-      // 矩形可以紧密相邻但不能重叠
       const a = result.rectangles[0];
       const b = result.rectangles[1];
 
@@ -546,7 +529,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(result.rectangles.length).toBe(20);
 
-      // 检查没有重叠
       for (let i = 0; i < result.rectangles.length; i++) {
         for (let j = i + 1; j < result.rectangles.length; j++) {
           const a = result.rectangles[i];
@@ -576,7 +558,6 @@ describe('Rectangle Packing with MaxRects', () => {
 
       expect(result.rectangles.length).toBe(5);
 
-      // 检查没有重叠
       for (let i = 0; i < result.rectangles.length; i++) {
         for (let j = i + 1; j < result.rectangles.length; j++) {
           const a = result.rectangles[i];

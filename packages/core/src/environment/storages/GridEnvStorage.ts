@@ -26,7 +26,7 @@ export interface GridEnvData {
   /** Scene height in world units or grid rows. */
   height?: number;
 
-  // ── X axis ──────────────────────────────────────────────────────────────
+  // #region X axis
 
   /** X origin: vertical lines align to  x_origin + x_unit·n·x_interval·x_ratio^m.
    *  Default: 0. */
@@ -40,7 +40,9 @@ export interface GridEnvData {
   /** X subdivision ratio — integer > 1 (parameter c).  Default: 10. */
   x_ratio?: number;
 
-  // ── Y axis ──────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Y axis
 
   /** Y origin: horizontal lines align to  y_origin + y_unit·n·y_interval·y_ratio^m.
    *  Default: 0. */
@@ -53,11 +55,14 @@ export interface GridEnvData {
   /** Y subdivision ratio — integer > 1 (parameter c).  Default: 10. */
   y_ratio?: number;
 
-  // ── Visual ──────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Visual
 
   /** Base stroke color (CSS hex string).  Alpha is applied per level.
    *  Default: '#808080'. */
   stroke_color?: string;
+  // #endregion
 }
 
 export class GridEnvStorage extends BaseStorage<GridEnvData> {

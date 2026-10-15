@@ -32,9 +32,7 @@ export function getAssetIdFromIcon(icon: string | undefined | null): string | nu
   return icon.slice('asset:'.length);
 }
 
-// ---------------------------------------------------------------------------
-// Grid agent
-// ---------------------------------------------------------------------------
+// #region Grid agent
 
 export interface GridAgentState extends AgentBase {
   x: number;
@@ -43,9 +41,9 @@ export interface GridAgentState extends AgentBase {
   heading?: number;
 }
 
-// ---------------------------------------------------------------------------
-// Graph agent
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Graph agent
 
 export interface GraphAgentState extends AgentBase {
   /** Canvas x position (updated by d3-force). */
@@ -62,9 +60,9 @@ export interface GraphAgentState extends AgentBase {
   fy?: number | null;
 }
 
-// ---------------------------------------------------------------------------
-// Trajectory
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Trajectory
 
 export interface GlobalTrajectoryConfig {
   length: NonNullable<TrajectoryItem['length']>;
@@ -72,9 +70,9 @@ export interface GlobalTrajectoryConfig {
   color: NonNullable<TrajectoryItem['color']>;
 }
 
-// ---------------------------------------------------------------------------
-// Edge
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Edge
 
 export interface GraphEdge {
   /** Source agent id (raw) or resolved agent object. */
@@ -86,3 +84,5 @@ export interface GraphEdge {
   width?: number;
   color?: string;
 }
+
+// #endregion

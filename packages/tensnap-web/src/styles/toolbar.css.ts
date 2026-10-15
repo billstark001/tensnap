@@ -1,7 +1,6 @@
 import { style, styleVariants } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
-// 基础样式
 export const toolbar = style({
   display: 'flex',
   flexDirection: 'column',
@@ -16,7 +15,6 @@ export const toolbar = style({
   },
 });
 
-// 菜单栏样式
 export const menuBar = style({
   display: 'flex',
   alignItems: 'center',
@@ -64,7 +62,7 @@ export const menuItem = style({
   },
 });
 
-// 工具栏样式（参考NetLogo）
+// Toolbar layout follows NetLogo.
 export const toolBarRow = style({
   display: 'flex',
   alignItems: 'center',
@@ -158,7 +156,6 @@ export const separator = style({
   },
 });
 
-// 标签页样式
 export const tabsContainer = style({
   display: 'flex',
   alignItems: 'center',
@@ -297,7 +294,6 @@ export const newTabButton = style({
   },
 });
 
-// 主题切换按钮样式
 export const themeToggle = style({
   marginLeft: 'auto',
   padding: `${vars.space.xs} ${vars.space.sm}`,
@@ -323,7 +319,6 @@ export const themeToggle = style({
   },
 });
 
-// 下拉菜单样式
 export const dropdownContent = style({
   backgroundColor: vars.color.background,
   border: `1px solid ${vars.color.gridLine}`,

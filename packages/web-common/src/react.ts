@@ -2,7 +2,7 @@ import { DialogProps } from '@radix-ui/react-dialog';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 /**
- * 返回一个始终调用最新回调的稳定函数引用
+ * Return a callback that invokes the latest implementation; its identity follows deps.
  */
 export function useCallbackRef<T extends (...args: any[]) => any>(
   callback: T | undefined | null,
@@ -26,7 +26,7 @@ export interface DebouncedFunction<T extends (...args: any[]) => any> extends Th
 }
 
 /**
- * 通用的延迟函数创建器
+ * Share pending arguments and timer state between debounce and throttle.
  */
 function createDelayedFunction<T extends (...args: any[]) => any, R>(
   fn: T,
@@ -101,7 +101,7 @@ export const throttle = <T extends (...args: any[]) => any>(
         execute();
         lastExecTime = now;
       } else {
-        // 修复：不要重复取消 timeout，保持第一次调度
+        // Keep the first pending deadline so continuous calls cannot postpone execution indefinitely.
         if (!timeoutRef.current) {
           timeoutRef.current = setTimeout(() => {
             execute();
@@ -124,7 +124,7 @@ export const throttle = <T extends (...args: any[]) => any>(
 };
 
 /**
- * 通用的延迟钩子实现
+ * Keep the latest callback without recreating the timer, and cancel pending work on cleanup.
  */
 function useDelayed<T extends (...args: any[]) => any, R>(
   callback: T,
