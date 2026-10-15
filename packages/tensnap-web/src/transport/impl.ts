@@ -6,7 +6,6 @@ import type {
   TransportEventMap,
 } from '@tensnap/core';
 import {
-  decodeProtocolMessage,
   ProtocolCodec,
   type AnyProtocolMessage,
   type ProtocolCodecMode,
@@ -213,7 +212,8 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private handleMessage(data: ArrayBuffer | string): void {
     try {
       if (this.codec === null) {
-        const envelope = decodeProtocolMessage(data) as AnyProtocolMessage;
+        // This one-off probe selects the retained strict/legacy session codec.
+        const envelope = new ProtocolCodec().decode(data);
         this.selectProtocolMode(
           envelope.type === 'simulator_info' ? 'strict' : 'legacy',
           envelope.type === 'simulator_info' ? 'simulator-info' : 'legacy-message',

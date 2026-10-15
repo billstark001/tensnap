@@ -263,7 +263,11 @@ export function createProtocolCodec(options: ProtocolCodecOptions = {}): Protoco
   return new ProtocolCodec(options);
 }
 
-/** One-shot encoder; retain a ProtocolCodec for session state and scratch reuse. */
+/**
+ * One-shot encoder.
+ * @deprecated Use ProtocolCodec.encode() on a retained session codec to preserve
+ * compatibility state and reuse MessagePack scratch buffers.
+ */
 export function encodeProtocolMessage(
   message: AnyProtocolMessage,
   encoding: ProtocolEncoding,
@@ -272,7 +276,11 @@ export function encodeProtocolMessage(
   return new ProtocolCodec(options).encode(message, encoding);
 }
 
-/** One-shot decoder; retain a ProtocolCodec for session state and scratch reuse. */
+/**
+ * One-shot decoder.
+ * @deprecated Use ProtocolCodec.decode() on a retained session codec to preserve
+ * compatibility state and reuse MessagePack scratch buffers.
+ */
 export function decodeProtocolMessage(
   data: string | Uint8Array | ArrayBuffer,
   options: ProtocolCodecOptions = {},

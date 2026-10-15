@@ -1,8 +1,7 @@
 /** Drive a real binding WebSocket through the public renderer session. */
 import assert from 'node:assert/strict';
 import {
-  decodeProtocolMessage,
-  encodeProtocolMessage,
+  ProtocolCodec,
   type AnyProtocolMessage,
   type SimulatorInfoPayload,
   type SimulatorToRendererMessage,
@@ -45,8 +44,9 @@ async function connectHost(port: number): Promise<{ socket: WebSocket; queue: Me
   const socket = new WebSocket(`ws://127.0.0.1:${port}`);
   socket.binaryType = 'arraybuffer';
   const queue = new MessageQueue();
+  const decoder = new ProtocolCodec();
   socket.addEventListener('message', (event) => {
-    queue.push(decodeProtocolMessage(event.data as string | ArrayBuffer));
+    queue.push(decoder.decode(event.data as string | ArrayBuffer));
   });
   await new Promise<void>((resolve, reject) => {
     socket.addEventListener('open', () => resolve(), { once: true });
@@ -56,6 +56,7 @@ async function connectHost(port: number): Promise<{ socket: WebSocket; queue: Me
 }
 
 function transport(socket: WebSocket, encoding: Encoding): ISimulatorTransport {
+  const encoder = new ProtocolCodec();
   return {
     connectionId: 'conformance://renderer',
     transportKind: 'websocket',
@@ -68,7 +69,7 @@ function transport(socket: WebSocket, encoding: Encoding): ISimulatorTransport {
     on: () => {},
     off: () => {},
     send: (message: RendererToSimulatorMessage) => {
-      const payload = encodeProtocolMessage(message as AnyProtocolMessage, encoding);
+      const payload = encoder.encode(message as AnyProtocolMessage, encoding);
       socket.send(typeof payload === 'string' ? payload : new Uint8Array(payload));
     },
   };
