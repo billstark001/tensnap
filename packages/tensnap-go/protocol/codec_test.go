@@ -146,6 +146,23 @@ func TestMsgPackCodecPreservesNestedValuesAndRejectsExtraFrames(t *testing.T) {
 	}
 }
 
+func TestMsgPackCodecRejectsTruncatedCollectionClaims(t *testing.T) {
+	codec := MsgPackCodec{}
+	for _, payload := range [][]byte{
+		{0xdf, 0xff, 0xff, 0xff, 0xff}, // map32 with no entries
+		{0xdd, 0xff, 0xff, 0xff, 0xff}, // array32 with no elements
+		{0x93, 0xa7, '0', '0', '0', 0xaf, 0xbc, '0', '0', 0x97, 0xdf, 0xdf, 0xdf, 0xdf, 0xdf, 0xdf, 0xdf, '0', '0', '0', 0xab},
+	} {
+		if _, err := codec.Decode(payload); err == nil {
+			t.Fatalf("accepted truncated frame: %x", payload)
+		}
+		valid, _ := codec.Encode(NewMessage(TypeActionInvoke, &ActionInvokePayload{ID: "step", RequestID: "next"}))
+		if _, err := codec.Decode(valid); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkCodecs(b *testing.B) {
 	for _, size := range []int{1, 1024} {
 		items := make([]map[string]any, size)
@@ -192,5 +209,78 @@ func TestMsgPackCodecDoesNotAliasReusedBuffer(t *testing.T) {
 	}
 	if !bytes.Equal(first, want) {
 		t.Fatal("pooled encoder mutated a previous frame")
+	}
+}
+
+func TestMsgPackCodecRejectsTruncatedPayloadLengths(t *testing.T) {
+	prefix := []byte{0x81, 0xa7, 'p', 'a', 'y', 'l', 'o', 'a', 'd'}
+	for _, code := range []byte{0xc6, 0xdb, 0xc9, 0xdd, 0xdf} {
+		for _, length := range [][]byte{{}, {0, 0}, {0xff, 0xff, 0xff, 0xff}} {
+			frame := append(bytes.Clone(prefix), code)
+			frame = append(frame, length...)
+			if _, err := (MsgPackCodec{}).Decode(frame); err == nil {
+				t.Fatalf("accepted truncated payload: %x", frame)
+			}
+		}
+	}
+}
+
+func TestMsgPackCodecMatchesLibraryValueSemantics(t *testing.T) {
+	payloads := []any{
+		nil, true, false, "", "hello", []byte{0xdd, 0xdf, 0xff, 0x00},
+		int8(-12), uint64(1 << 63), float32(0.125), float64(-0.25),
+		[]any{}, map[string]any{},
+		bytes.Repeat([]byte{0xdd, 0xdf}, 32768), string(bytes.Repeat([]byte{'x'}, 65536)),
+		map[string]any{"nested": []any{nil, true, map[string]any{"bytes": []byte{1, 2}}}},
+	}
+	for _, count := range []int{15, 16, 65535, 65536} {
+		payloads = append(payloads, make([]any, count))
+	}
+	for index, payload := range payloads {
+		t.Run(strconv.Itoa(index), func(t *testing.T) {
+			data, err := (MsgPackCodec{}).Encode(NewMessage(TypeActionInvoke, payload))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var expected Message
+			decoder := msgpack.NewDecoder(bytes.NewReader(data))
+			decoder.SetCustomStructTag("json")
+			if err := decoder.Decode(&expected); err != nil {
+				t.Fatal(err)
+			}
+			actual, err := (MsgPackCodec{}).Decode(data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(expected, *actual) {
+				t.Fatalf("value semantics changed: expected %#v, actual %#v", expected, *actual)
+			}
+		})
+	}
+}
+
+func TestMsgPackCodecEnvelopeCompatibility(t *testing.T) {
+	frames := []any{
+		nil, []any{}, []any{"step", map[string]any{"id": "a"}, int64(123)},
+		map[string]any{}, map[string]any{"type": nil, "payload": nil, "timestamp": nil},
+		map[string]any{"type": "step", "payload": []any{}, "timestamp": int64(123), "unknown": map[string]any{"skip": []any{1, 2}}},
+	}
+	for index, frame := range frames {
+		t.Run(strconv.Itoa(index), func(t *testing.T) {
+			data, err := msgpack.Marshal(frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var expected Message
+			decoder := msgpack.NewDecoder(bytes.NewReader(data))
+			decoder.SetCustomStructTag("json")
+			if err := decoder.Decode(&expected); err != nil {
+				t.Fatal(err)
+			}
+			actual, err := (MsgPackCodec{}).Decode(data)
+			if err != nil || !reflect.DeepEqual(expected, *actual) {
+				t.Fatalf("envelope changed: expected %#v, actual %#v, error %v", expected, actual, err)
+			}
+		})
 	}
 }

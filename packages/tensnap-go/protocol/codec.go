@@ -55,13 +55,15 @@ var msgPackEncoderPool = sync.Pool{New: func() any {
 }}
 
 type msgPackDecoder struct {
-	reader  bytes.Reader
-	decoder *msgpack.Decoder
+	bytes.Reader
+	decoder  *msgpack.Decoder
+	data     []byte
+	envelope msgPackEnvelope
 }
 
 var msgPackDecoderPool = sync.Pool{New: func() any {
 	state := &msgPackDecoder{}
-	state.decoder = msgpack.NewDecoder(&state.reader)
+	state.decoder = msgpack.NewDecoder(state)
 	state.decoder.SetCustomStructTag("json")
 	return state
 }}
@@ -86,20 +88,30 @@ func (MsgPackCodec) Encode(msg *Message) ([]byte, error) {
 
 func (MsgPackCodec) Decode(data []byte) (*Message, error) {
 	state := msgPackDecoderPool.Get().(*msgPackDecoder)
-	state.reader.Reset(data)
-	state.decoder.ResetReader(&state.reader)
-	var message Message
-	err := state.decoder.Decode(&message)
-	remaining := state.reader.Len()
-	state.reader.Reset(nil)
-	msgPackDecoderPool.Put(state)
+	reusable := false
+	defer func() {
+		state.Reader.Reset(nil)
+		state.data = nil
+		state.envelope = msgPackEnvelope{}
+		// Failed library reads can grow internal scratch buffers. Do not retain
+		// those buffers across malformed frames.
+		if reusable {
+			msgPackDecoderPool.Put(state)
+		}
+	}()
+	state.Reader.Reset(data)
+	state.decoder.ResetReader(state)
+	state.data = data
+	err := state.decoder.Decode(&state.envelope)
+	remaining := state.Reader.Len()
 	if err != nil {
 		return nil, fmt.Errorf("protocol: msgpack decode: %w", err)
 	}
 	if remaining != 0 {
 		return nil, fmt.Errorf("protocol: msgpack trailing data")
 	}
-	return &message, nil
+	reusable = true
+	return &Message{Type: state.envelope.Type, Payload: state.envelope.Payload.value, Timestamp: state.envelope.Timestamp}, nil
 }
 
 func (MsgPackCodec) TextMode() bool { return false }
