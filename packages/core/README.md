@@ -144,3 +144,9 @@ The benchmark app contains three suites:
 - one seeded random walk through raw Leafer, core layers without transport, and the full Web transport path.
 
 These diagnostic suites are distinct from the locked paper evaluation; use [the evaluation guide](../../benchmarks/evaluation/README.md) for its current profiles and published archives. All suites report cycle latency/TPS under the Web render-trigger settings. No-transport cases also report mutation cost, while complete models preserve their actual completed-step count and simulator stop reason.
+
+## Recording and storage ownership
+
+`SnapshotRecorder.start(options)` validates the new options and baseline byte budget before replacing an active recording. `maxSteps` and `keyframeEvery` must be positive safe integers; `maxBytes` and `maxDurationMs` must be positive finite numbers. Omit a limit to disable it rather than passing zero or infinity. Invalid replacement options leave the active recording intact. Layer codec maps and implementation descriptors are copied at start; callbacks remain callable policies. Queued control flushes belong to their recording and wait for an in-flight action result.
+
+Storage loaders publish complete replacements. A failed trajectory load preserves its previous data and configurations; a successful load replaces stale configuration and emits one change notification. Removed edges release empty adjacency buckets so repeated topology churn does not retain old IDs.

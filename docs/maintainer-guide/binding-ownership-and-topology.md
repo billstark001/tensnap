@@ -10,6 +10,7 @@ This document is the shared contract for the Python, Go, Julia, and JS model bin
 4. A complete environment rejects duplicate IDs, missing dependencies, dependencies of the wrong role/type, and cycles before it is published. Partial binding declarations may temporarily refer to a layer supplied when the environment is assembled. A projected restore validates the complete incoming topology before changing model state.
 5. Topology validation and sorting happen when a declaration is assembled or its topology changes. Compiled order is reused for every simulation tick, item diff, state sync, and metadata refresh. A normal runtime event must never run a graph traversal or topology validation. Restore requests may validate their _incoming_ snapshot once per request. If a binding exposes mutable topology, supported mutation APIs must invalidate the compiled order; direct mutation of an already compiled declaration is unsupported.
 6. Metadata reads must use the owning object and check the expected metadata type. Declaration writers must reject unsupported owner kinds and must not mutate an inherited or unrelated declaration as a side effect.
+7. Environment and layer IDs are separate components of an identity. IDs may contain `/`, `:`, or other separators. Use structured tuple keys or an injective encoding for cross-environment caches and restore plans; a human-readable `environment/layer` diagnostic is not a key and must never be split to recover IDs.
 
 ## Python binding
 

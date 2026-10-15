@@ -1,4 +1,4 @@
-// Package server wires an abm.Model into a TenSnap v0.2 WebSocket simulator.
+// Package server wires an abm.Model into a TenSnap v0.3 WebSocket simulator.
 //
 // Minimal usage — 4 lines:
 //

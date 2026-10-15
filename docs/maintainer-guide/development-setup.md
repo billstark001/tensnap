@@ -32,6 +32,8 @@ The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed
 
 `pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
 
+Use paired `// #region Name` / `// #endregion` comments for foldable source sections. Oxlint's existing `no-warning-comments` rule warns about decorative dash/equal-sign separators in package source; it does not prohibit TODO/FIXME notes, and test fixtures are excluded from this style rule.
+
 Oxfmt excludes generated Lingui modules, Tauri schemas, the conformance matrix, and all `benchmark-results/` evidence, including published reports whose bytes are hashed. Regenerate these files with their owning tools.
 
 To refresh the npm toolchain, run both root and workspace updates, then verify cross-package tool versions before installing:
@@ -221,6 +223,28 @@ PYTHONPATH=examples pytest -q examples/python_dqn/tests
 pnpm run test:go:examples
 pnpm run test:julia
 ```
+
+To select individual Vitest files, invoke the runner directly so pnpm's argument separator is not forwarded as a literal `--`:
+
+```bash
+pnpm --filter @tensnap/js exec vitest run src/bindings/utils.test.ts
+(cd packages/tensnap-python && pytest -q -o addopts='' tests/test_attr_projector.py)
+```
+
+Small performance checks can run independently of the publication harness:
+
+```bash
+pnpm --filter @tensnap/web exec vitest bench --run src/utils/layout/guideline.bench.ts --reporter=verbose
+pnpm --filter @tensnap/web exec vitest bench --run src/utils/view/collision.bench.ts --reporter=verbose
+pnpm --filter @tensnap/js exec vitest bench --run src/bindings/fields.bench.ts src/bindings/utils.bench.ts --reporter=verbose
+(cd packages/tensnap-go && go test ./abm -run '^$' -bench BenchmarkNaiveItemDiffTrackerCompoundKeys -benchmem)
+(cd packages/tensnap-go && go test ./abm -run '^$' -fuzz FuzzNaiveItemDiffTrackerCompoundKeys -fuzztime=30s)
+(cd packages/tensnap-go && go test ./abm -run '^$' -fuzz FuzzNaiveItemDiffTrackerReplay -fuzztime=30s)
+(cd packages/tensnap-go && go test ./protocol -run '^$' -fuzz FuzzMsgPackCodecDecodeRecovery -fuzztime=30s)
+(cd packages/tensnap-python && python benchmarks/item_diff.py --case unchanged-scalar --count 10000)
+```
+
+Benchmark files use the installed Vitest runner's `test('...', async ({ bench }) => { await bench(...).run(); })` context API. Compare matching inputs on an otherwise idle machine; a microbenchmark only supports conclusions about the measured path.
 
 Live [conformance checks](../../conformance/README.md) and publication [evaluation profiles](../../benchmarks/evaluation/README.md) are separate from unit suites. The latter use their own committed scientific environment locks and output/work/cache directories. Existing published evidence can be checked with `pnpm evaluation verify --input benchmark-results/evaluation-full-2026-10-09`; this is offline and runs no experiment. Do not run timing profiles concurrently with unit suites.
 

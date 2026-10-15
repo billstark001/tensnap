@@ -96,6 +96,8 @@ Trajectory builders expose `length`, `width`, `color`, `zIndex`, `onAgentDelete`
 
 Use `createWebSocketTransportHost(...)` for a local simulator server.
 
+Import browser endpoint tools and `createPostMessageSimulatorHost` from `@tensnap/js/transport/browser` to avoid loading the Node WebSocket host. Renderer transports come from `@tensnap/web-adapter/transport`.
+
 Use `createPostMessageSimulatorHost(...)` when the simulator runs in a worker, iframe, or in-memory paired endpoint. `createLinkedEndpoints()` is useful for tests and bundled examples.
 
 ## Runnable Examples

@@ -1,7 +1,7 @@
 {
   "name": "@tensnap/go",
-  "description": "Go WebSocket server implementing the TenSnap protocol v0.2 (simulator side)",
   "private": true,
+  "description": "Go bindings and WebSocket simulator server for the TenSnap protocol v0.3",
   "scripts": {
     "build": "go build ./...",
     "lint": "go fmt ./...",

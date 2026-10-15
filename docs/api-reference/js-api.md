@@ -8,6 +8,7 @@ The package exports four groups:
 - `@tensnap/js/runtime`: low-level `SimulatorSession` and `SimulatorEmitter`.
 - `@tensnap/js/scenario`: `ScenarioRegistry` replay helpers.
 - `@tensnap/js/transport`: postMessage and WebSocket simulator hosts.
+- `@tensnap/js/transport/browser`: postMessage endpoints, envelopes, and simulator host without loading the Node `ws` host.
 
 ## Quick Start
 
@@ -232,6 +233,10 @@ builder.env('main').agentLayer('agents', {
   color: '#2563eb',
 });
 ```
+
+Field declarations and selector paths are compiled once when the projector is created. Construct a new projector to change the declaration. Callbacks still receive the current item and model on every projection; symbol selectors read the actual symbol property. Sent item snapshots own nested values, and structurally equal nested data does not emit a redundant update.
+
+Item cache keys preserve numeric versus string identity and compound field boundaries. IDs may contain separators; they do not need application-side escaping. Environment and layer IDs remain separate namespaces internally.
 
 ### Charts
 

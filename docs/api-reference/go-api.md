@@ -342,6 +342,10 @@ It only projects new or changed items. Declarative `binding.AgentLayer` uses thi
 
 Use this when your model already builds full item snapshots each step and you want field-level deltas without custom dirty tracking.
 
+Both diff trackers compare complete projections: a field omitted from the next projection is emitted as `nil` to clear it on the renderer. `DictDiff` itself retains its partial-map semantics and only compares fields supplied in the second map.
+
+Numeric identities must be finite. Both trackers panic on `NaN` or infinite keys before inserting them; `NaN` cannot be looked up or deleted reliably as a Go map key. The naive tracker owns its key-field declaration, so changing the caller's slice does not change an existing tracker's identity rules.
+
 It projects every item each step, then emits:
 
 - full creates for new items
@@ -349,6 +353,8 @@ It projects every item each step, then emits:
 - deletes for removed items
 
 Call `Seed(...)` after an initial `ItemCreate(...)` replay so the next `Compute(...)` call produces incremental output.
+
+Compound keys preserve scalar types and embedded separators. A single key field produces a scalar delete key; multiple key fields produce a map containing those fields. Internal cache encodings are not wire IDs and must not be parsed by application code.
 
 ## Trajectory layers
 
@@ -428,7 +434,10 @@ _ = model.Step(emitter)
 - The current frontend uses `start`, `step`, and `reset` as its reserved toolbar actions.
 - `server.RunFactory` is usually the safer entry point because it isolates model state per renderer session.
 - The bundled codecs are `protocol.JSONCodec` (default, text frames) and `protocol.MsgPackCodec` (binary frames). Select one through `server.Options.Codec`; both use the canonical JSON-tagged field names.
+- MessagePack payload containers are decoded in one pass. Before allocating, their declared lengths are checked against the remaining frame bytes; this rejects impossible lengths without scanning every valid frame twice or imposing an arbitrary collection-size limit.
 - A declarative `Scenario` only covers stable protocol surface plus replay callbacks. It is not the same object as the browser-side Scenario runtime in `packages/core`.
+
+`protocol.TypeActionStart` and `protocol.TypeActionEnd` remain deprecated source aliases. Use `TypeActionInvoke` and `TypeActionResult`; their wire values already use the canonical v0.3 names.
 
 ## References
 

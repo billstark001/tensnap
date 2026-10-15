@@ -4,6 +4,8 @@ Python bindings for the TenSnap protocol v0.3 runtime.
 
 ## Installation
 
+Requires Python 3.10+ and `websockets>=13.0`. The server uses the `websockets.asyncio` API introduced in [websockets 13.0](https://websockets.readthedocs.io/en/13.0.1/).
+
 ```bash
 pip install tensnap
 ```

@@ -28,6 +28,74 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### @tensnap/protocol
+
+- **Fixed:** Validate Base64 consistently across browser and Node decoders, reject misplaced padding before decoding, and accept empty binary payloads.
+
+### @tensnap/core
+
+- **Fixed:** Release empty edge adjacency buckets, atomically replace trajectory storage and configuration on load, preserve valid explicit numeric constraints, and handle finite numeric extrema without overflowing the inferred range.
+- **Fixed:** Validate replacement recording options before stopping an active recording, own codec policy descriptors, and keep queued flushes scoped to their recording and action boundary.
+- **Fixed:** Deduplicate lazy event listeners and stop value-inspector traversal once output is truncated; missing own fields and fractional array paths no longer expose inherited values.
+- **Changed:** Reuse layer-registry validation and role lookup, and use portable CSS color parsing with native browser syntax support.
+
+### @tensnap/js
+
+- **Added:** A browser-safe `@tensnap/js/transport/browser` entry point that excludes the Node WebSocket host.
+- **Changed:** Compile field selectors once, preserve symbol selectors, own nested item snapshots, reuse structurally equal values, and encode typed scalar/compound identities without delimiter collisions.
+- **Fixed:** Deduplicate endpoint listeners, route postMessage replies to the negotiated renderer identity, reject stale peers, and detach sessions even when disconnect cleanup throws.
+
+### @tensnap/python
+
+- **Changed:** Retain owned nested snapshots while reusing unchanged item records; focused item-diff benchmarks cover scalar and nested projections. The minimum `websockets` version is now 13.0, matching the asyncio API used by the server.
+- **Fixed:** Drain batched message tails in order, shield shared sends from waiter cancellation, release the listener on stop, clean up failed client setup, and fail screenshot waits when the last renderer disconnects.
+- **Fixed:** Preserve asset metadata-only changes and copy mutable asset buffers; keep restore layer identities distinct across environments and reject attribute selectors with trailing newlines.
+- **Deprecated:** Use `send_action_result(..., request_id=...)` and `on_action_invoke` instead of `send_action_end` and `on_action_start`; the old callable spellings warn when used. Canonical action and asset enum spellings are documented, and private callback compatibility exports are removed.
+
+### @tensnap/go
+
+- **Changed:** Use comparable composite keys for common edge identities, copy key declarations, and reuse standard-library map/slice cloning helpers.
+- **Fixed:** Emit cleared fields from complete item projections, reject non-finite numeric identities before caching, and preserve environment/layer boundaries during restore planning.
+- **Fixed:** Reject impossible MessagePack container and wide binary lengths during one-pass decoding, without scanning every valid frame twice. Failed decoders no longer retain scratch buffers in the pool. Regression seeds, replay fuzzing, and focused allocation benchmarks cover these paths.
+- **Deprecated:** `TypeActionStart` and `TypeActionEnd` remain source aliases; use `TypeActionInvoke` and `TypeActionResult`.
+
+### @tensnap/julia
+
+- **Fixed:** Use structured environment/layer identities in restore plans so embedded separators and same-named layers in different environments cannot collide.
+
+### @tensnap/web
+
+- **Changed:** Separate pure project-history and view-patch models from React bindings, share iterative view traversal, and reduce repeated container scans in collision detection and guideline matching. Import model types directly from their owning modules; internal forwarding exports and unused alias modules are removed.
+- **Fixed:** Preserve undo access to saved states and branched edits, separate merge scopes, recover idle history state when error callbacks throw, and settle replaced dialog requests with cancellation.
+- **Fixed:** Handle deep/cyclic view trees without recursive lookup overflow; retain guideline geometry snapshots, continue past singleton size groups, and exclude disabled/self containers from pointer fallback.
+
+### @tensnap/web-adapter
+
+- **Changed:** Reuse JS endpoint implementations through direct browser-safe imports. Renderer transport exports no longer forward simulator endpoint utilities; import those from `@tensnap/js/transport/browser`.
+- **Fixed:** Settle cancelled and concurrent transport connections, ignore stale initialization callbacks, and complete teardown after cleanup/post failures.
+- **Fixed:** Own persisted buffers and metadata, keep file/directory paths mutually exclusive, reject traversal segments, allow ordinary double-dot filenames, and encode exported text as UTF-8 before Base64 conversion.
+- **Fixed:** Cancel pending file-picker requests when replaced or unmounted, and reduce memory-filesystem recursive deletion to one scan per map.
+
+### @tensnap/agent
+
+- **Fixed:** Validate finite CLI numeric options, integer port ranges, and context paths before starting a runtime; return HTTP 400 for invalid JSON control bodies.
+- **Fixed:** Encode binary render artifacts as Base64 with `dataEncoding` in both scene and inspection HTTP responses, while retaining native bytes in painter APIs.
+- **Tests:** Wait for checkpoint cleanup and scene persistence to finish before asserting save completion.
+
+### @tensnap/tauri
+
+- **Changed:** Import Web file operations from their direct host entry point instead of the removed hooks compatibility barrel.
+
+### @tensnap/web-common
+
+- **Changed:** Clarify delayed callback lifetime and filesystem metadata ownership contracts, and remove redundant development comments.
+
+### Repository maintenance
+
+- Translate useful development comments to English and remove obsolete or self-evident notes; use paired folding regions and the existing Oxlint rule to warn about decorative separators.
+- Document snapshot ownership, canonical import paths, server lifecycle, recorder limits, and focused benchmark/fuzz commands; update the ABM binding skill with identity and environment checks.
+- Apply the configured repository formatters to maintained source and documentation.
+
 ## @tensnap/web [0.3.3] - 2026-10-04
 
 ### Fixed

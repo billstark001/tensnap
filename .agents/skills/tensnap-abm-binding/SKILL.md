@@ -47,6 +47,10 @@ Change protocol schemas, core, affected bindings, and generated protocol docs to
 
 Start with focused binding tests, then run the relevant package and example suites. Check initial sync, a step, reset/reconnect replay, item diffing, monitor current values, and restore without partial mutation on invalid input. Verify layer keys and dependencies, parameter edits, chart values, action ordering, and model time where the task touches them.
 
+For key/diff changes, include numeric `1` versus string `"1"`, IDs containing separators, compound keys, and identical layer IDs in different environments. Internal cache keys must preserve wire identity; string concatenation is not a safe tuple encoding. Check duplicate listener registration and cleanup when adapting transports.
+
+Run Python tests in a development environment installed from `packages/tensnap-python[dev]`; an unrelated global interpreter may resolve incompatible dependencies. The server needs `websockets>=13.0` for `websockets.asyncio`. For a focused run without the package-wide coverage report, pass `-o addopts=''` to pytest.
+
 ```bash
 # Python
 (cd packages/tensnap-python && pytest)

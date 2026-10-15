@@ -66,6 +66,11 @@ The core-owned rendering contract includes:
 All other packages must treat this contract as read-only infrastructure.
 
 - `packages/tensnap-web` may own browser lifecycle, React bindings, browser render barriers, and browser-only integrations, but must not redefine layer, session, or loop semantics.
+
+The view model traversal in `packages/tensnap-web/src/utils/view/container.ts` is independent of React and the drag/drop host. `iterateViews` visits each object once in declaration preorder; lookup and layout discovery share it. Keep tree queries and geometry in these plain TypeScript utilities so hosts can reuse them without mounting components. Layout guidelines cache their own geometry snapshot; callers must invalidate it after editing sibling boxes.
+
+Project history follows the same boundary: `store/history-model.ts` exposes a Zustand state initializer with no React runtime dependency, and `view-history-model.ts` records detached view patches. The `undo-redo.ts` and `view-history.ts` modules provide only React bindings; import pure state, commands, and patch recording directly from the model modules. Scenario types likewise live in `store/scenario/types.ts`, rather than being forwarded through the store implementation. The private Web host exposes file operations through `@tensnap/web/file-operations`; its old `hooks`/`utils` forwarding paths and root-level core type re-exports are removed. Import serialization helpers and core types directly from `@tensnap/core/utils` and `@tensnap/core`. Saved states and undo branches are merge boundaries, so rapid edits cannot make the saved state unreachable through undo.
+
 - `packages/tensnap-agent` may own headless runtime lifecycle, backend registration, and Node scheduling, but must not keep a package-local scene model, session, or rendering rules.
 - `packages/tensnap-js` may own simulator-side TypeScript sessions, emitters, and transports, but must not redefine renderer-owned layer semantics.
 - `packages/benchmark` may own benchmark orchestration and reporting, but its browser cases must mount the production Web host instead of defining an alternative renderer or runtime loop.
@@ -348,6 +353,10 @@ For Save As, the web toolbar provides the selected project extension and file fi
 
 Its control API exposes a shared bounded-run resource: `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. The CLI maps these to `run start`, `run status`, and `run stop`; it has no compatibility aliases for the retired wait/experiment or reserved scene-action interfaces.
 
+Render artifacts returned by the HTTP control API encode binary `data` as a base64 string and include `dataEncoding: 'base64'`. This applies to both scene rendering and agent inspection rendering, including empty byte buffers. In-process painter APIs retain `Uint8Array` data; JSON clients should decode the string using the accompanying media type.
+
+Browser endpoint adapters and linked endpoint pairs belong to `@tensnap/js/transport/browser`. Import them directly; `@tensnap/web-adapter/transport` owns only renderer transports and does not forward simulator endpoint exports.
+
 ## Asset and Screenshot Flow
 
 Assets are protocol-level resources keyed by id/hash.
@@ -376,3 +385,7 @@ Screenshots flow in the opposite direction:
 - Runnable references: `examples/python/`, `examples/python_mesa/`, `examples/go/`, `examples/js/`, `examples/julia/`, and package READMEs
 
 Tutorials 1-4 are backed by runnable examples, while tutorials 5-6 are still planned. When a tutorial and an example diverge, treat the example and API reference as authoritative.
+
+## Filesystem ownership and export boundaries
+
+Memory and IndexedDB adapters own persisted binary buffers, tags, and metadata. Mutating a write result, a read result, or a listed entry must not mutate persisted data. A path cannot simultaneously be a file and a directory, and a file cannot be used as a parent directory. Path validation rejects `.` and `..` segments while allowing ordinary filenames containing two dots. Text exports encode UTF-8 before base64 conversion and retain their media type and byte checksum.
