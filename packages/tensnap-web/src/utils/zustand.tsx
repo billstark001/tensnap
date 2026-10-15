@@ -50,29 +50,32 @@ export const createDialogStore = <T extends MinimalDialogProps, R = void>(
   resolver?: (resolve: (result: R) => void) => Partial<DialogStateOmitted<T>>,
   defaultResolvedValue?: R,
 ) => {
-  const useDialogStore = create<DialogStore<T, R>>((set) => ({
+  const useDialogStore = create<DialogStore<T, R>>((set, get) => ({
     open: false,
     options: undefined,
     resolve: undefined,
 
     invoke: (options) => {
       return new Promise<R>((resolve) => {
+        const nextOptions = {
+          ...resolver?.(resolve),
+          ...options,
+        } as DialogStateOmitted<T>;
+        // Replacing a dialog request cancels the previous caller instead of
+        // dropping its only resolver and leaving its promise pending forever.
+        get().resolve?.(defaultResolvedValue as R);
         set({
           open: true,
-          options: {
-            ...resolver?.(resolve),
-            ...options,
-          } as any,
+          options: nextOptions,
           resolve,
         });
       });
     },
 
     closeDialog: (result?: R) => {
-      set((state) => {
-        state.resolve?.(result ?? (defaultResolvedValue as R));
-        return { open: false, options: undefined, resolve: undefined };
-      });
+      const resolve = get().resolve;
+      set({ open: false, options: undefined, resolve: undefined });
+      resolve?.(result === undefined ? (defaultResolvedValue as R) : result);
     },
   }));
 

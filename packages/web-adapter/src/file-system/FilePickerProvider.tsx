@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, ReactNode } from 'react';
+import React, { useCallback, useEffect, useState, useRef, ReactNode } from 'react';
 import { Dialog } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
@@ -34,8 +34,17 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
   const [browserKey, setBrowserKey] = useState(0);
   const resolveRef = useRef<((result: FileMetadata[]) => void) | null>(null);
 
+  useEffect(
+    () => () => {
+      resolveRef.current?.([]);
+      resolveRef.current = null;
+    },
+    [],
+  );
+
   const openPicker = useCallback((options: FilePickerOptions = {}): Promise<FileMetadata[]> => {
     return new Promise((resolve) => {
+      resolveRef.current?.([]);
       resolveRef.current = resolve;
       setSelectedItems([]);
       setInputFileName('');
@@ -70,13 +79,11 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     (entry: DirectoryEntry) => {
       const { multiSelect } = pickerState.options;
 
-      // 只允许选择文件，不允许选择目录
       if (entry.type === 'directory') {
         return;
       }
 
       if (multiSelect) {
-        // 多选模式：切换选择状态
         setSelectedItems((prev) => {
           const exists = prev.find((item) => item.path === entry.path);
           if (exists) {
@@ -86,9 +93,8 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
           }
         });
       } else {
-        // 单选模式：只更新选择状态，不关闭对话框
+        // Selecting a single file does not confirm the dialog.
         setSelectedItems([entry]);
-        // 更新输入框文件名
         setInputFileName(entry.name);
       }
     },
@@ -97,7 +103,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
 
   const handleFileDoubleClick = useCallback(
     (entry: DirectoryEntry) => {
-      // 双击文件时直接确认并关闭
+      // Double-clicking a file confirms the selection immediately.
       if (entry.type === 'file') {
         closePicker([entry as FileMetadata]);
       }
@@ -110,13 +116,11 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     const fileName = inputFileName.trim();
 
     if (multiSelect) {
-      // 多选模式下的确认
       closePicker(selectedItems as FileMetadata[]);
     } else if (mode === 'save') {
-      // 保存模式：使用输入的文件名
       const validation = validateName(fileName);
       if (!validation.valid) {
-        return; // 文件名为空时不允许确认
+        return;
       }
       const fullPath = joinPath(currentDirectory, fileName);
       const fileMetadata: FileMetadata = {
@@ -130,7 +134,6 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       };
       closePicker([fileMetadata]);
     } else {
-      // 打开模式：使用选择的文件
       if (selectedItems.length > 0) {
         closePicker(selectedItems as FileMetadata[]);
       }
@@ -167,7 +170,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       : pickerState.options.multiSelect
         ? t`Selected ${selectedItems.length} files`
         : undefined;
-  const showSelectionBar = !multiSelect; // 单选模式下显示选择栏
+  const showSelectionBar = !multiSelect;
   const canConfirm = multiSelect
     ? selectedItems.length > 0
     : mode === 'save'
@@ -178,7 +181,6 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     <FilePickerContext.Provider value={contextValue}>
       {children}
 
-      {/* 文件选择器对话框 */}
       <Dialog.Root
         open={pickerState.isOpen}
         onOpenChange={(open) => !open && handleCancel()}

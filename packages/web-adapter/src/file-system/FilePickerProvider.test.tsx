@@ -87,6 +87,22 @@ function Trigger({ onResult }: { onResult: (result: FileMetadata[]) => void }) {
 }
 
 describe('FilePickerProvider', () => {
+  it('cancels replaced and unmounted requests rather than leaving callers waiting', async () => {
+    const onResult = vi.fn();
+    const { unmount } = render(
+      <FilePickerProvider fileSystem={new StubFileSystemAdapter()}>
+        <Trigger onResult={onResult} />
+      </FilePickerProvider>,
+    );
+    fireEvent.click(screen.getByText('open-picker'));
+    fireEvent.click(screen.getByText('open-picker'));
+    await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
+    expect(onResult).toHaveBeenLastCalledWith([]);
+    unmount();
+    await waitFor(() => expect(onResult).toHaveBeenCalledTimes(2));
+    expect(onResult).toHaveBeenLastCalledWith([]);
+  });
+
   it('returns the full save path for the current directory', async () => {
     const onResult = vi.fn();
 
