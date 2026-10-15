@@ -29,6 +29,7 @@ export const Root = (props: SelectProps) => {
         <RadixSelect.Content
           className={clsx(styles.selectContent, contentClassName)}
           position="popper"
+          {...contentProps}
         >
           {children}
         </RadixSelect.Content>
