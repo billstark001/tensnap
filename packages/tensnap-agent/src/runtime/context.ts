@@ -30,10 +30,11 @@ function snapshotReplacer(_key: string, value: unknown): unknown {
   return value;
 }
 
+/** Normalize one directory name; empty names and path-navigation segments use default. */
 export function sanitizeContextName(name?: string): string {
   const normalized = (name ?? 'default').trim().toLowerCase();
   const cleaned = normalized.replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '');
-  return cleaned || 'default';
+  return !cleaned || cleaned === '.' || cleaned === '..' ? 'default' : cleaned;
 }
 
 export function resolveRuntimeContextPaths(

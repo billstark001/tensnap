@@ -7,6 +7,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { main } from './cli';
 import { resolveRuntimeContextPaths, writeRuntimeControl } from './runtime/context';
 
+it.each(['Infinity', '-Infinity', 'NaN'])('rejects non-finite numeric flags: %s', async (value) => {
+  await expect(main(['run', 'start', 'step', '--max-steps', value])).rejects.toThrow(
+    'finite number',
+  );
+  await expect(main(['runtime', 'up', '--foreground', '--port', value])).rejects.toThrow(
+    'finite number',
+  );
+  await expect(main(['runtime', 'up', '--port', value])).rejects.toThrow('finite number');
+});
+
+it.each(['-1', '65536', '1.5'])(
+  'rejects invalid ports before starting either daemon mode: %s',
+  async (value) => {
+    for (const flags of [[], ['--foreground']]) {
+      await expect(main(['runtime', 'up', ...flags, '--port', value])).rejects.toThrow(
+        'integer from 0 through 65535',
+      );
+    }
+  },
+);
+
 const tempDirs: string[] = [];
 
 afterEach(async () => {

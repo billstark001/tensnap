@@ -18,6 +18,15 @@ describe('sanitizeContextName', () => {
   it('falls back to default for empty names', () => {
     expect(sanitizeContextName('   ')).toBe('default');
   });
+
+  it.each(['.', '..', ' .. ', '--..--', '/..', '../'])(
+    'keeps %j inside the contexts directory',
+    (name) => {
+      const paths = resolveRuntimeContextPaths({ rootDir: '/tmp/tensnap', contextName: name });
+      expect(paths.contextName).toBe('default');
+      expect(paths.contextDir).toBe(join(paths.contextsDir, 'default'));
+    },
+  );
 });
 
 describe('resolveRuntimeContextPaths', () => {

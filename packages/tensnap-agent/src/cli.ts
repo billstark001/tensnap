@@ -56,10 +56,18 @@ function getNumberFlag(parsed: ParsedArgs, key: string): number | undefined {
     return undefined;
   }
   const parsedValue = Number(value);
-  if (Number.isNaN(parsedValue)) {
-    throw new Error(`Flag --${key} must be a valid number.`);
+  if (!Number.isFinite(parsedValue)) {
+    throw new Error(`Flag --${key} must be a finite number.`);
   }
   return parsedValue;
+}
+
+function getPortFlag(parsed: ParsedArgs): number | undefined {
+  const port = getNumberFlag(parsed, 'port');
+  if (port !== undefined && (!Number.isInteger(port) || port < 0 || port > 65535)) {
+    throw new Error('Flag --port must be an integer from 0 through 65535.');
+  }
+  return port;
 }
 
 function getValidationLevelFlag(
@@ -175,10 +183,11 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     contextName: getStringFlag(parsed, 'context'),
     rootDir: getStringFlag(parsed, 'context-dir'),
   });
+  const controlPort = getPortFlag(parsed);
 
   const runtime = new AgentRuntime(context, {
     host: getStringFlag(parsed, 'host'),
-    controlPort: getStringFlag(parsed, 'port') ? Number(getStringFlag(parsed, 'port')) : undefined,
+    controlPort,
     encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
     clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
     serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
@@ -206,7 +215,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
 
   const server = new RuntimeControlServer(runtime, {
     host: getStringFlag(parsed, 'host'),
-    port: getStringFlag(parsed, 'port') ? Number(getStringFlag(parsed, 'port')) : undefined,
+    port: controlPort,
   });
   const address = await server.listen();
 
@@ -243,6 +252,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
 }
 
 async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
+  const port = getPortFlag(parsed);
   const context = resolveRuntimeContextPaths({
     contextName: getStringFlag(parsed, 'context'),
     rootDir: getStringFlag(parsed, 'context-dir'),
@@ -284,9 +294,8 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
     childArgs.push('--host', host);
   }
 
-  const port = getStringFlag(parsed, 'port');
-  if (port) {
-    childArgs.push('--port', port);
+  if (port !== undefined) {
+    childArgs.push('--port', String(port));
   }
 
   const encoding = getStringFlag(parsed, 'encoding');
