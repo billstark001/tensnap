@@ -44,6 +44,7 @@ import type {
 import {
   cloneItem,
   cloneItems,
+  ownItemValues,
   diffItem,
   getLayerKey,
   hashAssetData,
@@ -516,20 +517,19 @@ export function createBoundSession<TConfig extends object, TModel>(
       const previousItems = previousState?.items ?? new Map<string, ItemRecord>();
       const currentItems = new Map<string, ItemRecord>();
       const currentDeleteKeys = new Map<string, ItemDeleteKey>();
-      const currentIds = new Set<string>();
       const create: ItemRecord[] = [];
       const update: ItemRecord[] = [];
       let keyFields: readonly string[] = [];
 
       for (const item of items) {
-        const snapshot = cloneItem(item);
+        const snapshot = { ...item } as ItemRecord;
         const itemKey = resolveItemKey(item, snapshot, options?.key);
+        const previous = previousItems.get(itemKey.storageKey);
+        ownItemValues(snapshot, previous);
         keyFields = itemKey.keyFields;
-        currentIds.add(itemKey.storageKey);
         currentItems.set(itemKey.storageKey, snapshot);
         currentDeleteKeys.set(itemKey.storageKey, itemKey.deleteKey);
 
-        const previous = previousItems.get(itemKey.storageKey);
         if (!previous) {
           create.push(snapshot);
           continue;
@@ -542,7 +542,7 @@ export function createBoundSession<TConfig extends object, TModel>(
       }
 
       const remove = Array.from(previousItems.keys())
-        .filter((id) => !currentIds.has(id))
+        .filter((id) => !currentItems.has(id))
         .map((id) => previousState?.deleteKeys.get(id))
         .filter((id): id is ItemDeleteKey => id !== undefined);
 
@@ -600,7 +600,7 @@ export function createBoundSession<TConfig extends object, TModel>(
           continue;
         }
         if (!change.record) throw new Error(`Missing source record for ${storageKey}.`);
-        const record = cloneItem(change.record);
+        const record = cloneItem(change.record, old);
         const resolved = resolveItemKey(record, record);
         if (resolved.storageKey !== storageKey)
           throw new Error(`Source change ID mismatch: ${storageKey}.`);

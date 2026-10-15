@@ -6,7 +6,7 @@ import type {
   FieldSelector,
 } from './types';
 import { literal, projectFields } from './fields';
-import { readPath } from './utils';
+import { compilePath } from './utils';
 
 export type AgentLayerOptions<M, I extends object> = Omit<LayerOptions<M, I>, 'type'> & {
   fields?: Readonly<Record<string, FieldSelector<M, I>>>;
@@ -92,11 +92,8 @@ function sourceFields(
           throw new Error(`unsupported source selector: ${spec}`);
         const root = match[1]!;
         const path = match[2]!.replace(/^\./, '');
-        return [
-          name,
-          (context: Record<string, unknown>) =>
-            path ? readPath(context[root], path) : context[root],
-        ] as const;
+        const read = compilePath(path);
+        return [name, (context: Record<string, unknown>) => read(context[root])] as const;
       }
       if (typeof spec === 'function') {
         return [

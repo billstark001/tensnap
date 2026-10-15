@@ -6,7 +6,6 @@ import type {
   LayerProjector,
   TrajectoryLayerOptions,
 } from './types';
-import { cloneItems } from './utils';
 import { agentLayerOptions, mapAgentLayerOptions, matrixAgentLayerOptions } from './agent-layers';
 import type {
   AgentLayerOptions,
@@ -108,13 +107,14 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
   }
 }
 
+/** Project fields without owning nested values; the session snapshots records at emission. */
 export function projectLayerItems<TModel, TItem extends object>(
   model: TModel,
   items: readonly TItem[],
   projector?: LayerProjector<TModel, TItem>,
 ): ItemRecord[] {
   if (!projector) {
-    return cloneItems(items);
+    return items.map((item) => ({ ...item }) as ItemRecord);
   }
   return items.map((item) => projector(model, item));
 }

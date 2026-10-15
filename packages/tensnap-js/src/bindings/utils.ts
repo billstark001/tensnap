@@ -6,6 +6,7 @@ import type {
   PrimitiveItemKey,
   ResolvedItemKey,
 } from './types';
+import { dequal } from 'dequal/lite';
 
 export function titleFromId(id: string): string {
   return id
@@ -14,8 +15,24 @@ export function titleFromId(id: string): string {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function cloneItem<TItem extends object>(item: TItem): ItemRecord {
-  return { ...(item as unknown as ItemRecord) };
+/**
+ * Own projected values so model mutations cannot rewrite sent snapshots.
+ * A previous owned snapshot may supply equal nested fields without copying them again.
+ */
+export function cloneItem<TItem extends object>(item: TItem, previous?: ItemRecord): ItemRecord {
+  return ownItemValues({ ...(item as unknown as ItemRecord) }, previous);
+}
+
+/** Own nested values in an already-detached outer record, reusing prior owned fields. */
+export function ownItemValues(snapshot: ItemRecord, previous?: ItemRecord): ItemRecord {
+  for (const key of Object.keys(snapshot)) {
+    const value = snapshot[key];
+    if (value !== null && typeof value === 'object') {
+      snapshot[key] =
+        previous && dequal(previous[key], value) ? previous[key] : structuredClone(value);
+    }
+  }
+  return snapshot;
 }
 
 export function cloneItems<TItem extends object>(items: readonly TItem[]): ItemRecord[] {
@@ -30,21 +47,16 @@ function getRecordValue(record: ItemRecord, key: string): unknown {
   return record[key];
 }
 
-function stableKeyPart(value: unknown): string {
-  if (isPrimitiveKey(value)) {
-    return String(value);
-  }
-  return JSON.stringify(value);
-}
-
+/** Internal identity encoding: preserve primitive types and escape field boundaries. */
 export function stableStorageKey(deleteKey: ItemDeleteKey): string {
   if (isPrimitiveKey(deleteKey)) {
-    return stableKeyPart(deleteKey);
+    return JSON.stringify(deleteKey);
   }
-  return Object.keys(deleteKey)
-    .sort()
-    .map((key) => `${key}:${stableKeyPart(deleteKey[key])}`)
-    .join('|');
+  return JSON.stringify(
+    Object.keys(deleteKey)
+      .sort()
+      .map((key) => [key, deleteKey[key]]),
+  );
 }
 
 export function resolveItemKey<TItem extends object>(
@@ -75,12 +87,12 @@ export function resolveItemKey<TItem extends object>(
         throw new Error(`TenSnap item key ${field} must be a string or number.`);
       }
       return {
-        storageKey: `${field}:${value}`,
+        storageKey: stableStorageKey({ [field]: value }),
         deleteKey: { [field]: value },
         keyFields: [field],
       };
     }
-    const deleteKey: ItemRecord = {};
+    const deleteKey: ItemRecord = Object.create(null);
     for (const field of selectorList) {
       deleteKey[field] = getRecordValue(record, field);
     }
@@ -101,7 +113,7 @@ export function resolveItemKey<TItem extends object>(
 
   if (isPrimitiveKey(record.source) && isPrimitiveKey(record.target)) {
     return {
-      storageKey: `source:${record.source}|target:${record.target}`,
+      storageKey: stableStorageKey({ source: record.source, target: record.target }),
       deleteKey: { source: record.source, target: record.target },
       keyFields: ['source', 'target'],
     };
@@ -115,22 +127,32 @@ export function diffItem(
   current: ItemRecord,
   key: ResolvedItemKey,
 ): ItemRecord | undefined {
-  const diff: ItemRecord = {};
+  const diff: ItemRecord = Object.create(null);
   let changed = false;
-  const keyFields = new Set(key.keyFields);
-  const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
-
-  for (const field of keys) {
-    if (keyFields.has(field)) {
-      continue;
-    }
-    if (!Object.prototype.hasOwnProperty.call(current, field)) {
-      diff[field] = null;
-      changed = true;
-      continue;
-    }
-    if (!Object.is(previous[field], current[field])) {
+  // Most layers have one or two key fields. Avoid allocating a union Set and
+  // two spread arrays for every agent, while bounding lookup cost for custom keys.
+  const largeKeyFields = key.keyFields.length > 4 ? new Set(key.keyFields) : undefined;
+  const isKeyField = (field: string) => largeKeyFields?.has(field) ?? key.keyFields.includes(field);
+  for (const field of Object.keys(current)) {
+    if (isKeyField(field)) continue;
+    const before = previous[field];
+    const after = current[field];
+    const same =
+      Object.is(before, after) ||
+      (before !== null &&
+        typeof before === 'object' &&
+        after !== null &&
+        typeof after === 'object' &&
+        dequal(before, after));
+    if (!same) {
       diff[field] = current[field];
+      changed = true;
+    }
+  }
+
+  for (const field of Object.keys(previous)) {
+    if (!isKeyField(field) && !Object.prototype.hasOwnProperty.call(current, field)) {
+      diff[field] = null;
       changed = true;
     }
   }
@@ -148,7 +170,7 @@ export function diffItem(
 }
 
 export function getLayerKey(envId: string, layerId: string): string {
-  return `${envId}:${layerId}`;
+  return JSON.stringify([envId, layerId]);
 }
 
 export function normalizeNumber(
@@ -198,14 +220,20 @@ export async function hashAssetData(data: Uint8Array): Promise<string> {
     .join('');
 }
 
-export function readPath(source: unknown, path: string): unknown {
-  const normalized = path.replace(/\[(\d+)\]/g, '.$1');
-  return normalized.split('.').reduce<unknown>((current, part) => {
-    if (current == null || part === '') {
-      return current;
+/** Compile dotted/indexed access once while preserving null-safe path semantics. */
+export function compilePath(path: string): (source: unknown) => unknown {
+  const parts = path
+    .replace(/\[(\d+)\]/g, '.$1')
+    .split('.')
+    .filter(Boolean);
+  return (source) => {
+    let current = source;
+    for (const part of parts) {
+      if (current == null) return current;
+      current = (current as Record<string, unknown>)[part];
     }
-    return (current as Record<string, unknown>)[part];
-  }, source);
+    return current;
+  };
 }
 
 export function isChartValueEntry(value: unknown): value is { value: unknown; time?: number } {

@@ -27,6 +27,86 @@ async function initialize(
 }
 
 describe('modelBuilder', () => {
+  it('emits an update when model-owned nested data mutates in place', async () => {
+    const builder = modelBuilder(
+      { id: 'nested-data', name: 'Nested Data', description: 'snapshot ownership fixture' },
+      {
+        defaults: {},
+        create: () => ({ agent: { id: 'a', data: { count: 0 } } }),
+        step(model) {
+          model.agent.data.count += 1;
+        },
+      },
+    );
+    builder.env('main').agentLayer('agents', { items: (model) => [model.agent] });
+    const session = builder.build().createSession();
+    const messages: SimulatorToRendererMessage[] = [];
+    session.attach((message) => {
+      messages.push(message);
+    });
+    await session.open();
+    await initialize(session, 'nested-data');
+    const initial = messages.find((message) => message.type === 'item_create');
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'nested-step' },
+    });
+    expect(initial).toMatchObject({ payload: { items: [{ id: 'a', data: { count: 0 } }] } });
+    expect(messages).toContainEqual({
+      type: 'item_update',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', data: { count: 1 } }] },
+    });
+    await session.close();
+  });
+
+  it('diffs edge keys containing separators independently', async () => {
+    const edges = [
+      { source: 'a|target:b', target: 'c', color: 'red' },
+      { source: 'a', target: 'b|target:c', color: 'blue' },
+    ];
+    const binding = modelBuilder(
+      { id: 'edge-keys', name: 'Edge Keys', description: 'compound key fixture' },
+      {
+        defaults: {},
+        create: () => ({ edges }),
+        step: (model) => {
+          model.edges.splice(0, 1);
+        },
+      },
+    );
+    binding
+      .env('main')
+      .agentLayer('agents', { items: () => [] })
+      .edgeLayer('edges', {
+        dependencyLayerIds: { agent: 'agents' },
+        items: (model) => model.edges,
+      });
+    const session = binding.build().createSession();
+    const messages: SimulatorToRendererMessage[] = [];
+    session.attach((message) => {
+      messages.push(message);
+    });
+    await session.open();
+    await initialize(session, 'edge-keys');
+    messages.length = 0;
+
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'step-keys' },
+    });
+    expect(messages).toContainEqual({
+      type: 'item_delete',
+      payload: {
+        env_id: 'main',
+        layer_id: 'edges',
+        items: [{ source: 'a|target:b', target: 'c' }],
+      },
+    });
+    expect(messages.filter((message) => message.type === 'item_update')).toEqual([]);
+    await session.close();
+  });
+
   it('publishes changed layer metadata after a step', async () => {
     const builder = modelBuilder(
       {
