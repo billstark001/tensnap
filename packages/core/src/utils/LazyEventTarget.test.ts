@@ -54,6 +54,33 @@ describe('LazyEventTarget', () => {
 
   // #region 3. Deduplication
   describe('3. Deduplication (same listener twice)', () => {
+    it.each([true, false])(
+      'preserves an original once registration on duplicate once=%s',
+      (once) => {
+        const target = new LazyEventTarget();
+        const callback = vi.fn();
+        target.addEventListener('ev', callback, { once: true });
+        target.addEventListener('ev', callback, { once });
+
+        target.dispatchEvent(new Event('ev'));
+        target.dispatchEvent(new Event('ev'));
+        expect(callback).toHaveBeenCalledTimes(1);
+        expect(target.listenerCount('ev')).toBe(0);
+      },
+    );
+
+    it('removes a duplicated once listener before dispatch', () => {
+      const target = new LazyEventTarget();
+      const callback = vi.fn();
+      target.addEventListener('ev', callback, { once: true });
+      target.addEventListener('ev', callback);
+      target.removeEventListener('ev', callback);
+
+      target.dispatchEvent(new Event('ev'));
+      expect(callback).not.toHaveBeenCalled();
+      expect(target.hasListeners('ev')).toBe(false);
+    });
+
     it('should ignore duplicate listeners', () => {
       const t = new LazyEventTarget();
       const fn = vi.fn();

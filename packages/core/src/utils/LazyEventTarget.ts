@@ -27,7 +27,7 @@
  *  - https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener
  */
 
-// ─── Internal helpers ─────────────────────────────────────────────────────────
+// #region Internal helpers
 
 /**
  * Resolve the effective `capture` boolean from the overloaded options argument.
@@ -55,7 +55,9 @@ function invokeListener(
   }
 }
 
-// ─── Internal record ──────────────────────────────────────────────────────────
+// #endregion
+
+// #region Internal record
 
 interface ListenerRecord {
   /** Original listener reference supplied by the caller. */
@@ -74,7 +76,9 @@ interface ListenerRecord {
   abortCleanup?: () => void;
 }
 
-// ─── Public types ─────────────────────────────────────────────────────────────
+// #endregion
+
+// #region Public types
 
 /** Options accepted by dispatchLazy(). */
 export interface DispatchLazyOptions {
@@ -85,7 +89,9 @@ export interface DispatchLazyOptions {
   throwOnError?: boolean;
 }
 
-// ─── LazyEventTarget ──────────────────────────────────────────────────────────
+// #endregion
+
+// #region LazyEventTarget
 
 export class LazyEventTarget extends EventTarget {
   /**
@@ -105,7 +111,7 @@ export class LazyEventTarget extends EventTarget {
   /** Active listener count keyed by event type. */
   readonly #counts = new Map<string, number>();
 
-  // ── Registry helpers ────────────────────────────────────────────────────────
+  // #region Registry helpers
 
   #getRecord(
     type: string,
@@ -184,7 +190,9 @@ export class LazyEventTarget extends EventTarget {
     return record;
   }
 
-  // ── EventTarget overrides ───────────────────────────────────────────────────
+  // #endregion
+
+  // #region EventTarget overrides
 
   override addEventListener(
     type: string,
@@ -205,8 +213,8 @@ export class LazyEventTarget extends EventTarget {
     // Deduplication: (type, listener, capture) already in our registry means
     // the native EventTarget would also ignore this call — keep our count stable.
     if (this.#getRecord(type, listener, capture)) {
-      // Still delegate so the native side can reflect any option changes (passive).
-      super.addEventListener(type, listener, options);
+      // In particular, do not register the original behind a once wrapper:
+      // native identity uses the wrapper and would treat it as a second listener.
       return;
     }
 
@@ -286,7 +294,9 @@ export class LazyEventTarget extends EventTarget {
     super.removeEventListener(type, record?.wrapped ?? listener, options);
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
+  // #endregion
+
+  // #region Public API
 
   /**
    * Returns the total number of active listeners registered for `type`,
@@ -350,4 +360,7 @@ export class LazyEventTarget extends EventTarget {
       return false;
     }
   }
+  // #endregion
 }
+
+// #endregion
