@@ -48,7 +48,7 @@ import {
   estimateHistoryBytes,
   type HistoryCommandScope,
   type HistoryState,
-} from '../undo-redo';
+} from '../history-model';
 
 const mutateSnapshot = (scenario: Scenario, mutate: (snapshot: ScenarioSnapshot) => void) => {
   const snapshot = scenario.dump();
@@ -1187,5 +1187,3 @@ export const createScenarioStore = (
 
 export const { Provider: ScenarioStoreProvider, useStore: useScenarioStore } =
   createStoreContext<ScenarioStore>();
-
-export * from './types';

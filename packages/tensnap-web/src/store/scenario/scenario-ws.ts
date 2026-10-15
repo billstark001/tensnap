@@ -10,7 +10,7 @@ import type {
   StateSyncEndPayload,
 } from '@tensnap/protocol';
 import { StoreApi, UseBoundStore } from 'zustand';
-import { ScenarioStore } from './store';
+import type { ScenarioStore } from './types';
 
 const diagnosticSeverityFromLog = (level: NormalizedLogPayload['level']): DiagnosticSeverity =>
   level === 'critical' ? 'critical' : level;

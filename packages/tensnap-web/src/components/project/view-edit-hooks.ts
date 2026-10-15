@@ -5,7 +5,7 @@ import { AnyView, ContainerView } from '@/types/ui';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import type { MonitorState } from '@tensnap/core/monitor';
-import { EditableEnvironmentDraft } from '@/store/scenario/store';
+import type { EditableEnvironmentDraft } from '@/store/scenario/types';
 import { findView } from '@/utils/view/container';
 import {
   addViewToContainerInPlace,

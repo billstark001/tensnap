@@ -10,9 +10,10 @@ import {
   type ProjectFileContent,
 } from '@/types/project';
 import { decode, encode } from '@msgpack/msgpack';
-import { createHistoryStore, type HistoryState } from './undo-redo';
+import { createHistoryStore } from './undo-redo';
+import type { HistoryState } from './history-model';
 import { useSettingsStore } from './settings';
-import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from '@/utils/msgpack';
+import { checkMsgpackCompatibility, uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import {
   createStateSyncInventoryFromSnapshot,
   type StateSyncInventory,
@@ -24,7 +25,8 @@ import {
   type Snapshot,
   type SnapshotModelIdentity,
 } from '@tensnap/core/snapshot';
-import { createScenarioStore, ScenarioStore } from './scenario/store';
+import { createScenarioStore } from './scenario/store';
+import type { ScenarioStore } from './scenario/types';
 import { getFileSystemState } from './file-system/provider';
 
 export interface ProjectOpenResult {

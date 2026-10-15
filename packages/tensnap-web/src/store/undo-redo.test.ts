@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createHistoryStore, type HistoryCommand } from './undo-redo';
+import { createHistoryStore } from './undo-redo';
+import type { HistoryCommand } from './history-model';
 
 const command = (
   label: string,
@@ -93,5 +94,80 @@ describe('project command history', () => {
     );
     expect(target.value).toBe(0);
     expect(history.getState().past).toEqual([]);
+  });
+
+  it('keeps a saved state reachable when subsequent commands share a merge key', async () => {
+    const target = { value: 0 };
+    const history = createHistoryStore();
+    const move = (from: number, to: number): HistoryCommand => ({
+      ...command('Move', target, from, to),
+      mergeKey: 'view:one',
+      timestamp: to,
+    });
+    await history.getState().execute(move(0, 1));
+    await history.getState().execute(move(1, 2));
+    expect(history.getState().past).toHaveLength(1);
+    history.getState().markClean();
+    await history.getState().execute(move(2, 3));
+    await history.getState().execute(move(3, 4));
+    expect(history.getState().past).toHaveLength(2);
+    await history.getState().undo();
+    expect(target.value).toBe(2);
+    expect(history.getState().isDirty()).toBe(false);
+  });
+
+  it('does not merge across an undo branch or between command scopes', async () => {
+    const target = { value: 0 };
+    const history = createHistoryStore();
+    const move = (from: number, to: number, timestamp: number): HistoryCommand => ({
+      ...command('Move', target, from, to),
+      mergeKey: 'view:one',
+      timestamp,
+    });
+    await history.getState().execute(move(0, 1, 0));
+    await history.getState().execute(move(1, 2, 800));
+    await history.getState().undo();
+    await history.getState().execute(move(1, 3, 100));
+    expect(history.getState().past).toHaveLength(2);
+    expect(history.getState().future).toHaveLength(0);
+    await history.getState().execute({ ...move(3, 4, 200), scope: 'view-config' });
+    expect(history.getState().past).toHaveLength(3);
+    await history.getState().undo();
+    expect(target.value).toBe(3);
+  });
+
+  it('restores idle status even when the error handler throws', async () => {
+    const history = createHistoryStore({
+      onError: () => {
+        throw new Error('logger failed');
+      },
+    });
+    const bad = {
+      ...command('Bad', { value: 0 }, 0, 1),
+      apply: () => {
+        throw new Error('apply failed');
+      },
+    };
+    await expect(history.getState().execute(bad)).rejects.toThrow('logger failed');
+    expect(history.getState().status).toBe('idle');
+    expect(history.getState().error).toBe('apply failed');
+  });
+
+  it('ignores oversized external records while a command is in flight', async () => {
+    const history = createHistoryStore({ maxBytes: 1 });
+    const target = { value: 0 };
+    history.getState().recordApplied(command('First', target, 0, 1));
+    let finish!: () => void;
+    const running = history.getState().execute({
+      ...command('Second', target, 1, 2),
+      apply: () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    });
+    history.getState().recordApplied(command('Too large', target, 0, 3, 2));
+    expect(history.getState().past.map((item) => item.label)).toEqual(['First']);
+    finish();
+    expect(await running).toBe(true);
   });
 });

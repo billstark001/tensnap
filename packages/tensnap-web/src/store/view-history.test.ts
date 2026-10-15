@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { createDefaultRootLayout } from '@/utils/view/create-view';
-import { createHistoryStore } from './undo-redo';
-import { recordViewHistoryChange } from './view-history';
+import { createStore } from 'zustand/vanilla';
+import { createHistoryState } from './history-model';
+import { recordViewHistoryChange } from './view-history-model';
 
 describe('view history metadata commands', () => {
   it('records and replays button metadata when the view tree itself is unchanged', async () => {
-    const history = createHistoryStore();
+    const history = createStore(createHistoryState());
     const view = createDefaultRootLayout();
     const action: { label: string; role: 'run' | 'custom' } = { label: 'After', role: 'run' };
 

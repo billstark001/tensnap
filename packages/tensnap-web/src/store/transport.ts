@@ -1,5 +1,5 @@
 import { create, StoreApi, UseBoundStore } from 'zustand';
-import { ScenarioStore } from './scenario/store';
+import type { ScenarioStore } from './scenario/types';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';
 import { RendererClient } from '@tensnap/core/runtime';
