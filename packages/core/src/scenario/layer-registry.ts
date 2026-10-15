@@ -254,9 +254,22 @@ export interface LayerValidationResult<T = unknown> {
 }
 // #endregion
 
+/** Preserve schema transforms and errors across every layer validation entry point. */
+function validateLayerValue<T>(
+  schema: ZodType | undefined,
+  value: unknown,
+): LayerValidationResult<T> {
+  if (!schema) return { success: true, data: value as T };
+  const result = schema.safeParse(value);
+  return result.success
+    ? { success: true, data: result.data as T }
+    : { success: false, error: result.error };
+}
+
 export class LayerRegistryClass {
   private readonly defs = new Map<string, LayerTypeDefinition>();
 
+  /** Replace a matching type in place; new types retain registration order. */
   register(definition: LayerTypeDefinition): void {
     this.defs.set(definition.layer_type, { ...definition });
   }
@@ -277,30 +290,15 @@ export class LayerRegistryClass {
     layerType: string,
     data: Record<string, unknown>,
   ): LayerValidationResult<T> {
-    const schema = this.defs.get(layerType)?.metadataSchema;
-    if (!schema) return { success: true, data: data as T };
-    const result = schema.safeParse(data);
-    return result.success
-      ? { success: true, data: result.data as T }
-      : { success: false, error: result.error };
+    return validateLayerValue<T>(this.defs.get(layerType)?.metadataSchema, data);
   }
 
   validateItem<T = unknown>(layerType: string, item: unknown): LayerValidationResult<T> {
-    const schema = this.defs.get(layerType)?.itemSchema;
-    if (!schema) return { success: true, data: item as T };
-    const result = schema.safeParse(item);
-    return result.success
-      ? { success: true, data: result.data as T }
-      : { success: false, error: result.error };
+    return validateLayerValue<T>(this.defs.get(layerType)?.itemSchema, item);
   }
 
   validateItemDiff<T = unknown>(layerType: string, diff: unknown): LayerValidationResult<T> {
-    const schema = this.defs.get(layerType)?.itemDiffSchema;
-    if (!schema) return { success: true, data: diff as T };
-    const result = schema.safeParse(diff);
-    return result.success
-      ? { success: true, data: result.data as T }
-      : { success: false, error: result.error };
+    return validateLayerValue<T>(this.defs.get(layerType)?.itemDiffSchema, diff);
   }
 
   /**
@@ -308,7 +306,7 @@ export class LayerRegistryClass {
    * registered LayerRendererDefinition.createLayer implementation.
    */
   createLayer(plan: RenderLayerPlan, context: LayerCreateContext): CreatedLayerEntry | null {
-    const def = this.findDefinitionForRole(plan.role);
+    const def = this.getDefinitionByRole(plan.role);
     if (def?.renderer?.createLayer) {
       return def.renderer.createLayer(plan, context);
     }
@@ -344,10 +342,6 @@ export class LayerRegistryClass {
    * Used to look up the createLayer implementation from the plan's role.
    */
   getDefinitionByRole(role: string): LayerTypeDefinition | undefined {
-    return this.findDefinitionForRole(role);
-  }
-
-  private findDefinitionForRole(role: string): LayerTypeDefinition | undefined {
     for (const def of this.defs.values()) {
       if (def.renderer?.role === role) {
         return def;
@@ -852,7 +846,6 @@ import type {
   GridLayerPlan,
   TrajectoryLayerPlan,
 } from './render-plan';
-// #endregion
 
 function createBackgroundLayerFromPlan(
   plan: BackgroundLayerPlan,

@@ -7,6 +7,33 @@ import {
 } from './layer-registry';
 import { BackgroundLayerMetadataSchema } from '@tensnap/protocol/layers';
 import { isBackgroundAssetReference } from '../environment/types';
+import { z } from 'zod';
+
+describe('layer registry validation entry points', () => {
+  it.each([
+    ['metadataSchema', 'validateMetadata'],
+    ['itemSchema', 'validateItem'],
+    ['itemDiffSchema', 'validateItemDiff'],
+  ] as const)('preserves %s transforms and errors', (schemaKey, method) => {
+    const registry = new LayerRegistryClass();
+    registry.register({
+      layer_type: 'custom',
+      [schemaKey]: z
+        .object({ value: z.string() })
+        .transform(({ value }) => ({ value: value.trim() })),
+    });
+    expect(registry[method]('custom', { value: ' ready ' })).toEqual({
+      success: true,
+      data: { value: 'ready' },
+    });
+    expect(registry[method]('custom', { value: 42 })).toMatchObject({
+      success: false,
+      error: expect.any(z.ZodError),
+    });
+    const unvalidated = { value: 42 };
+    expect(registry[method]('unknown', unvalidated)).toEqual({ success: true, data: unvalidated });
+  });
+});
 
 describe('background layer metadata schema', () => {
   it('rejects dependency_layer_ids in layer metadata', () => {
