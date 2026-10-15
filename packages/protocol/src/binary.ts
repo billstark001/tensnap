@@ -44,79 +44,61 @@ export function encodeBytesAsDataUrl(bytes: Uint8Array, mime = 'application/octe
 
 /** Decode an unprefixed base64 string or base64 data URL into semantic bytes. */
 export function decodeBinaryString(value: string): DecodedBinaryString {
-  const decoded = tryDecodeBinaryString(value);
-  if (!decoded) {
+  const parsed = parseBinaryString(value);
+  if (!parsed) {
     throw new Error('Expected a base64 string or a base64 data URL.');
   }
-  return decoded;
+  const { base64, ...metadata } = parsed;
+  return { ...metadata, bytes: decodeBase64(base64) };
 }
 
-/** Whether a string is a valid unprefixed base64 value or base64 data URL. */
+/** Validate base64 syntax without decoding or allocating the binary payload. */
 export function isEncodedBinaryString(value: string): boolean {
-  return tryDecodeBinaryString(value) !== null;
+  return parseBinaryString(value) !== null;
 }
 
-function tryDecodeBinaryString(value: string): DecodedBinaryString | null {
+function parseBinaryString(
+  value: string,
+): (Omit<DecodedBinaryString, 'bytes'> & { base64: string }) | null {
+  let mime: string | undefined;
+  let encoding: DecodedBinaryString['encoding'] = 'base64';
   if (value.startsWith('data:')) {
-    const dataUrl = tryDecodeBase64DataUrl(value);
-    if (dataUrl) {
-      return dataUrl;
-    }
+    const markerIndex = value.indexOf(BASE64_DATA_URL_MARKER);
+    if (markerIndex === -1) return null;
+    mime = value.slice(5, markerIndex) || undefined;
+    value = value.slice(markerIndex + BASE64_DATA_URL_MARKER.length);
+    encoding = 'data-url';
   }
 
-  const bytes = tryDecodeBase64(value);
-  if (!bytes) {
+  const base64 = value.replace(/\s+/g, '');
+  if (base64.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(base64)) {
+    return null;
+  }
+  const paddingIndex = base64.indexOf('=');
+  if (
+    paddingIndex !== -1 &&
+    (paddingIndex < base64.length - 2 || /[^=]/.test(base64.slice(paddingIndex)))
+  ) {
     return null;
   }
 
-  return {
-    bytes,
-    encoding: 'base64',
-  };
+  return { base64, ...(encoding === 'data-url' ? { mime } : {}), encoding };
 }
 
-function tryDecodeBase64DataUrl(value: string): DecodedBinaryString | null {
-  const markerIndex = value.indexOf(BASE64_DATA_URL_MARKER);
-  if (markerIndex === -1) {
-    return null;
+/** Decode already validated input identically in Node and browser hosts. */
+function decodeBase64(value: string): Uint8Array {
+  const buffer = getGlobalBuffer();
+  if (buffer) {
+    return new Uint8Array(buffer.from(value, 'base64'));
   }
 
-  const mime = value.slice(5, markerIndex) || undefined;
-  const base64 = value.slice(markerIndex + BASE64_DATA_URL_MARKER.length);
-  const bytes = tryDecodeBase64(base64);
-  if (!bytes) {
-    return null;
-  }
-
-  return {
-    bytes,
-    mime,
-    encoding: 'data-url',
-  };
-}
-
-function tryDecodeBase64(value: string): Uint8Array | null {
-  const normalized = value.replace(/\s+/g, '');
-  if (!normalized || normalized.length % 4 !== 0 || /[^A-Za-z0-9+/=]/.test(normalized)) {
-    return null;
-  }
-
-  try {
-    const buffer = getGlobalBuffer();
-    if (buffer) {
-      return new Uint8Array(buffer.from(normalized, 'base64'));
+  if (typeof atob === 'function') {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
     }
-
-    if (typeof atob === 'function') {
-      const binary = atob(normalized);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index);
-      }
-      return bytes;
-    }
-  } catch {
-    return null;
+    return bytes;
   }
 
   throw new Error('No base64 decoder is available in this runtime.');

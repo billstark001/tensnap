@@ -22,6 +22,17 @@ afterEach(() => {
 });
 
 describe('BackgroundStorage', () => {
+  it.each(['Red', '  blue  ', '#f008'])(
+    'resolves the color %j without loading an image',
+    async (value) => {
+      vi.stubGlobal('Image', FakeImage);
+      const storage = new BackgroundStorage();
+      await storage.setBackground(value);
+      expect(storage.getData()).toEqual({ kind: 'color', value });
+      expect(images).toEqual([]);
+    },
+  );
+
   it('ignores an older image that loads after a newer background', async () => {
     vi.stubGlobal('Image', FakeImage);
     const storage = new BackgroundStorage();

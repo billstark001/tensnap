@@ -14,9 +14,7 @@ import { uint8ArrayToArrayBuffer } from '../../utils/msgpack';
 import { detectFileFormat } from '../../utils/format-detector';
 import type { BackgroundInterpolation } from '@tensnap/protocol/layers';
 
-// ---------------------------------------------------------------------------
-// Data type
-// ---------------------------------------------------------------------------
+// #region Data type
 
 export type BackgroundValue =
   | { kind: 'color'; value: string }
@@ -24,9 +22,9 @@ export type BackgroundValue =
 
 export type BackgroundData = BackgroundValue | null;
 
-// ---------------------------------------------------------------------------
-// Storage
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Storage
 
 export class BackgroundStorage extends BaseStorage<BackgroundData> {
   /** Blob URL created by this storage; asset URLs belong to AssetStore. */
@@ -47,9 +45,7 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
     this._setResolved((snapshot as BackgroundData) ?? null);
   }
 
-  // -------------------------------------------------------------------------
-  // Public API
-  // -------------------------------------------------------------------------
+  // #region Public API
 
   /**
    * Accept raw background input, resolve it asynchronously, and notify.
@@ -121,9 +117,9 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
     this._revokePendingBlob();
   }
 
-  // -------------------------------------------------------------------------
-  // Internal
-  // -------------------------------------------------------------------------
+  // #endregion
+
+  // #region Internal
 
   private _setResolved(data: BackgroundData, ownedUrl: string | null = null): void {
     const oldBlobUrl = this._blobUrl;
@@ -154,11 +150,12 @@ export class BackgroundStorage extends BaseStorage<BackgroundData> {
       this._blobUrl = null;
     }
   }
+  // #endregion
 }
 
-// ---------------------------------------------------------------------------
-// Module-level helpers
-// ---------------------------------------------------------------------------
+// #endregion
+
+// #region Module-level helpers
 
 export async function loadImageAsync(
   src: string,
@@ -196,3 +193,5 @@ async function parseUint8ArrayBackground(
   }
   throw new Error(`Unsupported background format: ${format}`);
 }
+
+// #endregion
