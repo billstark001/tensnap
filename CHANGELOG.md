@@ -65,6 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/web
 
+- **Fixed:** Reset failed views during state derivation rather than scheduling a second render; preserve errors for unchanged identity, including a `NaN` reset key. Pass view renderer component types directly so replacements render immediately and retain normal React component lifetimes.
+- **Build:** Use native ESM-compatible Vite configuration and keep the Node JS demo host out of browser bundles.
 - **Changed:** Separate pure project-history and view-patch models from React bindings, share iterative view traversal, and reduce repeated container scans in collision detection and guideline matching. Import model types directly from their owning modules; internal forwarding exports and unused alias modules are removed.
 - **Fixed:** Preserve undo access to saved states and branched edits, separate merge scopes, recover idle history state when error callbacks throw, and settle replaced dialog requests with cancellation.
 - **Fixed:** Handle deep/cyclic view trees without recursive lookup overflow; retain guideline geometry snapshots, continue past singleton size groups, and exclude disabled/self containers from pointer fallback.
@@ -84,14 +86,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/tauri
 
+- **Build:** Use `import.meta.dirname` and attributed JSON imports in the Vite config for native loader compatibility.
 - **Changed:** Import Web file operations from their direct host entry point instead of the removed hooks compatibility barrel.
 
 ### @tensnap/web-common
 
+- **Fixed:** Publish event callbacks after commit, preserve pending debounce/throttle deadlines across callback changes, and cancel pending work on delay changes or unmount. Remove the unused callback dependency-list argument.
+- **Fixed:** Forward `Select` content props to its popup, including attributes, positioning options, and keyboard handlers.
 - **Changed:** Clarify delayed callback lifetime and filesystem metadata ownership contracts, and remove redundant development comments.
 
 ### Repository maintenance
 
+- Clear all remaining Oxlint warnings, assert fixture prerequisites before dereferencing optional values, and fail lint on new warnings. Use native ESM paths in shared Vite/Vitest configs, including the benchmark host.
+- Keep the JS examples manifest browser-safe; Node demo hosts use the explicit `entries/main-ws` entry instead of the unused manifest `startDemoServer` method.
 - Translate useful development comments to English and remove obsolete or self-evident notes; use paired folding regions and the existing Oxlint rule to warn about decorative separators.
 - Document snapshot ownership, canonical import paths, server lifecycle, recorder limits, and focused benchmark/fuzz commands; update the ABM binding skill with identity and environment checks.
 - Apply the configured repository formatters to maintained source and documentation.

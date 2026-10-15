@@ -340,7 +340,11 @@ For Save As, the web toolbar provides the selected project extension and file fi
 
 ### Frontend bundle boundaries
 
+The built-in JS example manifest contains browser model metadata and local transport factories. Node hosts import `@tensnap/examples-js/entries/main-ws` explicitly; even a dynamic import of that entry from the browser manifest would pull its Node dependencies into the Vite graph.
+
 `scripts/vite-chunks.mjs` is the shared Rolldown code-splitting policy for the browser renderer, Tauri webview, and benchmark app. It assigns external dependencies before workspace packages so a workspace chunk cannot absorb a large dependency closure. Stable React/UI/i18n/data, Leafer, and D3 dependencies are cacheable independently from the core environment, chart, runtime, scenario, snapshot, asset, utility, parameter, and transport modules. The snapshot archive worker remains lazy-loaded in its own chunk. All three builds retain Vite's 500 KiB warning budget for eager code: solve a genuine over-budget entry point by adjusting boundaries or loading behavior instead of raising the warning limit.
+
+Shared `useCallbackRef`, `useThrottled`, and `useDebounced` hooks publish callbacks in a layout effect, so events use committed state rather than an abandoned render. Delayed hooks keep their timer identity when only the callback changes, and cancel pending work during commit when the delay changes or the consumer unmounts. These are event helpers; pass React component types and render-time selectors such as `isRunning` directly through view context instead of wrapping them as callbacks. Their integration tests live under `packages/tensnap-web/src/test/` and run with that host's existing React/DOM test setup.
 
 ### Headless agent runtime
 

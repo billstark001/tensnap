@@ -72,7 +72,7 @@
     "release:js": "node scripts/release.mjs js",
     "release:agent": "node scripts/release.mjs agent",
     "test:julia": "pnpm --dir examples/julia run test",
-    "lint:js": "oxlint .",
+    "lint:js": "oxlint . --deny-warnings",
     "format:js": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}' .pnpmfile.cjs",
     "format:md": "oxfmt --write '**/*.md' '.agents/**/*.md' '.github/**/*.md'",
     "evaluation": "pnpm --filter @tensnap/benchmark evaluation"

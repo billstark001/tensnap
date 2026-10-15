@@ -30,11 +30,13 @@ pnpm install  # Installs all workspace packages
 
 The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed pre-v7 JavaScript compiler API, so `.pnpmfile.cjs` gives it a private TypeScript 6 runtime. Do not remove that compatibility dependency until upstream supports the TypeScript 7 APIs; application and library typechecks continue to resolve TypeScript 7.
 
-`pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
+`pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. Oxlint warnings fail the check; use `pnpm lint:js` for the focused zero-warning check. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
 
 Use paired `// #region Name` / `// #endregion` comments for foldable source sections. Oxlint's existing `no-warning-comments` rule warns about decorative dash/equal-sign separators in package source; it does not prohibit TODO/FIXME notes, and test fixtures are excluded from this style rule.
 
 Oxfmt excludes generated Lingui modules, Tauri schemas, the conformance matrix, and all `benchmark-results/` evidence, including published reports whose bytes are hashed. Regenerate these files with their owning tools.
+
+Vite and Vitest configs use native ESM: resolve paths from `import.meta.dirname` and import package metadata with `with { type: 'json' }`. To check the native Vite loader explicitly, run `pnpm --filter @tensnap/web exec vite build --configLoader native`; preview supports the same flag. Keep these configs free of CommonJS globals so both the default and native loaders work.
 
 To refresh the npm toolchain, run both root and workspace updates, then verify cross-package tool versions before installing:
 
