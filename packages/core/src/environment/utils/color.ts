@@ -1,9 +1,13 @@
 /**
  * environment/utils/color.ts
  *
- * High-performance CSS color validation with an LRU-style cache.
- * Supports: named colors, hex (#RGB, #RRGGBB, #RRGGBBAA), rgb/rgba, hsl/hsla.
+ * CSS color validation with a bounded, batched FIFO cache.
+ * Uses d3-color for portable named/hex/RGB/HSL colors. Browser hosts also
+ * recognize their native CSS syntax, including modern space-separated colors
+ * and contextual keywords, without treating them as image URLs.
  */
+
+import { color as parseColor } from 'd3-color';
 
 const COLOR_CACHE = new Map<string, boolean>();
 const CACHE_MAX_SIZE = 200;
@@ -15,19 +19,11 @@ export function isCssColor(value: string): boolean {
   const cached = COLOR_CACHE.get(value);
   if (cached !== undefined) return cached;
 
-  const c = value[0];
-  let isValid = false;
-
-  if (c === '#') {
-    const len = value.length;
-    isValid = (len === 4 || len === 7 || len === 9) && /^#[0-9a-fA-F]+$/.test(value);
-  } else if (c === 'r') {
-    isValid = /^rgba?\s*\(/.test(value);
-  } else if (c === 'h') {
-    isValid = /^hsla?\s*\(/.test(value);
-  } else if (c >= 'a' && c <= 'z') {
-    isValid = /^[a-z]+$/.test(value);
-  }
+  const isValid =
+    parseColor(value) !== null ||
+    (typeof CSS !== 'undefined' &&
+      typeof CSS.supports === 'function' &&
+      CSS.supports('color', value));
 
   if (COLOR_CACHE.size >= CACHE_MAX_SIZE) {
     const iter = COLOR_CACHE.keys();
