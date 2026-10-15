@@ -12,8 +12,81 @@ import {
   encodeSnapshotArchive,
   snapshotArchiveForJson,
 } from './SnapshotArchive';
+import type { RecordingOptions, SnapshotLayerCodecImplementation } from './types';
 
 describe('SnapshotRecorder', () => {
+  it.each([
+    { maxBytes: NaN },
+    { maxDurationMs: Infinity },
+    { maxDurationMs: 0 },
+    { maxSteps: -1 },
+    { maxSteps: 1.5 },
+    { keyframeEvery: 0 },
+    { keyframeEvery: Infinity },
+    { timestamp: NaN },
+    { maxBytes: 1 },
+  ] satisfies RecordingOptions[])(
+    'keeps the active recording when replacement options are invalid: %j',
+    (options) => {
+      const recorder = new SnapshotRecorder(new Scenario());
+      recorder.start({ id: 'original' });
+      recorder.recordMessage({ type: 'metadata_update', payload: { time: 3 } });
+      expect(() => recorder.start(options)).toThrow();
+      expect(recorder.active).toBe(true);
+      expect(recorder.current!.metadata.id).toBe('original');
+      expect(recorder.stop()!.frames).toHaveLength(1);
+    },
+  );
+
+  it.each([false, true])(
+    'keeps queued control flushes out of an in-flight action (restart: %s)',
+    async (restart) => {
+      const recorder = new SnapshotRecorder(new Scenario());
+      recorder.start();
+      recorder.recordMessage({ type: 'metadata_update', payload: { time: 1 } });
+      if (restart) recorder.start();
+      recorder.recordControl({
+        type: 'action_invoke',
+        payload: { id: 'step', request_id: 'request' },
+      });
+      await Promise.resolve();
+      expect(recorder.current!.frames).toHaveLength(0);
+      recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+      const snapshot = recorder.stop()!;
+      expect(snapshot.frames).toHaveLength(1);
+      expect(snapshot.frames[0]!.kind).toBe('action');
+    },
+  );
+
+  it('owns recording policy maps and implementation descriptors', () => {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+    });
+    const recorder = new SnapshotRecorder(scenario);
+    const layerCodecs: NonNullable<RecordingOptions['layerCodecs']> = { agents: 'delta' };
+    const implementation: SnapshotLayerCodecImplementation = {
+      id: 'delta',
+      retainItemDelta: () => true,
+    };
+    recorder.start({ layerCodecs, layerCodecImplementations: { delta: implementation } });
+    layerCodecs.agents = 'derived';
+    implementation.forceKeyframe = true;
+    const message = {
+      type: 'item_create' as const,
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 1 }] },
+    };
+    scenario.apply(message);
+    recorder.recordMessage(message);
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+    const snapshot = recorder.stop()!;
+    expect(snapshot.layerCodecs).toEqual({ agents: 'delta' });
+    expect(snapshot.frames[0]!.messages.some(({ type }) => type === 'item_create')).toBe(true);
+    expect(snapshot.keyframes).toHaveLength(0);
+  });
+
   it('keeps create replacement for replay frames marked as legacy', () => {
     const scenario = new Scenario();
     scenario.apply({ type: 'env_create', payload: { id: 'main', type: '2d' } });

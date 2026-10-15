@@ -17,6 +17,14 @@ import type {
 import { snapshotEncodedByteLength } from './SnapshotArchive';
 
 const DEFAULT_KEYFRAME_EVERY = 120;
+const retainItemDelta = () => true;
+const BUILTIN_LAYER_CODECS: Readonly<Record<SnapshotLayerCodec, SnapshotLayerCodecImplementation>> =
+  {
+    delta: { id: 'delta', retainItemDelta },
+    adaptive: { id: 'adaptive', retainItemDelta },
+    keyframe: { id: 'keyframe', forceKeyframe: true },
+    derived: { id: 'derived', retainItemDelta: () => false },
+  };
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -399,63 +407,70 @@ export class SnapshotRecorder {
     return this.snapshot ? clone(this.snapshot) : null;
   }
 
+  /** Start a recording only after its options and initial byte budget are valid. */
   start(options: RecordingOptions = {}): Snapshot {
-    this.stop();
-    if (
-      options.maxBytes !== undefined &&
-      (!Number.isFinite(options.maxBytes) || options.maxBytes < 1)
-    ) {
-      throw new Error('RecordingOptions.maxBytes must be a positive finite number.');
+    for (const key of ['maxBytes', 'maxDurationMs'] as const) {
+      const value = options[key];
+      if (value !== undefined && (!Number.isFinite(value) || value <= 0)) {
+        throw new Error(`RecordingOptions.${key} must be a positive finite number.`);
+      }
     }
-    const timestamp = options.timestamp ?? now();
-    this.options = {
+    for (const key of ['maxSteps', 'keyframeEvery'] as const) {
+      const value = options[key];
+      if (value !== undefined && (!Number.isSafeInteger(value) || value < 1)) {
+        throw new Error(`RecordingOptions.${key} must be a positive safe integer.`);
+      }
+    }
+    if (options.timestamp !== undefined && !Number.isFinite(options.timestamp)) {
+      throw new Error('RecordingOptions.timestamp must be finite.');
+    }
+    const nextOptions = {
       ...options,
       keyframeEvery: options.keyframeEvery ?? DEFAULT_KEYFRAME_EVERY,
       ringBuffer: options.ringBuffer === true,
+      layerCodecs: clone(options.layerCodecs ?? {}),
+      layerCodecImplementations:
+        options.layerCodecImplementations &&
+        Object.fromEntries(
+          Object.entries(options.layerCodecImplementations)
+            .filter(([, implementation]) => implementation !== undefined)
+            .map(([id, implementation]) => [id, { ...implementation }]),
+        ),
     };
-    this.snapshot = createSingleSnapshot(this.scenario.dump(), {
-      id: options.id,
-      label: options.label,
-      timestamp,
-      modelIdentity: options.modelIdentity,
-      checkpoint: options.checkpoint,
-      legacyCreateReplacement: options.legacyCreateReplacement,
-    });
-    this.nextFrameIndex = this.snapshot.initial.frame + 1;
-    this.snapshot.metadata.endedAt = undefined;
-    this.snapshot.layerCodecs = clone(options.layerCodecs ?? {});
+    const snapshot = createSingleSnapshot(this.scenario.dump(), options);
+    snapshot.metadata.endedAt = undefined;
+    snapshot.layerCodecs = nextOptions.layerCodecs;
+    const initialByteLength = byteLength(snapshot.initial);
+    const initialScenarioByteLength = byteLength(snapshot.initial.scenario);
+    const estimatedByteLength =
+      initialByteLength +
+      byteLength({
+        version: snapshot.version,
+        metadata: snapshot.metadata,
+        layerCodecs: snapshot.layerCodecs,
+      });
+    if (options.maxBytes !== undefined && estimatedByteLength > options.maxBytes) {
+      throw new Error(
+        `RecordingOptions.maxBytes (${options.maxBytes}) is smaller than the initial snapshot baseline (${estimatedByteLength}).`,
+      );
+    }
+
+    // Preparing an invalid replacement must not stop or discard the active recording.
+    this.stop();
+    this.options = nextOptions;
+    this.snapshot = snapshot;
+    this.nextFrameIndex = snapshot.initial.frame + 1;
     this.frameByteLengths.clear();
     this.keyframeByteLengths.clear();
     this.keyframeScenarioByteLengths.clear();
-    this.initialByteLength = byteLength(this.snapshot.initial);
-    this.keyframeScenarioByteLengths.set(
-      this.snapshot.initial.frame,
-      byteLength(this.snapshot.initial.scenario),
-    );
-    this.estimatedByteLength =
-      this.initialByteLength +
-      byteLength({
-        version: this.snapshot.version,
-        metadata: this.snapshot.metadata,
-        layerCodecs: this.snapshot.layerCodecs,
-      });
-    this.snapshot.byteLength = this.estimatedByteLength;
+    this.initialByteLength = initialByteLength;
+    this.keyframeScenarioByteLengths.set(snapshot.initial.frame, initialScenarioByteLength);
+    this.estimatedByteLength = estimatedByteLength;
+    snapshot.byteLength = estimatedByteLength;
     this.bytesSinceKeyframe = 0;
     this.awaitingActionResult = false;
     this.retentionExhausted = false;
-    if (this.options.maxBytes !== undefined && this.estimatedByteLength > this.options.maxBytes) {
-      const baseline = this.estimatedByteLength;
-      this.snapshot = null;
-      this.frameByteLengths.clear();
-      this.keyframeByteLengths.clear();
-      this.keyframeScenarioByteLengths.clear();
-      this.estimatedByteLength = 0;
-      this.initialByteLength = 0;
-      throw new Error(
-        `RecordingOptions.maxBytes (${this.options.maxBytes}) is smaller than the initial snapshot baseline (${baseline}).`,
-      );
-    }
-    return clone(this.snapshot);
+    return clone(snapshot);
   }
 
   stop(): Snapshot | null {
@@ -511,9 +526,11 @@ export class SnapshotRecorder {
   private queueControlFlush(): void {
     if (this.flushQueued) return;
     this.flushQueued = true;
+    const target = this.snapshot;
     queueMicrotask(() => {
+      if (this.snapshot !== target) return;
       this.flushQueued = false;
-      this.flush('control');
+      if (!this.awaitingActionResult) this.flush('control');
     });
   }
 
@@ -607,11 +624,7 @@ export class SnapshotRecorder {
   private resolveLayerCodecImplementation(
     codec: SnapshotLayerCodec,
   ): SnapshotLayerCodecImplementation {
-    const custom = this.options.layerCodecImplementations?.[codec];
-    if (custom) return custom;
-    if (codec === 'keyframe') return { id: codec, forceKeyframe: true };
-    if (codec === 'derived') return { id: codec, retainItemDelta: () => false };
-    return { id: codec, retainItemDelta: () => true };
+    return this.options.layerCodecImplementations?.[codec] ?? BUILTIN_LAYER_CODECS[codec];
   }
 
   private enforceRetention(): void {

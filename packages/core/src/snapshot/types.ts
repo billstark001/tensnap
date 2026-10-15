@@ -119,17 +119,17 @@ export interface SnapshotSeries {
 }
 
 export interface RecordingOptions {
-  /** Maximum retained atomic frames. Omit for no frame-count budget. */
+  /** Positive safe integer of retained atomic frames. Omit for no frame-count budget. */
   maxSteps?: number;
-  /** Maximum retained duration in milliseconds. Omit for no time budget. */
+  /** Positive finite retained duration in milliseconds. Omit for no time budget. */
   maxDurationMs?: number;
   /** Maximum estimated serialized bytes. Omit for no byte budget. */
   maxBytes?: number;
   /** Drop the oldest seekable segment when a budget is exceeded. */
   ringBuffer?: boolean;
-  /** Force a full keyframe at this interval; adaptive recording may add more. */
+  /** Positive safe integer interval for full keyframes; adaptive recording may add more. */
   keyframeEvery?: number;
-  /** Per-layer storage preferences, keyed by layer id or layer type. */
+  /** Storage preferences keyed by env/layer, layer id, or layer type, in that order. */
   layerCodecs?: Record<string, SnapshotLayerCodec>;
   /** Host/application codecs can replace the built-in item-delta policies. */
   layerCodecImplementations?: Partial<Record<SnapshotLayerCodec, SnapshotLayerCodecImplementation>>;
