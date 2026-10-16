@@ -12,6 +12,7 @@ Use the binding owned by the model's language. Preserve stable identity, validat
 Read the files relevant to the task; the protocol package is the wire source of truth, not an older maintainer-guide snapshot.
 
 - Wire rules and schemas: `packages/protocol/SPECIFICATION.md`, `packages/protocol/src/schemas.ts`, `packages/protocol/src/layers.ts`, and `packages/protocol/src/types.ts`; inspect `codec.ts` for encoding work.
+- Projection ownership and copying policy: `docs/maintainer-guide/projection-ownership.md`.
 - Binding ownership and dependency direction: `docs/maintainer-guide/binding-ownership-and-topology.md`.
 - Language APIs: `docs/api-reference/python-api.md`, `go-api.md`, `julia-api.md`, and `js-api.md` in the same directory.
 - Runtime behavior: `packages/core/src/scenario` and `packages/core/src/environment`.
@@ -27,6 +28,14 @@ Change protocol schemas, core, affected bindings, and generated protocol docs to
 - Map/matrix source layers keep the reversible value in `data.value`. Validate complete restore input, including duplicate keys, dimensions, and coordinates, before mutating the model. Use an explicit replacement callback when the source container cannot be changed in place.
 - Built-in renderer layer types are `background`, `grid`, `edge`, `trajectory`, and `agent`. Agent and trajectory items use `id`; edges use the ordered `source`/`target` pair. Grid/background are metadata-only. Edge and trajectory dependencies on an agent layer belong to create-time `dependency_layer_ids.agent`; never put them in mutable metadata.
 - Agent items can carry coordinates, heading, color, icon, size, data, and graph hints. Trajectory items are configuration; trace points are renderer state unless explicitly restored. Custom layer types need namespaced IDs and deliberate item-key semantics.
+
+## Preserve projection ownership
+
+Built-in item projectors return independent nested snapshots by default. Custom callbacks retain safe publication copying unless the layer explicitly declares independent output. Resolve copying policy when constructing persistent trackers or once per layer batch (once per item class for inferred projectors), and avoid per-item options containers. Use the language's layer copy controls for overrides; do not silently disable safe copying on arbitrary callbacks.
+
+Published records, nested containers, and buffers are read-only and may be shared by caches and pending sends. Reuse already published records when internally seeding a cache. A new outer record is insufficient when its nested values still alias mutable model state. For a custom-owned map/matrix visual projector, detach framework-injected `data.value` separately unless the caller explicitly disables that protection. Restore callbacks must detach decoded containers they intend to mutate from retained baselines.
+
+Test later model mutation against retained initial and update payloads, nested in-place diff detection, binary subviews, full sync/replay seeding, and explicit safe/owned/double/no-copy policies. Use the built-in layer scan capability to compare against previous owned records before materializing changed fields; preserve the standalone projector guarantee and explicit copy overrides. After selecting one item's fields, materialize its borrowed record before advancing to the next item; never expose the private borrowed projection to observers or retain it across awaits. JS layers with function-valued keys keep the original eager projection path. Equal nested fields may be shared, but do not promise whole-record identity. A publication copy override does not reconfigure a projector, and Go `ComputeBorrowed` always materializes independent values regardless of the tracker's ordinary `DeepCopy` property. Measure scalar versus nested and changed versus unchanged workloads separately; eager whole-scan detachment can regress sparse updates even if downstream copies disappear. Prefer existing precise change/revision accessors when available; do not assume fewer copies guarantees a faster whole pipeline. The JS focused helper benchmark invokes standalone projectors, so use a bound-session benchmark to validate automatic scan optimizations. Do not reinterpret dated benchmark evidence as a description of the current implementation. Cache only immutable type metadata when optimizing reflection plans; model-dependent values, comparison results, and cycle-detection state belong to each call.
 
 ## Register the rest of the model
 

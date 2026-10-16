@@ -43,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/js
 
+- **Changed:** Built-in projectors return independent snapshots; layer `projectorOwnsValues`, `projectorDeepCopy`, and `deepCopy` options control ownership and publication copying. Reuse published records for emissions/cache baselines and keep safe copying for custom callbacks. Add ownership regressions and a focused projection/diff benchmark.
+- **Changed:** Reuse equal owned nested fields during eligible built-in session scans while preserving standalone projector and explicit-copy guarantees. Function-valued item keys retain eager projection so callbacks never receive the private borrowed view.
+- **Fixed:** Compare binary buffer/view contents when deciding whether to reuse projected values; changed `ArrayBuffer` and `DataView` contents no longer disappear as equal empty objects.
 - **Changed:** Retain directional protocol codecs per WebSocket connection so repeated frames reuse MessagePack state without changing transport buffer copies or validation policies.
 - **Added:** A browser-safe `@tensnap/js/transport/browser` entry point that excludes the Node WebSocket host.
 - **Changed:** Compile field selectors once, preserve symbol selectors, own nested item snapshots, reuse structurally equal values, and encode typed scalar/compound identities without delimiter collisions.
@@ -50,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/python
 
+- **Changed:** Built-in projectors return independent snapshots; eligible scans reuse equal owned fields before detaching changes, and initialization/full-sync/replay cache seeding reuses published records without another copy. Item layers expose `projector_owns_values`, `projector_deep_copy`, and `deep_copy`; custom callbacks keep safe copying unless explicitly declared independent. Resolve policy outside per-item calls, protect source-injected values, and benchmark each projection mode.
 - **Changed:** Retain owned nested snapshots while reusing unchanged item records; focused item-diff benchmarks cover scalar and nested projections. The minimum `websockets` version is now 13.0, matching the asyncio API used by the server.
 - **Fixed:** Drain batched message tails in order, shield shared sends from waiter cancellation, release the listener on stop, clean up failed client setup, and fail screenshot waits when the last renderer disconnects.
 - **Fixed:** Preserve asset metadata-only changes and copy mutable asset buffers; keep restore layer identities distinct across environments and reject attribute selectors with trailing newlines.
@@ -57,6 +61,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/go
 
+- **Fixed:** Deep-copy nested tracker state by default so in-place map/slice mutations cannot rewrite previous baselines or hide changes. Preserve typed nested containers; built-in/projector ownership and layer copy controls avoid duplicate publication/seeding copies. Add regression tests and focused allocation benchmarks.
+- **Changed:** Add `ComputeBorrowed` tracker paths for synchronous compare/materialize scans with previous-owned-field reuse; ordinary `DeepCopy` and explicit layer copy controls keep their semantics. Avoid a second field pass in composed built-in scalar projections.
+- **Changed:** Reduce Go diff reflection and temporary allocations with standard-library map/slice comparisons, batch-local selection storage, reusable key-set capacity, single-pass changed-field materialization, and cached struct-copy field plans. Preserve deep-equality edge cases and all ownership/copy overrides; add differential/fuzz and population-churn regressions plus focused comparison/struct-copy benchmarks.
 - **Changed:** Use comparable composite keys for common edge identities, copy key declarations, and reuse standard-library map/slice cloning helpers.
 - **Fixed:** Emit cleared fields from complete item projections, reject non-finite numeric identities before caching, and preserve environment/layer boundaries during restore planning.
 - **Fixed:** Reject impossible MessagePack container and wide binary lengths during one-pass decoding, without scanning every valid frame twice. Failed decoders no longer retain scratch buffers in the pool. Regression seeds, replay fuzzing, and focused allocation benchmarks cover these paths.
@@ -64,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### @tensnap/julia
 
+- **Development:** Configure JuliaFormatter's `jlfmt` app for source formatting and read-only lint checks with consistent two-space indentation; document app installation and PATH setup.
+- **Changed:** Independent built-in projections and explicit layer/manual publication copy controls replace repeated normalization/copying. Eligible automatic scans materialize records incrementally and reuse equal previous owned fields while standalone calls retain their independent-output guarantee. Detach tuple-contained mutable values and byte buffers, reuse published baselines, and adapt MessagePack containers lazily. Add ownership tests and focused diff/codec benchmarks.
 - **Fixed:** Use structured environment/layer identities in restore plans so embedded separators and same-named layers in different environments cannot collide.
 
 ### @tensnap/web
