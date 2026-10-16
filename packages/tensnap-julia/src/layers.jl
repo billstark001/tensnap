@@ -24,8 +24,8 @@ end
 add_layer!(e::Environment, l::Layer) = (l.environment_type = e.type; push!(e.layers, l); l)
 
 function _ordered_layers(e::Environment)
-	return Layer[_order_layer_dependencies(e.layers, l -> l.id,
-		l -> l.dependency_layer_ids, l -> l.type)...]
+	return Layer[_order_layer_dependencies(e.layers, l->l.id,
+		l->l.dependency_layer_ids, l->l.type)...]
 end
 
 function add_layer!(s::Scenario, env_id, l::Layer)
@@ -64,18 +64,20 @@ function remove_layer!(s::Scenario, env_id, layer_id)
 	return existed
 end
 
-function _normalize_layer_item(item)
-	return Dict(String(k) => _jsonable(v) for (k, v) in pairs(item))
+function _normalize_layer_item(item, deep_copy::Bool = true, normalized::Bool = false)
+	if normalized
+		return deep_copy ? deepcopy(item) : item
+	end
+	return _snapshot_value(item, deep_copy)
 end
 
 function _layer_items(l::Layer, model)
-	return [_normalize_layer_item(item) for item in _call0or1(l.items, model)]
+	return [_normalize_layer_item(item, l.deep_copy, l.normalized_items) for item in _call0or1(l.items, model)]
 end
 
 function _layer_data(l::Layer, model)
 	l.data === nothing && return nothing
-	value = _jsonable(_call0or1(l.data, model))
-	return value isa AbstractDict ? Dict(String(k) => _jsonable(v) for (k, v) in pairs(value)) : value
+	return _snapshot_value(_call0or1(l.data, model), true)
 end
 
 function _layer_payload(env_id::String, l::Layer, model; data = _UNSET)
@@ -138,8 +140,11 @@ function _has_incremental_item_source(l::Layer)
 		   l.item_id !== nothing && l.item_changed !== nothing
 end
 
-function _project_incremental_item(l::Layer, item, model)
-	return _normalize_layer_item(_call1or2(l.item_projector, item, model))
+function _project_incremental_item(l::Layer, item, model, previous = nothing)
+	if l.scan_projector !== nothing
+		return _own_projection!(l.scan_projector(item, model), true, previous)
+	end
+	return _normalize_layer_item(_call1or2(l.item_projector, item, model), l.deep_copy, l.normalized_items)
 end
 
 function _incremental_item_key(l::Layer, item, model)
@@ -164,7 +169,7 @@ function _layer_item_deltas_incremental!(l::Layer, model)
 			previous[key] = projected
 			push!(creates, projected)
 		elseif Bool(_call1or2(l.item_changed, item, model))
-			projected = _project_incremental_item(l, item, model)
+			projected = _project_incremental_item(l, item, model, previous[key])
 			previous[key] != projected && push!(updates, _item_update_payload(l, previous[key], projected))
 			previous[key] = projected
 		end
@@ -180,18 +185,26 @@ end
 
 function _layer_item_deltas!(l::Layer, model)
 	_has_incremental_item_source(l) && return _layer_item_deltas_incremental!(l, model)
-	items = _layer_items(l, model)
+	items = l.scan_projector === nothing ? _call0or1(l.items, model) : _call0or1(l.source_items, model)
 	previous = l.last_items
 	seen = Set{Any}()
 	creates = Dict{String, Any}[]
 	updates = Dict{String, Any}[]
-	for item in items
+	for raw in items
+		# Materialize before advancing to the next selector. Borrowed model
+		# values must not reach a cache, callback, or asynchronous send.
+		item = l.scan_projector === nothing ?
+			   _normalize_layer_item(raw, false, l.normalized_items) : l.scan_projector(raw, model)
 		key = _item_key(l, item)
 		push!(seen, key)
 		if !haskey(previous, key)
+			item = l.scan_projector === nothing ? _normalize_layer_item(item, l.deep_copy, true) : _own_projection!(item, true)
 			push!(creates, item)
 		elseif previous[key] != item
+			item = l.scan_projector === nothing ? _normalize_layer_item(item, l.deep_copy, true) : _own_projection!(item, true, previous[key])
 			push!(updates, _item_update_payload(l, previous[key], item))
+		else
+			continue
 		end
 		previous[key] = item
 	end
@@ -209,7 +222,7 @@ function _broadcast_layer_full(s::Scenario, env_id::String, l::Layer; ws = nothi
 	_send_or_broadcast(s, ws, "env_layer_create", _layer_payload(env_id, l, s.model; data = data))
 	l.last_data = data
 	items = _remember_layer_items!(l, _layer_items(l, s.model))
-	isempty(items) || _send_or_broadcast(s, ws, "item_create", Dict("env_id" => env_id, "layer_id" => l.id, "items" => items))
+	isempty(items) || _send_or_broadcast(s, ws, "item_create", Dict("env_id" => env_id, "layer_id" => l.id, "items" => items); normalized = true)
 	return items
 end
 
@@ -251,27 +264,27 @@ function _remember_manual_deletes!(l::Layer, items)
 	return items
 end
 
-function create_items!(s::Scenario, env_id, layer_id, items)
-	payload_items = [Dict(String(k) => _jsonable(v) for (k, v) in pairs(item)) for item in items]
+function create_items!(s::Scenario, env_id, layer_id, items; deep_copy::Bool = true)
+	payload_items = [_normalize_layer_item(item, deep_copy) for item in items]
 	l = _find_layer(s, env_id, layer_id)
 	l === nothing || _remember_manual_creates!(l, payload_items)
-	_broadcast(s, "item_create", Dict("env_id" => String(env_id), "layer_id" => String(layer_id), "items" => payload_items))
+	_broadcast(s, "item_create", Dict("env_id" => String(env_id), "layer_id" => String(layer_id), "items" => payload_items); normalized = true)
 	return payload_items
 end
 
-function update_items!(s::Scenario, env_id, layer_id, items)
-	payload_items = [Dict(String(k) => _jsonable(v) for (k, v) in pairs(item)) for item in items]
+function update_items!(s::Scenario, env_id, layer_id, items; deep_copy::Bool = true)
+	payload_items = [_normalize_layer_item(item, deep_copy) for item in items]
 	l = _find_layer(s, env_id, layer_id)
 	l === nothing || _remember_manual_updates!(l, payload_items)
-	_broadcast(s, "item_update", Dict("env_id" => String(env_id), "layer_id" => String(layer_id), "items" => payload_items))
+	_broadcast(s, "item_update", Dict("env_id" => String(env_id), "layer_id" => String(layer_id), "items" => payload_items); normalized = true)
 	return payload_items
 end
 
-function delete_items!(s::Scenario, env_id, layer_id, items)
-	payload_items = [_jsonable(item) for item in items]
+function delete_items!(s::Scenario, env_id, layer_id, items; deep_copy::Bool = true)
+	payload_items = [_snapshot_value(item, deep_copy) for item in items]
 	l = _find_layer(s, env_id, layer_id)
 	l === nothing || _remember_manual_deletes!(l, payload_items)
-	_broadcast(s, "item_delete", Dict("env_id" => String(env_id), "layer_id" => String(layer_id), "items" => payload_items))
+	_broadcast(s, "item_delete", Dict("env_id" => String(env_id), "layer_id" => String(layer_id), "items" => payload_items); normalized = true)
 	return payload_items
 end
 
@@ -279,9 +292,9 @@ function replace_layer_items!(s::Scenario, env_id, layer_id)
 	e = s.environments[String(env_id)]
 	l = only(filter(layer -> layer.id == String(layer_id), e.layers))
 	creates, updates, deletes = _layer_item_deltas!(l, s.model)
-	isempty(creates) || _broadcast(s, "item_create", Dict("env_id" => e.id, "layer_id" => l.id, "items" => creates))
-	isempty(updates) || _broadcast(s, "item_update", Dict("env_id" => e.id, "layer_id" => l.id, "items" => updates))
-	isempty(deletes) || _broadcast(s, "item_delete", Dict("env_id" => e.id, "layer_id" => l.id, "items" => deletes))
+	isempty(creates) || _broadcast(s, "item_create", Dict("env_id" => e.id, "layer_id" => l.id, "items" => creates); normalized = true)
+	isempty(updates) || _broadcast(s, "item_update", Dict("env_id" => e.id, "layer_id" => l.id, "items" => updates); normalized = true)
+	isempty(deletes) || _broadcast(s, "item_delete", Dict("env_id" => e.id, "layer_id" => l.id, "items" => deletes); normalized = true)
 	return (creates = creates, updates = updates, deletes = deletes)
 end
 

@@ -63,6 +63,10 @@ TenSnap.jl now covers the core protocol helpers available in the Python and Go b
 
 Every connection starts with `simulator_info`. Use stable `model_id` and `state_schema_version` values for compatible restores; `instance_id` is managed per `Scenario` and survives reconnect/reset.
 
+## Projection ownership
+
+Standalone built-in item projectors return independent nested snapshots. Eligible automatic layer scans can compare with previous owned snapshots and reuse equal read-only nested fields before materializing changed values; this does not guarantee outer-record identity. Custom callbacks keep safe publication copying and may explicitly declare independent output to avoid it. Layer options control projector and publication copying separately: disabling publication copying does not cancel an owning projector. Configure policies before use, and treat published records as read-only. See the [shared ownership contract and focused benchmark commands](../../docs/maintainer-guide/projection-ownership.md) for the language-specific options, overrides, and source-value rules.
+
 ## Transport
 
 The implementation supports JSON and MessagePack WebSocket transport. Incoming frames are auto-detected, and responses follow each client's observed encoding after the first message. Use `Scenario(use_msgpack=true)` for `tensnap-agent`'s default MessagePack mode, or `Scenario(use_msgpack=false)` for JSON-first clients.

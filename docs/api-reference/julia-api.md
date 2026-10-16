@@ -281,16 +281,20 @@ Layer dependencies are emitted before dependent layers during full sync.
 
 `replace_layer_items!` computes creates, field-level updates, and deletes from the layer's `item_key_fields`. If no key fields are provided, TenSnap.jl tries common keys in this order: `id`, `name`, `uid`, `source/target`, `x/y`, then all item keys.
 
-`agents_layer(...; item_id = ..., changed = ...)` can opt into an incremental source. When both functions are provided, `replace_layer_items!` projects only new or changed raw agents. Without them, the default remains full-list projection followed by field-level diffing.
+`agents_layer(...; item_id = ..., changed = ...)` can opt into an incremental source. When both functions are provided, `replace_layer_items!` projects only new or changed raw agents. Without them, every current item is still visited. Eligible built-in agent/map/matrix projections are compared and materialized one record at a time, reusing equal fields from previous owned snapshots instead of first building a fully detached list. Custom `items` callbacks retain their existing behavior. Reused fields remain read-only; outer-record identity is not guaranteed.
 
 ## Projectors
 
-- `dictprojector(fields=nothing; rename=Dict())`
-- `propertyprojector(fields...; rename=Dict())`
-- `autoagentprojector(; id=:id, x=:x, y=:y, color=nothing, size=nothing, icon="circle", fields=(), data_fields=())`
+- `dictprojector(fields=nothing; rename=Dict(), deep_copy=true)`
+- `propertyprojector(fields...; rename=Dict(), deep_copy=true)`
+- `autoagentprojector(; id=:id, x=:x, y=:y, color=nothing, size=nothing, icon="circle", fields=(), data_fields=(), deep_copy=true)`
 - `agents_getter(model)`
 
 `autoagentprojector()` supports plain structs and common `Agents.jl` conventions: `id`, `pos`, `heading`, and optional color/size/icon fields. `Agents.jl` is not a package dependency. When passed to `agents_layer`, it automatically follows the containing environment: a `uniform` environment omits `x`, `y`, and `heading`, while a `2d` environment retains them. Use `data_fields` for model properties that should appear in the renderer's agent-details `data` object; `fields` preserves the existing top-level projection behavior.
+
+Built-in projectors own nested dictionaries, arrays, tuple-contained mutable values, and byte buffers by default. Custom callbacks keep safe publication copying. The automatic `agents_layer`, `map_agent_layer`, and `matrix_agent_layer` constructors accept `projector_owns_values=nothing`, `projector_deep_copy=true`, and `deep_copy=nothing`. Generic `layer` and its grid/patch/edge/trajectory wrappers instead default `projector_owns_values=false` for their caller-supplied `items` callback. Ownership is inferred for automatic built-ins; custom callbacks may declare true only when their complete output remains stable after publication. Publication copying defaults to the inverse of that capability. Configure policies when constructing the layer. A `deep_copy` override controls publication only; false does not undo projector detachment. Layer `projector_deep_copy` configures built-in projector wrappers, not arbitrary custom callbacks. Direct projector calls honor their factory `deep_copy` setting. Automatic layers additionally apply `projector_deep_copy` to recognized built-in wrappers; arbitrary custom callbacks keep their own implementation.
+
+Manual `create_items!`, `update_items!`, and `delete_items!` accept `deep_copy=true`; pass false only for stable independent values. Automatic layer publication reuses its resolved policy and already published records for diff seeding. Serializers borrow normalized item snapshots, and MessagePack adapts binary leaves without rebuilding the whole tree. See [projection ownership](../maintainer-guide/projection-ownership.md) for all override combinations, map/matrix `data.value`, lifetime rules, and fine-grained benchmarks.
 
 ## Assets and Screenshots
 

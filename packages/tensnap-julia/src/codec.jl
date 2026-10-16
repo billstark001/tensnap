@@ -16,12 +16,35 @@ MsgPack.msgpack_type(::Type{_MessagePackBytes}) = MsgPack.BinaryType()
 MsgPack.to_msgpack(::MsgPack.BinaryType, bytes::_MessagePackBytes) = bytes.data
 
 _messagepackable(value) = value
+_messagepackable(value::Vector{UInt8}) = _MessagePackBytes(value)
 _messagepackable(value::AbstractVector{UInt8}) = _MessagePackBytes(Vector{UInt8}(value))
-_messagepackable(value::AbstractVector) = [_messagepackable(item) for item in value]
-_messagepackable(value::AbstractDict) = Dict(k => _messagepackable(v) for (k, v) in pairs(value))
 
-function _encode(type::String, payload; use_msgpack = false)
-	message = Dict("type" => type, "payload" => _jsonable(payload))
+# Serialization adapters borrow stable snapshots rather than rebuilding their
+# entire object trees just to wrap binary leaves for MessagePack.
+struct _MessagePackMap{T}
+	data::T
+end
+struct _MessagePackArray{T}
+	data::T
+end
+MsgPack.msgpack_type(::Type{<:_MessagePackMap}) = MsgPack.MapType()
+MsgPack.msgpack_type(::Type{<:_MessagePackArray}) = MsgPack.ArrayType()
+MsgPack.to_msgpack(::MsgPack.MapType, value::_MessagePackMap) = value
+MsgPack.to_msgpack(::MsgPack.ArrayType, value::_MessagePackArray) = value
+Base.length(value::Union{_MessagePackMap, _MessagePackArray}) = length(value.data)
+_messagepack_map_entry(::Nothing) = nothing
+_messagepack_map_entry(entry) = ((first(entry[1]), _messagepackable(last(entry[1]))), entry[2])
+_messagepack_array_entry(::Nothing) = nothing
+_messagepack_array_entry(entry) = (_messagepackable(entry[1]), entry[2])
+Base.iterate(value::_MessagePackMap) = _messagepack_map_entry(iterate(value.data))
+Base.iterate(value::_MessagePackMap, state) = _messagepack_map_entry(iterate(value.data, state))
+Base.iterate(value::_MessagePackArray) = _messagepack_array_entry(iterate(value.data))
+Base.iterate(value::_MessagePackArray, state) = _messagepack_array_entry(iterate(value.data, state))
+_messagepackable(value::AbstractVector) = _MessagePackArray(value)
+_messagepackable(value::AbstractDict) = _MessagePackMap(value)
+
+function _encode(type::String, payload; use_msgpack = false, normalized = false)
+	message = Dict("type" => type, "payload" => normalized ? payload : _wire_value(payload))
 	return use_msgpack ? MsgPack.pack(_messagepackable(message)) : JSON3.write(message)
 end
 
@@ -78,21 +101,21 @@ function _decode_checkpoint(checkpoint)
 	error("Unsupported checkpoint encoding: $encoding")
 end
 
-function _send(ws, type::String, payload; use_msgpack = false)
+function _send(ws, type::String, payload; use_msgpack = false, normalized = false)
 	type in SERVER_MESSAGE_TYPES || error("unknown TenSnap server message type: $type")
-	HTTP.WebSockets.send(ws, _encode(type, payload; use_msgpack = use_msgpack))
+	HTTP.WebSockets.send(ws, _encode(type, payload; use_msgpack = use_msgpack, normalized = normalized))
 end
 
 _client_use_msgpack(s::Scenario, ws) = get(s.client_encodings, ws, s.use_msgpack)
 
-function _send_to(s::Scenario, ws, type::String, payload)
-	_send(ws, type, payload; use_msgpack = _client_use_msgpack(s, ws))
+function _send_to(s::Scenario, ws, type::String, payload; normalized = false)
+	_send(ws, type, payload; use_msgpack = _client_use_msgpack(s, ws), normalized = normalized)
 end
 
-function _broadcast(s::Scenario, type::String, payload)
+function _broadcast(s::Scenario, type::String, payload; normalized = false)
 	for ws in copy(s.clients)
 		try
-			_send_to(s, ws, type, payload)
+			_send_to(s, ws, type, payload; normalized = normalized)
 		catch
 			filter!(x -> x !== ws, s.clients)
 			pop!(s.client_encodings, ws, nothing)
@@ -100,6 +123,6 @@ function _broadcast(s::Scenario, type::String, payload)
 	end
 end
 
-function _send_or_broadcast(s::Scenario, ws, type::String, payload)
-	ws === nothing ? _broadcast(s, type, payload) : _send_to(s, ws, type, payload)
+function _send_or_broadcast(s::Scenario, ws, type::String, payload; normalized = false)
+	ws === nothing ? _broadcast(s, type, payload; normalized = normalized) : _send_to(s, ws, type, payload; normalized = normalized)
 end

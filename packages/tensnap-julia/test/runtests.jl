@@ -6,6 +6,7 @@ include("support/toy_model.jl")
 
 @testset "TenSnap.jl" begin
 	include("projectors_test.jl")
+	include("projection_ownership_test.jl")
 	include("scenario_lifecycle_test.jl")
 	include("codec_test.jl")
 	include("layers_test.jl")

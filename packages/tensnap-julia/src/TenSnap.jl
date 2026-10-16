@@ -18,6 +18,7 @@ export dictprojector, propertyprojector, autoagentprojector, agents_getter, lite
 
 include("constants.jl")
 include("utils.jl")
+include("projection_ownership.jl")
 include("projectors.jl")
 include("topology.jl")
 include("restore_plan.jl")

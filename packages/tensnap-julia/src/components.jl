@@ -61,7 +61,7 @@ function _parameter_field_parent(obj, field)
 	parts = _field_path_parts(field)
 	isempty(parts) && return nothing, nothing
 	current = obj
-	for part in parts[1:(end - 1)]
+	for part in parts[1:(end-1)]
 		current = _getvalue(current, part)
 		current === nothing && return nothing, nothing
 	end
@@ -136,8 +136,8 @@ function _make_field_setter(captured_model, target::Function, field)
 end
 
 """
-    parameters_from_fields(model; target=identity, include=nothing, exclude=(),
-        metadata=Dict(), rename=Dict())
+	parameters_from_fields(model; target=identity, include=nothing, exclude=(),
+		metadata=Dict(), rename=Dict())
 
 Build `Parameter` bindings by discovering scalar fields on `model` or on
 `target(model)`. Explicit `include` entries may be fields or dotted paths.
@@ -166,18 +166,21 @@ function parameters_from_fields(model; target = identity, include = nothing, exc
 		setter = _lookup_option(field_metadata, :setter, nothing)
 		setter === nothing && _can_set_parameter_field(target_obj, field) && (setter = _make_field_setter(model, target, field))
 
-		push!(params, parameter(id;
-			label = label,
-			type = parameter_type,
-			value = _lookup_option(field_metadata, :value, value),
-			min = _lookup_option(field_metadata, :min, nothing),
-			max = _lookup_option(field_metadata, :max, nothing),
-			step = _lookup_option(field_metadata, :step, nothing),
-			options = _lookup_option(field_metadata, :options, nothing),
-			allow_runtime_change = _allow_runtime_change_for(field_metadata),
-			getter = getter,
-			setter = setter,
-		))
+		push!(
+			params,
+			parameter(id;
+				label = label,
+				type = parameter_type,
+				value = _lookup_option(field_metadata, :value, value),
+				min = _lookup_option(field_metadata, :min, nothing),
+				max = _lookup_option(field_metadata, :max, nothing),
+				step = _lookup_option(field_metadata, :step, nothing),
+				options = _lookup_option(field_metadata, :options, nothing),
+				allow_runtime_change = _allow_runtime_change_for(field_metadata),
+				getter = getter,
+				setter = setter,
+			),
+		)
 	end
 	return params
 end
@@ -260,6 +263,11 @@ restore_hooks(projected = nothing; checkpoint_capture = nothing, checkpoint_rest
 	RestoreHooks(projected, checkpoint_capture, checkpoint_restore)
 
 mutable struct Layer
+	projector_owns_values::Bool
+	projector_deep_copy::Bool
+	deep_copy::Bool
+	# Ownership and wire normalization are separate producer capabilities.
+	normalized_items::Bool
 	id::String
 	type::String
 	items::Function
@@ -269,6 +277,7 @@ mutable struct Layer
 	restore::Any
 	source_items::Union{Nothing, Function}
 	item_projector::Union{Nothing, Function}
+	scan_projector::Union{Nothing, Function}
 	item_id::Union{Nothing, Function}
 	item_changed::Union{Nothing, Function}
 	environment_type::Union{Nothing, String}
@@ -277,23 +286,24 @@ mutable struct Layer
 end
 
 function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = String[],
-	source_items = nothing, projector = nothing, item_id = nothing, changed = nothing, restore = nothing)
-	return Layer(String(id), String(type), items, data,
+	source_items = nothing, projector = nothing, item_id = nothing, changed = nothing, restore = nothing,
+	projector_owns_values = false, projector_deep_copy = true, deep_copy = nothing)
+	return Layer(projector_owns_values, projector_deep_copy, deep_copy === nothing ? !projector_owns_values : deep_copy, false, String(id), String(type), items, data,
 		Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
-		String.(item_key_fields), _normalize_layer_restore(restore), source_items, projector, item_id, changed,
+		String.(item_key_fields), _normalize_layer_restore(restore), source_items, projector, nothing, item_id, changed,
 		nothing,
 		Dict{Any, Dict{String, Any}}(), _UNSET)
 end
 
-grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields, restore = restore)
-patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields, restore = restore)
-edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"], restore = nothing) =
-	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore)
+grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing, kwargs...) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields, restore = restore, kwargs...)
+patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing, kwargs...) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields, restore = restore, kwargs...)
+edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"], restore = nothing, kwargs...) =
+	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore, kwargs...)
 _empty_layer_items(_model = nothing) = Any[]
 function trajectory_layer(id, items = _empty_layer_items; data = nothing,
 	length = nothing, width = nothing, color = nothing, z_index = nothing,
 	on_agent_delete = nothing, on_state_sync = nothing, on_reset = nothing,
-	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"], restore = nothing)
+	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"], restore = nothing, kwargs...)
 	on_agent_delete ∈ (nothing, "delete", "retain") || error("on_agent_delete must be delete or retain")
 	on_state_sync ∈ (nothing, "preserve", "clear") || error("on_state_sync must be preserve or clear")
 	on_reset ∈ (nothing, "clear", "preserve") || error("on_reset must be clear or preserve")
@@ -309,7 +319,7 @@ function trajectory_layer(id, items = _empty_layer_items; data = nothing,
 		base
 	end
 	return layer(id, "trajectory", items; data = metadata,
-		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore)
+		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore, kwargs...)
 end
 background_layer(id = "background"; data = nothing, restore = nothing) = layer(id, "background", _empty_layer_items; data = data, restore = restore)
 
