@@ -14,6 +14,8 @@ import textwrap
 from collections.abc import Callable
 from typing import Any, cast
 
+from .projection_ownership import owned_projector
+
 
 def inline_lambda(  # noqa: PLR0911 - each safety gate has a distinct diagnostic
     value: Callable[..., Any], arguments: tuple[str, ...]
@@ -167,7 +169,8 @@ class ProjectionPlan:
             ),
         )
 
-    def compile(self) -> Callable[..., dict[str, Any]]:
+    def compile(self, *, deep_copy: bool = True) -> Callable[..., dict[str, Any]]:
+        """Compile once; detached output is the default, False borrows nested values."""
         dictionary = ast.Dict(
             keys=[ast.Constant(field) for field in self.fields],
             values=list(self.fields.values()),
@@ -219,7 +222,10 @@ class ProjectionPlan:
         exec(compile(module, filename, "exec"), namespace)
         result = namespace["project"]
         setattr(result, "inline_diagnostics", dict(self.diagnostics))  # noqa: B010
-        return cast(Callable[..., dict[str, Any]], result)
+        return cast(
+            Callable[..., dict[str, Any]],
+            owned_projector(result) if deep_copy else result,
+        )
 
 
 def path_expression(root: str, path: str) -> ast.expr:

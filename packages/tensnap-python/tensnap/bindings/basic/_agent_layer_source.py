@@ -7,7 +7,7 @@ import re
 from collections.abc import Callable, Mapping
 from typing import Any, TypeAlias, cast
 
-from typing_extensions import TypeVar as BackportedTypeVar
+from typing_extensions import TypeVar as BackportedTypeVar, Unpack
 
 from tensnap.models import (
     AgentItemFields,
@@ -20,7 +20,11 @@ from tensnap.utils.attr import AttrPathMap, validate_attr_path
 from tensnap.utils.projection import ProjectionPlan
 
 from .layer import BindLayerConfig
-from .layer_kwargs import LayerMetadataOptions, merge_layer_metadata
+from .layer_kwargs import (
+    LayerMetadataOptions,
+    ProjectionCopyOptions,
+    merge_layer_metadata,
+)
 from .layer_utils import (
     MetadataDictForInit,
     ProjectorAttrSelector,
@@ -131,7 +135,7 @@ def _visual_shortcuts(
             plan.callable(name, option)
         else:
             plan.literal(name, option)
-    return cast(SourceProjector, plan.compile())
+    return cast(SourceProjector, plan.compile(deep_copy=False))
 
 
 def _source_projection_plan(
@@ -231,11 +235,13 @@ class BindSourceAgentLayerConfig(BindLayerConfig[TSourceMetadataKeys, AgentItemF
         restore_replace: str | Callable[[Any, Any], Any] | None = None,
         source_name: ContainerGetter | None = None,
         matrix: bool = False,
+        **copy_options: Unpack[ProjectionCopyOptions],
     ) -> None:
         super().__init__(
             layer_id,
             "agent",
             ("id",),
+            **copy_options,
             metadata=(
                 cast(
                     MetadataDictForInit[TSourceMetadataKeys],
@@ -324,4 +330,7 @@ class BindSourceAgentLayerConfig(BindLayerConfig[TSourceMetadataKeys, AgentItemF
             metadata_projector=metadata_projector,
             restore=restore,
             source=source,
+            projector_owns_values=self.projector_owns_values,
+            projector_deep_copy=self.projector_deep_copy,
+            deep_copy=self.deep_copy,
         )

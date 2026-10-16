@@ -40,6 +40,11 @@ from tensnap.utils.attr import (
     AttrProjector,
 )
 from tensnap.utils.init_hook import install_once_init_hook
+from tensnap.utils.projection_ownership import (
+    configure_projector,
+    detach_record,
+    owns_values,
+)
 
 from .layer_kwargs import (
     BackgroundLayerKwargs,
@@ -145,26 +150,50 @@ def _resolve_registered_item_projector(
 def _make_inferred_item_dynamic_projector(
     projector_names: tuple[str, ...],
     fallback_projector: Callable[[Any], dict[TItemKeys, Any]],
+    deep_copy: bool = True,
+    projector_owns_values: bool | None = None,
 ) -> DynamicAttrProjector[Any, Any, TItemKeys]:
-    projector_cache: dict[type[Any], Callable[[Any], dict[str, Any]] | None] = {}
+    projector_cache: dict[
+        type[Any], tuple[Callable[[Any], dict[TItemKeys, Any]], bool]
+    ] = {}
 
     def projector(_layer: Any, item: Any) -> dict[TItemKeys, Any]:
-        # Resolution order: cached item-class projector first, then fallback.
+        # Resolve both the callable and its ownership policy once per item class.
         item_cls = item.__class__
         if item_cls not in projector_cache:
-            projector_cache[item_cls] = _resolve_registered_item_projector(
-                item_cls,
-                projector_names,
+            registered = _resolve_registered_item_projector(item_cls, projector_names)
+            selected = (
+                cast(
+                    Callable[[Any], dict[TItemKeys, Any]],
+                    configure_projector(registered, deep_copy),
+                )
+                if registered is not None
+                else fallback_projector
             )
-
-        resolved_projector = cast(
-            Callable[[Any], dict[TItemKeys, Any]] | None,
-            projector_cache[item_cls],
+            projector_cache[item_cls] = (
+                selected,
+                deep_copy
+                and not (owns_values(selected) or projector_owns_values is True),
+            )
+        selected, copy_values = projector_cache[item_cls]
+        record = selected(item)
+        return (
+            cast(
+                dict[TItemKeys, Any], detach_record(dict(cast(dict[str, Any], record)))
+            )
+            if copy_values
+            else record
         )
-        if resolved_projector is not None:
-            return resolved_projector(item)
-        return fallback_projector(item)
 
+    setattr(projector, "__tensnap_owns_values__", deep_copy)  # noqa: B010
+    if deep_copy and projector_owns_values is not True:
+        setattr(  # noqa: B010
+            projector,
+            "__tensnap_raw_projector__",
+            _make_inferred_item_dynamic_projector(
+                projector_names, fallback_projector, False
+            ),
+        )
     return projector
 
 
@@ -544,6 +573,9 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
         item: LayerItemProjectorForInit[TItemKeys] | None = None,
         id_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
         changed_getter: AttrGetter[Any] | ProjectorField | Literal[False] | None = None,
+        projector_owns_values: bool | None = None,
+        projector_deep_copy: bool = True,
+        deep_copy: bool | None = None,
     ) -> None:
         if item_iterable_projector is not None and iterable is not None:
             raise ValueError(
@@ -559,6 +591,9 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             )
 
         self.layer_id = layer_id
+        self.projector_owns_values = projector_owns_values
+        self.projector_deep_copy = projector_deep_copy
+        self.deep_copy = deep_copy
         self.layer_type = layer_type
         self.item_keys = item_keys
         self.init_metadata = metadata
@@ -666,6 +701,8 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             resolved_item_dynamic_projector = _make_inferred_item_dynamic_projector(
                 self.item_projector_names,
                 fallback_projector,
+                self.projector_deep_copy,
+                self.projector_owns_values,
             )
 
         if (
@@ -692,6 +729,9 @@ class BindLayerConfig(Generic[TMetadataKeys, TItemKeys]):
             item_id_getter=item_id_getter,
             item_changed_getter=item_changed_getter,
             items_projector=resolved_items_projector,
+            projector_owns_values=self.projector_owns_values,
+            projector_deep_copy=self.projector_deep_copy,
+            deep_copy=self.deep_copy,
         )
 
     def attach(

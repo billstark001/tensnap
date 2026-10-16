@@ -7,11 +7,16 @@ Only projected records are retained for field-level wire diffs.
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator
-from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Generic, Literal, TypeVar
 
 from tensnap.utils.object import dict_diff
+from tensnap.utils.projection_ownership import (
+    configure_projector,
+    copy_for_publication,
+    detach_record,
+    owns_values,
+)
 
 SourceOperation = Literal["create", "update", "delete"]
 SourceKey = str | int
@@ -63,6 +68,29 @@ class KeyedSource:
     changes: Callable[[Any, Any], SourceBatch | None] | None = None
     shape: Callable[[Any], Any] | None = None
     omit: Callable[[Any, Any, Any], bool] | None = None
+    projector_owns_values: bool | None = None
+    projector_deep_copy: bool = True
+    deep_copy: bool | None = None
+    copy_items: bool = field(init=False)
+    _scan_projector: Callable[..., Any] | None = field(init=False, default=None)
+
+    def __post_init__(self) -> None:
+        project = configure_projector(self.project, self.projector_deep_copy)
+        object.__setattr__(self, "project", project)
+        owned = (
+            owns_values(project)
+            if self.projector_owns_values is None
+            else self.projector_owns_values
+        )
+        object.__setattr__(
+            self, "copy_items", not owned if self.deep_copy is None else self.deep_copy
+        )
+        if not self.copy_items:
+            object.__setattr__(
+                self,
+                "_scan_projector",
+                getattr(project, "__tensnap_raw_projector__", None),
+            )
 
     def current_revision(self, model: Any) -> Any:
         return self.revision(model) if self.revision is not None else None
@@ -70,26 +98,44 @@ class KeyedSource:
     def current_shape(self, model: Any) -> Any:
         return self.shape(model) if self.shape is not None else None
 
-    def _project(self, model: Any, key: Any, value: Any) -> dict[str, Any]:
+    def _project(
+        self, model: Any, key: Any, value: Any, scan: bool = False
+    ) -> dict[str, Any]:
         item_id = self.encode_key(key)
         if isinstance(item_id, bool) or not isinstance(item_id, (str, int)):
             raise TypeError("source item id must be a string or integer")
-        record = dict(self.project(model, key, value))
+        project = (
+            self._scan_projector
+            if scan and self._scan_projector is not None
+            else self.project
+        )
+        record = dict(project(model, key, value))
         if "id" in record and record["id"] != item_id:
             raise ValueError(f"projected source id differs from key: {item_id!r}")
         record["id"] = item_id
         return record
 
-    def snapshot(self, model: Any) -> list[dict[str, Any]]:
-        """Return projected records detached from mutable model values."""
-        return [deepcopy(record) for record in self._records(model)]
+    def snapshot(
+        self, model: Any, deep_copy: bool | None = None
+    ) -> list[dict[str, Any]]:
+        """Build source records using the resolved publication copy policy.
 
-    def _records(self, model: Any) -> Iterator[dict[str, Any]]:
+        The override controls publication only, not projector detachment. False
+        relies on the producer to keep all retained records and values stable.
+        """
+        return [
+            copy_for_publication(
+                record, self.copy_items if deep_copy is None else deep_copy
+            )
+            for record in self._records(model)
+        ]
+
+    def _records(self, model: Any, scan: bool = False) -> Iterator[dict[str, Any]]:
         seen: set[SourceKey] = set()
         for key, value in self.entries(model):
             if self.omit is not None and self.omit(model, key, value):
                 continue
-            record = self._project(model, key, value)
+            record = self._project(model, key, value, scan)
             item_id = record["id"]
             if item_id in seen:
                 raise ValueError(f"duplicate source item id: {item_id!r}")
@@ -140,11 +186,11 @@ class KeyedSource:
                 if old is not None:
                     plan.deletes.append(item_id)
                 continue
-            record = self._project(model, change.key, value)
+            record = self._project(model, change.key, value, True)
             if old is not None and record == old:
                 plan.replacements[item_id] = old
                 continue
-            record = deepcopy(record)
+            record = self._materialize(record, old)
             if old is None:
                 plan.creates.append(record)
             else:
@@ -154,6 +200,13 @@ class KeyedSource:
                     plan.updates.append(update)
             plan.replacements[item_id] = record
         return plan
+
+    def _materialize(
+        self, record: dict[str, Any], previous: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        if self._scan_projector is not None:
+            return detach_record(record, previous)
+        return copy_for_publication(record, self.copy_items)
 
     def _plan_scan(
         self,
@@ -165,13 +218,13 @@ class KeyedSource:
         plan = SourceDeltaPlan(
             [], [], [], current, self.current_revision(model), shape, True
         )
-        for projected in self._records(model):
+        for projected in self._records(model, True):
             item_id = projected["id"]
             old = previous.get(item_id)
             if old is not None and projected == old:
                 current[item_id] = old
                 continue
-            record = deepcopy(projected)
+            record = self._materialize(projected, old)
             current[item_id] = record
             if old is None:
                 plan.creates.append(record)

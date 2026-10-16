@@ -9,6 +9,8 @@ from functools import lru_cache
 from types import FunctionType
 from typing import Any, TypeAlias, TypeVar, cast
 
+from .projection_ownership import owned_projector
+
 TObj = TypeVar("TObj")
 T = TypeVar("T", bound=str)
 
@@ -350,9 +352,11 @@ def make_dict_projector(
     *,
     filename: str | None = None,
     function_name: str = _DEFAULT_PROJECTOR_FUNC_NAME,
+    deep_copy: bool = True,
 ) -> Callable[[Mapping[str, Any]], dict[T, Any]]:
-    """Create a cached projector for dictionaries.
+    """Create a cached dictionary projector with independent nested output.
 
+    ``deep_copy=False`` borrows nested model/default values for later detachment.
     ``filename`` is used by traceback and ``linecache``. ``function_name`` is the
     compiled Python function name, useful for profiling and traceback grouping.
     """
@@ -371,7 +375,10 @@ def make_dict_projector(
         function_name,
         actual_filename,
     )
-    return cast(Callable[[Mapping[str, Any]], dict[T, Any]], func)
+    return cast(
+        Callable[[Mapping[str, Any]], dict[T, Any]],
+        owned_projector(func) if deep_copy else func,
+    )
 
 
 def make_attr_projector(
@@ -381,8 +388,12 @@ def make_attr_projector(
     *,
     filename: str | None = None,
     function_name: str = _DEFAULT_PROJECTOR_FUNC_NAME,
+    deep_copy: bool = True,
 ) -> Callable[[TObj], dict[T, Any]]:  # type: ignore
-    """Create a cached projector for object attributes."""
+    """Project attributes into an independent record, including nested values.
+
+    ``deep_copy=False`` borrows nested values for a later publication boundary.
+    """
     frozen_fields = tuple(cast(tuple[str, ...], tuple(fields)))
     frozen_mapping = _freeze_str_mapping(cast(Mapping[str, str] | None, field_mapping))
     frozen_defaults = _freeze_default_values(
@@ -398,7 +409,9 @@ def make_attr_projector(
         function_name,
         actual_filename,
     )
-    return cast(Callable[[TObj], dict[T, Any]], func)
+    return cast(
+        Callable[[TObj], dict[T, Any]], owned_projector(func) if deep_copy else func
+    )
 
 
 # endregion

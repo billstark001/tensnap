@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from copy import deepcopy
-from dataclasses import dataclass, field
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass, field, replace
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -20,6 +19,12 @@ from tensnap.utils.attr import (
     AttrProjector,
 )
 from tensnap.utils.object import dict_diff
+from tensnap.utils.projection_ownership import (
+    configure_projector,
+    copy_for_publication,
+    detach_record,
+    owns_values,
+)
 
 if TYPE_CHECKING:
     from .environment import EnvironmentLayerState
@@ -81,6 +86,13 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     item_keys: tuple[TItemFieldKeys, ...]
     dependency_layer_ids: dict[str, str] = field(default_factory=dict)
     restore: Any = field(default=None, kw_only=True)
+    projector_owns_values: bool | None = field(default=None, kw_only=True)
+    projector_deep_copy: bool = field(default=True, kw_only=True)
+    deep_copy: bool | None = field(default=None, kw_only=True)
+    copy_items: bool = field(init=False)
+    _scan_projector: Callable[..., dict[TItemFieldKeys, Any]] | None = field(
+        init=False, default=None
+    )
 
     metadata_projector: AttrProjector[TLayer, TLayerFieldKeys] | None = None
 
@@ -98,7 +110,43 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
     has_item_diffing: bool = field(init=False)
 
     def __post_init__(self) -> None:
+        self.item_projector = configure_projector(
+            self.item_projector, self.projector_deep_copy
+        )
+        self.item_dynamic_projector = configure_projector(
+            self.item_dynamic_projector, self.projector_deep_copy
+        )
+        self.items_projector = configure_projector(
+            self.items_projector, self.projector_deep_copy
+        )
+        owned = self.projector_owns_values
+        if owned is None:
+            owned = owns_values(
+                self.item_projector
+                or self.item_dynamic_projector
+                or self.items_projector
+            )
+        self.copy_items = self.deep_copy if self.deep_copy is not None else not owned
+        # Borrow only inside the synchronous scan. Standalone projector calls
+        # keep their independent-output guarantee; explicit double copies remain.
+        if not self.copy_items:
+            self._scan_projector = getattr(
+                self.item_projector or self.item_dynamic_projector,
+                "__tensnap_raw_projector__",
+                None,
+            )
         if self.source is not None:
+            self.source = replace(
+                self.source,
+                projector_owns_values=self.projector_owns_values
+                if self.projector_owns_values is not None
+                else self.source.projector_owns_values,
+                projector_deep_copy=self.projector_deep_copy,
+                deep_copy=self.deep_copy
+                if self.deep_copy is not None
+                else self.source.deep_copy,
+            )
+            self.copy_items = self.source.copy_items
             if any(
                 value is not None
                 for value in (
@@ -172,20 +220,36 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             return None
         return self.metadata_projector(layer)
 
-    def build_item_list(self, layer: TLayer) -> list[dict[TItemFieldKeys, Any]]:
+    def build_item_list(
+        self, layer: TLayer, deep_copy: bool | None = None
+    ) -> list[dict[TItemFieldKeys, Any]]:
+        """Build records using the publication policy unless overridden.
+
+        ``deep_copy=False`` suppresses this boundary only; it does not change an
+        owning projector. Borrowed custom output must remain stable if retained.
+        """
+        copy_values = self.copy_items if deep_copy is None else deep_copy
         if self.source is not None:
-            return cast(list[dict[TItemFieldKeys, Any]], self.source.snapshot(layer))
+            return cast(
+                list[dict[TItemFieldKeys, Any]], self.source.snapshot(layer, deep_copy)
+            )
         if self.item_projection_type == _ITEM_PROJ_TYPE_ITEMS:
             assert self.items_projector is not None
-            return self.items_projector(layer)
+            return copy_for_publication(self.items_projector(layer), copy_values)
 
         assert self.iterable_getter is not None
         items = self.iterable_getter(layer)
         if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC:
             assert self.item_projector is not None
-            return [self.item_projector(item) for item in items]
+            return [
+                copy_for_publication(self.item_projector(item), copy_values)
+                for item in items
+            ]
         assert self.item_dynamic_projector is not None
-        return [self.item_dynamic_projector(layer, item) for item in items]
+        return [
+            copy_for_publication(self.item_dynamic_projector(layer, item), copy_values)
+            for item in items
+        ]
 
     def get_item_id_naive(self, item: dict[TItemFieldKeys, Any]) -> tuple[Any, ...]:
         return tuple(item.get(key) for key in self.item_keys)
@@ -221,10 +285,10 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         deleted: list[Any] = []
         if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC:
             assert self.item_projector is not None
-            projector = self.item_projector
+            projector = self._scan_projector or self.item_projector
         else:
             assert self.item_dynamic_projector is not None
-            item_dynamic_projector = self.item_dynamic_projector
+            item_dynamic_projector = self._scan_projector or self.item_dynamic_projector
 
             def projector(item: TItem) -> dict[TItemFieldKeys, Any]:
                 return item_dynamic_projector(layer, item)
@@ -238,11 +302,19 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             current_ids.add(item_id)
             item_changed = self.item_changed_getter(item)
             if item_id not in last_items:
-                p = deepcopy(projector(item))
+                p = (
+                    detach_record(dict(projector(item)), last_items.get(item_id))
+                    if self._scan_projector is not None
+                    else copy_for_publication(projector(item), self.copy_items)
+                )
                 created.append(p)
                 current_items[item_id] = p
             elif item_changed:
-                p = deepcopy(projector(item))
+                p = (
+                    detach_record(dict(projector(item)), last_items.get(item_id))
+                    if self._scan_projector is not None
+                    else copy_for_publication(projector(item), self.copy_items)
+                )
                 updated.append(p)
                 current_items[item_id] = p
         for item_id in last_items:
@@ -261,7 +333,20 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         list[Any],
         dict[Any, dict[TItemFieldKeys, Any]],
     ]:
-        projected_items = self.build_item_list(layer)
+        projected_items: Iterable[dict[TItemFieldKeys, Any]]
+        if self._scan_projector is None:
+            projected_items = self.build_item_list(layer, False)
+        else:
+            assert self.iterable_getter is not None
+            project = self._scan_projector
+            items = self.iterable_getter(layer)
+            # Materialize before advancing to another user selector: borrowed
+            # values must never survive a callback, await, or publication.
+            projected_items = (
+                (project(item) for item in items)
+                if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC
+                else (project(layer, item) for item in items)
+            )
         created: list[dict[TItemFieldKeys, Any]] = []
         updated: list[dict[TItemFieldKeys, Any]] = []
         deleted: list[Any] = []
@@ -274,7 +359,11 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
                 continue
             # Only new/changed records need an owned nested snapshot. The common
             # unchanged path can reuse its previous snapshot without deep copies.
-            item = deepcopy(projected)
+            item = (
+                detach_record(dict(projected), previous)
+                if self._scan_projector is not None
+                else copy_for_publication(projected, self.copy_items)
+            )
             current_items[item_id] = item
             if previous is None:
                 created.append(item)
@@ -381,7 +470,10 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
 
         return cast("EnvironmentLayerState", layer)
 
-    def seed_item_deltas_from_state(self, state: EnvironmentLayerState) -> None:
+    def seed_item_deltas_from_state(
+        self, state: EnvironmentLayerState, deep_copy: bool = True
+    ) -> None:
+        """Seed a retained baseline; False accepts an already published snapshot."""
         items: list[dict[TItemFieldKeys, Any]] = []
         if "items" in state:
             items = cast(list[dict[TItemFieldKeys, Any]], state["items"])
@@ -390,7 +482,9 @@ class LayerRegistration(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys])
         elif "edges" in state:
             items = cast(list[dict[TItemFieldKeys, Any]], state["edges"])
         self.last_items = {
-            self.binding.get_projected_item_cache_key(item): deepcopy(item)
+            self.binding.get_projected_item_cache_key(item): copy_for_publication(
+                item, deep_copy
+            )
             for item in items
         }
         if self.binding.source is not None:

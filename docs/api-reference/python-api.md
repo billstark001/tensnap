@@ -278,6 +278,16 @@ Automatic parameter discovery excludes private names by default. Pass `BindParam
 
 Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in parameter discovery without exposing ordinary attributes. `BoundModelReinitializer` uses this hook for constructor keyword parameters.
 
+### Projection ownership
+
+Built-in field, attribute, inferred agent, and map/matrix/indexed projectors return independent snapshots by default. Custom `item_projector`, `item_dynamic_projector`, `items_projector`, and source `project` callbacks keep safe publication copying unless the layer declares `projector_owns_values=True`. That declaration covers all nested values, including buffers; the producer must not mutate returned data after publication.
+
+Item-bearing layer decorators accept `projector_deep_copy=True` and `deep_copy=None` alongside `projector_owns_values=None`. The first controls built-in detachment; the second overrides publication copying, whose automatic default is the inverse of ownership. Disabling built-in detachment alone keeps safe copying at publication. `LayerBinding.copy_items` stores the resolved publication policy. `build_item_list(model, deep_copy=None)` and `KeyedSource.snapshot(model, deep_copy=None)` can override publication copying for one call; passing false does not turn off an already owning projector. Internal initialization/full-sync/replay seeding passes `deep_copy=False` for the same already published records, while direct `seed_item_deltas_from_state(...)` calls still default to true. Standalone attribute/dictionary projectors and `ProjectionPlan.compile` also accept `deep_copy=True`. A callable explicitly constructed in borrowing mode does not acquire an ownership guarantee merely from `projector_deep_copy=True` on the layer; keep automatic publication copying unless its producer guarantees independent output.
+
+Eligible built-in item, dynamic/inferred, and keyed-source scans compare current selections with previous owned snapshots before materializing changed fields. Equal nested fields may be shared with old read-only snapshots; outer-record identity is not an API guarantee. Standalone projector calls still return independent output, and custom/bulk `items_projector` callbacks retain their configured publication policy.
+
+Map/matrix source wrappers protect their separately injected `data.value` even when custom visual fields are declared independent. The complete four-binding contract, explicit no-copy/double-copy configurations, and benchmark commands are in [projection ownership](../maintainer-guide/projection-ownership.md).
+
 ### Monitors and scene restore
 
 Binding ownership, layer dependency direction, and one-time topology validation follow the [binding ownership contract](../maintainer-guide/binding-ownership-and-topology.md).

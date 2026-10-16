@@ -137,14 +137,16 @@ class EnvironmentRegistration:
             ],
         }
 
-    def seed_item_deltas_from_state(self, state: EnvironmentState) -> None:
+    def seed_item_deltas_from_state(
+        self, state: EnvironmentState, deep_copy: bool = True
+    ) -> None:
         """Prime layer item diff caches from an already projected snapshot."""
 
         state_layers = {layer["layer_id"]: layer for layer in state["layers"]}
         for layer_id, registration in self.layers.items():
             layer_state = state_layers.get(layer_id)
             if layer_state is not None:
-                registration.seed_item_deltas_from_state(layer_state)
+                registration.seed_item_deltas_from_state(layer_state, deep_copy)
 
 
 def clone_environment_metadata_state(state: EnvironmentState) -> EnvironmentState:

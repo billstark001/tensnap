@@ -107,7 +107,8 @@ class DefaultSimulationHandler(SimulationHandler):
             for layer in environment.layers.values():
                 layer.reset_diff_state()
             curr = environment.build_state()
-            environment.seed_item_deltas_from_state(curr)
+            # build_state already applied each layer's publication policy.
+            environment.seed_item_deltas_from_state(curr, False)
             next_states[env_id] = clone_environment_metadata_state(curr)
         self._last_env_states = next_states
 

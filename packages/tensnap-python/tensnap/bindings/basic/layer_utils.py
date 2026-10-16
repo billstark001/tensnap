@@ -259,6 +259,8 @@ def resolve_projector_field_specs(
 
 def make_field_spec_projector(
     field_specs: dict[TField, ResolvedProjectorFieldSpec[TField]],
+    *,
+    deep_copy: bool = True,
 ) -> AttrProjector[Any, TField]:
     plan = ProjectionPlan(("obj",))
     for field, spec in field_specs.items():
@@ -271,7 +273,7 @@ def make_field_spec_projector(
             plan.callable(field, cast(Callable[[Any], Any], spec.value))
         else:
             plan.literal(field, spec.value)
-    return cast(AttrProjector[Any, TField], plan.compile())
+    return cast(AttrProjector[Any, TField], plan.compile(deep_copy=deep_copy))
 
 
 def make_projector_for_target(  # noqa: PLR0913

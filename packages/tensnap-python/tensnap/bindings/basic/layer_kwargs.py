@@ -48,7 +48,15 @@ LayerMetadataOptions: TypeAlias = (
 )
 
 
-class ItemLayerKwargs(TypedDict, Generic[TItemKeys], total=False):
+class ProjectionCopyOptions(TypedDict, total=False):
+    """Construction-time projection and publication ownership controls."""
+
+    projector_owns_values: bool | None
+    projector_deep_copy: bool
+    deep_copy: bool | None
+
+
+class ItemLayerKwargs(ProjectionCopyOptions, Generic[TItemKeys], total=False):
     item_iterable_projector: ItemGetterForInit[Iterable[object]]
     item_projector: LayerItemProjectorForInit[TItemKeys] | None
     item_dynamic_projector: DynamicAttrProjector[Any, Any, TItemKeys] | str | None

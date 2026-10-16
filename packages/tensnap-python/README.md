@@ -122,6 +122,10 @@ Monitors use explicit create/update/delete protocol operations. Scene checkpoint
 
 For Mesa models, prefer `BoundModelReinitializer` from `tensnap` or `tensnap.bindings.lifecycle`. Use `bind_kwargs(...)` to expose constructor keyword arguments as resettable parameters when needed. When a constructor kwarg and a model-owned parameter publish the same source field during `register_model()`, the model parameter keeps UI ownership and the reinitializer aliases its reset value from the model field instead of registering a duplicate kwarg parameter. `configure_reinit(...)` now applies the default Mesa cleanup automatically when no explicit cleanup callback is provided.
 
+## Projection ownership
+
+Standalone built-in item projectors return independent nested snapshots. Eligible automatic layer scans can compare with previous owned snapshots and reuse equal read-only nested fields before materializing changed values; this does not guarantee outer-record identity. Custom callbacks keep safe publication copying and may explicitly declare independent output to avoid it. Layer options control projector and publication copying separately: disabling publication copying does not cancel an owning projector. Configure policies before use, and treat published records as read-only. See the [shared ownership contract and focused benchmark commands](../../docs/maintainer-guide/projection-ownership.md) for the language-specific options, overrides, and source-value rules.
+
 ## Examples
 
 Example simulations are located in the repository root:

@@ -52,7 +52,8 @@ def test_literal_object_is_injected_without_repr() -> None:
     projector = make_field_spec_projector(
         {
             "data": ResolvedProjectorFieldSpec("literal", literal),
-        }
+        },
+        deep_copy=False,
     )
     assert projector(object())["data"] is literal
 
@@ -81,7 +82,9 @@ def test_hashable_nonliteral_default_uses_object_identity() -> None:
             return "not valid Python source"
 
     value = Value()
-    projector = make_attr_projector([], default_values={"token": value})
+    projector = make_attr_projector(
+        [], default_values={"token": value}, deep_copy=False
+    )
     assert projector(object())["token"] is value
 
 

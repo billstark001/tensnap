@@ -10,6 +10,7 @@ from typing_extensions import Unpack
 
 from tensnap.models import AgentItemFields, AgentLayerMetadataFields
 from tensnap.models.source import KeyedSource, SourceKey, SourceKeyCodec
+from tensnap.utils.projection_ownership import copy_for_publication, owned_projector
 
 from ._agent_layer_source import (
     _CELL_ID,
@@ -104,6 +105,9 @@ def map_agent_layer(  # noqa: PLR0913 - declarative source options are independe
     decode_value: Callable[[Any], Any] = _identity,
     restore: bool = True,
     replace: str | Callable[[Any, Any], Any] | None = None,
+    projector_owns_values: bool | None = None,
+    projector_deep_copy: bool = True,
+    deep_copy: bool | None = None,
     **metadata_kwargs: Unpack[SourceAgentLayerMetadataKwargs],
 ) -> BindSourceAgentLayerConfig[TSourceMetadataKeys]:
     """Bind mapping entries directly, with optional revisioned changes."""
@@ -138,7 +142,15 @@ def map_agent_layer(  # noqa: PLR0913 - declarative source options are independe
                 data = record.get("data", {})
                 if not isinstance(data, dict):
                     raise TypeError("source projector data must be a dictionary")
-                record["data"] = {**data, "value": encode_value(value)}
+                record["data"] = {
+                    **data,
+                    "value": copy_for_publication(
+                        encode_value(value),
+                        project is not None
+                        and projector_owns_values is True
+                        and projector_deep_copy,
+                    ),
+                }
             return record
 
         setattr(  # noqa: B010 - callable metadata is attached at runtime
@@ -151,7 +163,9 @@ def map_agent_layer(  # noqa: PLR0913 - declarative source options are independe
             entries=lambda model: get(model).items(),
             read=lambda model, key: get(model)[key],
             encode_key=encode_key,
-            project=project_entry,
+            project=owned_projector(project_entry)
+            if project is None
+            else project_entry,
             revision=get_revision,
             changes=get_changes,
         )
@@ -173,6 +187,9 @@ def map_agent_layer(  # noqa: PLR0913 - declarative source options are independe
         layer_id,
         factory,
         metadata=layer_metadata,
+        projector_owns_values=projector_owns_values,
+        projector_deep_copy=projector_deep_copy,
+        deep_copy=deep_copy,
         restore_prepare=prepare if restore else None,
         restore_replace=replace,
         source_name=source_selector,
@@ -193,6 +210,9 @@ def indexed_agent_layer(  # noqa: PLR0913 - independent source accessors
     revision: ContainerGetter | None = None,
     changes: ChangeGetter | None = None,
     encode_key: Callable[[Any], SourceKey] = _map_id,
+    projector_owns_values: bool | None = None,
+    projector_deep_copy: bool = True,
+    deep_copy: bool | None = None,
     **metadata_kwargs: Unpack[SourceAgentLayerMetadataKwargs],
 ) -> BindSourceAgentLayerConfig[TSourceMetadataKeys]:
     """Bind stable IDs to columnar or indexed state without entity objects.
@@ -231,12 +251,19 @@ def indexed_agent_layer(  # noqa: PLR0913 - independent source accessors
             ),
             read=get_value,
             encode_key=encode_key,
-            project=projector,
+            project=owned_projector(projector) if project is None else projector,
             revision=get_revision,
             changes=get_changes,
         )
 
-    return BindSourceAgentLayerConfig(layer_id, factory, metadata=layer_metadata)
+    return BindSourceAgentLayerConfig(
+        layer_id,
+        factory,
+        metadata=layer_metadata,
+        projector_owns_values=projector_owns_values,
+        projector_deep_copy=projector_deep_copy,
+        deep_copy=deep_copy,
+    )
 
 
 def matrix_agent_layer(  # noqa: PLR0913, PLR0915 - independent source/restore options
@@ -256,6 +283,9 @@ def matrix_agent_layer(  # noqa: PLR0913, PLR0915 - independent source/restore o
     decode_value: Callable[[Any], Any] = _identity,
     restore: bool = True,
     replace: str | Callable[[Any, Any], Any] | None = None,
+    projector_owns_values: bool | None = None,
+    projector_deep_copy: bool = True,
+    deep_copy: bool | None = None,
     **metadata_kwargs: Unpack[MatrixAgentLayerMetadataKwargs],
 ) -> BindSourceAgentLayerConfig[AgentLayerMetadataFields]:
     """Bind a rectangular row-indexed matrix; logical row zero is at the top."""
@@ -293,7 +323,7 @@ def matrix_agent_layer(  # noqa: PLR0913, PLR0915 - independent source/restore o
             field_plan.callable(name, option)
         else:
             field_plan.literal(name, option)
-    field_project = field_plan.compile()
+    field_project = field_plan.compile(deep_copy=False)
     source_selector = layer_id if source is None else source
     layer_metadata = _source_metadata(
         metadata,
@@ -343,7 +373,15 @@ def matrix_agent_layer(  # noqa: PLR0913, PLR0915 - independent source/restore o
                 data = record.get("data", {})
                 if not isinstance(data, dict):
                     raise TypeError("source projector data must be a dictionary")
-                record["data"] = {**data, "value": encode_value(value)}
+                record["data"] = {
+                    **data,
+                    "value": copy_for_publication(
+                        encode_value(value),
+                        project is not None
+                        and projector_owns_values is True
+                        and projector_deep_copy,
+                    ),
+                }
             return record
 
         setattr(  # noqa: B010 - callable metadata is attached at runtime
@@ -356,7 +394,7 @@ def matrix_agent_layer(  # noqa: PLR0913, PLR0915 - independent source/restore o
             entries=entries,
             read=lambda model, key: get(model)[key[0]][key[1]],
             encode_key=_cell_id,
-            project=project_cell,
+            project=owned_projector(project_cell) if project is None else project_cell,
             revision=get_revision,
             changes=get_changes,
             shape=shape,
@@ -405,6 +443,9 @@ def matrix_agent_layer(  # noqa: PLR0913, PLR0915 - independent source/restore o
         layer_id,
         factory,
         metadata=layer_metadata,
+        projector_owns_values=projector_owns_values,
+        projector_deep_copy=projector_deep_copy,
+        deep_copy=deep_copy,
         restore_prepare=prepare if restore else None,
         restore_replace=replace,
         source_name=source_selector,

@@ -387,7 +387,7 @@ class SimulationScenario:
                             )
                         registration.reset_diff_state()
                     else:
-                        registration.seed_item_deltas_from_state(previous_layer)
+                        registration.seed_item_deltas_from_state(previous_layer, False)
             await broadcast_env_update(
                 self.server, environment, current_env, previous_env
             )
@@ -1026,7 +1026,7 @@ class SimulationScenario:
         for environment in self.environments.values():
             restored_state = environment.build_state()
             await send_env_snapshot(ws, self.server, restored_state)
-            environment.seed_item_deltas_from_state(restored_state)
+            environment.seed_item_deltas_from_state(restored_state, False)
         for monitor, _getter in self.monitors.values():
             await self.server.send(ws, MT.MONITOR_CREATE, monitor.to_dict())
         await self.server.send(ws, MT.METADATA_UPDATE, {"time": self._time_step})
