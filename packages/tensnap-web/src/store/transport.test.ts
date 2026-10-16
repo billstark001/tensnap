@@ -8,6 +8,7 @@ import type {
   ProtocolEncoding,
   RendererToSimulatorMessage,
   SimulatorToRendererMessage,
+  StateSyncRequest,
 } from '@tensnap/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './scenario/store';
@@ -113,6 +114,11 @@ class DeferredTransport implements ISimulatorTransport {
     this.emit('protocol-mode', { mode: 'legacy', reason: 'handshake-timeout' });
   }
 
+  closeUnexpectedly(): void {
+    this.state = 'closed';
+    this.emit('close', undefined);
+  }
+
   private emit<K extends keyof TransportEventMap>(type: K, payload: TransportEventMap[K]): void {
     const group = this.handlers.get(type);
     if (!group) {
@@ -153,6 +159,85 @@ class ImmediateSyncTransport extends DeferredTransport {
 }
 
 describe('transport store reconnect state', () => {
+  it.each(['first-instance', 'second-instance'])(
+    'restarts initial sync after a websocket reconnects during replay (%s)',
+    async (instanceId) => {
+      const useScenarioStore = createScenarioStore();
+      const useTransportStore = createTransportStore(useScenarioStore);
+      const transport = new DeferredTransport('ws://fixture', 'websocket');
+      const info: SimulatorToRendererMessage = {
+        type: 'simulator_info',
+        payload: {
+          protocol_version: '0.3',
+          binding: { name: 'fixture', version: '0.3.0' },
+          model: { id: 'reconnecting-model' },
+          instance_id: 'first-instance',
+          capabilities: [],
+        },
+      };
+
+      try {
+        const initialized = useTransportStore.getState().initialize(transport);
+        transport.open();
+        transport.receive(info);
+        await initialized;
+        expect(transport.sent.filter((message) => message.type === 'state_sync')).toHaveLength(1);
+        const initialSync = transport.sent.find((message) => message.type === 'state_sync')!
+          .payload as StateSyncRequest;
+        transport.receive({
+          type: 'state_sync_begin',
+          payload: {
+            request_id: initialSync.request_id,
+            model_id: 'reconnecting-model',
+            instance_id: 'first-instance',
+            mode: 'replace',
+          },
+        });
+        expect(useScenarioStore.getState().stateSync.phase).toBe('receiving');
+
+        transport.closeUnexpectedly();
+        const reconnected = transport.connect();
+        transport.open();
+        const reconnectedInfo = { ...info, payload: { ...info.payload, instance_id: instanceId } };
+        transport.receive(reconnectedInfo);
+        await reconnected;
+
+        const syncs = transport.sent
+          .filter((message) => message.type === 'state_sync')
+          .map((message) => message.payload as StateSyncRequest);
+        expect(syncs).toHaveLength(2);
+        expect(syncs[1].request_id).not.toBe(syncs[0].request_id);
+        expect(useScenarioStore.getState().stateSync.phase).toBe('requested');
+        transport.receive({
+          type: 'state_sync_begin',
+          payload: {
+            request_id: syncs[1].request_id,
+            model_id: 'reconnecting-model',
+            instance_id: instanceId,
+            mode: 'replace',
+          },
+        });
+        transport.receive({
+          type: 'action_create',
+          payload: { id: 'step', label: 'Step' },
+        });
+        transport.receive({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+        transport.receive({
+          type: 'state_sync_end',
+          payload: { request_id: syncs[1].request_id, state_revision: '1' },
+        });
+        expect(useScenarioStore.getState().stateSync.phase).toBe('idle');
+        expect(useScenarioStore.getState().actions.has('step')).toBe(true);
+        expect(useScenarioStore.getState().environments.has('main')).toBe(true);
+
+        transport.receive(reconnectedInfo);
+        expect(transport.sent.filter((message) => message.type === 'state_sync')).toHaveLength(2);
+      } finally {
+        useTransportStore.getState().destroy();
+      }
+    },
+  );
+
   it('keeps a failed initial websocket attached for browser auto-reconnect', async () => {
     const useScenarioStore = createScenarioStore();
     const useTransportStore = createTransportStore(useScenarioStore);

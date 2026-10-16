@@ -48,13 +48,13 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
   create<TransportStore>((set, get) => {
     const client = new RendererClient({ session: useScenarioStore.getState().session });
     let removeActiveConnectionListeners: (() => void) | null = null;
-    let removePendingHandshakeListeners: (() => void) | null = null;
+    let removeHandshakeListeners: (() => void) | null = null;
     let unsubscribeValidationSettings: (() => void) | null = null;
     let operationEpoch = 0;
 
-    const stopWaitingForHandshake = () => {
-      removePendingHandshakeListeners?.();
-      removePendingHandshakeListeners = null;
+    const stopWatchingHandshake = () => {
+      removeHandshakeListeners?.();
+      removeHandshakeListeners = null;
     };
 
     const dispatchStateSync = (state?: StateSyncInventory) => {
@@ -126,7 +126,7 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
 
     const retireHostTransport = (abortController?: AbortController | null) => {
       stopWatchingTransportValidation();
-      stopWaitingForHandshake();
+      stopWatchingHandshake();
       abortController?.abort();
       const scenarioStore = useScenarioStore.getState();
       scenarioStore.setConnected(false);
@@ -142,6 +142,7 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
 
     const activateTransport = (transport: ISimulatorTransport, state?: StateSyncInventory) => {
       const scenarioStore = useScenarioStore.getState();
+      let awaitingHandshake = true;
       const onOpen = () => {
         if (get().transport !== transport) return;
         set({ isConnecting: false, connectionError: null, abortController: null });
@@ -149,6 +150,7 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
       };
       const onClose = () => {
         if (get().transport !== transport) return;
+        awaitingHandshake = true;
         scenarioStore.setConnected(false);
         scenarioStore.resetStateSync();
       };
@@ -162,8 +164,10 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
       };
 
       const onSimulatorReady = () => {
-        if (get().transport !== transport) return;
-        stopWaitingForHandshake();
+        if (get().transport !== transport || !awaitingHandshake) return;
+        // The same WebSocket transport can reconnect. Consume one handshake
+        // per connection, while retaining the listeners until it is retired.
+        awaitingHandshake = false;
         if (scenarioStore.session.identityStatus === 'model-mismatch') {
           const message = scenarioStore.session.isLegacyProtocol
             ? 'The connected legacy simulator cannot be verified against this project.'
@@ -198,7 +202,7 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
         onSimulatorReady();
       };
       transport.on('protocol-mode', onProtocolMode);
-      removePendingHandshakeListeners = () => {
+      removeHandshakeListeners = () => {
         scenarioStore.session.removeEventListener('simulator:info', onSimulatorInfo);
         transport.off('protocol-mode', onProtocolMode);
       };
