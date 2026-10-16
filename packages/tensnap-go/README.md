@@ -194,6 +194,10 @@ The `Emitter` exposes the simulator-to-renderer families used by protocol v0.3, 
 
 Trajectory builders expose typed lifecycle methods for agent deletion, state-sync, and reset. Checkpoint hooks exchange model data only; the binding infers and owns the `{encoding,data}` wire envelope, replays a chart-free final state on restore, caches request IDs, and rolls back when paired hooks are available. The first frame is always `simulator_info`; configure stable model identity and schema compatibility with `WithSimulatorInfo`.
 
+## Projection ownership
+
+Standalone built-in item projectors return independent nested snapshots. Eligible automatic layer scans can compare with previous owned snapshots and reuse equal read-only nested fields before materializing changed values; this does not guarantee outer-record identity. Custom callbacks keep safe publication copying and may explicitly declare independent output to avoid it. Layer options control projector and publication copying separately: disabling publication copying does not cancel an owning projector. Configure policies before use, and treat published records as read-only. See the [shared ownership contract and focused benchmark commands](../../docs/maintainer-guide/projection-ownership.md) for the language-specific options, overrides, and source-value rules.
+
 ## Runnable Examples
 
 The repository keeps runnable examples in [examples/go](../../examples/go):

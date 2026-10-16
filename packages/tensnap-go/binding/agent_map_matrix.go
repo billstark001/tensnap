@@ -3,6 +3,8 @@ package binding
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
+	"maps"
 	"reflect"
 	"sort"
 )
@@ -28,6 +30,8 @@ func NewMapAgentLayer[M any, K comparable, V any](id string) *MapAgentLayer[M, K
 	l.AgentLayer.Project(func(_ M, entry MapEntry[K, V]) map[string]any {
 		return map[string]any{"id": l.encode(entry.Key), "data": map[string]any{"value": entry.Value}}
 	})
+	l.AgentLayer.copyPolicy.builtin = true
+	l.AgentLayer.rebuildProjector()
 	return l
 }
 
@@ -194,9 +198,27 @@ func (l *MapAgentLayer[M, K, V]) EncodeKey(fn func(K) any) *MapAgentLayer[M, K, 
 	return l
 }
 
+// ProjectorOwnsValues configures the embedded agent layer and preserves source-builder chaining.
+func (l *MapAgentLayer[M, K, V]) ProjectorOwnsValues(value bool) *MapAgentLayer[M, K, V] {
+	l.AgentLayer.ProjectorOwnsValues(value)
+	return l
+}
+
+// ProjectorDeepCopy configures the embedded agent layer and preserves source-builder chaining.
+func (l *MapAgentLayer[M, K, V]) ProjectorDeepCopy(value bool) *MapAgentLayer[M, K, V] {
+	l.AgentLayer.ProjectorDeepCopy(value)
+	return l
+}
+
+// DeepCopy configures the embedded agent layer and preserves source-builder chaining.
+func (l *MapAgentLayer[M, K, V]) DeepCopy(value bool) *MapAgentLayer[M, K, V] {
+	l.AgentLayer.DeepCopy(value)
+	return l
+}
+
 func (l *MapAgentLayer[M, K, V]) Project(fn func(M, K, V) map[string]any) *MapAgentLayer[M, K, V] {
 	l.AgentLayer.Project(func(model M, entry MapEntry[K, V]) map[string]any {
-		record := fn(model, entry.Key, entry.Value)
+		record := maps.Clone(fn(model, entry.Key, entry.Value))
 		if record == nil {
 			record = map[string]any{}
 		}
@@ -210,7 +232,7 @@ func (l *MapAgentLayer[M, K, V]) Project(fn func(M, K, V) map[string]any) *MapAg
 				data[name] = value
 			}
 		}
-		data["value"] = entry.Value
+		data["value"] = abm.SnapshotValue(entry.Value, l.copyPolicy.copyInjectedValues)
 		record["data"] = data
 		record["id"] = l.encode(entry.Key)
 		return record
@@ -285,6 +307,8 @@ func NewMatrixAgentLayer[M any, V any](id string) *MatrixAgentLayer[M, V] {
 			"data": map[string]any{"value": cell.Value},
 		}
 	})
+	l.AgentLayer.copyPolicy.builtin = true
+	l.AgentLayer.rebuildProjector()
 	return l
 }
 
@@ -457,9 +481,27 @@ func (l *MatrixAgentLayer[M, V]) Flat(shape func(M) (int, int), at func(M, int, 
 	return l
 }
 
+// ProjectorOwnsValues configures the embedded agent layer and preserves source-builder chaining.
+func (l *MatrixAgentLayer[M, V]) ProjectorOwnsValues(value bool) *MatrixAgentLayer[M, V] {
+	l.AgentLayer.ProjectorOwnsValues(value)
+	return l
+}
+
+// ProjectorDeepCopy configures the embedded agent layer and preserves source-builder chaining.
+func (l *MatrixAgentLayer[M, V]) ProjectorDeepCopy(value bool) *MatrixAgentLayer[M, V] {
+	l.AgentLayer.ProjectorDeepCopy(value)
+	return l
+}
+
+// DeepCopy configures the embedded agent layer and preserves source-builder chaining.
+func (l *MatrixAgentLayer[M, V]) DeepCopy(value bool) *MatrixAgentLayer[M, V] {
+	l.AgentLayer.DeepCopy(value)
+	return l
+}
+
 func (l *MatrixAgentLayer[M, V]) Project(fn func(M, int, int, V) map[string]any) *MatrixAgentLayer[M, V] {
 	l.AgentLayer.Project(func(model M, cell MatrixCell[V]) map[string]any {
-		record := fn(model, cell.Row, cell.Col, cell.Value)
+		record := maps.Clone(fn(model, cell.Row, cell.Col, cell.Value))
 		if record == nil {
 			record = map[string]any{}
 		}
@@ -473,7 +515,7 @@ func (l *MatrixAgentLayer[M, V]) Project(fn func(M, int, int, V) map[string]any)
 				data[name] = value
 			}
 		}
-		data["value"] = cell.Value
+		data["value"] = abm.SnapshotValue(cell.Value, l.copyPolicy.copyInjectedValues)
 		record["data"] = data
 		record["id"] = fmt.Sprintf("cell:%d:%d", cell.Row, cell.Col)
 		record["x"], record["y"] = cell.Col, cell.Height-1-cell.Row

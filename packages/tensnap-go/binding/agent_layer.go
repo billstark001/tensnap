@@ -1,6 +1,8 @@
 package binding
 
 import (
+	"slices"
+
 	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
 	"github.com/billstark001/tensnap/packages/tensnap-go/protocol"
 )
@@ -8,18 +10,20 @@ import (
 // #region Agent Layer
 
 type AgentLayer[T any, I any] struct {
-	restore  *RestoreLayer[T]
-	ID       string
-	metadata func(T) map[string]any
-	items    func(T) []I
-	base     func(T, I) map[string]any
-	project  func(T, I) map[string]any
-	fields   map[string]ItemFieldFunc[T, I]
-	diff     *abm.NaiveItemDiffTracker
-	tracker  *abm.ItemDiffTracker[I]
-	itemID   func(T, I) any
-	changed  func(T, I) bool
-	resetIDs []any
+	copyPolicy  projectionCopy
+	restore     *RestoreLayer[T]
+	ID          string
+	metadata    func(T) map[string]any
+	items       func(T) []I
+	base        func(T, I) map[string]any
+	project     func(T, I) map[string]any
+	scanProject func(T, I) map[string]any
+	fields      map[string]ItemFieldFunc[T, I]
+	diff        *abm.NaiveItemDiffTracker
+	tracker     *abm.ItemDiffTracker[I]
+	itemID      func(T, I) any
+	changed     func(T, I) bool
+	resetIDs    []any
 }
 
 func NewAgentLayer[T any, I any](id string) *AgentLayer[T, I] {
@@ -58,20 +62,44 @@ func (l *AgentLayer[T, I]) Changed(fn func(T, I) bool) *AgentLayer[T, I] {
 	return l
 }
 
+// ProjectorOwnsValues declares whether a custom projector returns stable, detached records.
+func (l *AgentLayer[T, I]) ProjectorOwnsValues(value bool) *AgentLayer[T, I] {
+	l.copyPolicy.projectorOwnsValues = &value
+	l.rebuildProjector()
+	return l
+}
+
+// ProjectorDeepCopy controls built-in projection detachment; it defaults to true.
+func (l *AgentLayer[T, I]) ProjectorDeepCopy(value bool) *AgentLayer[T, I] {
+	l.copyPolicy.projectorDeepCopy = &value
+	l.rebuildProjector()
+	return l
+}
+
+// DeepCopy overrides publication detachment; auto copies projections without an ownership guarantee.
+func (l *AgentLayer[T, I]) DeepCopy(value bool) *AgentLayer[T, I] {
+	l.copyPolicy.deepCopy = &value
+	l.rebuildProjector()
+	return l
+}
+
 func (l *AgentLayer[T, I]) Project(fn func(T, I) map[string]any) *AgentLayer[T, I] {
+	l.copyPolicy.builtin = false
 	l.base = fn
 	l.rebuildProjector()
 	return l
 }
 
 func (l *AgentLayer[T, I]) ProjectTags(options ...TagOption) *AgentLayer[T, I] {
-	l.base = ProjectTags[T, I](options...)
+	l.base = ProjectTags[T, I](append(slices.Clone(options), TagDeepCopy(false))...)
+	l.copyPolicy.builtin = true
 	l.rebuildProjector()
 	return l
 }
 
 func (l *AgentLayer[T, I]) ProjectTagsRequired(required ...string) *AgentLayer[T, I] {
-	l.base = ProjectTagsRequired[T, I](required, TagScope("agent"))
+	l.base = ProjectTagsRequired[T, I](required, TagScope("agent"), TagDeepCopy(false))
+	l.copyPolicy.builtin = true
 	l.rebuildProjector()
 	return l
 }
@@ -101,11 +129,25 @@ func (l *AgentLayer[T, I]) Select(name, path string) *AgentLayer[T, I] {
 }
 
 func (l *AgentLayer[T, I]) rebuildProjector() {
-	if len(l.fields) == 0 {
-		l.project = l.base
-		return
+	raw := l.base
+	if len(l.fields) > 0 && l.base == nil {
+		l.copyPolicy.builtin = true
 	}
-	l.project = composeProjector(l.base, l.fields)
+	l.copyPolicy.configureInjectedValues()
+	if len(l.fields) > 0 {
+		raw = composeProjector(l.base, l.fields, l.copyPolicy.copyInjectedValues)
+	}
+	l.project = ownedProjector(raw, &l.copyPolicy)
+	if l.base == nil && len(l.fields) > 0 && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() {
+		// Detach as fields are read, without a second pass over scalar records.
+		l.project = composeProjector[T, I](nil, l.fields, true)
+	}
+	l.scanProject = nil
+	if l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
+		l.scanProject = raw
+	}
+	l.diff.DeepCopy = l.copyPolicy.copiesPublication()
+	l.tracker.DeepCopy = l.copyPolicy.copiesPublication()
 }
 
 func (l *AgentLayer[T, I]) Restore(spec RestoreLayer[T]) *AgentLayer[T, I] {
@@ -131,11 +173,11 @@ func (l *AgentLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitt
 		}
 	}
 	if l.usesIncrementalDiff() {
-		l.tracker.SeedSnapshots(items, snapshots, func(item I) any {
+		l.tracker.SeedOwnedSnapshots(items, snapshots, func(item I) any {
 			return l.itemID(target, item)
 		})
 	} else {
-		l.diff.Seed(snapshots)
+		l.diff.SeedOwned(snapshots)
 	}
 	return nil
 }
@@ -176,11 +218,11 @@ func (l *AgentLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitt
 		}
 	}
 	if l.usesIncrementalDiff() {
-		l.tracker.SeedSnapshots(items, snapshots, func(item I) any {
+		l.tracker.SeedOwnedSnapshots(items, snapshots, func(item I) any {
 			return l.itemID(target, item)
 		})
 	} else {
-		l.diff.Seed(snapshots)
+		l.diff.SeedOwned(snapshots)
 	}
 	return nil
 }
@@ -226,6 +268,15 @@ func (l *AgentLayer[T, I]) computeDiffs(target T) (created, updated []map[string
 	if l.project == nil {
 		return nil, nil, nil
 	}
+	if l.scanProject != nil {
+		if l.usesIncrementalDiff() {
+			return l.tracker.ComputeBorrowed(items,
+				func(item I) any { return l.itemID(target, item) },
+				func(item I) bool { return l.changed(target, item) },
+				func(item I) abm.ItemSnapshot { return l.scanProject(target, item) })
+		}
+		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index]) })
+	}
 	if l.usesIncrementalDiff() {
 		return l.tracker.Compute(
 			items,
@@ -234,7 +285,7 @@ func (l *AgentLayer[T, I]) computeDiffs(target T) (created, updated []map[string
 			func(item I) abm.ItemSnapshot { return l.project(target, item) },
 		)
 	}
-	return l.diff.Compute(l.projectItems(target, items))
+	return l.diff.Compute(l.projectItems(target, items, false))
 }
 
 func (l *AgentLayer[T, I]) itemList(target T) []I {
@@ -244,13 +295,17 @@ func (l *AgentLayer[T, I]) itemList(target T) []I {
 	return l.items(target)
 }
 
-func (l *AgentLayer[T, I]) projectItems(target T, items []I) []map[string]any {
+func (l *AgentLayer[T, I]) projectItems(target T, items []I, deepCopy ...bool) []map[string]any {
+	copyValues := l.copyPolicy.copiesPublication()
+	if len(deepCopy) > 0 {
+		copyValues = deepCopy[0]
+	}
 	if l.project == nil {
 		return nil
 	}
 	snapshots := make([]map[string]any, 0, len(items))
 	for _, item := range items {
-		snapshots = append(snapshots, l.project(target, item))
+		snapshots = append(snapshots, abm.SnapshotItem(l.project(target, item), copyValues))
 	}
 	return snapshots
 }

@@ -10,12 +10,19 @@ import (
 const defaultTagKey = "tensnap"
 
 type TagOptions struct {
+	DeepCopy     *bool
 	TagKey       string
 	Scope        string
 	DefaultScope string
 }
 
 type TagOption func(*TagOptions)
+
+// TagDeepCopy controls nested-value detachment in a standalone tag projector.
+// True is the default. False requires stable borrowed values or later detachment.
+func TagDeepCopy(value bool) TagOption {
+	return func(opts *TagOptions) { opts.DeepCopy = &value }
+}
 
 func TagKey(key string) TagOption {
 	return func(opts *TagOptions) {

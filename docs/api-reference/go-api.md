@@ -128,6 +128,16 @@ Important helpers:
 
 Use `binding` when you want Python-style declarations. Use `abm` directly when you want full imperative control. Mixed models are expected: an agent layer can be declarative while actions remain hand-written.
 
+### Projection ownership
+
+Built-in tags, `Field`/`Select`/`Const`, and source projections detach nested model values by default. Custom `Project` callbacks keep safe publication copying. Agent, map/matrix, edge, and trajectory builders expose `.ProjectorOwnsValues(bool)`, `.ProjectorDeepCopy(bool)`, and `.DeepCopy(bool)`. The first overrides the output capability, the second controls built-in detachment (default true), and the third overrides publication copying (automatic: copy unless the projector owns its values). Set these while constructing the layer. `.Project(fn)` treats any function as a custom callback; when forwarding a standalone owned tag projector through it, declare `.ProjectorOwnsValues(true)` to avoid another copy. The dedicated `.ProjectTags(...)` builder already knows its built-in capability.
+
+Both `abm.ItemDiffTracker` and `abm.NaiveItemDiffTracker` store `DeepCopy`, initialized true by their constructors. Set it false only for already independent projections; `Reset` preserves it. Ordinary `Seed`, `SeedSnapshots`, and `Compute` calls honor that property where available. `SeedOwnedSnapshots` / `SeedOwned` retain an already published baseline without a second copy. `abm.SnapshotItem(record, true)` and `SnapshotValue(value, true)` detach portable nested values without a JSON round trip; false explicitly borrows/transfers them. Standalone tag projectors accept `binding.TagDeepCopy(bool)`.
+
+For internal borrowed selections, `ItemDiffTracker.ComputeBorrowed(items, idFn, changedFn, projFn)` and `NaiveItemDiffTracker.ComputeBorrowed(count, projectIndex)` always establish independent new/changed records, regardless of `DeepCopy`. They can reuse equal previous owned fields and detach each record before invoking the next projector. Existing baselines must already be independent; these methods cannot repair an earlier borrowed cache. Built-in layer scans use this path when their resolved policy permits it, without changing standalone projector or forced-copy behavior.
+
+Both tracker modes now detect in-place nested map/slice updates using their independent previous baseline. Published maps, slices, and buffers are read-only by convention, including values shared with emitters. See [projection ownership](../maintainer-guide/projection-ownership.md) for source-injected values, override combinations, type limits, and focused allocation benchmarks.
+
 ### `server`
 
 WebSocket server that binds a Go model to a TenSnap renderer session.
@@ -340,7 +350,7 @@ It only projects new or changed items. Declarative `binding.AgentLayer` uses thi
 
 ### `NaiveItemDiffTracker`
 
-Use this when your model already builds full item snapshots each step and you want field-level deltas without custom dirty tracking.
+Use `Compute(projected)` when your model already builds all current item projections and you want field-level deltas without custom dirty tracking. `ComputeBorrowed(count, projectIndex)` instead selects and materializes records one at a time, allowing equal owned fields to be reused. Both visit every current item; neither avoids a full scan without an explicit change source.
 
 Both diff trackers compare complete projections: a field omitted from the next projection is emitted as `nil` to clear it on the renderer. `DictDiff` itself retains its partial-map semantics and only compares fields supplied in the second map.
 

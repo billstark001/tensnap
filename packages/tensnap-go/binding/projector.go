@@ -1,6 +1,10 @@
 package binding
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
+)
 
 type ItemFieldFunc[T any, I any] func(T, I) any
 
@@ -10,6 +14,8 @@ func Const[T any, I any](value any) ItemFieldFunc[T, I] {
 	}
 }
 
+// ProjectTags compiles a tag projector with independent nested output by default.
+// Use TagDeepCopy(false) to borrow values for a later publication boundary.
 func ProjectTags[T any, I any](options ...TagOption) func(T, I) map[string]any {
 	projector, err := compileTagProjector[T, I](nil, options...)
 	if err != nil {
@@ -18,6 +24,7 @@ func ProjectTags[T any, I any](options ...TagOption) func(T, I) map[string]any {
 	return projector
 }
 
+// ProjectTagsRequired also rejects declarations missing any required field.
 func ProjectTagsRequired[T any, I any](required []string, options ...TagOption) func(T, I) map[string]any {
 	projector, err := compileTagProjector[T, I](required, options...)
 	if err != nil {
@@ -76,13 +83,14 @@ func compileTagProjector[T any, I any](required []string, options ...TagOption) 
 			}
 			out["data"] = data
 		}
-		return out
+		return abm.SnapshotItem(out, tagOptions.DeepCopy == nil || *tagOptions.DeepCopy)
 	}, nil
 }
 
 func composeProjector[T any, I any](
 	base func(T, I) map[string]any,
 	fields map[string]ItemFieldFunc[T, I],
+	copyFields bool,
 ) func(T, I) map[string]any {
 	return func(target T, item I) map[string]any {
 		out := map[string]any{}
@@ -92,7 +100,7 @@ func composeProjector[T any, I any](
 			}
 		}
 		for key, field := range fields {
-			out[key] = field(target, item)
+			out[key] = abm.SnapshotValue(field(target, item), copyFields)
 		}
 		return out
 	}

@@ -2,7 +2,6 @@ package abm
 
 import (
 	"fmt"
-	"maps"
 	"math"
 	"reflect"
 	"slices"
@@ -10,7 +9,8 @@ import (
 	"strings"
 )
 
-// ItemSnapshot is a single item's projected field map, ready to send over the wire.
+// ItemSnapshot is a single item's projected field map. Its producer determines
+// ownership; retained or published values must remain stable as the model changes.
 type ItemSnapshot = map[string]any
 
 // DictDiff returns the fields in b that are absent or differ from a.
@@ -48,10 +48,6 @@ func diffSnapshot(previous, current ItemSnapshot) ItemSnapshot {
 	return diff
 }
 
-func cloneSnapshot(item ItemSnapshot) ItemSnapshot {
-	return maps.Clone(item)
-}
-
 // #region ItemDiffTracker — precise change tracking
 
 // ItemDiffTracker tracks projected item state across steps.
@@ -63,12 +59,15 @@ func cloneSnapshot(item ItemSnapshot) ItemSnapshot {
 // Call [Reset] when re-initializing the model (e.g. on Setup).
 // Seed and Compute panic if an identity is a non-finite numeric value.
 type ItemDiffTracker[T any] struct {
-	prev map[any]ItemSnapshot
+	// DeepCopy controls ordinary Seed, SeedSnapshots, and Compute calls.
+	// Configure before retaining state; ComputeBorrowed always materializes owned values.
+	DeepCopy bool
+	prev     map[any]ItemSnapshot
 }
 
 // NewItemDiffTracker returns an initialized tracker.
 func NewItemDiffTracker[T any]() *ItemDiffTracker[T] {
-	return &ItemDiffTracker[T]{prev: make(map[any]ItemSnapshot)}
+	return &ItemDiffTracker[T]{DeepCopy: true, prev: make(map[any]ItemSnapshot)}
 }
 
 // Reset clears the tracker's internal state.
@@ -84,7 +83,7 @@ func (t *ItemDiffTracker[T]) Seed(items []T, idFn func(T) any, projFn func(T) It
 	for _, item := range items {
 		id := idFn(item)
 		checkScalarKey(id) // Reject non-finite numeric identities before inserting a map key.
-		t.prev[id] = cloneSnapshot(projFn(item))
+		t.prev[id] = SnapshotItem(projFn(item), t.DeepCopy)
 	}
 }
 
@@ -95,6 +94,15 @@ func (t *ItemDiffTracker[T]) SeedSnapshots(
 	snapshots []ItemSnapshot,
 	idFn func(T) any,
 ) {
+	t.seedSnapshots(items, snapshots, idFn, t.DeepCopy)
+}
+
+// SeedOwnedSnapshots retains published snapshots without copying them again.
+func (t *ItemDiffTracker[T]) SeedOwnedSnapshots(items []T, snapshots []ItemSnapshot, idFn func(T) any) {
+	t.seedSnapshots(items, snapshots, idFn, false)
+}
+
+func (t *ItemDiffTracker[T]) seedSnapshots(items []T, snapshots []ItemSnapshot, idFn func(T) any, deepCopy bool) {
 	t.prev = make(map[any]ItemSnapshot, len(items))
 	for index, item := range items {
 		if index >= len(snapshots) {
@@ -102,7 +110,7 @@ func (t *ItemDiffTracker[T]) SeedSnapshots(
 		}
 		id := idFn(item)
 		checkScalarKey(id)
-		t.prev[id] = cloneSnapshot(snapshots[index])
+		t.prev[id] = SnapshotItem(snapshots[index], deepCopy)
 	}
 }
 
@@ -120,6 +128,19 @@ func (t *ItemDiffTracker[T]) Compute(
 	changedFn func(T) bool,
 	projFn func(T) ItemSnapshot,
 ) (created, updated []ItemSnapshot, deleted []any) {
+	return t.compute(items, idFn, changedFn, projFn, false)
+}
+
+// ComputeBorrowed reads each new/changed projection synchronously and detaches
+// it before invoking the next projector. Equal previous fields remain shared.
+// Use this for an internal borrowed view of an otherwise owning projector.
+// This method always establishes independent values, regardless of DeepCopy.
+// Any existing baseline must already be independent; earlier aliases are not repaired.
+func (t *ItemDiffTracker[T]) ComputeBorrowed(items []T, idFn func(T) any, changedFn func(T) bool, projFn func(T) ItemSnapshot) (created, updated []ItemSnapshot, deleted []any) {
+	return t.compute(items, idFn, changedFn, projFn, true)
+}
+
+func (t *ItemDiffTracker[T]) compute(items []T, idFn func(T) any, changedFn func(T) bool, projFn func(T) ItemSnapshot, borrowed bool) (created, updated []ItemSnapshot, deleted []any) {
 	currentIDs := make(map[any]struct{}, len(items))
 
 	for _, item := range items {
@@ -131,13 +152,23 @@ func (t *ItemDiffTracker[T]) Compute(
 		if !seen {
 			// New item — full snapshot.
 			snap := projFn(item)
-			t.prev[id] = cloneSnapshot(snap)
+			if borrowed {
+				snap = snapshotItemReusing(snap, prev)
+			} else {
+				snap = SnapshotItem(snap, t.DeepCopy)
+			}
+			t.prev[id] = snap
 			created = append(created, snap)
 		} else if changedFn(item) {
 			// Changed item — project and emit only differing fields.
 			snap := projFn(item)
+			if borrowed {
+				snap = snapshotItemReusing(snap, prev)
+			} else {
+				snap = SnapshotItem(snap, t.DeepCopy)
+			}
 			diff := diffSnapshot(prev, snap)
-			t.prev[id] = cloneSnapshot(snap)
+			t.prev[id] = snap
 			if len(diff) > 0 {
 				diff["id"] = id
 				updated = append(updated, diff)
@@ -170,6 +201,9 @@ func (t *ItemDiffTracker[T]) Compute(
 // Use [NewNaiveItemDiffTracker] to create an instance.
 // Non-finite numeric key values panic before they enter the cache.
 type NaiveItemDiffTracker struct {
+	// DeepCopy controls ordinary Seed and Compute calls; configure before first use.
+	// ComputeBorrowed always materializes owned values, regardless of this property.
+	DeepCopy  bool
 	keyFields []string
 	prev      map[any]ItemSnapshot
 }
@@ -180,7 +214,7 @@ func NewNaiveItemDiffTracker(keyFields ...string) *NaiveItemDiffTracker {
 	if len(keyFields) == 0 {
 		panic("abm: NaiveItemDiffTracker requires at least one key field")
 	}
-	return &NaiveItemDiffTracker{
+	return &NaiveItemDiffTracker{DeepCopy: true,
 		keyFields: slices.Clone(keyFields),
 		prev:      make(map[any]ItemSnapshot),
 	}
@@ -264,10 +298,19 @@ func (t *NaiveItemDiffTracker) itemDeleteKey(item ItemSnapshot) any {
 // the first subsequent Compute call produces correct incremental diffs instead of
 // treating every existing item as newly created.
 func (t *NaiveItemDiffTracker) Seed(projected []ItemSnapshot) {
+	t.seed(projected, t.DeepCopy)
+}
+
+// SeedOwned retains already independent, immutable records without another copy.
+func (t *NaiveItemDiffTracker) SeedOwned(projected []ItemSnapshot) {
+	t.seed(projected, false)
+}
+
+func (t *NaiveItemDiffTracker) seed(projected []ItemSnapshot, deepCopy bool) {
 	t.prev = make(map[any]ItemSnapshot, len(projected))
 	for _, item := range projected {
 		key := t.itemKey(item)
-		t.prev[key] = cloneSnapshot(item)
+		t.prev[key] = SnapshotItem(item, deepCopy)
 	}
 }
 
@@ -281,31 +324,63 @@ func (t *NaiveItemDiffTracker) Seed(projected []ItemSnapshot) {
 func (t *NaiveItemDiffTracker) Compute(
 	projected []ItemSnapshot,
 ) (created, updated []ItemSnapshot, deleted []any) {
-	currentKeys := make(map[any]struct{}, len(projected))
+	return t.compute(len(projected), func(index int) ItemSnapshot { return projected[index] }, t.DeepCopy, false)
+}
 
-	for _, item := range projected {
+// ComputeBorrowed compares borrowed projections with retained independent
+// snapshots, copying only changed records and reusing equal owned fields.
+// Each record is detached before project is called for the next index; no
+// borrowed value may be retained or published by project itself.
+// This method always establishes independent values, regardless of DeepCopy.
+// Any existing baseline must already be independent; earlier aliases are not repaired.
+func (t *NaiveItemDiffTracker) ComputeBorrowed(count int, project func(int) ItemSnapshot) (created, updated []ItemSnapshot, deleted []any) {
+	return t.compute(count, project, true, true)
+}
+
+func (t *NaiveItemDiffTracker) compute(count int, project func(int) ItemSnapshot, deepCopy, reuse bool) (created, updated []ItemSnapshot, deleted []any) {
+	currentKeys := make(map[any]struct{}, count)
+
+	for index := 0; index < count; index++ {
+		item := project(index)
 		key := t.itemKey(item)
 		currentKeys[key] = struct{}{}
 
 		prev, seen := t.prev[key]
 		if !seen {
 			// New item.
-			t.prev[key] = cloneSnapshot(item)
-			created = append(created, item)
+			owned := item
+			if reuse {
+				owned = snapshotItemReusing(item, prev)
+			} else {
+				owned = SnapshotItem(item, deepCopy)
+			}
+			t.prev[key] = owned
+			created = append(created, owned)
 		} else {
 			diff := diffSnapshot(prev, item)
 			if len(diff) > 0 {
+				owned := item
+				if reuse {
+					owned = snapshotItemReusing(item, prev)
+				} else {
+					owned = SnapshotItem(item, deepCopy)
+				}
+				for field := range diff {
+					if value, present := owned[field]; present {
+						diff[field] = value
+					}
+				}
 				// Emit diff + key fields so the renderer can identify the item.
 				payload := make(ItemSnapshot, len(diff)+len(t.keyFields))
 				for k, v := range diff {
 					payload[k] = v
 				}
 				for _, kf := range t.keyFields {
-					payload[kf] = item[kf]
+					payload[kf] = owned[kf]
 				}
 				updated = append(updated, payload)
 				// Replace rather than merge: omitted fields are no longer present.
-				t.prev[key] = cloneSnapshot(item)
+				t.prev[key] = owned
 			}
 		}
 	}
