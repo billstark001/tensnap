@@ -202,7 +202,7 @@ type EdgeLayer[T any, I any] struct {
 	items              func(T) []I
 	base               func(T, I) map[string]any
 	project            func(T, I) map[string]any
-	scanProject        func(T, I) map[string]any
+	scanProject        func(T, I, map[string]any) map[string]any
 	fields             map[string]ItemFieldFunc[T, I]
 	diff               *abm.NaiveItemDiffTracker
 	tracker            *abm.ItemDiffTracker[I]
@@ -320,8 +320,8 @@ func (l *EdgeLayer[T, I]) rebuildProjector() {
 		l.project = composeProjector[T, I](nil, l.fields, true)
 	}
 	l.scanProject = nil
-	if l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
-		l.scanProject = raw
+	if raw != nil && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
+		l.scanProject = borrowedProjector(l.base, l.fields)
 	}
 	l.diff.DeepCopy = l.copyPolicy.copiesPublication()
 	l.tracker.DeepCopy = l.copyPolicy.copiesPublication()
@@ -406,13 +406,17 @@ func (l *EdgeLayer[T, I]) computeDiffs(target T) (created, updated []map[string]
 		return nil, nil, nil
 	}
 	if l.scanProject != nil {
+		var scratch map[string]any
+		if len(l.fields) > 0 {
+			scratch = make(map[string]any, len(l.fields))
+		}
 		if l.usesIncrementalDiff() {
 			return l.tracker.ComputeBorrowed(items,
 				func(item I) any { return l.itemID(target, item) },
 				func(item I) bool { return l.changed(target, item) },
-				func(item I) abm.ItemSnapshot { return l.scanProject(target, item) })
+				func(item I) abm.ItemSnapshot { return l.scanProject(target, item, scratch) })
 		}
-		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index]) })
+		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index], scratch) })
 	}
 	if l.usesIncrementalDiff() {
 		return l.tracker.Compute(
@@ -461,7 +465,7 @@ type TrajectoryLayer[T any, I any] struct {
 	items              func(T) []I
 	base               func(T, I) map[string]any
 	project            func(T, I) map[string]any
-	scanProject        func(T, I) map[string]any
+	scanProject        func(T, I, map[string]any) map[string]any
 	fields             map[string]ItemFieldFunc[T, I]
 	diff               *abm.NaiveItemDiffTracker
 	tracker            *abm.ItemDiffTracker[I]
@@ -619,8 +623,8 @@ func (l *TrajectoryLayer[T, I]) rebuildProjector() {
 		l.project = composeProjector[T, I](nil, l.fields, true)
 	}
 	l.scanProject = nil
-	if l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
-		l.scanProject = raw
+	if raw != nil && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
+		l.scanProject = borrowedProjector(l.base, l.fields)
 	}
 	l.diff.DeepCopy = l.copyPolicy.copiesPublication()
 	l.tracker.DeepCopy = l.copyPolicy.copiesPublication()
@@ -714,13 +718,17 @@ func (l *TrajectoryLayer[T, I]) computeDiffs(target T) (created, updated []map[s
 		return nil, nil, nil
 	}
 	if l.scanProject != nil {
+		var scratch map[string]any
+		if len(l.fields) > 0 {
+			scratch = make(map[string]any, len(l.fields))
+		}
 		if l.usesIncrementalDiff() {
 			return l.tracker.ComputeBorrowed(items,
 				func(item I) any { return l.itemID(target, item) },
 				func(item I) bool { return l.changed(target, item) },
-				func(item I) abm.ItemSnapshot { return l.scanProject(target, item) })
+				func(item I) abm.ItemSnapshot { return l.scanProject(target, item, scratch) })
 		}
-		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index]) })
+		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index], scratch) })
 	}
 	if l.usesIncrementalDiff() {
 		return l.tracker.Compute(

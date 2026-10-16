@@ -93,15 +93,31 @@ func composeProjector[T any, I any](
 	copyFields bool,
 ) func(T, I) map[string]any {
 	return func(target T, item I) map[string]any {
-		out := map[string]any{}
-		if base != nil {
-			for key, value := range base(target, item) {
-				out[key] = value
-			}
-		}
-		for key, field := range fields {
-			out[key] = abm.SnapshotValue(field(target, item), copyFields)
-		}
-		return out
+		return projectInto(target, item, make(map[string]any, len(fields)), base, fields, copyFields)
 	}
+}
+
+// borrowedProjector uses batch-local outer storage only for internal scans.
+// ComputeBorrowed consumes/detaches each result before the next call. Neither
+// custom projectors nor the standalone/publication path receive this scratch map.
+func borrowedProjector[T any, I any](base func(T, I) map[string]any, fields map[string]ItemFieldFunc[T, I]) func(T, I, map[string]any) map[string]any {
+	if len(fields) == 0 {
+		return func(target T, item I, _ map[string]any) map[string]any { return base(target, item) }
+	}
+	return func(target T, item I, scratch map[string]any) map[string]any {
+		clear(scratch)
+		return projectInto(target, item, scratch, base, fields, false)
+	}
+}
+
+func projectInto[T any, I any](target T, item I, out map[string]any, base func(T, I) map[string]any, fields map[string]ItemFieldFunc[T, I], copyFields bool) map[string]any {
+	if base != nil {
+		for key, value := range base(target, item) {
+			out[key] = value
+		}
+	}
+	for key, field := range fields {
+		out[key] = abm.SnapshotValue(field(target, item), copyFields)
+	}
+	return out
 }

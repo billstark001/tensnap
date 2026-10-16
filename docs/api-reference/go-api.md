@@ -354,6 +354,8 @@ Use `Compute(projected)` when your model already builds all current item project
 
 Both diff trackers compare complete projections: a field omitted from the next projection is emitted as `nil` to clear it on the renderer. `DictDiff` itself retains its partial-map semantics and only compares fields supplied in the second map.
 
+Field equality follows `reflect.DeepEqual`, including exact Go types, nil versus empty containers, and NaN/container-identity behavior. Common protocol containers and scalar slices use allocation-free comparison paths; other types and deep/cyclic inputs retain the reflection fallback. This does not extend the snapshot contract to cyclic data. Struct detachment caches type metadata, never object values or comparison results. Eligible built-in scans can reuse private batch-local outer maps; emitted records and retained baselines remain stable and independent from mutable model state.
+
 Numeric identities must be finite. Both trackers panic on `NaN` or infinite keys before inserting them; `NaN` cannot be looked up or deleted reliably as a Go map key. The naive tracker owns its key-field declaration, so changing the caller's slice does not change an existing tracker's identity rules.
 
 It projects every item each step, then emits:

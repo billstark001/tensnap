@@ -20,7 +20,7 @@ func DictDiff(a, b ItemSnapshot) ItemSnapshot {
 	var diff ItemSnapshot
 	for k, bv := range b {
 		av, ok := a[k]
-		if !ok || !reflect.DeepEqual(av, bv) {
+		if !ok || !projectionEqual(av, bv) {
 			if diff == nil {
 				diff = make(ItemSnapshot)
 			}
@@ -63,6 +63,7 @@ type ItemDiffTracker[T any] struct {
 	// Configure before retaining state; ComputeBorrowed always materializes owned values.
 	DeepCopy bool
 	prev     map[any]ItemSnapshot
+	seen     itemKeySet
 }
 
 // NewItemDiffTracker returns an initialized tracker.
@@ -73,6 +74,7 @@ func NewItemDiffTracker[T any]() *ItemDiffTracker[T] {
 // Reset clears the tracker's internal state.
 func (t *ItemDiffTracker[T]) Reset() {
 	t.prev = make(map[any]ItemSnapshot)
+	t.seen = itemKeySet{}
 }
 
 // Seed primes the tracker with pre-projected snapshots keyed by idFn.
@@ -141,7 +143,8 @@ func (t *ItemDiffTracker[T]) ComputeBorrowed(items []T, idFn func(T) any, change
 }
 
 func (t *ItemDiffTracker[T]) compute(items []T, idFn func(T) any, changedFn func(T) bool, projFn func(T) ItemSnapshot, borrowed bool) (created, updated []ItemSnapshot, deleted []any) {
-	currentIDs := make(map[any]struct{}, len(items))
+	currentIDs := t.seen.begin(len(items))
+	defer clear(currentIDs)
 
 	for _, item := range items {
 		id := idFn(item)
@@ -153,7 +156,7 @@ func (t *ItemDiffTracker[T]) compute(items []T, idFn func(T) any, changedFn func
 			// New item — full snapshot.
 			snap := projFn(item)
 			if borrowed {
-				snap = snapshotItemReusing(snap, prev)
+				snap = SnapshotItem(snap, true)
 			} else {
 				snap = SnapshotItem(snap, t.DeepCopy)
 			}
@@ -162,12 +165,17 @@ func (t *ItemDiffTracker[T]) compute(items []T, idFn func(T) any, changedFn func
 		} else if changedFn(item) {
 			// Changed item — project and emit only differing fields.
 			snap := projFn(item)
+			var diff ItemSnapshot
 			if borrowed {
-				snap = snapshotItemReusing(snap, prev)
+				diff = diffSnapshot(prev, snap)
+				if len(diff) == 0 {
+					continue
+				}
+				snap = snapshotItemWithDiff(snap, prev, diff)
 			} else {
 				snap = SnapshotItem(snap, t.DeepCopy)
+				diff = diffSnapshot(prev, snap)
 			}
-			diff := diffSnapshot(prev, snap)
 			t.prev[id] = snap
 			if len(diff) > 0 {
 				diff["id"] = id
@@ -206,6 +214,7 @@ type NaiveItemDiffTracker struct {
 	DeepCopy  bool
 	keyFields []string
 	prev      map[any]ItemSnapshot
+	seen      itemKeySet
 }
 
 // NewNaiveItemDiffTracker returns a tracker keyed by the given field names.
@@ -223,6 +232,7 @@ func NewNaiveItemDiffTracker(keyFields ...string) *NaiveItemDiffTracker {
 // Reset clears the tracker's internal state.
 func (t *NaiveItemDiffTracker) Reset() {
 	t.prev = make(map[any]ItemSnapshot)
+	t.seen = itemKeySet{}
 }
 
 // itemKey keeps the overwhelmingly common one-field scalar key as-is, rather
@@ -338,7 +348,8 @@ func (t *NaiveItemDiffTracker) ComputeBorrowed(count int, project func(int) Item
 }
 
 func (t *NaiveItemDiffTracker) compute(count int, project func(int) ItemSnapshot, deepCopy, reuse bool) (created, updated []ItemSnapshot, deleted []any) {
-	currentKeys := make(map[any]struct{}, count)
+	currentKeys := t.seen.begin(count)
+	defer clear(currentKeys)
 
 	for index := 0; index < count; index++ {
 		item := project(index)
@@ -350,7 +361,7 @@ func (t *NaiveItemDiffTracker) compute(count int, project func(int) ItemSnapshot
 			// New item.
 			owned := item
 			if reuse {
-				owned = snapshotItemReusing(item, prev)
+				owned = SnapshotItem(item, true)
 			} else {
 				owned = SnapshotItem(item, deepCopy)
 			}
@@ -361,24 +372,20 @@ func (t *NaiveItemDiffTracker) compute(count int, project func(int) ItemSnapshot
 			if len(diff) > 0 {
 				owned := item
 				if reuse {
-					owned = snapshotItemReusing(item, prev)
+					owned = snapshotItemWithDiff(item, prev, diff)
 				} else {
 					owned = SnapshotItem(item, deepCopy)
-				}
-				for field := range diff {
-					if value, present := owned[field]; present {
-						diff[field] = value
+					for field := range diff {
+						if value, present := owned[field]; present {
+							diff[field] = value
+						}
 					}
 				}
 				// Emit diff + key fields so the renderer can identify the item.
-				payload := make(ItemSnapshot, len(diff)+len(t.keyFields))
-				for k, v := range diff {
-					payload[k] = v
-				}
 				for _, kf := range t.keyFields {
-					payload[kf] = owned[kf]
+					diff[kf] = owned[kf]
 				}
-				updated = append(updated, payload)
+				updated = append(updated, diff)
 				// Replace rather than merge: omitted fields are no longer present.
 				t.prev[key] = owned
 			}

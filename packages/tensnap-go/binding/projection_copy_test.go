@@ -109,3 +109,80 @@ func TestOwnedCustomProjectionDetachesAdditionalFields(t *testing.T) {
 		t.Fatal("additional field was incorrectly covered by the custom callback's ownership promise")
 	}
 }
+
+func TestBuiltinScanScratchDoesNotEscape(t *testing.T) {
+	type model struct{ items []map[string]any }
+	type layer interface {
+		computeDiffs(*model) ([]map[string]any, []map[string]any, []any)
+	}
+	for _, kind := range []string{"agent", "precise-agent", "edge", "trajectory"} {
+		t.Run(kind, func(t *testing.T) {
+			m := &model{items: []map[string]any{{"id": 0, "source": 0, "target": 1, "data": []int{0}}, {"id": 1, "source": 1, "target": 2, "data": []int{1}}}}
+			items := func(m *model) []map[string]any { return m.items }
+			fields := map[string]ItemFieldFunc[*model, map[string]any]{}
+			for _, key := range []string{"id", "source", "target", "data"} {
+				key := key
+				fields[key] = func(_ *model, item map[string]any) any { return item[key] }
+			}
+			var l layer
+			switch kind {
+			case "edge":
+				v := NewEdgeLayer[*model, map[string]any]("edges").Items(items)
+				for key, field := range fields {
+					v.Field(key, field)
+				}
+				l = v
+			case "trajectory":
+				v := NewTrajectoryLayer[*model, map[string]any]("trails").Items(items)
+				for key, field := range fields {
+					v.Field(key, field)
+				}
+				l = v
+			default:
+				v := NewAgentLayer[*model, map[string]any]("agents").Items(items)
+				for key, field := range fields {
+					v.Field(key, field)
+				}
+				if kind == "precise-agent" {
+					v.ItemID(func(_ *model, item map[string]any) any { return item["id"] }).Changed(func(*model, map[string]any) bool { return true })
+				}
+				l = v
+			}
+			initial, _, _ := l.computeDiffs(m)
+			if len(initial) != 2 || initial[0]["id"] != 0 || initial[1]["id"] != 1 {
+				t.Fatal("scratch escaped into created records")
+			}
+			m.items[0]["data"].([]int)[0] = 2
+			m.items[1]["data"].([]int)[0] = 3
+			_, updates, _ := l.computeDiffs(m)
+			if len(updates) != 2 || updates[0]["data"].([]int)[0] != 2 || updates[1]["data"].([]int)[0] != 3 {
+				t.Fatal("scratch escaped into update records")
+			}
+			m.items[0]["data"].([]int)[0] = 4
+			l.computeDiffs(m)
+			if initial[0]["data"].([]int)[0] != 0 || updates[0]["data"].([]int)[0] != 2 {
+				t.Fatal("later scan rewrote retained records")
+			}
+		})
+	}
+}
+
+func TestBorrowedProjectorClearsBaseFields(t *testing.T) {
+	base := func(_ int, item int) map[string]any {
+		if item == 0 {
+			return map[string]any{"optional": true}
+		}
+		return nil
+	}
+	fields := map[string]ItemFieldFunc[int, int]{"id": func(_ int, item int) any { return item }}
+	project := borrowedProjector(base, fields)
+	scratch := map[string]any{}
+	first := abm.SnapshotItem(project(0, 0, scratch), true)
+	second := project(0, 1, scratch)
+	if _, present := second["optional"]; present {
+		t.Fatal("scratch retained a previous item's base field")
+	}
+	if first["optional"] != true || first["id"] != 0 || second["id"] != 1 {
+		t.Fatal("borrowed projection lifetime changed")
+	}
+}

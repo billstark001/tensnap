@@ -3,9 +3,34 @@ package abm
 import (
 	"bytes"
 	"reflect"
+	"slices"
+	"sync"
 )
 
 const maxSnapshotDepth = 1024
+
+// Cache only immutable type metadata, never model values or traversal state.
+// Plans do not recursively compile child types, so recursive Go types are safe.
+var snapshotStructPlans sync.Map // map[reflect.Type][]int
+
+func snapshotStructFields(typ reflect.Type) []int {
+	if plan, ok := snapshotStructPlans.Load(typ); ok {
+		return plan.([]int)
+	}
+	var fields []int
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if field.PkgPath != "" {
+			continue
+		}
+		switch field.Type.Kind() {
+		case reflect.Interface, reflect.Pointer, reflect.Map, reflect.Slice, reflect.Array, reflect.Struct:
+			fields = append(fields, i)
+		}
+	}
+	plan, _ := snapshotStructPlans.LoadOrStore(typ, fields)
+	return plan.([]int)
+}
 
 // SnapshotItem detaches a projection before retaining or publishing it. With
 // deepCopy=false, the caller transfers a stable snapshot and must never mutate
@@ -54,6 +79,32 @@ func snapshotValue(value any, depth int) any {
 		return out
 	case []byte:
 		return bytes.Clone(value)
+	case []string:
+		return slices.Clone(value)
+	case []int:
+		return slices.Clone(value)
+	case []int8:
+		return slices.Clone(value)
+	case []int16:
+		return slices.Clone(value)
+	case []int32:
+		return slices.Clone(value)
+	case []int64:
+		return slices.Clone(value)
+	case []uint:
+		return slices.Clone(value)
+	case []uint16:
+		return slices.Clone(value)
+	case []uint32:
+		return slices.Clone(value)
+	case []uint64:
+		return slices.Clone(value)
+	case []float64:
+		return slices.Clone(value)
+	case []float32:
+		return slices.Clone(value)
+	case []bool:
+		return slices.Clone(value)
 	default:
 		return snapshotReflect(reflect.ValueOf(value), depth).Interface()
 	}
@@ -104,10 +155,8 @@ func snapshotReflect(value reflect.Value, depth int) reflect.Value {
 				out.Index(i).Set(snapshotReflect(value.Index(i), depth+1))
 			}
 		} else {
-			for i := 0; i < value.NumField(); i++ {
-				if value.Type().Field(i).PkgPath == "" {
-					out.Field(i).Set(snapshotReflect(value.Field(i), depth+1))
-				}
+			for _, i := range snapshotStructFields(value.Type()) {
+				out.Field(i).Set(snapshotReflect(value.Field(i), depth+1))
 			}
 		}
 		return out
@@ -116,18 +165,20 @@ func snapshotReflect(value reflect.Value, depth int) reflect.Value {
 	}
 }
 
-// snapshotItemReusing detaches borrowed fields after comparison. Equal values
-// may share the immutable previous snapshot, never the mutable model graph.
-func snapshotItemReusing(item, previous ItemSnapshot) ItemSnapshot {
+// snapshotItemWithDiff consumes an already computed complete-record diff. Only
+// changed fields need detachment; equal fields retain their previous owned
+// values. Replace borrowed diff values before the payload can escape.
+func snapshotItemWithDiff(item, previous, diff ItemSnapshot) ItemSnapshot {
 	if item == nil {
 		return nil
 	}
 	out := make(ItemSnapshot, len(item))
 	for key, value := range item {
-		if old, present := previous[key]; present && reflect.DeepEqual(old, value) {
-			out[key] = old
-		} else {
+		if _, changed := diff[key]; changed {
 			out[key] = snapshotValue(value, 0)
+			diff[key] = out[key]
+		} else {
+			out[key] = previous[key]
 		}
 	}
 	return out

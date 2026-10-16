@@ -2,6 +2,7 @@ package abm
 
 import (
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -110,5 +111,202 @@ func TestBorrowedScanRetainsOwnedFieldsBeforeNextProjection(t *testing.T) {
 	value["values"].([]int)[0] = 10
 	if tracker.prev[1]["data"].(map[string]any)["values"].([]int)[0] != 9 {
 		t.Fatal("changed value was not detached")
+	}
+}
+
+func TestScalarSliceSnapshotsPreserveTypesAndDetach(t *testing.T) {
+	for _, value := range []any{[]byte{1}, []string{"a"}, []int{1}, []float32{1}, []float64{1}, []bool{true}} {
+		t.Run(reflect.TypeOf(value).String(), func(t *testing.T) {
+			detached := SnapshotValue(value, true)
+			if !reflect.DeepEqual(detached, value) {
+				t.Fatal("snapshot changed value or type")
+			}
+			source := reflect.ValueOf(value)
+			source.Index(0).Set(reflect.Zero(source.Type().Elem()))
+			if reflect.DeepEqual(detached, value) {
+				t.Fatal("snapshot retained model backing array")
+			}
+			for _, size := range []int{-1, 0} {
+				var original reflect.Value
+				if size < 0 {
+					original = reflect.Zero(source.Type())
+				} else {
+					original = reflect.MakeSlice(source.Type(), 0, 0)
+				}
+				if !reflect.DeepEqual(original.Interface(), SnapshotValue(original.Interface(), true)) {
+					t.Fatal("nil/empty distinction lost")
+				}
+			}
+		})
+	}
+}
+
+func TestBorrowedTrackersConsumeDiffBeforeReusingProjection(t *testing.T) {
+	for _, precise := range []bool{false, true} {
+		t.Run(map[bool]string{false: "naive", true: "precise"}[precise], func(t *testing.T) {
+			naive := NewNaiveItemDiffTracker("id")
+			tracker := NewItemDiffTracker[int]()
+			naive.DeepCopy = false
+			tracker.DeepCopy = false // Borrowed methods still establish ownership.
+			data := []int{0}
+			scratch := ItemSnapshot{}
+			phase := 0
+			project := func(id int) ItemSnapshot {
+				clear(scratch)
+				scratch["id"] = id
+				scratch["data"] = data
+				if phase == 0 {
+					scratch["removed"] = true
+				}
+				if phase >= 2 {
+					scratch["new"] = nil
+				}
+				return scratch
+			}
+			compute := func() ([]ItemSnapshot, []ItemSnapshot, []any) {
+				if precise {
+					return tracker.ComputeBorrowed([]int{0, 1}, func(id int) any { return id }, func(int) bool { return true }, project)
+				}
+				return naive.ComputeBorrowed(2, project)
+			}
+			initial, _, _ := compute()
+			phase = 1
+			data[0] = 1
+			_, updates, _ := compute()
+			if len(updates) != 2 || !reflect.DeepEqual(updates[0], ItemSnapshot{"id": 0, "data": []int{1}, "removed": nil}) {
+				t.Fatalf("unexpected updates: %v", updates)
+			}
+			saved := updates[0]
+			phase = 2
+			data[0] = 2
+			_, next, _ := compute()
+			if len(next) != 2 || !reflect.DeepEqual(initial[0]["data"], []int{0}) || !reflect.DeepEqual(saved["data"], []int{1}) {
+				t.Fatal("reusing raw/diff storage rewrote retained payloads")
+			}
+			if value, present := next[0]["new"]; !present || value != nil {
+				t.Fatal("new explicit nil field was lost")
+			}
+			if _, present := next[0]["removed"]; present {
+				t.Fatal("omitted field persisted in baseline")
+			}
+			if _, unchanged, _ := compute(); len(unchanged) != 0 {
+				t.Fatal("unchanged borrowed projection emitted updates")
+			}
+		})
+	}
+}
+
+func TestSnapshotStructPlansDoNotRetainValues(t *testing.T) {
+	type record struct {
+		ID      int
+		Values  []int
+		Other   map[string]any
+		private []int
+	}
+	type reversed struct {
+		Other []int
+		ID    int
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			value := record{ID: i, Values: []int{i}, Other: map[string]any{"value": i}, private: []int{i}}
+			got := SnapshotValue(value, true).(record)
+			value.Values[0] = -1
+			value.Other["value"] = -1
+			if got.ID != i || got.Values[0] != i || got.Other["value"] != i || got.private[0] != i {
+				t.Errorf("type plan cached values or lost fields for %d", i)
+			}
+			other := reversed{Other: []int{i}, ID: i}
+			copy := SnapshotValue(other, true).(reversed)
+			other.Other[0] = -1
+			if copy.ID != i || copy.Other[0] != i {
+				t.Error("type plans were shared across different types")
+			}
+		}(i)
+	}
+	wg.Wait()
+}
+
+func TestSnapshotRecursiveTypesRespectDepthLimit(t *testing.T) {
+	type node struct{ Next *node }
+	value := &node{}
+	value.Next = value
+	defer func() {
+		if recovered := recover(); recovered != "abm: projected snapshot is cyclic or exceeds maximum nesting depth" {
+			t.Fatalf("unexpected recursion result: %v", recovered)
+		}
+	}()
+	SnapshotValue(value, true)
+}
+
+func TestDiffTrackersPopulationChurn(t *testing.T) {
+	for _, precise := range []bool{false, true} {
+		t.Run(map[bool]string{false: "naive", true: "precise"}[precise], func(t *testing.T) {
+			naive := NewNaiveItemDiffTracker("id")
+			tracker := NewItemDiffTracker[ItemSnapshot]()
+			naive.DeepCopy = false
+			tracker.DeepCopy = false
+			previous := map[int]bool{}
+			for phase, count := range []int{100, 100, 10, 0, 1000, 2000, 1900, 2, 0, 3} {
+				items := make([]ItemSnapshot, count)
+				current := map[int]bool{}
+				for i := range items {
+					id := i + phase%2
+					items[i] = ItemSnapshot{"id": id, "x": phase}
+					current[id] = true
+				}
+				compute := func() ([]ItemSnapshot, []ItemSnapshot, []any) {
+					if precise {
+						return tracker.Compute(items, func(item ItemSnapshot) any { return item["id"] }, func(ItemSnapshot) bool { return true }, func(item ItemSnapshot) ItemSnapshot { return item })
+					}
+					return naive.Compute(items)
+				}
+				created, updated, deleted := compute()
+				newCount, oldCount, removedCount := 0, 0, 0
+				for id := range current {
+					if previous[id] {
+						oldCount++
+					} else {
+						newCount++
+					}
+				}
+				for id := range previous {
+					if !current[id] {
+						removedCount++
+					}
+				}
+				if len(created) != newCount || len(updated) != oldCount || len(deleted) != removedCount {
+					t.Fatalf("phase %d: created/updated/deleted=%d/%d/%d, want %d/%d/%d", phase, len(created), len(updated), len(deleted), newCount, oldCount, removedCount)
+				}
+				for _, id := range deleted {
+					if !previous[id.(int)] || current[id.(int)] {
+						t.Fatalf("incorrect deletion: %v", id)
+					}
+				}
+				if c, u, d := compute(); len(c)+len(u)+len(d) != 0 {
+					t.Fatalf("phase %d: unchanged population emitted changes", phase)
+				}
+				previous = current
+			}
+			naive.Reset()
+			tracker.Reset()
+			if naive.DeepCopy || tracker.DeepCopy {
+				t.Fatal("Reset changed configured copying policy")
+			}
+			if precise {
+				created, _, _ := tracker.Compute([]ItemSnapshot{{"id": 1}}, func(item ItemSnapshot) any { return item["id"] }, func(ItemSnapshot) bool { return true }, func(item ItemSnapshot) ItemSnapshot { return item })
+				if len(created) != 1 {
+					t.Fatal("Reset retained old membership")
+				}
+			} else {
+				created, _, _ := naive.Compute([]ItemSnapshot{{"id": 1}})
+				if len(created) != 1 {
+					t.Fatal("Reset retained old membership")
+				}
+			}
+		})
 	}
 }
