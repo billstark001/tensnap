@@ -1,6 +1,6 @@
 # TenSnap Protocol Specification
 
-This document specifies wire protocol version v0.3. The current `@tensnap/protocol` package version is `0.3.1`; package patch releases do not change the wire contract version. The executable value used by TypeScript schemas and consumers is `PROTOCOL_VERSION` in `src/schemas.ts`. Native bindings announce the same wire version, checked by `pnpm run check:versions`.
+This document specifies wire protocol version v0.3. The `@tensnap/protocol` package version is declared in `package.json`; package patch releases do not change the wire contract version. The executable value used by TypeScript schemas and consumers is `PROTOCOL_VERSION` in `src/schemas.ts`. Native bindings announce the same wire version, checked by `pnpm run check:versions`.
 
 The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** describe requirements on implementations. This document is intentionally limited to behavior that cannot be expressed by a schema or understood from one local code path.
 

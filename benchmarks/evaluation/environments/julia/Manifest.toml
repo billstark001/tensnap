@@ -2070,7 +2070,7 @@ version = "1.10.0"
 deps = ["Base64", "Dates", "HTTP", "JSON3", "MsgPack", "Random", "SHA", "UUIDs"]
 path = "../../../../packages/tensnap-julia"
 uuid = "c4e6f1a8-4f9e-4b75-a3b4-6f4242cfb20f"
-version = "0.3.2"
+version = "0.3.3"
 
 [[deps.TensorCore]]
 deps = ["LinearAlgebra"]

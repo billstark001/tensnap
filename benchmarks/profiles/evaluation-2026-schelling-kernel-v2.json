@@ -207,7 +207,7 @@
         "timeoutMs": 180000,
         "environmentLocks": {
           "benchmarks/evaluation/environments/julia/Project.toml": "533863cbb5286c130975583ccc6358277970b6c79686ce27857ef997251e7fac",
-          "benchmarks/evaluation/environments/julia/Manifest.toml": "459cd6f19eca60a590967d001a0cd9bff7d4ddd80beaea8c54616418490b1dda"
+          "benchmarks/evaluation/environments/julia/Manifest.toml": "ddf688f3d6a92075b52e1ede04379941787d0b4e6177b981ce5873a5898b3193"
         },
         "seed": 20260718,
         "expected": {

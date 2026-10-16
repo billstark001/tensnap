@@ -1,16 +1,17 @@
 # Versioning and release sources
 
-TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-04, the package versions are:
+TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-16, the package versions are:
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/web`, `@tensnap/tauri` | `0.3.3` | Each package's `package.json`; Tauri also mirrors the version in `src-tauri/Cargo.toml` and `Cargo.lock` |
-| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/benchmark` | `0.3.2` | Each package's `package.json` |
-| `@tensnap/examples-js`, `@tensnap/examples-julia` | `0.3.2` | Each example's `package.json` |
-| Go binding | `0.3.2` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
-| Python binding | `0.3.2` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |
-| Julia binding | `0.3.2` | `packages/tensnap-julia/Project.toml` |
-| `@tensnap/web-adapter`, `@tensnap/web-common`, workspace root `tensnap` | `0.3.1` | Each `package.json` |
+| `@tensnap/web`, `@tensnap/tauri` | `0.3.4` | Each package's `package.json`; Tauri also mirrors the version in `src-tauri/Cargo.toml` and `Cargo.lock` |
+| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/benchmark` | `0.3.3` | Each package's `package.json` |
+| `@tensnap/examples-js` | `0.3.3` | `examples/js/package.json` |
+| `@tensnap/examples-julia` | `0.3.2` | `examples/julia/package.json` |
+| Go binding | `0.3.3` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
+| Python binding | `0.3.3` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |
+| Julia binding | `0.3.3` | `packages/tensnap-julia/Project.toml` |
+| `@tensnap/web-adapter`, `@tensnap/web-common`, workspace root `tensnap` | `0.3.2` | Each `package.json` |
 
 The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`, and `packages/tensnap-julia` have no npm version: they run native build and test commands, while their native sources above define release versions.
 
@@ -29,6 +30,10 @@ The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`
 2. Edit each package's source listed above. Use `scripts/release.mjs` for a component release; it updates the relevant source before committing and tagging. The `protocol`, `core`, `js`, and `agent` components each retain their own version and tag. For Tauri, the helper keeps Cargo metadata and its lockfile aligned.
 3. Update `CHANGELOG.md` using its package-specific heading format, and update the dated version snapshot in this guide.
 4. Run `pnpm run check:versions` and the affected package tests before tagging.
+
+For a batch patch update, compare the release checkout with its upstream baseline and bump each changed package once, including changed examples and the workspace root. A wrapper without a version still uses its native binding source. The 2026-10-16 batch includes all twelve packages under `packages/`, the JavaScript examples, and the workspace root; the Julia examples retain `0.3.2` because that package has no changes relative to the baseline.
+
+Version changes can also affect environment metadata: keep the local TenSnap entry in the active Julia evaluation manifest aligned with `Project.toml`, and refresh active evaluation fingerprints for changed package manifests and locks. Recorded evaluation exports retain their original versions, profiles, checksums, and source identities. A version bump does not create new performance evidence.
 
 The version fields in this dated guide describe the current release state; the files in the table are the sources used by builds and runtime handshakes.
 

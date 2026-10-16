@@ -86,6 +86,12 @@ pnpm bench merge --profile benchmarks/profiles/evaluation-2026-paper-v0.3.json \
 
 `--block 1,5,9` is also available for explicit one-based block selection. `--block` and `--shard` are mutually exclusive. A submission profile cannot be run with a `--suite` subset; diagnostic profiles may opt into subsets. Use `--journal PATH` to override the deterministic journal name when an external job scheduler owns shard paths. Starting without `--resume` never overwrites an existing journal; the error points to `--resume` or a new output/journal path. The output path is also checked before any replicate starts, so an immutable published artifact cannot cause a complete run to be discarded at the end.
 
+### Browser startup diagnostics
+
+Protocol browser conditions wait up to ten seconds for the initial state sync and required scene declarations before warm-up starts. A timeout reports the connection and identity status, sync phase and request ID, action/environment counts, and recent Web host diagnostics. The Node runner also retains the workload configuration, encoding, validation level, block, server message counts and errors, wire bytes, and up to 32 timestamped startup messages. Page-returned errors and outer runner timeouts both include this context.
+
+The Web host requests a fresh state sync after an automatic WebSocket reconnect, including a disconnect during the first replay. An interrupted replicate is not journaled as a successful sample; `--resume` reruns that replicate after verifying the existing journal. A completed artifact verifies the retained samples, while its log also preserves any earlier failures and resume attempts.
+
 ## Artifact contents and verification
 
 The complete published batch lives at `benchmark-results/evaluation-full-2026-10-09`, retained in [frozen snapshot c959a34](https://github.com/billstark001/tensnap/tree/c959a345dee17b2bc6e10f8573d0088f2bf5e553/benchmark-results/evaluation-full-2026-10-09) and measured from source `c80c882`. Its external reports/tables and separate `data.tar.gz`/`figures.tar.gz` are described in the [evaluation guide](evaluation/README.md). The directory name is not its execution date; metadata records October 10, 2026.

@@ -28,93 +28,175 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-### @tensnap/protocol
+## @tensnap/protocol [0.3.3] - 2026-10-16
 
-- **Deprecated:** Use a retained `ProtocolCodec.encode()` / `.decode()` instead of the one-shot `encodeProtocolMessage()` / `decodeProtocolMessage()` helpers; the compatibility exports remain available to external callers. Internal transports and the conformance renderer client use codec instances.
-- **Changed:** Reuse session-local MessagePack encoder/decoder state with owned output frames and discard oversized or failed scratch state. Use native JSON omission and MessagePack `ignoreUndefined` instead of recursively cloning outbound wire records; generic persistence helper semantics are unchanged. Add focused codec benchmarks and frame-ownership regression tests.
-- **Fixed:** Validate Base64 consistently across browser and Node decoders, reject misplaced padding before decoding, and accept empty binary payloads.
+### Changed
 
-### @tensnap/core
+- Reuse session-local MessagePack encoder/decoder state with owned output frames and discard oversized or failed scratch state. Use native JSON omission and MessagePack `ignoreUndefined` instead of recursively cloning outbound wire records; generic persistence helper semantics are unchanged. Add focused codec benchmarks and frame-ownership regression tests.
 
-- **Fixed:** Release empty edge adjacency buckets, atomically replace trajectory storage and configuration on load, preserve valid explicit numeric constraints, and handle finite numeric extrema without overflowing the inferred range.
-- **Fixed:** Validate replacement recording options before stopping an active recording, own codec policy descriptors, and keep queued flushes scoped to their recording and action boundary.
-- **Fixed:** Deduplicate lazy event listeners and stop value-inspector traversal once output is truncated; missing own fields and fractional array paths no longer expose inherited values.
-- **Changed:** Reuse layer-registry validation and role lookup, and use portable CSS color parsing with native browser syntax support.
+### Deprecated
 
-### @tensnap/js
+- Use a retained `ProtocolCodec.encode()` / `.decode()` instead of the one-shot `encodeProtocolMessage()` / `decodeProtocolMessage()` helpers; the compatibility exports remain available to external callers. Internal transports and the conformance renderer client use codec instances.
 
-- **Changed:** Built-in projectors return independent snapshots; layer `projectorOwnsValues`, `projectorDeepCopy`, and `deepCopy` options control ownership and publication copying. Reuse published records for emissions/cache baselines and keep safe copying for custom callbacks. Add ownership regressions and a focused projection/diff benchmark.
-- **Changed:** Reuse equal owned nested fields during eligible built-in session scans while preserving standalone projector and explicit-copy guarantees. Function-valued item keys retain eager projection so callbacks never receive the private borrowed view.
-- **Fixed:** Compare binary buffer/view contents when deciding whether to reuse projected values; changed `ArrayBuffer` and `DataView` contents no longer disappear as equal empty objects.
-- **Changed:** Retain directional protocol codecs per WebSocket connection so repeated frames reuse MessagePack state without changing transport buffer copies or validation policies.
-- **Added:** A browser-safe `@tensnap/js/transport/browser` entry point that excludes the Node WebSocket host.
-- **Changed:** Compile field selectors once, preserve symbol selectors, own nested item snapshots, reuse structurally equal values, and encode typed scalar/compound identities without delimiter collisions.
-- **Fixed:** Deduplicate endpoint listeners, route postMessage replies to the negotiated renderer identity, reject stale peers, and detach sessions even when disconnect cleanup throws.
+### Fixed
 
-### @tensnap/python
+- Validate Base64 consistently across browser and Node decoders, reject misplaced padding before decoding, and accept empty binary payloads.
 
-- **Changed:** Built-in projectors return independent snapshots; eligible scans reuse equal owned fields before detaching changes, and initialization/full-sync/replay cache seeding reuses published records without another copy. Item layers expose `projector_owns_values`, `projector_deep_copy`, and `deep_copy`; custom callbacks keep safe copying unless explicitly declared independent. Resolve policy outside per-item calls, protect source-injected values, and benchmark each projection mode.
-- **Changed:** Retain owned nested snapshots while reusing unchanged item records; focused item-diff benchmarks cover scalar and nested projections. The minimum `websockets` version is now 13.0, matching the asyncio API used by the server.
-- **Fixed:** Drain batched message tails in order, shield shared sends from waiter cancellation, release the listener on stop, clean up failed client setup, and fail screenshot waits when the last renderer disconnects.
-- **Fixed:** Preserve asset metadata-only changes and copy mutable asset buffers; keep restore layer identities distinct across environments and reject attribute selectors with trailing newlines.
-- **Deprecated:** Use `send_action_result(..., request_id=...)` and `on_action_invoke` instead of `send_action_end` and `on_action_start`; the old callable spellings warn when used. Canonical action and asset enum spellings are documented, and private callback compatibility exports are removed.
+## @tensnap/core [0.3.3] - 2026-10-16
 
-### @tensnap/go
+### Changed
 
-- **Fixed:** Deep-copy nested tracker state by default so in-place map/slice mutations cannot rewrite previous baselines or hide changes. Preserve typed nested containers; built-in/projector ownership and layer copy controls avoid duplicate publication/seeding copies. Add regression tests and focused allocation benchmarks.
-- **Changed:** Add `ComputeBorrowed` tracker paths for synchronous compare/materialize scans with previous-owned-field reuse; ordinary `DeepCopy` and explicit layer copy controls keep their semantics. Avoid a second field pass in composed built-in scalar projections.
-- **Changed:** Reduce Go diff reflection and temporary allocations with standard-library map/slice comparisons, batch-local selection storage, reusable key-set capacity, single-pass changed-field materialization, and cached struct-copy field plans. Preserve deep-equality edge cases and all ownership/copy overrides; add differential/fuzz and population-churn regressions plus focused comparison/struct-copy benchmarks.
-- **Changed:** Use comparable composite keys for common edge identities, copy key declarations, and reuse standard-library map/slice cloning helpers.
-- **Fixed:** Emit cleared fields from complete item projections, reject non-finite numeric identities before caching, and preserve environment/layer boundaries during restore planning.
-- **Fixed:** Reject impossible MessagePack container and wide binary lengths during one-pass decoding, without scanning every valid frame twice. Failed decoders no longer retain scratch buffers in the pool. Regression seeds, replay fuzzing, and focused allocation benchmarks cover these paths.
-- **Deprecated:** `TypeActionStart` and `TypeActionEnd` remain source aliases; use `TypeActionInvoke` and `TypeActionResult`.
+- Reuse layer-registry validation and role lookup, and use portable CSS color parsing with native browser syntax support.
 
-### @tensnap/julia
+### Fixed
 
-- **Development:** Configure JuliaFormatter's `jlfmt` app for source formatting and read-only lint checks with consistent two-space indentation; document app installation and PATH setup.
-- **Changed:** Independent built-in projections and explicit layer/manual publication copy controls replace repeated normalization/copying. Eligible automatic scans materialize records incrementally and reuse equal previous owned fields while standalone calls retain their independent-output guarantee. Detach tuple-contained mutable values and byte buffers, reuse published baselines, and adapt MessagePack containers lazily. Add ownership tests and focused diff/codec benchmarks.
-- **Fixed:** Use structured environment/layer identities in restore plans so embedded separators and same-named layers in different environments cannot collide.
+- Release empty edge adjacency buckets, atomically replace trajectory storage and configuration on load, preserve valid explicit numeric constraints, and handle finite numeric extrema without overflowing the inferred range.
+- Validate replacement recording options before stopping an active recording, own codec policy descriptors, and keep queued flushes scoped to their recording and action boundary.
+- Deduplicate lazy event listeners and stop value-inspector traversal once output is truncated; missing own fields and fractional array paths no longer expose inherited values.
 
-### @tensnap/web
+## @tensnap/js [0.3.3] - 2026-10-16
 
-- **Fixed:** Reset failed views during state derivation rather than scheduling a second render; preserve errors for unchanged identity, including a `NaN` reset key. Pass view renderer component types directly so replacements render immediately and retain normal React component lifetimes.
-- **Build:** Use native ESM-compatible Vite configuration and keep the Node JS demo host out of browser bundles.
-- **Changed:** Separate pure project-history and view-patch models from React bindings, share iterative view traversal, and reduce repeated container scans in collision detection and guideline matching. Import model types directly from their owning modules; internal forwarding exports and unused alias modules are removed.
-- **Fixed:** Preserve undo access to saved states and branched edits, separate merge scopes, recover idle history state when error callbacks throw, and settle replaced dialog requests with cancellation.
-- **Fixed:** Handle deep/cyclic view trees without recursive lookup overflow; retain guideline geometry snapshots, continue past singleton size groups, and exclude disabled/self containers from pointer fallback.
+### Added
 
-### @tensnap/web-adapter
+- A browser-safe `@tensnap/js/transport/browser` entry point that excludes the Node WebSocket host.
 
-- **Changed:** Reuse JS endpoint implementations through direct browser-safe imports. Renderer transport exports no longer forward simulator endpoint utilities; import those from `@tensnap/js/transport/browser`.
-- **Fixed:** Settle cancelled and concurrent transport connections, ignore stale initialization callbacks, and complete teardown after cleanup/post failures.
-- **Fixed:** Own persisted buffers and metadata, keep file/directory paths mutually exclusive, reject traversal segments, allow ordinary double-dot filenames, and encode exported text as UTF-8 before Base64 conversion.
-- **Fixed:** Cancel pending file-picker requests when replaced or unmounted, and reduce memory-filesystem recursive deletion to one scan per map.
+### Changed
 
-### @tensnap/agent
+- Built-in projectors return independent snapshots; layer `projectorOwnsValues`, `projectorDeepCopy`, and `deepCopy` options control ownership and publication copying. Reuse published records for emissions/cache baselines and keep safe copying for custom callbacks. Add ownership regressions and a focused projection/diff benchmark.
+- Reuse equal owned nested fields during eligible built-in session scans while preserving standalone projector and explicit-copy guarantees. Function-valued item keys retain eager projection so callbacks never receive the private borrowed view.
+- Retain directional protocol codecs per WebSocket connection so repeated frames reuse MessagePack state without changing transport buffer copies or validation policies.
+- Compile field selectors once, preserve symbol selectors, own nested item snapshots, reuse structurally equal values, and encode typed scalar/compound identities without delimiter collisions.
 
-- **Changed:** Retain directional codecs in the Node WebSocket transport so repeated frames reuse MessagePack state while continuing to honor current validation options.
-- **Fixed:** Validate finite CLI numeric options, integer port ranges, and context paths before starting a runtime; return HTTP 400 for invalid JSON control bodies.
-- **Fixed:** Encode binary render artifacts as Base64 with `dataEncoding` in both scene and inspection HTTP responses, while retaining native bytes in painter APIs.
-- **Tests:** Wait for checkpoint cleanup and scene persistence to finish before asserting save completion.
+### Fixed
 
-### @tensnap/tauri
+- Compare binary buffer/view contents when deciding whether to reuse projected values; changed `ArrayBuffer` and `DataView` contents no longer disappear as equal empty objects.
+- Deduplicate endpoint listeners, route postMessage replies to the negotiated renderer identity, reject stale peers, and detach sessions even when disconnect cleanup throws.
 
-- **Build:** Use `import.meta.dirname` and attributed JSON imports in the Vite config for native loader compatibility.
-- **Changed:** Import Web file operations from their direct host entry point instead of the removed hooks compatibility barrel.
+## @tensnap/python [0.3.3] - 2026-10-16
 
-### @tensnap/web-common
+### Changed
 
-- **Fixed:** Publish event callbacks after commit, preserve pending debounce/throttle deadlines across callback changes, and cancel pending work on delay changes or unmount. Remove the unused callback dependency-list argument.
-- **Fixed:** Forward `Select` content props to its popup, including attributes, positioning options, and keyboard handlers.
-- **Changed:** Clarify delayed callback lifetime and filesystem metadata ownership contracts, and remove redundant development comments.
+- Built-in projectors return independent snapshots; eligible scans reuse equal owned fields before detaching changes, and initialization/full-sync/replay cache seeding reuses published records without another copy. Item layers expose `projector_owns_values`, `projector_deep_copy`, and `deep_copy`; custom callbacks keep safe copying unless explicitly declared independent. Resolve policy outside per-item calls, protect source-injected values, and benchmark each projection mode.
+- Retain owned nested snapshots while reusing unchanged item records; focused item-diff benchmarks cover scalar and nested projections. The minimum `websockets` version is now 13.0, matching the asyncio API used by the server.
 
-### Repository maintenance
+### Deprecated
 
-- Refresh the active JS evaluation profile's pnpm lock hashes and check all active publication environment locks in the benchmark test suite.
-- Clear all remaining Oxlint warnings, assert fixture prerequisites before dereferencing optional values, and fail lint on new warnings. Use native ESM paths in shared Vite/Vitest configs, including the benchmark host.
-- Keep the JS examples manifest browser-safe; Node demo hosts use the explicit `entries/main-ws` entry instead of the unused manifest `startDemoServer` method.
-- Translate useful development comments to English and remove obsolete or self-evident notes; use paired folding regions and the existing Oxlint rule to warn about decorative separators.
-- Document snapshot ownership, canonical import paths, server lifecycle, recorder limits, and focused benchmark/fuzz commands; update the ABM binding skill with identity and environment checks.
+- Use `send_action_result(..., request_id=...)` and `on_action_invoke` instead of `send_action_end` and `on_action_start`; the old callable spellings warn when used. Canonical action and asset enum spellings are documented, and private callback compatibility exports are removed.
+
+### Fixed
+
+- Drain batched message tails in order, shield shared sends from waiter cancellation, release the listener on stop, clean up failed client setup, and fail screenshot waits when the last renderer disconnects.
+- Preserve asset metadata-only changes and copy mutable asset buffers; keep restore layer identities distinct across environments and reject attribute selectors with trailing newlines.
+
+## @tensnap/go [0.3.3] - 2026-10-16
+
+### Changed
+
+- Add `ComputeBorrowed` tracker paths for synchronous compare/materialize scans with previous-owned-field reuse; ordinary `DeepCopy` and explicit layer copy controls keep their semantics. Avoid a second field pass in composed built-in scalar projections.
+- Reduce Go diff reflection and temporary allocations with standard-library map/slice comparisons, batch-local selection storage, reusable key-set capacity, single-pass changed-field materialization, and cached struct-copy field plans. Preserve deep-equality edge cases and all ownership/copy overrides; add differential/fuzz and population-churn regressions plus focused comparison/struct-copy benchmarks.
+- Use comparable composite keys for common edge identities, copy key declarations, and reuse standard-library map/slice cloning helpers.
+
+### Deprecated
+
+- `TypeActionStart` and `TypeActionEnd` remain source aliases; use `TypeActionInvoke` and `TypeActionResult`.
+
+### Fixed
+
+- Deep-copy nested tracker state by default so in-place map/slice mutations cannot rewrite previous baselines or hide changes. Preserve typed nested containers; built-in/projector ownership and layer copy controls avoid duplicate publication/seeding copies. Add regression tests and focused allocation benchmarks.
+- Emit cleared fields from complete item projections, reject non-finite numeric identities before caching, and preserve environment/layer boundaries during restore planning.
+- Reject impossible MessagePack container and wide binary lengths during one-pass decoding, without scanning every valid frame twice. Failed decoders no longer retain scratch buffers in the pool. Regression seeds, replay fuzzing, and focused allocation benchmarks cover these paths.
+
+## @tensnap/julia [0.3.3] - 2026-10-16
+
+### Changed
+
+- Configure JuliaFormatter's `jlfmt` app for source formatting and read-only lint checks with consistent two-space indentation; document app installation and PATH setup.
+- Independent built-in projections and explicit layer/manual publication copy controls replace repeated normalization/copying. Eligible automatic scans materialize records incrementally and reuse equal previous owned fields while standalone calls retain their independent-output guarantee. Detach tuple-contained mutable values and byte buffers, reuse published baselines, and adapt MessagePack containers lazily. Add ownership tests and focused diff/codec benchmarks.
+
+### Fixed
+
+- Use structured environment/layer identities in restore plans so embedded separators and same-named layers in different environments cannot collide.
+
+## @tensnap/web [0.3.4] - 2026-10-16
+
+### Changed
+
+- Use native ESM-compatible Vite configuration and keep the Node JS demo host out of browser bundles.
+- Separate pure project-history and view-patch models from React bindings, share iterative view traversal, and reduce repeated container scans in collision detection and guideline matching. Import model types directly from their owning modules; internal forwarding exports and unused alias modules are removed.
+
+### Fixed
+
+- Resynchronize state after an automatic WebSocket reconnect, including a disconnect during the initial replay. Retain handshake listeners for the active transport and ignore duplicate identity announcements within one connection.
+- Reset failed views during state derivation rather than scheduling a second render; preserve errors for unchanged identity, including a `NaN` reset key. Pass view renderer component types directly so replacements render immediately and retain normal React component lifetimes.
+- Preserve undo access to saved states and branched edits, separate merge scopes, recover idle history state when error callbacks throw, and settle replaced dialog requests with cancellation.
+- Handle deep/cyclic view trees without recursive lookup overflow; retain guideline geometry snapshots, continue past singleton size groups, and exclude disabled/self containers from pointer fallback.
+
+## @tensnap/web-adapter [0.3.2] - 2026-10-16
+
+### Changed
+
+- Reuse JS endpoint implementations through direct browser-safe imports. Renderer transport exports no longer forward simulator endpoint utilities; import those from `@tensnap/js/transport/browser`.
+
+### Fixed
+
+- Settle cancelled and concurrent transport connections, ignore stale initialization callbacks, and complete teardown after cleanup/post failures.
+- Own persisted buffers and metadata, keep file/directory paths mutually exclusive, reject traversal segments, allow ordinary double-dot filenames, and encode exported text as UTF-8 before Base64 conversion.
+- Cancel pending file-picker requests when replaced or unmounted, and reduce memory-filesystem recursive deletion to one scan per map.
+
+## @tensnap/agent [0.3.3] - 2026-10-16
+
+### Changed
+
+- Retain directional codecs in the Node WebSocket transport so repeated frames reuse MessagePack state while continuing to honor current validation options.
+- Wait for checkpoint cleanup and scene persistence to finish before asserting save completion.
+
+### Fixed
+
+- Validate finite CLI numeric options, integer port ranges, and context paths before starting a runtime; return HTTP 400 for invalid JSON control bodies.
+- Encode binary render artifacts as Base64 with `dataEncoding` in both scene and inspection HTTP responses, while retaining native bytes in painter APIs.
+
+## @tensnap/tauri [0.3.4] - 2026-10-16
+
+### Changed
+
+- Use `import.meta.dirname` and attributed JSON imports in the Vite config for native loader compatibility.
+- Import Web file operations from their direct host entry point instead of the removed hooks compatibility barrel.
+
+## @tensnap/web-common [0.3.2] - 2026-10-16
+
+### Changed
+
+- Clarify delayed callback lifetime and filesystem metadata ownership contracts, and remove redundant development comments.
+
+### Fixed
+
+- Publish event callbacks after commit, preserve pending debounce/throttle deadlines across callback changes, and cancel pending work on delay changes or unmount. Remove the unused callback dependency-list argument.
+- Forward `Select` content props to its popup, including attributes, positioning options, and keyboard handlers.
+
+## @tensnap/benchmark [0.3.3] - 2026-10-16
+
+### Changed
+
+- Preserve browser initialization failures with connection and transaction state, recent diagnostics, workload configuration, server errors and message counts, wire bytes, and a bounded startup message timeline. Both page-returned failures and outer timeouts retain this context.
+- Use native ESM-compatible Vite/Vitest configuration and verify active publication environment-lock hashes against the checkout.
+
+### Fixed
+
+- Inspect the local Julia binding through the evaluation project without personal startup files, report its resolved source path, and parse probe JSON from stdout independently of diagnostic stderr.
+
+## @tensnap/examples-js [0.3.3] - 2026-10-16
+
+### Fixed
+
+- Keep Node demo hosts out of browser bundles. Import browser model types directly and use the explicit `entries/main-ws` entry for WebSocket hosting instead of the removed manifest `startDemoServer` method.
+
+## tensnap [0.3.2] - 2026-10-16
+
+### Changed
+
+- Enforce zero Oxlint warnings, use native ESM paths in shared build/test configuration, and assert fixture prerequisites before optional values are dereferenced.
+- Translate useful development comments to English, remove obsolete notes, and use paired folding regions with the existing separator lint rule.
+- Document projection and snapshot ownership, canonical imports, server lifecycle, recorder limits, and focused benchmark/fuzz commands. Update the ABM binding skill with identity and environment checks.
 - Apply the configured repository formatters to maintained source and documentation.
 
 ## @tensnap/web [0.3.3] - 2026-10-04
