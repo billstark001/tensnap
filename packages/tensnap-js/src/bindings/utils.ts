@@ -19,8 +19,14 @@ export function titleFromId(id: string): string {
  * Own projected values so model mutations cannot rewrite sent snapshots.
  * A previous owned snapshot may supply equal nested fields without copying them again.
  */
-export function cloneItem<TItem extends object>(item: TItem, previous?: ItemRecord): ItemRecord {
-  return ownItemValues({ ...(item as unknown as ItemRecord) }, previous);
+export function cloneItem<TItem extends object>(
+  item: TItem,
+  previous?: ItemRecord,
+  deepCopy = true,
+): ItemRecord {
+  return deepCopy
+    ? ownItemValues({ ...(item as unknown as ItemRecord) }, previous)
+    : (item as ItemRecord);
 }
 
 /** Own nested values in an already-detached outer record, reusing prior owned fields. */
@@ -35,8 +41,11 @@ export function ownItemValues(snapshot: ItemRecord, previous?: ItemRecord): Item
   return snapshot;
 }
 
-export function cloneItems<TItem extends object>(items: readonly TItem[]): ItemRecord[] {
-  return items.map((item) => cloneItem(item));
+export function cloneItems<TItem extends object>(
+  items: readonly TItem[],
+  deepCopy = true,
+): ItemRecord[] {
+  return items.map((item) => cloneItem(item, undefined, deepCopy));
 }
 
 export function isPrimitiveKey(value: unknown): value is PrimitiveItemKey {

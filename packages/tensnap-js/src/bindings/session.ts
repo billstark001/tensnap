@@ -27,6 +27,7 @@ import {
 import { validateActionInvocation } from './actions';
 import { buildScenarioDefinition, getCurrentConfig } from './definition';
 import { projectLayerItems } from './layers';
+import { borrowedView } from './projection-ownership';
 import type {
   BoundModelDefinition,
   ChartValueInput,
@@ -150,21 +151,64 @@ export function createBoundSession<TConfig extends object, TModel>(
     for (const environment of binding.environments) {
       for (const layer of environment.layers) {
         const layerKey = getLayerKey(environment.id, layer.id);
+        const ownsValues =
+          layer.projectorOwnsValues ??
+          layer.project?.ownsValues ??
+          (!layer.project && layer.projectorDeepCopy !== false);
+        const deepCopy = layer.deepCopy ?? !ownsValues;
         if (!full && layer.changes && sourceCursors.has(layerKey)) {
           const batch = layer.changes(model, sourceCursors.get(layerKey));
           if (batch) {
-            await ctx.syncRecordChanges(environment.id, layer.id, batch.changes);
+            // changes() already returns projected records, bypassing project().
+            // Only an explicit layer guarantee applies to that custom producer.
+            const copyChanges = layer.deepCopy ?? !(layer.projectorOwnsValues ?? false);
+            await ctx.syncRecordChanges(environment.id, layer.id, batch.changes, copyChanges);
             sourceCursors.set(layerKey, batch.revision);
             continue;
           }
         }
         if (full || !layer.updates || layer.changes) {
           if (layer.items) {
-            const items = layer.items(model, { phase, full });
-            const records = projectLayerItems(model, items, layer.project);
-            await ctx.syncRecords(environment.id, layer.id, records, {
-              key: layer.key as ItemKeySelector<ItemRecord>,
-            });
+            const canDefer = !deepCopy && typeof layer.key !== 'function';
+            const rawItems = canDefer ? borrowedView<typeof layer.items>(layer.items) : undefined;
+            const rawProject =
+              canDefer && layer.project?.ownsValues
+                ? borrowedView<typeof layer.project>(layer.project)
+                : undefined;
+            const identityOwns =
+              !layer.project &&
+              layer.projectorOwnsValues !== true &&
+              layer.projectorDeepCopy !== false;
+            const deferCopy =
+              canDefer && (rawItems !== undefined || rawProject !== undefined || identityOwns);
+            const items = (rawItems ?? layer.items)(model, { phase, full });
+            // syncRecords materializes each borrowed record before advancing to
+            // another selector. No borrowed model value crosses an await/send.
+            function* records(): Iterable<ItemRecord> {
+              for (const item of items) {
+                yield rawProject
+                  ? rawProject(model, item)
+                  : layer.project
+                    ? layer.project(model, item)
+                    : deferCopy
+                      ? (item as ItemRecord)
+                      : cloneItem(item, undefined, identityOwns);
+              }
+            }
+            await syncRecords(
+              environment.id,
+              layer.id,
+              // A custom key callback receives a fully independent projection,
+              // with the original eager selector ordering.
+              typeof layer.key === 'function'
+                ? projectLayerItems(model, items, layer.project, identityOwns)
+                : records(),
+              {
+                key: layer.key as ItemKeySelector<ItemRecord>,
+                deepCopy: deepCopy || deferCopy,
+              },
+              deferCopy && (rawItems !== undefined || rawProject !== undefined),
+            );
             if (layer.revision) sourceCursors.set(layerKey, layer.revision(model));
           }
           continue;
@@ -177,8 +221,18 @@ export function createBoundSession<TConfig extends object, TModel>(
           (layer.updateProject ?? layer.project) as
             | LayerProjector<TModel, Partial<unknown> & object>
             | undefined,
+          layer.projectorOwnsValues === true ? false : layer.projectorDeepCopy,
         );
-        await ctx.updateItems(environment.id, layer.id, records);
+        const updateOwnsValues =
+          layer.projectorOwnsValues ??
+          (layer.updateProject ?? layer.project)?.ownsValues ??
+          (!layer.updateProject && !layer.project && layer.projectorDeepCopy !== false);
+        await ctx.updateItems(
+          environment.id,
+          layer.id,
+          records,
+          layer.deepCopy ?? !updateOwnsValues,
+        );
       }
     }
   };
@@ -384,6 +438,79 @@ export function createBoundSession<TConfig extends object, TModel>(
     await pushState(context, 'sync', true);
   };
 
+  async function syncRecords<TItem extends object>(
+    envId: string,
+    layerId: string,
+    items: Iterable<TItem>,
+    options?: SyncRecordsOptions<TItem>,
+    freshRecord = false,
+  ) {
+    const layerKey = getLayerKey(envId, layerId);
+    const previousState = syncedItems.get(layerKey);
+    const previousItems = previousState?.items ?? new Map<string, ItemRecord>();
+    const currentItems = new Map<string, ItemRecord>();
+    const currentDeleteKeys = new Map<string, ItemDeleteKey>();
+    const create: ItemRecord[] = [];
+    const update: ItemRecord[] = [];
+    let keyFields: readonly string[] = [];
+
+    for (const item of items) {
+      const itemKey = resolveItemKey(item, item as ItemRecord, options?.key);
+      const previous = previousItems.get(itemKey.storageKey);
+      const snapshot = freshRecord
+        ? ownItemValues(item as ItemRecord, previous)
+        : cloneItem(item, previous, options?.deepCopy ?? true);
+      keyFields = itemKey.keyFields;
+      currentItems.set(itemKey.storageKey, snapshot);
+      currentDeleteKeys.set(itemKey.storageKey, itemKey.deleteKey);
+
+      if (!previous) {
+        create.push(snapshot);
+        continue;
+      }
+
+      const diff = diffItem(previous, snapshot, itemKey);
+      if (diff) {
+        update.push(diff);
+      }
+    }
+
+    const remove = Array.from(previousItems.keys())
+      .filter((id) => !currentItems.has(id))
+      .map((id) => previousState?.deleteKeys.get(id))
+      .filter((id): id is ItemDeleteKey => id !== undefined);
+
+    if (remove.length > 0) {
+      await session.emitter.itemDelete({
+        env_id: envId,
+        layer_id: layerId,
+        items: remove as Array<string | number> | Array<Record<string, ProtocolData>>,
+      });
+    }
+    if (create.length > 0) {
+      await session.emitter.itemCreate({
+        env_id: envId,
+        layer_id: layerId,
+        items: create as Array<Record<string, ProtocolData>>,
+      });
+    }
+    if (update.length > 0) {
+      await session.emitter.itemUpdate({
+        env_id: envId,
+        layer_id: layerId,
+        items: update as Array<Record<string, ProtocolData>>,
+      });
+    }
+
+    syncedItems.set(layerKey, {
+      envId,
+      layerId,
+      items: currentItems,
+      deleteKeys: currentDeleteKeys,
+      keyFields,
+    });
+  }
+
   const context: ModelSessionContext<TConfig> = {
     get session() {
       return session;
@@ -476,107 +603,40 @@ export function createBoundSession<TConfig extends object, TModel>(
         value,
         ...(revision === undefined ? {} : { revision }),
       }),
-    createItems: (envId, layerId, items) => {
+    createItems: (envId, layerId, items, deepCopy = true) => {
       if (items.length === 0) {
         return Promise.resolve();
       }
       return session.emitter.itemCreate({
         env_id: envId,
         layer_id: layerId,
-        items: cloneItems(items) as Array<Record<string, ProtocolData>>,
+        items: cloneItems(items, deepCopy) as Array<Record<string, ProtocolData>>,
       });
     },
-    updateItems: (envId, layerId, items) => {
+    updateItems: (envId, layerId, items, deepCopy = true) => {
       if (items.length === 0) {
         return Promise.resolve();
       }
       return session.emitter.itemUpdate({
         env_id: envId,
         layer_id: layerId,
-        items: cloneItems(items) as Array<Record<string, ProtocolData>>,
+        items: cloneItems(items, deepCopy) as Array<Record<string, ProtocolData>>,
       });
     },
-    deleteItems: (envId, layerId, items) => {
+    deleteItems: (envId, layerId, items, deepCopy = true) => {
       if (items.length === 0) {
         return Promise.resolve();
       }
       return session.emitter.itemDelete({
         env_id: envId,
         layer_id: layerId,
-        items: cloneItems(items) as Array<string | number> | Array<Record<string, ProtocolData>>,
+        items: cloneItems(items, deepCopy) as
+          | Array<string | number>
+          | Array<Record<string, ProtocolData>>,
       });
     },
-    async syncRecords<TItem extends object>(
-      envId: string,
-      layerId: string,
-      items: readonly TItem[],
-      options?: SyncRecordsOptions<TItem>,
-    ) {
-      const layerKey = getLayerKey(envId, layerId);
-      const previousState = syncedItems.get(layerKey);
-      const previousItems = previousState?.items ?? new Map<string, ItemRecord>();
-      const currentItems = new Map<string, ItemRecord>();
-      const currentDeleteKeys = new Map<string, ItemDeleteKey>();
-      const create: ItemRecord[] = [];
-      const update: ItemRecord[] = [];
-      let keyFields: readonly string[] = [];
-
-      for (const item of items) {
-        const snapshot = { ...item } as ItemRecord;
-        const itemKey = resolveItemKey(item, snapshot, options?.key);
-        const previous = previousItems.get(itemKey.storageKey);
-        ownItemValues(snapshot, previous);
-        keyFields = itemKey.keyFields;
-        currentItems.set(itemKey.storageKey, snapshot);
-        currentDeleteKeys.set(itemKey.storageKey, itemKey.deleteKey);
-
-        if (!previous) {
-          create.push(snapshot);
-          continue;
-        }
-
-        const diff = diffItem(previous, snapshot, itemKey);
-        if (diff) {
-          update.push(diff);
-        }
-      }
-
-      const remove = Array.from(previousItems.keys())
-        .filter((id) => !currentItems.has(id))
-        .map((id) => previousState?.deleteKeys.get(id))
-        .filter((id): id is ItemDeleteKey => id !== undefined);
-
-      if (remove.length > 0) {
-        await session.emitter.itemDelete({
-          env_id: envId,
-          layer_id: layerId,
-          items: remove as Array<string | number> | Array<Record<string, ProtocolData>>,
-        });
-      }
-      if (create.length > 0) {
-        await session.emitter.itemCreate({
-          env_id: envId,
-          layer_id: layerId,
-          items: create as Array<Record<string, ProtocolData>>,
-        });
-      }
-      if (update.length > 0) {
-        await session.emitter.itemUpdate({
-          env_id: envId,
-          layer_id: layerId,
-          items: update as Array<Record<string, ProtocolData>>,
-        });
-      }
-
-      syncedItems.set(layerKey, {
-        envId,
-        layerId,
-        items: currentItems,
-        deleteKeys: currentDeleteKeys,
-        keyFields,
-      });
-    },
-    async syncRecordChanges(envId, layerId, changes) {
+    syncRecords,
+    async syncRecordChanges(envId, layerId, changes, deepCopy = true) {
       const layerKey = getLayerKey(envId, layerId);
       const previous = syncedItems.get(layerKey);
       if (!previous) throw new Error(`No source snapshot for ${envId}/${layerId}.`);
@@ -600,7 +660,7 @@ export function createBoundSession<TConfig extends object, TModel>(
           continue;
         }
         if (!change.record) throw new Error(`Missing source record for ${storageKey}.`);
-        const record = cloneItem(change.record, old);
+        const record = cloneItem(change.record, old, deepCopy);
         const resolved = resolveItemKey(record, record);
         if (resolved.storageKey !== storageKey)
           throw new Error(`Source change ID mismatch: ${storageKey}.`);
@@ -612,9 +672,9 @@ export function createBoundSession<TConfig extends object, TModel>(
         items.set(storageKey, record);
         deleteKeys.set(storageKey, resolved.deleteKey);
       }
-      await this.deleteItems(envId, layerId, deletes as ItemRecord[]);
-      await this.createItems(envId, layerId, creates);
-      await this.updateItems(envId, layerId, updates);
+      await this.deleteItems(envId, layerId, deletes as ItemRecord[], false);
+      await this.createItems(envId, layerId, creates, false);
+      await this.updateItems(envId, layerId, updates, false);
       syncedItems.set(layerKey, { ...previous, items, deleteKeys });
     },
     syncItems(envId, layerId, items, options) {

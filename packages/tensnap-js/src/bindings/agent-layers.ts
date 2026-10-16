@@ -4,9 +4,11 @@ import type {
   LayerChangeBatch,
   LiteralField,
   FieldSelector,
+  ProjectionCopyOptions,
 } from './types';
 import { literal, projectFields } from './fields';
-import { compilePath } from './utils';
+import { cloneItem, compilePath } from './utils';
+import { registerBorrowedView } from './projection-ownership';
 
 export type AgentLayerOptions<M, I extends object> = Omit<LayerOptions<M, I>, 'type'> & {
   fields?: Readonly<Record<string, FieldSelector<M, I>>>;
@@ -44,7 +46,7 @@ export function agentLayerOptions<M, I extends object>(
     ...layerOptions,
     type: 'agent',
     ...(fields !== undefined || Object.keys(shortcuts).length > 0
-      ? { project: projectFields(configured) }
+      ? { project: projectFields(configured, options.projectorDeepCopy) }
       : {}),
   };
 }
@@ -120,7 +122,7 @@ function sourceFields(
     Object.fromEntries(compiled.map(([name, get]) => [name, get(context, args)]));
 }
 
-export interface MapAgentLayerOptions<M, K, V> {
+export interface MapAgentLayerOptions<M, K, V> extends ProjectionCopyOptions {
   source(model: M): EntrySource<K, V>;
   project?(model: M, key: K, value: V): ItemRecord;
   fields?: Readonly<Record<string, MapAgentField<M, K, V>>>;
@@ -151,6 +153,10 @@ const stableId = (id: SourceId): string => {
 export function mapAgentLayerOptions<M, K, V>(
   options: MapAgentLayerOptions<M, K, V>,
 ): LayerOptions<M> {
+  const copyProjection = !options.project && options.projectorDeepCopy !== false;
+  const ownsProjection = options.projectorOwnsValues ?? copyProjection;
+  const copyInjectedValue =
+    !copyProjection && options.projectorOwnsValues === true && options.projectorDeepCopy !== false;
   if (Boolean(options.revision) !== Boolean(options.changes)) {
     throw new Error('map source revision and changes must be declared together');
   }
@@ -200,7 +206,7 @@ export function mapAgentLayerOptions<M, K, V>(
     }
     return result;
   };
-  const projectEntry = (model: M, key: K, value: V): ItemRecord => {
+  const projectEntry = (model: M, key: K, value: V, deepCopy = copyProjection): ItemRecord => {
     const record =
       options.project?.(model, key, value) ??
       configured({ model, key, value }, [model, key, value]);
@@ -208,14 +214,27 @@ export function mapAgentLayerOptions<M, K, V>(
     if (data !== undefined && (typeof data !== 'object' || data === null || Array.isArray(data))) {
       throw new Error('map agent data must be an object');
     }
-    return { ...record, id: encode(key), data: { ...(data as object | undefined), value } };
+    const sourceValue = copyInjectedValue ? structuredClone(value) : value;
+    return cloneItem(
+      { ...record, id: encode(key), data: { ...(data as object | undefined), value: sourceValue } },
+      undefined,
+      deepCopy,
+    );
   };
   return {
     type: 'agent',
+    projectorOwnsValues: ownsProjection,
+    deepCopy: options.deepCopy,
+    project: (_model, item) => item,
     metadata: options.metadata,
-    items(model) {
-      return entries(model).map(([key, value]) => projectEntry(model, key, value));
-    },
+    items: registerBorrowedView(
+      (model: M) => entries(model).map(([key, value]) => projectEntry(model, key, value)),
+      copyProjection
+        ? function* (model: M) {
+            for (const [key, value] of entries(model)) yield projectEntry(model, key, value, false);
+          }
+        : undefined,
+    ),
     revision: options.revision,
     changes:
       options.changes &&
@@ -271,7 +290,7 @@ export function mapAgentLayerOptions<M, K, V>(
   };
 }
 
-export interface MatrixAgentLayerOptions<M, V> {
+export interface MatrixAgentLayerOptions<M, V> extends ProjectionCopyOptions {
   source(model: M): readonly (readonly V[])[] | ArrayLike<V>;
   /** shape is [height, width], with row zero at the top. Required for flat storage. */
   shape?(model: M): readonly [number, number];
@@ -306,6 +325,10 @@ export interface MatrixAgentLayerOptions<M, V> {
 export function matrixAgentLayerOptions<M, V>(
   options: MatrixAgentLayerOptions<M, V>,
 ): LayerOptions<M> {
+  const copyProjection = !options.project && options.projectorDeepCopy !== false;
+  const ownsProjection = options.projectorOwnsValues ?? copyProjection;
+  const copyInjectedValue =
+    !copyProjection && options.projectorOwnsValues === true && options.projectorDeepCopy !== false;
   if (Boolean(options.revision) !== Boolean(options.changes)) {
     throw new Error('matrix source revision and changes must be declared together');
   }
@@ -350,6 +373,7 @@ export function matrixAgentLayerOptions<M, V>(
     col: number,
     value: V,
     height: number,
+    deepCopy = copyProjection,
   ): ItemRecord => {
     const record =
       options.project?.(model, row, col, value) ??
@@ -358,16 +382,31 @@ export function matrixAgentLayerOptions<M, V>(
     if (data !== undefined && (typeof data !== 'object' || data === null || Array.isArray(data))) {
       throw new Error('matrix agent data must be an object');
     }
-    return {
-      ...record,
-      id: `cell:${row}:${col}`,
-      x: col,
-      y: height - 1 - row,
-      icon: record.icon ?? 'square',
-      size: record.size ?? 1,
-      data: { ...(data as object | undefined), value },
-    };
+    const sourceValue = copyInjectedValue ? structuredClone(value) : value;
+    return cloneItem(
+      {
+        ...record,
+        id: `cell:${row}:${col}`,
+        x: col,
+        y: height - 1 - row,
+        icon: record.icon ?? 'square',
+        size: record.size ?? 1,
+        data: { ...(data as object | undefined), value: sourceValue },
+      },
+      undefined,
+      deepCopy,
+    );
   };
+  function* projectCells(model: M, deepCopy: boolean): Iterable<ItemRecord> {
+    const [height, width] = dimensions(model);
+    previousShapes.set(model as object, [height, width]);
+    for (let row = 0; row < height; row++)
+      for (let col = 0; col < width; col++) {
+        const value = at(model, row, col);
+        if (sparse && Object.is(value, options.sparseDefault)) continue;
+        yield projectCell(model, row, col, value, height, deepCopy);
+      }
+  }
   const incomingShapes = new WeakMap<object, readonly [number, number]>();
   const read = (
     items: readonly Record<string, unknown>[],
@@ -402,6 +441,9 @@ export function matrixAgentLayerOptions<M, V>(
   };
   return {
     type: 'agent',
+    projectorOwnsValues: ownsProjection,
+    deepCopy: options.deepCopy,
+    project: (_model, item) => item,
     revision: options.revision,
     changes:
       options.changes &&
@@ -443,18 +485,10 @@ export function matrixAgentLayerOptions<M, V>(
         typeof options.metadata === 'function' ? options.metadata(model) : options.metadata;
       return { ...extra, width, height, coord_offset: 'int' };
     },
-    items(model) {
-      const [height, width] = dimensions(model);
-      previousShapes.set(model as object, [height, width]);
-      const items: ItemRecord[] = [];
-      for (let row = 0; row < height; row++)
-        for (let col = 0; col < width; col++) {
-          const value = at(model, row, col);
-          if (sparse && Object.is(value, options.sparseDefault)) continue;
-          items.push(projectCell(model, row, col, value, height));
-        }
-      return items;
-    },
+    items: registerBorrowedView(
+      (model: M) => Array.from(projectCells(model, copyProjection)),
+      copyProjection ? (model: M) => projectCells(model, false) : undefined,
+    ),
     restore: {
       validate(model, layer) {
         const metadata = layer.metadata;

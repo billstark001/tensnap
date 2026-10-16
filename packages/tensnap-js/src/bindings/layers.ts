@@ -12,6 +12,7 @@ import type {
   MapAgentLayerOptions,
   MatrixAgentLayerOptions,
 } from './agent-layers';
+import { cloneItem } from './utils';
 
 export class EnvironmentBuilder<TConfig extends object, TModel> {
   constructor(
@@ -107,14 +108,19 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
   }
 }
 
-/** Project fields without owning nested values; the session snapshots records at emission. */
+/**
+ * Identity projection owns nested values unless deepCopy is explicitly false.
+ * A supplied projector is called with its own configured policy; this argument
+ * does not reconfigure it or perform a separate publication copy.
+ */
 export function projectLayerItems<TModel, TItem extends object>(
   model: TModel,
   items: readonly TItem[],
   projector?: LayerProjector<TModel, TItem>,
+  deepCopy = true,
 ): ItemRecord[] {
   if (!projector) {
-    return items.map((item) => ({ ...item }) as ItemRecord);
+    return items.map((item) => cloneItem(item, undefined, deepCopy));
   }
   return items.map((item) => projector(model, item));
 }

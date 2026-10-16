@@ -58,6 +58,7 @@
     "build": "node ./scripts/build.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench:projection": "vitest bench --run --experimental.viteModuleRunner=false src/bindings/projection-ownership.bench.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm run typecheck",
     "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",

@@ -68,6 +68,8 @@ export interface LifecycleActionLabels {
 
 export interface SyncRecordsOptions<TItem extends object = ItemRecord> {
   key?: ItemKeySelector<TItem>;
+  /** Detach mutable values at publication. Defaults to true for direct calls. */
+  deepCopy?: boolean;
 }
 
 export interface ModelSessionContext<TConfig extends object> {
@@ -89,16 +91,19 @@ export interface ModelSessionContext<TConfig extends object> {
     envId: string,
     layerId: string,
     items: readonly TItem[],
+    deepCopy?: boolean,
   ): Promise<void>;
   updateItems<TItem extends object>(
     envId: string,
     layerId: string,
     items: readonly TItem[],
+    deepCopy?: boolean,
   ): Promise<void>;
   deleteItems<TItem extends object>(
     envId: string,
     layerId: string,
     items: readonly TItem[],
+    deepCopy?: boolean,
   ): Promise<void>;
   syncRecords<TItem extends object>(
     envId: string,
@@ -110,6 +115,7 @@ export interface ModelSessionContext<TConfig extends object> {
     envId: string,
     layerId: string,
     changes: readonly LayerRecordChange[],
+    deepCopy?: boolean,
   ): Promise<void>;
   syncItems<TItem extends object>(
     envId: string,
@@ -298,10 +304,20 @@ export interface LayerChangeBatch {
   changes: readonly LayerRecordChange[];
 }
 
-export type LayerProjector<TModel, TItem extends object> = (
-  model: TModel,
-  item: TItem,
-) => ItemRecord;
+export interface LayerProjector<TModel, TItem extends object> {
+  (model: TModel, item: TItem): ItemRecord;
+  /** Complete output is independent of mutable model state and stays read-only after publication. */
+  readonly ownsValues?: boolean;
+}
+
+export interface ProjectionCopyOptions {
+  /** Override the projector's ownership guarantee; custom callbacks default to false. */
+  projectorOwnsValues?: boolean;
+  /** Detach built-ins created by the layer (default true); prebuilt callbacks keep their own policy. */
+  projectorDeepCopy?: boolean;
+  /** Publication detachment, automatic from ownership; false does not undo projector copies. */
+  deepCopy?: boolean;
+}
 
 /**
  * Declarative inverse for one complete restorable layer snapshot. The binding
@@ -327,7 +343,10 @@ export interface LayerRestoreOptions<TModel> {
   delete?(model: TModel, key: ItemDeleteKey): MaybePromise<void>;
 }
 
-export interface LayerOptions<TModel, TItem extends object = ItemRecord> {
+export interface LayerOptions<
+  TModel,
+  TItem extends object = ItemRecord,
+> extends ProjectionCopyOptions {
   type: string;
   metadata?: MaybeFactory<TModel, Record<string, unknown> | undefined>;
   dependencyLayerIds?: Record<string, string>;
