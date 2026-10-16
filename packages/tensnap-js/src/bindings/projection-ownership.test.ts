@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { modelBuilder } from './index';
 import { mapAgentLayerOptions, matrixAgentLayerOptions } from './agent-layers';
 import { projectFields } from './fields';
+import { cloneItem, diffItem, resolveItemKey } from './utils';
 import type { LayerOptions } from './types';
 import type { SimulatorToRendererMessage } from '@tensnap/protocol';
 
@@ -231,6 +232,26 @@ describe('incremental built-in materialization', () => {
     },
   );
 });
+
+it.each(['buffer', 'view', 'subarray'] as const)(
+  'does not reuse changed binary %s values',
+  (kind) => {
+    const bytes = new Uint8Array([0, 1, 2, 3]);
+    const data =
+      kind === 'buffer'
+        ? bytes.buffer
+        : kind === 'view'
+          ? new DataView(bytes.buffer, 1, 2)
+          : bytes.subarray(1, 3);
+    const item = { id: 'a', data };
+    const previous = cloneItem(item);
+    expect(cloneItem(item, previous).data).toBe(previous.data);
+    bytes[1] = 9;
+    const current = cloneItem(item, previous);
+    expect(current.data).not.toBe(previous.data);
+    expect(diffItem(previous, current, resolveItemKey(item, current))).toBeDefined();
+  },
+);
 
 it('keeps independent projections and eager ordering for a custom key callback', async () => {
   const model = {

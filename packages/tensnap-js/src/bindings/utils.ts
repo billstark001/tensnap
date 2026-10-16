@@ -6,7 +6,7 @@ import type {
   PrimitiveItemKey,
   ResolvedItemKey,
 } from './types';
-import { dequal } from 'dequal/lite';
+import { dequal } from 'dequal';
 
 export function titleFromId(id: string): string {
   return id
