@@ -995,7 +995,7 @@ function sampleMetricMedian(sample: BenchmarkReplicate, metric: string): number 
   return median(values);
 }
 
-async function runProtocolBrowserReplicate(
+export async function runProtocolBrowserReplicate(
   browserServer: BrowserServer,
   workload: ProtocolBenchmarkWorkload,
   config: BenchmarkConfig,
@@ -1012,12 +1012,30 @@ async function runProtocolBrowserReplicate(
   const simulatorErrors: unknown[] = [];
   let observerError: unknown;
   let wireBytes = { ...EMPTY_BYTES };
+  const bootstrapStartedAt = nowMs();
+  const bootstrapMessages: Array<{
+    direction: 'renderer-to-simulator' | 'simulator-to-renderer';
+    type: string;
+    elapsedMs: number;
+  }> = [];
+  let bootstrapComplete = false;
+  const observeBootstrap = (
+    direction: 'renderer-to-simulator' | 'simulator-to-renderer',
+    type: string,
+  ): void => {
+    if (bootstrapComplete) return;
+    if (bootstrapMessages.length < 32)
+      bootstrapMessages.push({ direction, type, elapsedMs: nowMs() - bootstrapStartedAt });
+    if (direction === 'simulator-to-renderer' && type === 'state_sync_end')
+      bootstrapComplete = true;
+  };
   const host = createWebSocketTransportHost({
     sessionFactory: () => workload.createSession(config),
     encoding,
     rendererMessageValidation: validation,
     simulatorMessageValidation: validation,
     onSimulatorMessage: (message, bytes) => {
+      observeBootstrap('simulator-to-renderer', message.type);
       incrementCount(counts, message.type);
       wireBytes = { ...wireBytes, simulatorToRenderer: wireBytes.simulatorToRenderer + bytes };
       try {
@@ -1028,7 +1046,8 @@ async function runProtocolBrowserReplicate(
         observerError = error;
       }
     },
-    onRendererMessage: (_message, bytes) => {
+    onRendererMessage: (message, bytes) => {
+      observeBootstrap('renderer-to-simulator', message.type);
       wireBytes = { ...wireBytes, rendererToSimulator: wireBytes.rendererToSimulator + bytes };
     },
   });
@@ -1057,6 +1076,18 @@ async function runProtocolBrowserReplicate(
         if (message.type() === 'error') diagnostics.push(`console: ${message.text()}`);
       });
       page.on('pageerror', (error) => diagnostics.push(`pageerror: ${error.message}`));
+      const failure = (message: string, pageState?: unknown): Error =>
+        new Error(
+          `${message}\n` +
+            `workload=${workload.id}; config=${stableJson(config)}; encoding=${encoding}; validation=${validation}; block=${index + 1}\n` +
+            `page diagnostics: ${diagnostics.length === 0 ? 'none' : diagnostics.join('\n')}\n` +
+            `server messages: ${JSON.stringify(counts)}\n` +
+            `server errors: ${JSON.stringify(simulatorErrors)}\n` +
+            `bootstrap messages: ${JSON.stringify(bootstrapMessages)}\n` +
+            `observer error: ${observerError instanceof Error ? (observerError.stack ?? observerError.message) : String(observerError ?? 'none')}\n` +
+            `wire bytes: ${JSON.stringify(wireBytes)}` +
+            (pageState === undefined ? '' : `\npage: ${JSON.stringify(pageState)}`),
+        );
       await page.addInitScript(
         (request) => {
           window.__TENSNAP_BENCHMARK_REQUEST__ = request;
@@ -1085,7 +1116,6 @@ async function runProtocolBrowserReplicate(
           { timeout: Math.max(30_000, (warmupActions + measuredActions) * 1_000) },
         );
       } catch (error) {
-        const detail = diagnostics.length === 0 ? 'no page diagnostics' : diagnostics.join('\n');
         const pageState = await page
           .evaluate(() => ({
             title: document.title,
@@ -1093,8 +1123,9 @@ async function runProtocolBrowserReplicate(
             result: window.__TENSNAP_BENCHMARK_RESULT__ ?? null,
           }))
           .catch(() => null);
-        throw new Error(
-          `Browser benchmark page did not return a result: ${error instanceof Error ? error.message : String(error)}\n${detail}\nserver messages: ${JSON.stringify(counts)}\nserver errors: ${JSON.stringify(simulatorErrors)}\npage: ${JSON.stringify(pageState)}`,
+        throw failure(
+          `Browser benchmark page did not return a result: ${error instanceof Error ? error.message : String(error)}`,
+          pageState,
         );
       }
       const result = (await page.evaluate(() => window.__TENSNAP_BENCHMARK_RESULT__)) as {
@@ -1110,7 +1141,7 @@ async function runProtocolBrowserReplicate(
         };
       };
       if (!result.ok || !result.stats)
-        throw new Error(result.error ?? 'Browser benchmark did not return stats.');
+        throw failure(result.error ?? 'Browser benchmark did not return stats.');
       if (observerError) throw observerError;
       const actionCount = warmupActions + measuredActions;
       const correctness = assertProtocolCorrectness(workload, config, validator, actionCount);

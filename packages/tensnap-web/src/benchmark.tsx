@@ -12,6 +12,7 @@ import { createScenarioStore, ScenarioStoreProvider } from './store/scenario/sto
 import { useSettingsStore, type RenderTriggerMode } from './store/settings';
 import { createTransportStore, TransportStoreProvider } from './store/transport';
 import { createHistoryStore, ScenarioUndoRedoStoreProvider } from './store/undo-redo';
+import { waitForInitialWebState } from './benchmark-ready';
 
 export interface WebBenchmarkHostOptions {
   transport: ISimulatorTransport;
@@ -52,28 +53,7 @@ async function waitForInitialWebRender(
   store: ReturnType<typeof createScenarioStore>,
   timeoutMs = 10_000,
 ): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    let unsubscribe = () => {};
-    const timer = setTimeout(() => {
-      unsubscribe();
-      reject(new Error('Timed out while waiting for the web scenario to finish state sync.'));
-    }, timeoutMs);
-    const finishIfReady = () => {
-      const state = store.getState();
-      if (
-        state.connected &&
-        state.stateSync.phase === 'idle' &&
-        state.actions.size > 0 &&
-        state.environments.size > 0
-      ) {
-        clearTimeout(timer);
-        unsubscribe();
-        resolve();
-      }
-    };
-    unsubscribe = store.subscribe(finishIfReady);
-    finishIfReady();
-  });
+  await waitForInitialWebState(store, timeoutMs);
 
   // Let the same React effects, Leafer hosts and resize observers used by the
   // web application finish mounting before the measured run starts.
