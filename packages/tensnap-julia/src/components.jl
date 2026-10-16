@@ -1,138 +1,168 @@
 mutable struct Parameter
-	id::String
-	label::String
-	type::String
-	value::Any
-	min::Any
-	max::Any
-	step::Any
-	options::Union{Nothing, Vector{Any}}
-	allow_runtime_change::Bool
-	getter::Union{Nothing, Function}
-	setter::Union{Nothing, Function}
+  id::String
+  label::String
+  type::String
+  value::Any
+  min::Any
+  max::Any
+  step::Any
+  options::Union{Nothing,Vector{Any}}
+  allow_runtime_change::Bool
+  getter::Union{Nothing,Function}
+  setter::Union{Nothing,Function}
 end
 
-function parameter(id; label = id, type = "number", value = nothing, min = nothing, max = nothing,
-	step = nothing, options = nothing, allow_runtime_change = true, getter = nothing, setter = nothing)
-	return Parameter(String(id), String(label), String(type), value, min, max, step,
-		options === nothing ? nothing : collect(options), Bool(allow_runtime_change),
-		getter, setter)
+function parameter(
+  id;
+  label = id,
+  type = "number",
+  value = nothing,
+  min = nothing,
+  max = nothing,
+  step = nothing,
+  options = nothing,
+  allow_runtime_change = true,
+  getter = nothing,
+  setter = nothing,
+)
+  return Parameter(
+    String(id),
+    String(label),
+    String(type),
+    value,
+    min,
+    max,
+    step,
+    options === nothing ? nothing : collect(options),
+    Bool(allow_runtime_change),
+    getter,
+    setter,
+  )
 end
 
 function _param_value(p::Parameter, model = nothing)
-	p.getter === nothing ? p.value : _call0or1(p.getter, model)
+  p.getter === nothing ? p.value : _call0or1(p.getter, model)
 end
 
 function _param_payload(p::Parameter, model = nothing)
-	d = Dict{String, Any}("id" => p.id, "label" => p.label, "type" => p.type, "value" => _jsonable(_param_value(p, model)), "allow_runtime_change" => p.allow_runtime_change)
-	p.min !== nothing && (d["min"] = p.min)
-	p.max !== nothing && (d["max"] = p.max)
-	p.step !== nothing && (d["step"] = p.step)
-	p.options !== nothing && (d["options"] = p.options)
-	return d
+  d = Dict{String,Any}(
+    "id" => p.id,
+    "label" => p.label,
+    "type" => p.type,
+    "value" => _jsonable(_param_value(p, model)),
+    "allow_runtime_change" => p.allow_runtime_change,
+  )
+  p.min !== nothing && (d["min"] = p.min)
+  p.max !== nothing && (d["max"] = p.max)
+  p.step !== nothing && (d["step"] = p.step)
+  p.options !== nothing && (d["options"] = p.options)
+  return d
 end
 
 function _set_parameter!(p::Parameter, value, model = nothing)
-	p.setter === nothing ? (p.value = value) : _call1or2(p.setter, value, model)
-	p.value = value
-	return value
+  p.setter === nothing ? (p.value = value) : _call1or2(p.setter, value, model)
+  p.value = value
+  return value
 end
 
 _parameter_target(model, target::Function) = target(model)
 
 function _field_path_parts(field)
-	if field isa Symbol || field isa AbstractString
-		text = String(field)
-		occursin(".", text) && return Any[part for part in split(text, ".")]
-	end
-	return Any[field]
+  if field isa Symbol || field isa AbstractString
+    text = String(field)
+    occursin(".", text) && return Any[part for part in split(text, ".")]
+  end
+  return Any[field]
 end
 
 function _get_parameter_field(obj, field)
-	current = obj
-	for part in _field_path_parts(field)
-		current = _getvalue(current, part)
-		current === nothing && return nothing
-	end
-	return current
+  current = obj
+  for part in _field_path_parts(field)
+    current = _getvalue(current, part)
+    current === nothing && return nothing
+  end
+  return current
 end
 
 function _parameter_field_parent(obj, field)
-	parts = _field_path_parts(field)
-	isempty(parts) && return nothing, nothing
-	current = obj
-	for part in parts[1:(end-1)]
-		current = _getvalue(current, part)
-		current === nothing && return nothing, nothing
-	end
-	return current, parts[end]
+  parts = _field_path_parts(field)
+  isempty(parts) && return nothing, nothing
+  current = obj
+  for part in parts[1:(end-1)]
+    current = _getvalue(current, part)
+    current === nothing && return nothing, nothing
+  end
+  return current, parts[end]
 end
 
 function _lookup_option(options, key, default = nothing)
-	options === nothing && return default
-	if options isa AbstractDict
-		for candidate in _key_candidates(key)
-			haskey(options, candidate) && return options[candidate]
-		end
-		return default
-	end
-	if options isa NamedTuple
-		sym = key isa Symbol ? key : Symbol(key)
-		return sym in keys(options) ? getproperty(options, sym) : default
-	end
-	sym = key isa Symbol ? key : Symbol(key)
-	return hasproperty(options, sym) ? getproperty(options, sym) : default
+  options === nothing && return default
+  if options isa AbstractDict
+    for candidate in _key_candidates(key)
+      haskey(options, candidate) && return options[candidate]
+    end
+    return default
+  end
+  if options isa NamedTuple
+    sym = key isa Symbol ? key : Symbol(key)
+    return sym in keys(options) ? getproperty(options, sym) : default
+  end
+  sym = key isa Symbol ? key : Symbol(key)
+  return hasproperty(options, sym) ? getproperty(options, sym) : default
 end
 
 function _parameter_type_for(value, metadata)
-	explicit_type = _lookup_option(metadata, :type, nothing)
-	explicit_type === nothing || return String(explicit_type)
-	_lookup_option(metadata, :options, nothing) === nothing || return "enum"
-	value isa Bool && return "boolean"
-	value isa Number && return "number"
-	value isa AbstractString && return "string"
-	return nothing
+  explicit_type = _lookup_option(metadata, :type, nothing)
+  explicit_type === nothing || return String(explicit_type)
+  _lookup_option(metadata, :options, nothing) === nothing || return "enum"
+  value isa Bool && return "boolean"
+  value isa Number && return "number"
+  value isa AbstractString && return "string"
+  return nothing
 end
 
 function _allow_runtime_change_for(metadata)
-	value = _lookup_option(metadata, :allow_runtime_change, nothing)
-	value === nothing && (value = _lookup_option(metadata, :allowRuntimeChange, true))
-	return Bool(value)
+  value = _lookup_option(metadata, :allow_runtime_change, nothing)
+  value === nothing && (value = _lookup_option(metadata, :allowRuntimeChange, true))
+  return Bool(value)
 end
 
 function _can_set_parameter_field(obj, field)
-	parent, leaf = _parameter_field_parent(obj, field)
-	parent === nothing && return false
-	parent isa AbstractDict && return true
-	parent isa NamedTuple && return false
-	parent isa Type && return false
-	return ismutable(parent) && hasproperty(parent, leaf isa Symbol ? leaf : Symbol(leaf))
+  parent, leaf = _parameter_field_parent(obj, field)
+  parent === nothing && return false
+  parent isa AbstractDict && return true
+  parent isa NamedTuple && return false
+  parent isa Type && return false
+  return ismutable(parent) && hasproperty(parent, leaf isa Symbol ? leaf : Symbol(leaf))
 end
 
 function _coerce_parameter_value(current, value)
-	current === nothing && return value
-	value isa typeof(current) && return value
-	try
-		return convert(typeof(current), value)
-	catch
-		return value
-	end
+  current === nothing && return value
+  value isa typeof(current) && return value
+  try
+    return convert(typeof(current), value)
+  catch
+    return value
+  end
 end
 
 function _make_field_getter(captured_model, target::Function, field)
-	field_key = field
-	return model -> _get_parameter_field(_parameter_target(model === nothing ? captured_model : model, target), field_key)
+  field_key = field
+  return model -> _get_parameter_field(
+    _parameter_target(model === nothing ? captured_model : model, target),
+    field_key,
+  )
 end
 
 function _make_field_setter(captured_model, target::Function, field)
-	field_key = field
-	return (value, model) -> begin
-		target_obj = _parameter_target(model === nothing ? captured_model : model, target)
-		parent, leaf = _parameter_field_parent(target_obj, field_key)
-		parent === nothing && return value
-		current = _getvalue(parent, leaf)
-		_setvalue!(parent, leaf, _coerce_parameter_value(current, value))
-	end
+  field_key = field
+  return (value, model) -> begin
+    target_obj = _parameter_target(model === nothing ? captured_model : model, target)
+    parent, leaf = _parameter_field_parent(target_obj, field_key)
+    parent === nothing && return value
+    current = _getvalue(parent, leaf)
+    _setvalue!(parent, leaf, _coerce_parameter_value(current, value))
+  end
 end
 
 """
@@ -148,200 +178,332 @@ are treated as enum parameters. Metadata can also provide custom `getter` or
 `allow_runtime_change = false` for controls that should be staged for the next
 reset/init.
 """
-function parameters_from_fields(model; target = identity, include = nothing, exclude = (), metadata = Dict(), rename = Dict())
-	target_obj = _parameter_target(model, target)
-	fields = include === nothing ? collect(_public_fieldnames(target_obj)) : collect(include)
-	excluded = Set(String(field) for field in exclude)
-	params = Parameter[]
-	for field in fields
-		String(field) in excluded && continue
-		field_metadata = _lookup_option(metadata, field, nothing)
-		value = _get_parameter_field(target_obj, field)
-		parameter_type = _parameter_type_for(value, field_metadata)
-		parameter_type === nothing && continue
+function parameters_from_fields(
+  model;
+  target = identity,
+  include = nothing,
+  exclude = (),
+  metadata = Dict(),
+  rename = Dict(),
+)
+  target_obj = _parameter_target(model, target)
+  fields = include === nothing ? collect(_public_fieldnames(target_obj)) : collect(include)
+  excluded = Set(String(field) for field in exclude)
+  params = Parameter[]
+  for field in fields
+    String(field) in excluded && continue
+    field_metadata = _lookup_option(metadata, field, nothing)
+    value = _get_parameter_field(target_obj, field)
+    parameter_type = _parameter_type_for(value, field_metadata)
+    parameter_type === nothing && continue
 
-		id = String(_lookup_option(rename, field, field))
-		label = String(_lookup_option(field_metadata, :label, id))
-		getter = _lookup_option(field_metadata, :getter, _make_field_getter(model, target, field))
-		setter = _lookup_option(field_metadata, :setter, nothing)
-		setter === nothing && _can_set_parameter_field(target_obj, field) && (setter = _make_field_setter(model, target, field))
+    id = String(_lookup_option(rename, field, field))
+    label = String(_lookup_option(field_metadata, :label, id))
+    getter =
+      _lookup_option(field_metadata, :getter, _make_field_getter(model, target, field))
+    setter = _lookup_option(field_metadata, :setter, nothing)
+    setter === nothing &&
+      _can_set_parameter_field(target_obj, field) &&
+      (setter = _make_field_setter(model, target, field))
 
-		push!(
-			params,
-			parameter(id;
-				label = label,
-				type = parameter_type,
-				value = _lookup_option(field_metadata, :value, value),
-				min = _lookup_option(field_metadata, :min, nothing),
-				max = _lookup_option(field_metadata, :max, nothing),
-				step = _lookup_option(field_metadata, :step, nothing),
-				options = _lookup_option(field_metadata, :options, nothing),
-				allow_runtime_change = _allow_runtime_change_for(field_metadata),
-				getter = getter,
-				setter = setter,
-			),
-		)
-	end
-	return params
+    push!(
+      params,
+      parameter(
+        id;
+        label = label,
+        type = parameter_type,
+        value = _lookup_option(field_metadata, :value, value),
+        min = _lookup_option(field_metadata, :min, nothing),
+        max = _lookup_option(field_metadata, :max, nothing),
+        step = _lookup_option(field_metadata, :step, nothing),
+        options = _lookup_option(field_metadata, :options, nothing),
+        allow_runtime_change = _allow_runtime_change_for(field_metadata),
+        getter = getter,
+        setter = setter,
+      ),
+    )
+  end
+  return params
 end
 
 mutable struct Action
-	id::String
-	label::String
-	handler::Function
-	continuous::Bool
-	continue_on_return::Bool
-	scope::Union{Nothing, String}
-	kwargs::Vector{Dict{String, Any}}
+  id::String
+  label::String
+  handler::Function
+  continuous::Bool
+  continue_on_return::Bool
+  scope::Union{Nothing,String}
+  kwargs::Vector{Dict{String,Any}}
 end
 
-action(id, handler; label = id, continuous = false, continue_on_return = false, scope = nothing, kwargs = Dict{String, Any}[]) =
-	Action(String(id), String(label), handler, Bool(continuous), Bool(continue_on_return),
-		scope === nothing ? nothing : String(scope), [Dict{String, Any}(String(k) => v for (k, v) in pairs(item)) for item in kwargs])
+action(
+  id,
+  handler;
+  label = id,
+  continuous = false,
+  continue_on_return = false,
+  scope = nothing,
+  kwargs = Dict{String,Any}[],
+) = Action(
+  String(id),
+  String(label),
+  handler,
+  Bool(continuous),
+  Bool(continue_on_return),
+  scope === nothing ? nothing : String(scope),
+  [Dict{String,Any}(String(k) => v for (k, v) in pairs(item)) for item in kwargs],
+)
 
 function _action_payload(a::Action)
-	d = Dict{String, Any}("id" => a.id, "label" => a.label)
-	a.continuous && (d["continuous"] = true)
-	a.scope === nothing || (d["scope"] = a.scope)
-	isempty(a.kwargs) || (d["kwargs"] = a.kwargs)
-	return d
+  d = Dict{String,Any}("id" => a.id, "label" => a.label)
+  a.continuous && (d["continuous"] = true)
+  a.scope === nothing || (d["scope"] = a.scope)
+  isempty(a.kwargs) || (d["kwargs"] = a.kwargs)
+  return d
 end
 
 mutable struct Chart
-	id::String
-	label::String
-	color::String
-	getter::Function
-	series::Vector{Dict{String, Any}}
+  id::String
+  label::String
+  color::String
+  getter::Function
+  series::Vector{Dict{String,Any}}
 end
 
 function chart(id, getter; label = id, color = "#228be6", series = nothing)
-	sl = series === nothing ? [Dict{String, Any}("id" => String(id), "label" => String(label), "color" => color)] :
-		 [Dict{String, Any}(String(k) => v for (k, v) in pairs(item)) for item in series]
-	return Chart(String(id), String(label), String(color), getter, sl)
+  sl =
+    series === nothing ?
+    [Dict{String,Any}("id" => String(id), "label" => String(label), "color" => color)] :
+    [Dict{String,Any}(String(k) => v for (k, v) in pairs(item)) for item in series]
+  return Chart(String(id), String(label), String(color), getter, sl)
 end
 
 function _chart_payload(c::Chart)
-	d = Dict{String, Any}("id" => c.id, "label" => c.label, "color" => c.color)
-	# A one-series chart is represented by the group itself; data_list is only
-	# for a real group of named series in canonical v0.3.
-	(length(c.series) == 1 && String(c.series[1]["id"]) == c.id) || (d["data_list"] = c.series)
-	return d
+  d = Dict{String,Any}("id" => c.id, "label" => c.label, "color" => c.color)
+  # A one-series chart is represented by the group itself; data_list is only
+  # for a real group of named series in canonical v0.3.
+  (length(c.series) == 1 && String(c.series[1]["id"]) == c.id) ||
+    (d["data_list"] = c.series)
+  return d
 end
 
 """A declarative renderer monitor and its current-value getter."""
 mutable struct Monitor
-	id::String
-	label::String
-	render_hint::Union{Nothing, String}
-	getter::Function
+  id::String
+  label::String
+  render_hint::Union{Nothing,String}
+  getter::Function
 end
 
 function monitor(id, getter; label = id, render_hint = nothing)
-	return Monitor(
-		String(id),
-		String(label),
-		render_hint === nothing ? nothing : String(render_hint),
-		getter,
-	)
+  return Monitor(
+    String(id),
+    String(label),
+    render_hint === nothing ? nothing : String(render_hint),
+    getter,
+  )
 end
 
 function _monitor_payload(m::Monitor)
-	payload = Dict{String, Any}("id" => m.id, "label" => m.label)
-	m.render_hint === nothing || (payload["render_hint"] = m.render_hint)
-	return payload
+  payload = Dict{String,Any}("id" => m.id, "label" => m.label)
+  m.render_hint === nothing || (payload["render_hint"] = m.render_hint)
+  return payload
 end
 
 """Explicit model-specific inverse hooks for scene restore/checkpoints."""
 struct RestoreHooks
-	projected::Any
-	checkpoint_capture::Union{Nothing, Function}
-	checkpoint_restore::Union{Nothing, Function}
+  projected::Any
+  checkpoint_capture::Union{Nothing,Function}
+  checkpoint_restore::Union{Nothing,Function}
 end
 
-restore_hooks(projected = nothing; checkpoint_capture = nothing, checkpoint_restore = nothing) =
-	RestoreHooks(projected, checkpoint_capture, checkpoint_restore)
+restore_hooks(
+  projected = nothing;
+  checkpoint_capture = nothing,
+  checkpoint_restore = nothing,
+) = RestoreHooks(projected, checkpoint_capture, checkpoint_restore)
 
 mutable struct Layer
-	projector_owns_values::Bool
-	projector_deep_copy::Bool
-	deep_copy::Bool
-	# Ownership and wire normalization are separate producer capabilities.
-	normalized_items::Bool
-	id::String
-	type::String
-	items::Function
-	data::Union{Nothing, Function}
-	dependency_layer_ids::Dict{String, String}
-	item_key_fields::Vector{String}
-	restore::Any
-	source_items::Union{Nothing, Function}
-	item_projector::Union{Nothing, Function}
-	scan_projector::Union{Nothing, Function}
-	item_id::Union{Nothing, Function}
-	item_changed::Union{Nothing, Function}
-	environment_type::Union{Nothing, String}
-	last_items::Dict{Any, Dict{String, Any}}
-	last_data::Any
+  projector_owns_values::Bool
+  projector_deep_copy::Bool
+  deep_copy::Bool
+  # Ownership and wire normalization are separate producer capabilities.
+  normalized_items::Bool
+  id::String
+  type::String
+  items::Function
+  data::Union{Nothing,Function}
+  dependency_layer_ids::Dict{String,String}
+  item_key_fields::Vector{String}
+  restore::Any
+  source_items::Union{Nothing,Function}
+  item_projector::Union{Nothing,Function}
+  scan_projector::Union{Nothing,Function}
+  item_id::Union{Nothing,Function}
+  item_changed::Union{Nothing,Function}
+  environment_type::Union{Nothing,String}
+  last_items::Dict{Any,Dict{String,Any}}
+  last_data::Any
 end
 
-function layer(id, type, items; data = nothing, dependency_layer_ids = Dict{String, String}(), item_key_fields = String[],
-	source_items = nothing, projector = nothing, item_id = nothing, changed = nothing, restore = nothing,
-	projector_owns_values = false, projector_deep_copy = true, deep_copy = nothing)
-	return Layer(projector_owns_values, projector_deep_copy, deep_copy === nothing ? !projector_owns_values : deep_copy, false, String(id), String(type), items, data,
-		Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
-		String.(item_key_fields), _normalize_layer_restore(restore), source_items, projector, nothing, item_id, changed,
-		nothing,
-		Dict{Any, Dict{String, Any}}(), _UNSET)
+function layer(
+  id,
+  type,
+  items;
+  data = nothing,
+  dependency_layer_ids = Dict{String,String}(),
+  item_key_fields = String[],
+  source_items = nothing,
+  projector = nothing,
+  item_id = nothing,
+  changed = nothing,
+  restore = nothing,
+  projector_owns_values = false,
+  projector_deep_copy = true,
+  deep_copy = nothing,
+)
+  return Layer(
+    projector_owns_values,
+    projector_deep_copy,
+    deep_copy === nothing ? !projector_owns_values : deep_copy,
+    false,
+    String(id),
+    String(type),
+    items,
+    data,
+    Dict(String(k) => String(v) for (k, v) in pairs(dependency_layer_ids)),
+    String.(item_key_fields),
+    _normalize_layer_restore(restore),
+    source_items,
+    projector,
+    nothing,
+    item_id,
+    changed,
+    nothing,
+    Dict{Any,Dict{String,Any}}(),
+    _UNSET,
+  )
 end
 
-grid_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing, kwargs...) = layer(id, "grid", items; data = data, item_key_fields = item_key_fields, restore = restore, kwargs...)
-patch_layer(id, items; data = nothing, item_key_fields = ["x", "y"], restore = nothing, kwargs...) = layer(id, "patch", items; data = data, item_key_fields = item_key_fields, restore = restore, kwargs...)
-edge_layer(id, items; data = nothing, dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["source", "target"], restore = nothing, kwargs...) =
-	layer(id, "edge", items; data = data, dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore, kwargs...)
+grid_layer(
+  id,
+  items;
+  data = nothing,
+  item_key_fields = ["x", "y"],
+  restore = nothing,
+  kwargs...,
+) = layer(
+  id,
+  "grid",
+  items;
+  data = data,
+  item_key_fields = item_key_fields,
+  restore = restore,
+  kwargs...,
+)
+patch_layer(
+  id,
+  items;
+  data = nothing,
+  item_key_fields = ["x", "y"],
+  restore = nothing,
+  kwargs...,
+) = layer(
+  id,
+  "patch",
+  items;
+  data = data,
+  item_key_fields = item_key_fields,
+  restore = restore,
+  kwargs...,
+)
+edge_layer(
+  id,
+  items;
+  data = nothing,
+  dependency_layer_ids = Dict("agent" => "agents"),
+  item_key_fields = ["source", "target"],
+  restore = nothing,
+  kwargs...,
+) = layer(
+  id,
+  "edge",
+  items;
+  data = data,
+  dependency_layer_ids = dependency_layer_ids,
+  item_key_fields = item_key_fields,
+  restore = restore,
+  kwargs...,
+)
 _empty_layer_items(_model = nothing) = Any[]
-function trajectory_layer(id, items = _empty_layer_items; data = nothing,
-	length = nothing, width = nothing, color = nothing, z_index = nothing,
-	on_agent_delete = nothing, on_state_sync = nothing, on_reset = nothing,
-	dependency_layer_ids = Dict("agent" => "agents"), item_key_fields = ["id"], restore = nothing, kwargs...)
-	on_agent_delete ∈ (nothing, "delete", "retain") || error("on_agent_delete must be delete or retain")
-	on_state_sync ∈ (nothing, "preserve", "clear") || error("on_state_sync must be preserve or clear")
-	on_reset ∈ (nothing, "clear", "preserve") || error("on_reset must be clear or preserve")
-	metadata = model -> begin
-		base = data === nothing ? Dict{String, Any}() : Dict{String, Any}(String(k) => v for (k, v) in pairs(_call0or1(data, model)))
-		length === nothing || (base["length"] = length)
-		width === nothing || (base["width"] = width)
-		color === nothing || (base["color"] = color)
-		z_index === nothing || (base["z_index"] = z_index)
-		on_agent_delete === nothing || (base["on_agent_delete"] = on_agent_delete)
-		on_state_sync === nothing || (base["on_state_sync"] = on_state_sync)
-		on_reset === nothing || (base["on_reset"] = on_reset)
-		base
-	end
-	return layer(id, "trajectory", items; data = metadata,
-		dependency_layer_ids = dependency_layer_ids, item_key_fields = item_key_fields, restore = restore, kwargs...)
+function trajectory_layer(
+  id,
+  items = _empty_layer_items;
+  data = nothing,
+  length = nothing,
+  width = nothing,
+  color = nothing,
+  z_index = nothing,
+  on_agent_delete = nothing,
+  on_state_sync = nothing,
+  on_reset = nothing,
+  dependency_layer_ids = Dict("agent" => "agents"),
+  item_key_fields = ["id"],
+  restore = nothing,
+  kwargs...,
+)
+  on_agent_delete ∈ (nothing, "delete", "retain") ||
+    error("on_agent_delete must be delete or retain")
+  on_state_sync ∈ (nothing, "preserve", "clear") ||
+    error("on_state_sync must be preserve or clear")
+  on_reset ∈ (nothing, "clear", "preserve") || error("on_reset must be clear or preserve")
+  metadata =
+    model -> begin
+      base =
+        data === nothing ? Dict{String,Any}() :
+        Dict{String,Any}(String(k) => v for (k, v) in pairs(_call0or1(data, model)))
+      length === nothing || (base["length"] = length)
+      width === nothing || (base["width"] = width)
+      color === nothing || (base["color"] = color)
+      z_index === nothing || (base["z_index"] = z_index)
+      on_agent_delete === nothing || (base["on_agent_delete"] = on_agent_delete)
+      on_state_sync === nothing || (base["on_state_sync"] = on_state_sync)
+      on_reset === nothing || (base["on_reset"] = on_reset)
+      base
+    end
+  return layer(
+    id,
+    "trajectory",
+    items;
+    data = metadata,
+    dependency_layer_ids = dependency_layer_ids,
+    item_key_fields = item_key_fields,
+    restore = restore,
+    kwargs...,
+  )
 end
-background_layer(id = "background"; data = nothing, restore = nothing) = layer(id, "background", _empty_layer_items; data = data, restore = restore)
+background_layer(id = "background"; data = nothing, restore = nothing) =
+  layer(id, "background", _empty_layer_items; data = data, restore = restore)
 
 mutable struct Environment
-	id::String
-	type::String
-	layers::Vector{Layer}
+  id::String
+  type::String
+  layers::Vector{Layer}
 end
 
 function environment(id; type = "2d", layers = Layer[])
-	e = Environment(String(id), String(type), collect(layers))
-	for l in e.layers
-		l.environment_type = e.type
-	end
-	return e
+  e = Environment(String(id), String(type), collect(layers))
+  for l in e.layers
+    l.environment_type = e.type
+  end
+  return e
 end
 
 mutable struct Asset
-	id::String
-	hash::String
-	mime::String
-	size::Int
-	label::Union{Nothing, String}
-	data::Vector{UInt8}
+  id::String
+  hash::String
+  mime::String
+  size::Int
+  label::Union{Nothing,String}
+  data::Vector{UInt8}
 end

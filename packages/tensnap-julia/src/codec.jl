@@ -1,15 +1,21 @@
 function _chart_updates(c::Chart, value, t::Int)
-	if value isa AbstractDict
-		return [Dict("id" => String(k), "value" => _jsonable(v), "time" => t) for (k, v) in pairs(value)]
-	elseif value isa Tuple || value isa AbstractVector
-		return [Dict("id" => c.series[i]["id"], "value" => _jsonable(v), "time" => t) for (i, v) in enumerate(value) if i <= length(c.series)]
-	else
-		return [Dict("id" => c.series[1]["id"], "value" => _jsonable(value), "time" => t)]
-	end
+  if value isa AbstractDict
+    return [
+      Dict("id" => String(k), "value" => _jsonable(v), "time" => t) for
+      (k, v) in pairs(value)
+    ]
+  elseif value isa Tuple || value isa AbstractVector
+    return [
+      Dict("id" => c.series[i]["id"], "value" => _jsonable(v), "time" => t) for
+      (i, v) in enumerate(value) if i <= length(c.series)
+    ]
+  else
+    return [Dict("id" => c.series[1]["id"], "value" => _jsonable(value), "time" => t)]
+  end
 end
 
 struct _MessagePackBytes
-	data::Vector{UInt8}
+  data::Vector{UInt8}
 end
 
 MsgPack.msgpack_type(::Type{_MessagePackBytes}) = MsgPack.BinaryType()
@@ -22,107 +28,120 @@ _messagepackable(value::AbstractVector{UInt8}) = _MessagePackBytes(Vector{UInt8}
 # Serialization adapters borrow stable snapshots rather than rebuilding their
 # entire object trees just to wrap binary leaves for MessagePack.
 struct _MessagePackMap{T}
-	data::T
+  data::T
 end
 struct _MessagePackArray{T}
-	data::T
+  data::T
 end
 MsgPack.msgpack_type(::Type{<:_MessagePackMap}) = MsgPack.MapType()
 MsgPack.msgpack_type(::Type{<:_MessagePackArray}) = MsgPack.ArrayType()
 MsgPack.to_msgpack(::MsgPack.MapType, value::_MessagePackMap) = value
 MsgPack.to_msgpack(::MsgPack.ArrayType, value::_MessagePackArray) = value
-Base.length(value::Union{_MessagePackMap, _MessagePackArray}) = length(value.data)
+Base.length(value::Union{_MessagePackMap,_MessagePackArray}) = length(value.data)
 _messagepack_map_entry(::Nothing) = nothing
-_messagepack_map_entry(entry) = ((first(entry[1]), _messagepackable(last(entry[1]))), entry[2])
+_messagepack_map_entry(entry) =
+  ((first(entry[1]), _messagepackable(last(entry[1]))), entry[2])
 _messagepack_array_entry(::Nothing) = nothing
 _messagepack_array_entry(entry) = (_messagepackable(entry[1]), entry[2])
 Base.iterate(value::_MessagePackMap) = _messagepack_map_entry(iterate(value.data))
-Base.iterate(value::_MessagePackMap, state) = _messagepack_map_entry(iterate(value.data, state))
+Base.iterate(value::_MessagePackMap, state) =
+  _messagepack_map_entry(iterate(value.data, state))
 Base.iterate(value::_MessagePackArray) = _messagepack_array_entry(iterate(value.data))
-Base.iterate(value::_MessagePackArray, state) = _messagepack_array_entry(iterate(value.data, state))
+Base.iterate(value::_MessagePackArray, state) =
+  _messagepack_array_entry(iterate(value.data, state))
 _messagepackable(value::AbstractVector) = _MessagePackArray(value)
 _messagepackable(value::AbstractDict) = _MessagePackMap(value)
 
 function _encode(type::String, payload; use_msgpack = false, normalized = false)
-	message = Dict("type" => type, "payload" => normalized ? payload : _wire_value(payload))
-	return use_msgpack ? MsgPack.pack(_messagepackable(message)) : JSON3.write(message)
+  message = Dict("type" => type, "payload" => normalized ? payload : _wire_value(payload))
+  return use_msgpack ? MsgPack.pack(_messagepackable(message)) : JSON3.write(message)
 end
 
 function _raw_bytes(raw)
-	raw isa AbstractString && return Vector{UInt8}(codeunits(raw))
-	raw isa Vector{UInt8} && return raw
-	return Vector{UInt8}(raw)
+  raw isa AbstractString && return Vector{UInt8}(codeunits(raw))
+  raw isa Vector{UInt8} && return raw
+  return Vector{UInt8}(raw)
 end
 
 function _first_nonspace_byte(bytes::AbstractVector{UInt8})
-	for b in bytes
-		b in (0x09, 0x0a, 0x0d, 0x20) || return b
-	end
-	return nothing
+  for b in bytes
+    b in (0x09, 0x0a, 0x0d, 0x20) || return b
+  end
+  return nothing
 end
 
 function _decode_with_encoding(raw)
-	bytes = _raw_bytes(raw)
-	first = _first_nonspace_byte(bytes)
-	if first in (UInt8('{'), UInt8('['))
-		return JSON3.read(String(bytes), Dict{String, Any}), false
-	end
-	return MsgPack.unpack(bytes), true
+  bytes = _raw_bytes(raw)
+  first = _first_nonspace_byte(bytes)
+  if first in (UInt8('{'), UInt8('['))
+    return JSON3.read(String(bytes), Dict{String,Any}), false
+  end
+  return MsgPack.unpack(bytes), true
 end
 
 function _decode(s::Scenario, raw)
-	msg, _ = _decode_with_encoding(raw)
-	return msg
+  msg, _ = _decode_with_encoding(raw)
+  return msg
 end
 
 function _encode_checkpoint(data; use_msgpack = false)
-	encoding, bytes = if data isa AbstractVector{UInt8}
-		("application/octet-stream", Vector{UInt8}(data))
-	else
-		("application/msgpack", Vector{UInt8}(MsgPack.pack(_jsonable(data))))
-	end
-	wire_data = use_msgpack ? bytes : "data:$encoding;base64,$(base64encode(bytes))"
-	return Dict{String, Any}("encoding" => encoding, "data" => wire_data)
+  encoding, bytes = if data isa AbstractVector{UInt8}
+    ("application/octet-stream", Vector{UInt8}(data))
+  else
+    ("application/msgpack", Vector{UInt8}(MsgPack.pack(_jsonable(data))))
+  end
+  wire_data = use_msgpack ? bytes : "data:$encoding;base64,$(base64encode(bytes))"
+  return Dict{String,Any}("encoding" => encoding, "data" => wire_data)
 end
 
 function _decode_checkpoint(checkpoint)
-	encoding = String(get(checkpoint, "encoding", ""))
-	data = get(checkpoint, "data", nothing)
-	bytes = if data isa AbstractString
-		encoded = startswith(data, "data:") ? split(data, ','; limit = 2)[2] : data
-		base64decode(encoded)
-	elseif data isa AbstractVector{UInt8}
-		Vector{UInt8}(data)
-	else
-		error("checkpoint.data must be bytes or base64 text")
-	end
-	encoding == "application/octet-stream" && return bytes
-	encoding == "application/msgpack" && return MsgPack.unpack(bytes)
-	error("Unsupported checkpoint encoding: $encoding")
+  encoding = String(get(checkpoint, "encoding", ""))
+  data = get(checkpoint, "data", nothing)
+  bytes = if data isa AbstractString
+    encoded = startswith(data, "data:") ? split(data, ','; limit = 2)[2] : data
+    base64decode(encoded)
+  elseif data isa AbstractVector{UInt8}
+    Vector{UInt8}(data)
+  else
+    error("checkpoint.data must be bytes or base64 text")
+  end
+  encoding == "application/octet-stream" && return bytes
+  encoding == "application/msgpack" && return MsgPack.unpack(bytes)
+  error("Unsupported checkpoint encoding: $encoding")
 end
 
 function _send(ws, type::String, payload; use_msgpack = false, normalized = false)
-	type in SERVER_MESSAGE_TYPES || error("unknown TenSnap server message type: $type")
-	HTTP.WebSockets.send(ws, _encode(type, payload; use_msgpack = use_msgpack, normalized = normalized))
+  type in SERVER_MESSAGE_TYPES || error("unknown TenSnap server message type: $type")
+  HTTP.WebSockets.send(
+    ws,
+    _encode(type, payload; use_msgpack = use_msgpack, normalized = normalized),
+  )
 end
 
 _client_use_msgpack(s::Scenario, ws) = get(s.client_encodings, ws, s.use_msgpack)
 
 function _send_to(s::Scenario, ws, type::String, payload; normalized = false)
-	_send(ws, type, payload; use_msgpack = _client_use_msgpack(s, ws), normalized = normalized)
+  _send(
+    ws,
+    type,
+    payload;
+    use_msgpack = _client_use_msgpack(s, ws),
+    normalized = normalized,
+  )
 end
 
 function _broadcast(s::Scenario, type::String, payload; normalized = false)
-	for ws in copy(s.clients)
-		try
-			_send_to(s, ws, type, payload; normalized = normalized)
-		catch
-			filter!(x -> x !== ws, s.clients)
-			pop!(s.client_encodings, ws, nothing)
-		end
-	end
+  for ws in copy(s.clients)
+    try
+      _send_to(s, ws, type, payload; normalized = normalized)
+    catch
+      filter!(x -> x !== ws, s.clients)
+      pop!(s.client_encodings, ws, nothing)
+    end
+  end
 end
 
 function _send_or_broadcast(s::Scenario, ws, type::String, payload; normalized = false)
-	ws === nothing ? _broadcast(s, type, payload; normalized = normalized) : _send_to(s, ws, type, payload; normalized = normalized)
+  ws === nothing ? _broadcast(s, type, payload; normalized = normalized) :
+  _send_to(s, ws, type, payload; normalized = normalized)
 end

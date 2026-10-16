@@ -81,6 +81,17 @@ TENSNAP_SERVER_PORT=8765 pnpm --dir examples/julia run demo:schelling
 pnpm --dir examples/julia run demo:schelling:makie
 ```
 
+## Development
+
+Formatting uses JuliaFormatter's `jlfmt` application. On Julia versions with Pkg app support, install it with `pkg> app add JuliaFormatter` and add your depot's `bin` directory (normally `~/.julia/bin`) to `PATH`.
+
+```bash
+pnpm --filter @tensnap/julia format
+pnpm --filter @tensnap/julia lint
+```
+
+Both commands use two-space indentation and target `src`; `lint` checks without writing files.
+
 ## Release
 
 Release preparation is wired through the repository release helper:
