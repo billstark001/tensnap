@@ -95,22 +95,31 @@ export async function inspectEnvironment(
     ],
     { cwd: path.join(context.repositoryRoot, 'benchmarks/schelling/v1/subjects/go'), quiet: true },
   );
-  const juliaCode =
-    'using TenSnap, Agents, WGLMakie, JSON3, Serialization; println(VERSION); println(pathof(TenSnap)); println(pkgversion(Agents)); println(pkgversion(WGLMakie))';
-  const julia = (
-    await execute(
-      context,
-      'julia',
-      [`--project=${context.env.TENSNAP_JULIA_PROJECT}`, '-e', juliaCode],
-      { quiet: true },
-    )
-  ).split('\n');
+  const juliaCode = [
+    'using TenSnap, Agents, WGLMakie, JSON3, Serialization',
+    'println(JSON3.write((version=string(VERSION), bindingPath=pathof(TenSnap), agents=string(pkgversion(Agents)), wglmakie=string(pkgversion(WGLMakie)))))',
+  ].join('\n');
+  const julia: { version: string; bindingPath: string; agents: string; wglmakie: string } =
+    JSON.parse(
+      (
+        await execute(
+          context,
+          'julia',
+          ['--startup-file=no', `--project=${context.env.TENSNAP_JULIA_PROJECT}`, '-e', juliaCode],
+          { quiet: true, capture: 'stdout' },
+        )
+      )
+        .split('\n')
+        .slice(-1)[0]!,
+    );
   if (
     !path
-      .resolve(julia[1]!)
+      .resolve(julia.bindingPath)
       .startsWith(path.join(context.repositoryRoot, 'packages/tensnap-julia') + path.sep)
   )
-    throw new Error('Julia must import the binding from this checkout.');
+    throw new Error(
+      `Julia must import the binding from this checkout. Loaded: ${julia.bindingPath}; expected under: ${path.join(context.repositoryRoot, 'packages/tensnap-julia')}`,
+    );
   const browser = await chromium.launch({ headless: true });
   let browserVersion: string;
   try {
@@ -133,7 +142,7 @@ export async function inspectEnvironment(
     python,
     pythonFreezeSha256: hashBytes(installed),
     go,
-    julia: { version: julia[0], bindingPath: julia[1], agents: julia[2], wglmakie: julia[3] },
+    julia,
     chromium: { version: browserVersion, executable: chromium.executablePath() },
     netlogoHome: context.env.NETLOGO_HOME,
     locks,

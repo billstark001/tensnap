@@ -9,13 +9,14 @@ export async function execute(
   context: ExecutionContext,
   executable: string,
   args: readonly string[],
-  options: { cwd?: string; log?: string; quiet?: boolean } = {},
+  options: { cwd?: string; log?: string; quiet?: boolean; capture?: 'stdout' | 'combined' } = {},
 ): Promise<string> {
   context.signal?.throwIfAborted();
   await prepareDirectories(context);
   if (options.log) await mkdir(path.dirname(options.log), { recursive: true });
   const log = options.log ? createWriteStream(options.log, { flags: 'a' }) : undefined;
   let output = '';
+  let stdout = '';
   const child = spawn(executable, [...args], {
     cwd: options.cwd ?? context.repositoryRoot,
     env: context.env,
@@ -27,7 +28,10 @@ export async function execute(
     log?.write(data);
     if (!options.quiet) process.stdout.write(data);
   };
-  child.stdout.on('data', forward);
+  child.stdout.on('data', (data: Buffer) => {
+    if (options.capture === 'stdout') stdout = (stdout + data.toString()).slice(-2_000_000);
+    forward(data);
+  });
   child.stderr.on('data', forward);
   const interrupt = () => {
     try {
@@ -52,7 +56,7 @@ export async function execute(
         else reject(new Error(`${executable} exited ${code ?? signal}:\n${output.slice(-6000)}`));
       });
     });
-    return output.trim();
+    return (options.capture === 'stdout' ? stdout : output).trim();
   } finally {
     context.signal?.removeEventListener('abort', interrupt);
     process.removeListener('SIGINT', interrupt);
