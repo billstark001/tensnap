@@ -35,4 +35,4 @@ This document is the shared contract for the Python, Go, Julia, and JS model bin
 
 Parameter keyword/type reuse across layer builders is intentionally outside this contract for now.
 
-Snapshot mutability and frame lifetime are a separate design discussion. See [Snapshot and frame ownership proposal](./snapshot-ownership-proposal.md) for the current four-binding audit and proposed publication boundary; its ownership-transfer API is not implemented or required by this contract.
+Item mutability follows the [projection ownership contract](./projection-ownership.md): built-in projectors return independent snapshots, custom callbacks keep safe publication copying unless they explicitly declare independent output, and published records are read-only. That page also distinguishes item lifetime from transport/frame lifetime.
