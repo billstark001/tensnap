@@ -58,16 +58,21 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
         ? status.conditionValue
         : JSON.stringify(status.conditionValue)
       : undefined;
-  const visibleStopReason = status?.pauseRequested ? 'paused' : (status?.stopReason ?? 'stopped');
+  const visibleStopReason =
+    status?.primaryFailure ??
+    (status?.pauseRequested ? 'paused' : (status?.stopReason ?? 'stopped'));
   const runTitle = isRunForContinuousButton
     ? status.state === 'running' && !status.pauseRequested
-      ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}${status.inFlight ? ' · waiting' : ''}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
-      : `${status.completedSteps} · ${visibleStopReason}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
+      ? `${status.completedActions}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}${status.inFlight ? ' · waiting' : ''}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
+      : `${status.completedActions} · ${visibleStopReason}${conditionSummary === undefined ? '' : ` · ${conditionSummary}`}`
     : undefined;
+  const outcomeTitle = isRunForContinuousButton
+    ? `${runTitle} · ✓${status.succeededActions} ×${status.failedActions}${!status.settled ? ' · …' : ''}`
+    : runTitle;
   const runIndicator = isRunForContinuousButton
     ? status.state === 'running' && !status.pauseRequested
-      ? `${status.completedSteps}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}`
-      : `${status.completedSteps} · ${stopReasonGlyph[visibleStopReason]}`
+      ? `${status.completedActions}/${status.spec.mode === 'manual' ? '∞' : status.spec.maxSteps}`
+      : `${status.completedActions} · ${stopReasonGlyph[visibleStopReason]}`
     : undefined;
 
   useEffect(() => {
@@ -93,7 +98,7 @@ export const ButtonViewComponent = ({ view }: ButtonViewProps) => {
         }
         onButtonAction(view.data.id, true);
       }}
-      title={runTitle}
+      title={outcomeTitle}
     >
       {isContinuous && (running ? <Pause size={14} /> : <Play size={14} />)}
       <span className={styles.buttonLabel}>{(view as ButtonView).data.text}</span>
