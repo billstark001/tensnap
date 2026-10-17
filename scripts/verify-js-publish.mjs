@@ -35,7 +35,14 @@ function isPublished(name, version) {
     try {
       const output = execFileSync(
         'npm',
-        ['view', key, 'version', '--json', '--registry=https://registry.npmjs.org'],
+        [
+          'view',
+          key,
+          'version',
+          '--json',
+          '--prefer-online',
+          '--registry=https://registry.npmjs.org',
+        ],
         {
           encoding: 'utf8',
           stdio: ['ignore', 'pipe', 'pipe'],
