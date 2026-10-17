@@ -77,6 +77,7 @@ const host = createWebSocketTransportHost({
   sessionFactory: () => binding.createSession(),
 });
 
+await host.ready;
 console.log(host.url);
 ```
 
@@ -114,3 +115,7 @@ pnpm dev:js:tornberg
 ```
 
 For the full API surface, see [`docs/api-reference/js-api.md`](../../docs/api-reference/js-api.md).
+
+## IP family
+
+See the [networking guide](../../docs/user-guide/networking.md) for `auto` (default), `ipv4`, and `ipv6` policies, IPv6 URLs, and shared ephemeral ports.

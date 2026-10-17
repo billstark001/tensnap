@@ -99,3 +99,7 @@ export const MY_EXAMPLE = builder.build();
 ```
 
 Renderer authors should declare metadata, parameters, environments, layers, charts, optional actions, and optional assets. The exported object exposes `createScenario(...)` and `createSession(...)` for manifests and transports, so renderer files do not need wrapper session code.
+
+## IP family
+
+See the [networking guide](../../docs/user-guide/networking.md) for `auto` (default), `ipv4`, and `ipv6` policies, IPv6 URLs, and shared ephemeral ports.

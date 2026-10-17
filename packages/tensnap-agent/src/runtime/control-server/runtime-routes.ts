@@ -2,7 +2,7 @@
 import { readFile } from 'node:fs/promises';
 import type { Hono } from 'hono';
 import type { AgentRuntime } from '../AgentRuntime';
-import type { RenderTriggerMode, RuntimeEvent, RuntimeLogEntry } from '../../types';
+import type { ConnectOptions, RenderTriggerMode, RuntimeEvent, RuntimeLogEntry } from '../../types';
 import type { RuntimeSseBroker } from './sse-broker';
 import { readJsonObject } from './json-body';
 
@@ -48,9 +48,7 @@ export function registerRuntimeRoutes(
   });
 
   app.post('/v1/runtime/connect', async (c) => {
-    const body = await readJsonObject<{ simulatorUrl: string; encoding?: 'json' | 'msgpack' }>(
-      c.req,
-    );
+    const body = await readJsonObject<ConnectOptions>(c.req);
     return c.json(await runtime.connect(body));
   });
 

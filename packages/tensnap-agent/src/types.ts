@@ -1,3 +1,4 @@
+import { type IPFamily } from '@tensnap/network';
 import type { ChartSeriesPoint } from '@tensnap/core/chart';
 import type { Viewport } from '@tensnap/core/environment';
 import type {
@@ -37,6 +38,7 @@ export interface RuntimeContextOptions {
 }
 
 export interface RuntimeControlFile {
+  ip_family?: IPFamily;
   version: 1;
   contextName: string;
   contextDir: string;
@@ -115,6 +117,7 @@ export interface RuntimeEvent<T = unknown> {
 }
 
 export interface ConnectOptions {
+  ip_family?: IPFamily;
   simulatorUrl: string;
   encoding?: ProtocolEncoding;
   clientMessageValidation?: ProtocolValidationLevel;

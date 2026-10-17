@@ -1,3 +1,9 @@
+import {
+  normalizeWebSocketData,
+  webSocketByteLength,
+  waitForWebSocketOpen,
+  closeWebSocket,
+} from '@tensnap/network/node';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import {
@@ -16,7 +22,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { once } from 'node:events';
-import WebSocket, { type RawData } from 'ws';
+import WebSocket from 'ws';
 import {
   createProtocolCodec,
   PROTOCOL_VERSION,
@@ -26,7 +32,7 @@ import {
   type RendererToSimulatorMessage,
   type SimulatorToRendererMessage,
 } from '@tensnap/protocol';
-import { createWebSocketTransportHost, normalizeWebSocketRawData } from '@tensnap/js/transport';
+import { createWebSocketTransportHost } from '@tensnap/js/transport';
 import type {
   BenchmarkArtifact,
   BenchmarkConfig,
@@ -386,17 +392,6 @@ function externalWallMeasurement(start: ProcessMeasurementStart): BenchmarkRepli
   };
 }
 
-function byteLength(payload: string | Uint8Array | ArrayBuffer): number {
-  return typeof payload === 'string' ? Buffer.byteLength(payload) : payload.byteLength;
-}
-
-function rawByteLength(data: RawData): number {
-  if (typeof data === 'string') return Buffer.byteLength(data);
-  if (data instanceof ArrayBuffer) return data.byteLength;
-  if (Array.isArray(data)) return data.reduce((total, part) => total + rawByteLength(part), 0);
-  return data.byteLength;
-}
-
 function emptyCounts(): Record<string, number> {
   return {};
 }
@@ -509,7 +504,7 @@ async function runProtocolNodeReplicate(
     const encoded = simulatorOutgoing.encode(message as AnyProtocolMessage, encoding);
     wireBytes = {
       ...wireBytes,
-      simulatorToRenderer: wireBytes.simulatorToRenderer + byteLength(encoded),
+      simulatorToRenderer: wireBytes.simulatorToRenderer + webSocketByteLength(encoded),
     };
     const decoded = incoming.decode(encoded) as SimulatorToRendererMessage;
     incrementCount(counts, decoded.type);
@@ -521,7 +516,7 @@ async function runProtocolNodeReplicate(
     const encoded = outgoing.encode(message as AnyProtocolMessage, encoding);
     wireBytes = {
       ...wireBytes,
-      rendererToSimulator: wireBytes.rendererToSimulator + byteLength(encoded),
+      rendererToSimulator: wireBytes.rendererToSimulator + webSocketByteLength(encoded),
     };
     await session.dispatch(simulatorIncoming.decode(encoded) as RendererToSimulatorMessage);
   };
@@ -674,15 +669,6 @@ export async function allocateLoopbackPort(): Promise<number> {
   });
 }
 
-async function closeSocket(socket: WebSocket): Promise<void> {
-  if (socket.readyState === WebSocket.CLOSED) return;
-  const closed = new Promise<void>((resolvePromise) =>
-    socket.once('close', () => resolvePromise()),
-  );
-  socket.close();
-  await withTimeout(closed, 'WebSocket close', 5_000).catch(() => socket.terminate());
-}
-
 async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer> {
   const configFile = path.join(repositoryRoot, 'packages/benchmark/vite.config.ts');
   const { preview } = await import('vite');
@@ -734,12 +720,13 @@ export async function runWsReplicate(
   const metrics = emptyMetrics();
   let wireBytes = { ...EMPTY_BYTES };
   const host = createWebSocketTransportHost({
+    serverOptions: { host: 'localhost', port: 0 },
     sessionFactory: () => workload.createSession(config),
     encoding,
     rendererMessageValidation: validation,
     simulatorMessageValidation: validation,
   });
-  if (!host.url) await once(host.server, 'listening');
+  await host.ready;
   const url = host.url;
   if (!url) throw new Error('WebSocket benchmark host did not expose an address.');
 
@@ -772,21 +759,30 @@ export async function runWsReplicate(
       try {
         wireBytes = {
           ...wireBytes,
-          simulatorToRenderer: wireBytes.simulatorToRenderer + rawByteLength(data),
+          simulatorToRenderer: wireBytes.simulatorToRenderer + webSocketByteLength(data),
         };
-        const normalized = normalizeWebSocketRawData(data, isBinary);
+        const normalized = normalizeWebSocketData(data, isBinary);
         const message = incoming.decode(normalized) as SimulatorToRendererMessage;
         incrementCount(counts, message.type);
         assertSimulatorResult(message);
         validator.observe(message);
         if (message.type === 'simulator_info') {
+          const info = message.payload as {
+            model: { id: string };
+            instance_id: string;
+            binding: { name: string };
+          };
+          if (info.model.id !== workload.modelId)
+            throw new Error(
+              `Benchmark peer identity mismatch before state_sync: expected ${workload.modelId}, received ${info.model.id}; endpoint=${url}; bound=${stableJson(host.server.address())}; binding=${info.binding.name}; instance=${info.instance_id}.`,
+            );
           const payload = outgoing.encode(
             stateSyncMessage(workload) as AnyProtocolMessage,
             encoding,
           );
           wireBytes = {
             ...wireBytes,
-            rendererToSimulator: wireBytes.rendererToSimulator + byteLength(payload),
+            rendererToSimulator: wireBytes.rendererToSimulator + webSocketByteLength(payload),
           };
           send(payload);
         } else if (message.type === 'state_sync_end') {
@@ -807,13 +803,7 @@ export async function runWsReplicate(
         ),
       );
     });
-    await withTimeout(
-      new Promise<void>((resolvePromise, reject) => {
-        socket!.once('open', resolvePromise);
-        socket!.once('error', reject);
-      }),
-      `WebSocket connection to ${url}`,
-    );
+    await waitForWebSocketOpen(socket, { label: `WebSocket connection to ${url}` });
     await withTimeout(synchronised.promise, 'Initial state sync');
     if (failure) throw failure;
 
@@ -828,7 +818,7 @@ export async function runWsReplicate(
       const encoded = outgoing.encode(message as AnyProtocolMessage, encoding);
       wireBytes = {
         ...wireBytes,
-        rendererToSimulator: wireBytes.rendererToSimulator + byteLength(encoded),
+        rendererToSimulator: wireBytes.rendererToSimulator + webSocketByteLength(encoded),
       };
       const started = nowMs();
       send(encoded);
@@ -853,7 +843,7 @@ export async function runWsReplicate(
       { cause: error },
     );
   } finally {
-    if (socket) await closeSocket(socket);
+    if (socket) await closeWebSocket(socket);
     await host.close();
   }
 }
@@ -1030,6 +1020,7 @@ export async function runProtocolBrowserReplicate(
       bootstrapComplete = true;
   };
   const host = createWebSocketTransportHost({
+    serverOptions: { host: 'localhost', port: 0 },
     sessionFactory: () => workload.createSession(config),
     encoding,
     rendererMessageValidation: validation,
@@ -1051,7 +1042,7 @@ export async function runProtocolBrowserReplicate(
       wireBytes = { ...wireBytes, rendererToSimulator: wireBytes.rendererToSimulator + bytes };
     },
   });
-  if (!host.url) await once(host.server, 'listening');
+  await host.ready;
   const endpoint = host.url;
   if (!endpoint) throw new Error('WebSocket browser benchmark host did not expose an address.');
 
@@ -1649,21 +1640,18 @@ async function waitForWebSocketEndpoint(
   let lastError = 'not attempted';
   while (nowMs() < deadline) {
     assertExternalServerRunning(server);
+    const socket = new WebSocket(endpoint);
     try {
-      const socket = new WebSocket(endpoint);
-      await withTimeout(
-        new Promise<void>((resolvePromise, reject) => {
-          socket.once('open', resolvePromise);
-          socket.once('error', reject);
-        }),
-        `External simulator ${endpoint} readiness`,
-        Math.min(2_000, Math.max(250, deadline - nowMs())),
-      );
-      await closeSocket(socket);
+      await waitForWebSocketOpen(socket, {
+        label: `External simulator ${endpoint} readiness`,
+        timeoutMs: Math.min(2_000, Math.max(250, deadline - nowMs())),
+      });
       return;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
-      await new Promise<void>((resolvePromise) => setTimeout(resolvePromise, 150));
+      await new Promise<void>((resolve) => setTimeout(resolve, 150));
+    } finally {
+      await closeWebSocket(socket);
     }
   }
   throw new Error(`External simulator ${endpoint} did not become ready: ${lastError}`);

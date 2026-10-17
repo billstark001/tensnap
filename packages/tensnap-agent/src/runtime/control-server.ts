@@ -3,11 +3,14 @@ import { createAdaptorServer, type ServerType } from '@hono/node-server';
 import { AgentRuntime } from './AgentRuntime';
 import type { RuntimeEvent } from '../types';
 import { buildControlApp } from './control-server/app';
+import { listenIPServers, closeIPServers } from '@tensnap/network/node';
+import type { IPFamily } from '@tensnap/network';
 import { RuntimeSseBroker } from './control-server/sse-broker';
 
 // #endregion
 
 interface ControlServerOptions {
+  ip_family?: IPFamily;
   host?: string;
   port?: number;
 }
@@ -17,7 +20,10 @@ interface ControlServerOptions {
 export class RuntimeControlServer {
   private readonly broker = new RuntimeSseBroker();
   private readonly app: ReturnType<typeof buildControlApp>;
-  private server: ServerType | null = null;
+  private servers: ServerType[] = [];
+  private listenPromise?: Promise<{ host: string; port: number }>;
+  private closePromise?: Promise<void>;
+  private readonly onRuntimeEvent = (event: RuntimeEvent) => this.broker.broadcast(event);
 
   constructor(
     private readonly runtime: AgentRuntime,
@@ -26,53 +32,69 @@ export class RuntimeControlServer {
     this.app = buildControlApp(runtime, this.broker, () => {
       void this.shutdownAndExit();
     });
-    this.runtime.on('event', (event) => this.broker.broadcast(event as RuntimeEvent));
   }
 
-  async listen(): Promise<{ host: string; port: number }> {
-    const host = this.options.host ?? '127.0.0.1';
+  listen(): Promise<{ host: string; port: number }> {
+    if (this.closePromise) return Promise.reject(new Error('Control server is closing.'));
+    if (!this.listenPromise) {
+      this.runtime.on('event', this.onRuntimeEvent);
+      this.listenPromise = this.startListening().catch((error) => {
+        this.runtime.off('event', this.onRuntimeEvent);
+        this.listenPromise = undefined;
+        throw error;
+      });
+    }
+    return this.listenPromise;
+  }
+
+  private async startListening(): Promise<{ host: string; port: number }> {
+    const host = this.options.host ?? 'localhost';
     const port = this.options.port ?? 0;
 
-    const server = createAdaptorServer({
-      fetch: this.app.fetch,
+    this.servers = await listenIPServers(() => createAdaptorServer({ fetch: this.app.fetch }), {
+      host,
+      port,
+      ip_family: this.options.ip_family,
     });
-
-    await new Promise<void>((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(port, host, () => {
-        server.off('error', reject);
-        resolve();
-      });
-    });
-    this.server = server;
-
-    const address = server.address();
-    if (!address || typeof address === 'string') {
-      throw new Error('Unable to determine control server address.');
+    try {
+      const address = this.servers[0].address();
+      if (!address || typeof address === 'string') {
+        throw new Error('Unable to determine control server address.');
+      }
+      await this.runtime.setControlAddress(address.address, address.port);
+      return { host: address.address, port: address.port };
+    } catch (error) {
+      const servers = this.servers;
+      this.servers = [];
+      try {
+        await closeIPServers(servers);
+      } catch (cleanupError) {
+        throw Object.assign(new Error('Control server startup and rollback failed.'), {
+          cause: error,
+          errors: [error, cleanupError],
+        });
+      }
+      throw error;
     }
-
-    await this.runtime.setControlAddress(address.address, address.port);
-    return { host: address.address, port: address.port };
   }
 
-  async close(): Promise<void> {
-    this.broker.closeAll();
-    if (!this.server) {
-      return;
-    }
-
-    const server = this.server;
-    this.server = null;
-
-    await new Promise<void>((resolve, reject) => {
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
+  close(): Promise<void> {
+    if (!this.closePromise) {
+      this.closePromise = this.closeResources().finally(() => {
+        this.listenPromise = undefined;
+        this.closePromise = undefined;
       });
-    });
+    }
+    return this.closePromise;
+  }
+
+  private async closeResources(): Promise<void> {
+    await this.listenPromise?.catch(() => undefined);
+    this.runtime.off('event', this.onRuntimeEvent);
+    this.broker.closeAll();
+    const servers = this.servers;
+    this.servers = [];
+    await closeIPServers(servers);
   }
 
   private async shutdownAndExit(): Promise<void> {

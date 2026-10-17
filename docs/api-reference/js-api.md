@@ -1,5 +1,7 @@
 # JavaScript API Reference
 
+See [IPv4/IPv6 networking](../user-guide/networking.md) for `ip_family` configuration, dual listeners, and ephemeral ports.
+
 This reference describes the `@tensnap/js` package. It provides simulator-side bindings for the strict canonical protocol v0.3, not renderer widgets.
 
 The package exports four groups:
@@ -92,6 +94,7 @@ const host = createWebSocketTransportHost({
   sessionFactory: () => binding.createSession(),
 });
 
+await host.ready;
 console.log(host.url);
 ```
 

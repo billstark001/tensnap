@@ -2,6 +2,7 @@
 // adapter. Keeping the launcher separate avoids a second binding/session path;
 // ordinary applications may combine these responsibilities.
 import type { ProtocolEncoding } from '@tensnap/protocol';
+import { parseIPFamily, type IPFamily } from '@tensnap/network';
 import { writeFileSync, renameSync } from 'node:fs';
 import { createWebSocketTransportHost } from '@tensnap/js/transport';
 import { DEFAULT_SCHELLING_CONFIG, type SchellingConfig } from '../models/schelling';
@@ -9,6 +10,7 @@ import { setSchellingAuditHook } from '../renderers/schelling';
 import { getJsExampleDefinition } from '../renderers';
 
 export interface StartJsExampleWebSocketDemoOptions {
+  ip_family?: IPFamily;
   port?: number;
   encoding?: ProtocolEncoding;
   config?: unknown;
@@ -35,10 +37,13 @@ export async function startJsExampleWebSocketDemo(
   }
   const definition = getJsExampleDefinition(id);
   const host = createWebSocketTransportHost({
+    ip_family: options.ip_family,
     serverOptions: { port: options.port ?? 8765 },
     encoding: options.encoding ?? 'json',
     sessionFactory: () => definition.createSession(options.config),
   });
+
+  await host.ready;
 
   return {
     id: definition.id,
@@ -49,6 +54,7 @@ export async function startJsExampleWebSocketDemo(
 }
 
 interface CliArgs {
+  ip_family: IPFamily;
   id: string;
   port?: number;
   encoding?: ProtocolEncoding;
@@ -61,6 +67,7 @@ function parseCliArgs(argv: string[]): CliArgs {
   const rest = id === first ? tail : argv;
   const values = new Map<string, string>();
   const allowed = new Set([
+    'ip-family',
     'port',
     'encoding',
     'width',
@@ -87,8 +94,8 @@ function parseCliArgs(argv: string[]): CliArgs {
     throw new Error('--encoding must be json or msgpack.');
   }
   const port = values.has('port') ? Number(values.get('port')) : undefined;
-  if (port !== undefined && (!Number.isInteger(port) || port <= 0 || port > 65_535)) {
-    throw new Error('--port must be an integer from 1 through 65535.');
+  if (port !== undefined && (!Number.isInteger(port) || port < 0 || port > 65_535)) {
+    throw new Error('--port must be an integer from 0 through 65535.');
   }
 
   const modelOptions = ['width', 'height', 'density', 'balance', 'threshold', 'seed'].filter(
@@ -117,6 +124,7 @@ function parseCliArgs(argv: string[]): CliArgs {
   }
   const seed = values.has('seed') ? Math.trunc(finite('seed', 0)) : undefined;
   return {
+    ip_family: parseIPFamily(values.get('ip-family')),
     id,
     port,
     encoding,
@@ -135,8 +143,8 @@ function parseCliArgs(argv: string[]): CliArgs {
 }
 
 async function main(): Promise<void> {
-  const { id, port, encoding, config } = parseCliArgs(process.argv.slice(2));
-  const demo = await startJsExampleWebSocketDemo(id, { port, encoding, config });
+  const { id, port, encoding, config, ip_family } = parseCliArgs(process.argv.slice(2));
+  const demo = await startJsExampleWebSocketDemo(id, { port, encoding, config, ip_family });
   console.log(`Started ${demo.name} at ${demo.url ?? 'unknown url'}`);
 }
 

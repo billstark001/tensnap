@@ -1,7 +1,9 @@
+import { listenIPServers, closeIPServers, unavailableIPFamily } from '@tensnap/network/node';
+import { createServer } from 'node:net';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
 import { RuntimeControlServer } from './control-server';
@@ -13,9 +15,10 @@ async function createRuntimeServer(
     maxRunStepsPolicy?: number;
     checkpointIntervalMs?: number;
     capabilities?: string[];
+    host?: string;
   } = {},
 ) {
-  const { capabilities = [], ...runtimeOptions } = options;
+  const { capabilities = [], host = '127.0.0.1', ...runtimeOptions } = options;
   const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-'));
   tempDirs.push(rootDir);
   const context = resolveRuntimeContextPaths({ rootDir, contextName: 'test-agent' });
@@ -36,7 +39,7 @@ async function createRuntimeServer(
       capabilities,
     },
   });
-  const server = new RuntimeControlServer(runtime, { host: '127.0.0.1', port: 0 });
+  const server = new RuntimeControlServer(runtime, { host, port: 0 });
   const address = await server.listen();
   return {
     runtime,
@@ -82,6 +85,39 @@ afterEach(async () => {
 });
 
 describe('RuntimeControlServer', () => {
+  it('shares startup and shutdown, and releases runtime subscriptions', async () => {
+    const { runtime, server } = await createRuntimeServer();
+    const count = runtime.listenerCount('event');
+    expect(server.listen()).toBe(server.listen());
+    const closing = server.close();
+    expect(server.close()).toBe(closing);
+    await closing;
+    expect(runtime.listenerCount('event')).toBe(count - 1);
+    await runtime.stop();
+  });
+  it('rolls back listeners and subscriptions if persisting the address fails', async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-control-failure-'));
+    tempDirs.push(rootDir);
+    const runtime = new AgentRuntime(
+      resolveRuntimeContextPaths({ rootDir, contextName: 'failure' }),
+    );
+    await runtime.initialize();
+    const count = runtime.listenerCount('event');
+    const persist = vi
+      .spyOn(runtime, 'setControlAddress')
+      .mockRejectedValue(new Error('disk failed'));
+    const server = new RuntimeControlServer(runtime, { host: '127.0.0.1', port: 0 });
+    try {
+      await expect(server.listen()).rejects.toThrow('disk failed');
+      expect(runtime.listenerCount('event')).toBe(count);
+      const [host, port] = persist.mock.calls[0];
+      const replacement = await listenIPServers(createServer, { host, port, ip_family: 'ipv4' });
+      await closeIPServers(replacement);
+    } finally {
+      await server.close();
+      await runtime.stop();
+    }
+  });
   it('keeps live state in memory and checkpoints dirty scenes at sync boundaries', async () => {
     const { runtime, server, renderer } = await createRuntimeServer({
       checkpointIntervalMs: 1_000,
@@ -360,4 +396,30 @@ describe('RuntimeControlServer', () => {
       await runtime.stop();
     }
   });
+});
+
+it('serves the same control runtime on both localhost families at port zero', async (context) => {
+  try {
+    await closeIPServers(
+      await listenIPServers(createServer, { host: 'localhost', port: 0, ip_family: 'ipv6' }),
+    );
+  } catch (error) {
+    if (unavailableIPFamily(error)) {
+      context.skip();
+      return;
+    }
+    throw error;
+  }
+  const { runtime, server, baseUrl } = await createRuntimeServer({ host: 'localhost' });
+  try {
+    const v4 = await fetch(`${baseUrl}/health`).then((response) => response.json());
+    const v6Url = new URL(baseUrl);
+    v6Url.hostname = '[::1]';
+    const v6 = await fetch(`${v6Url.origin}/health`).then((response) => response.json());
+    expect(v6).toEqual(v4);
+    expect(v6.ok).toBe(true);
+  } finally {
+    await runtime.stop();
+    await server.close();
+  }
 });

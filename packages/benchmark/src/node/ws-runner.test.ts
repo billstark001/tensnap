@@ -94,6 +94,30 @@ function workload(failAt?: 'sync' | 'action'): ProtocolBenchmarkWorkload {
 }
 
 describe('WebSocket benchmark completion', () => {
+  it.each(['json', 'msgpack'] as const)(
+    'rejects the wrong peer before state_sync (%s)',
+    async (encoding) => {
+      const onStateSync = vi.fn();
+      const fixture = {
+        ...workload(),
+        createSession: () =>
+          new SimulatorSession({
+            simulatorInfo: {
+              protocol_version: '0.3',
+              binding: { name: 'foreign', version: '0.3.0' },
+              model: { id: 'foreign-model' },
+              instance_id: 'foreign-instance',
+              capabilities: [],
+            },
+            onStateSync,
+          }),
+      };
+      await expect(runWsReplicate(fixture, {}, encoding, 'error', 0, 1, 0)).rejects.toThrow(
+        /expected ws-fixture, received foreign-model/,
+      );
+      expect(onStateSync).not.toHaveBeenCalled();
+    },
+  );
   afterEach(() => {
     fault.closeOn = '';
   });

@@ -27,7 +27,7 @@ await build({
   absWorkingDir: ROOT,
   bundle: true,
   entryPoints,
-  external: ['@tensnap/protocol', 'ws'],
+  external: ['@tensnap/protocol', '@tensnap/network', 'ws'],
   format: 'esm',
   legalComments: 'none',
   outbase: 'src',

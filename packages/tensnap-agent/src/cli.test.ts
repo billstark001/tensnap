@@ -36,6 +36,61 @@ afterEach(async () => {
 });
 
 describe('agent CLI', () => {
+  it.each(['other', '4'])(
+    'rejects invalid IP-family policy before starting: %s',
+    async (ipFamily) => {
+      await expect(main(['runtime', 'up', '--ip-family', ipFamily])).rejects.toThrow(/ip_family/);
+    },
+  );
+
+  it('connects to an IPv6 control endpoint using a bracketed URL', async (context) => {
+    const server = createServer((_request, response) => {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify({ ok: true }));
+    });
+    server.listen(0, '::1');
+    try {
+      await once(server, 'listening');
+    } catch (error) {
+      if (['EAFNOSUPPORT', 'EADDRNOTAVAIL'].includes((error as NodeJS.ErrnoException).code ?? '')) {
+        context.skip();
+        return;
+      }
+      throw error;
+    }
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('No address');
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-ipv6-'));
+    tempDirs.push(rootDir);
+    const runtimeContext = resolveRuntimeContextPaths({ rootDir, contextName: 'ipv6' });
+    const now = new Date().toISOString();
+    await writeRuntimeControl(runtimeContext, {
+      version: 1,
+      contextName: 'ipv6',
+      contextDir: runtimeContext.contextDir,
+      createdAt: now,
+      updatedAt: now,
+      host: '::1',
+      controlPort: address.port,
+      pid: process.pid,
+      phase: 'ready',
+      encoding: 'json',
+      clientMessageValidation: 'off',
+      serverMessageValidation: 'off',
+      maxRunStepsPolicy: 1,
+      render: { trigger: 'manual', backgroundColor: '#000000' },
+      painters: [],
+      sceneRevision: 0,
+      sceneDirty: false,
+    });
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await main(['runtime', 'status', '--context', 'ipv6', '--context-dir', rootDir]);
+      expect(log).toHaveBeenCalledWith(expect.stringContaining('"ok": true'));
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
   it('carries captured scene time into checkpoint restore', async () => {
     const requests: Record<string, unknown>[] = [];
     let supportsProjectedRestore = true;

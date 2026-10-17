@@ -13,6 +13,7 @@ import type {
   SimulatorToRendererMessage,
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
+import { validateIPFamily, parseIPFamily, type IPFamily } from '@tensnap/network';
 import {
   RendererClient,
   RendererSession,
@@ -60,6 +61,7 @@ import {
 import { appendImageOutputSuffix } from './image-output';
 
 export interface AgentRuntimeOptions {
+  ip_family?: IPFamily;
   host?: string;
   controlPort?: number | null;
   encoding?: ProtocolEncoding;
@@ -130,6 +132,7 @@ export class AgentRuntime extends EventEmitter {
       createdAt: now,
       updatedAt: now,
       host: options.host ?? '127.0.0.1',
+      ip_family: parseIPFamily(options.ip_family),
       controlPort: options.controlPort ?? null,
       pid: process.pid,
       phase: 'idle',
@@ -159,8 +162,11 @@ export class AgentRuntime extends EventEmitter {
 
   /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
   async connect(options: ConnectOptions): Promise<RuntimeStatus> {
+    const ipFamily = parseIPFamily(options.ip_family ?? this.control.ip_family);
+    validateIPFamily(new URL(options.simulatorUrl).hostname, ipFamily);
     this.setPhase('connecting');
     this.control.simulatorUrl = options.simulatorUrl;
+    this.control.ip_family = ipFamily;
     this.control.encoding = options.encoding ?? this.control.encoding;
     this.control.clientMessageValidation =
       options.clientMessageValidation ?? this.control.clientMessageValidation;
@@ -175,6 +181,7 @@ export class AgentRuntime extends EventEmitter {
       this.renderer.run.reset();
       await this.client.connect(
         new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
+          ip_family: this.control.ip_family,
           clientMessages: this.control.clientMessageValidation,
           serverMessages: this.control.serverMessageValidation,
         }),

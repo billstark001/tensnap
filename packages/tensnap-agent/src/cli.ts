@@ -12,6 +12,7 @@ import {
 import { isProcessAlive, readRuntimeControl, type RuntimeContextPaths } from './runtime/context';
 import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
+import { parseIPFamily, listenerUrl } from '@tensnap/network';
 
 interface ParsedArgs {
   positional: string[];
@@ -19,6 +20,12 @@ interface ParsedArgs {
 }
 
 const DEFAULT_RUNTIME_READY_TIMEOUT_MS = 10000;
+
+function getIPFamilyFlag(parsed: ParsedArgs) {
+  if (parsed.flags['ip-family'] === true)
+    throw new Error('--ip-family requires auto, ipv4, or ipv6.');
+  return parseIPFamily(getStringFlag(parsed, 'ip-family'));
+}
 
 function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
@@ -119,7 +126,7 @@ function buildBaseUrl(control: { host: string; controlPort: number | null }): st
   if (!control.controlPort) {
     throw new Error('Runtime control port is not available.');
   }
-  return `http://${control.host}:${control.controlPort}`;
+  return listenerUrl({ address: control.host, port: control.controlPort }, 'http');
 }
 
 async function resolveRunningRuntime(
@@ -186,6 +193,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
   const controlPort = getPortFlag(parsed);
 
   const runtime = new AgentRuntime(context, {
+    ip_family: getIPFamilyFlag(parsed),
     host: getStringFlag(parsed, 'host'),
     controlPort,
     encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
@@ -214,6 +222,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
   );
 
   const server = new RuntimeControlServer(runtime, {
+    ip_family: getIPFamilyFlag(parsed),
     host: getStringFlag(parsed, 'host'),
     port: controlPort,
   });
@@ -222,6 +231,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
   const simulatorUrl = getStringFlag(parsed, 'simulator-url');
   if (simulatorUrl) {
     await runtime.connect({
+      ip_family: getIPFamilyFlag(parsed),
       simulatorUrl,
       encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
       clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
@@ -252,6 +262,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
 }
 
 async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
+  const ipFamily = getIPFamilyFlag(parsed);
   const port = getPortFlag(parsed);
   const context = resolveRuntimeContextPaths({
     contextName: getStringFlag(parsed, 'context'),
@@ -270,6 +281,7 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
     ? fileURLToPath(new URL('./bin.ts', import.meta.url))
     : modulePath;
   const childArgs = [
+    // Keep the same policy for the simulator connection and local control listener.
     ...(isSourceEntry
       ? ['--import', fileURLToPath(new URL('../node_modules/tsx/dist/loader.mjs', import.meta.url))]
       : process.execArgv),
@@ -285,6 +297,7 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
   ];
 
   const simulatorUrl = getStringFlag(parsed, 'simulator-url');
+  childArgs.push('--ip-family', ipFamily);
   if (simulatorUrl) {
     childArgs.push('--simulator-url', simulatorUrl);
   }
@@ -748,7 +761,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   console.log(
     [
       'Usage:',
-      '  tensnap-agent runtime up --simulator-url ws://127.0.0.1:8765 [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
+      '  tensnap-agent runtime up --simulator-url ws://localhost:8765 [--ip-family auto|ipv4|ipv6] [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
       '  tensnap-agent runtime status',
       '  tensnap-agent runtime render-trigger manual|action-result',
       '  tensnap-agent scene inspect',
