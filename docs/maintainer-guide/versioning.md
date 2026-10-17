@@ -61,3 +61,16 @@ npm publish ./packages/tensnap-agent/dist --access public
 The interactive first publish uses the maintainer's npm login and 2FA. Subsequent versions use the GitHub OIDC workflow after each package's Trusted Publisher has been configured.
 
 `@tensnap/network` starts at **0.3.0** and has its own patch version. It must be bootstrapped on npm before dependents that import it; build and pack `packages/network` first. Existing package versions are unchanged by its introduction.
+
+## Resuming a batch and bootstrapping staged packages
+
+When retrying a partially completed release, select only unpublished package versions. Leave already published dependencies out of the selection; the preflight verifies that their required versions exist. Selecting an already published version intentionally fails before any package is uploaded.
+
+For an initial staged publish, explicitly use public access. The agent publishes its generated `dist` manifest, which contains resolved dependency versions and public access metadata:
+
+```bash
+pnpm --dir packages/tensnap-agent build
+pnpm --dir packages/tensnap-agent/dist stage publish --access public
+```
+
+Configure the package's trusted publisher for `billstark001/tensnap`, workflow `js-publish.yml`, with direct `npm publish` allowed before running the batch. Staging a new package creates its initial registry entry; it does not complete the stable release. A scoped publish without public access can default to restricted access and fail with HTTP 402 on accounts without a private-package plan.

@@ -248,6 +248,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Apply the configured repository formatters to maintained source and documentation.
 - Include shared network runtime sources and package exports in every conformance source digest, with mutation canaries and explicit network-package CI checks.
 - Include Julia in the root format command and add network benchmark/release commands. Document IP-family configuration, browser restrictions, endpoint diagnostics, and package ownership boundaries.
+- Accept both string and array npm version-query responses in release preflight; test duplicate versions, omitted dependencies, and registry authentication failures before publication.
 
 ## @tensnap/web [0.3.3] - 2026-10-04
 

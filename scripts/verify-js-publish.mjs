@@ -41,7 +41,8 @@ function isPublished(name, version) {
           stdio: ['ignore', 'pipe', 'pipe'],
         },
       );
-      checked.set(key, JSON.parse(output) === version);
+      const versions = JSON.parse(output);
+      checked.set(key, Array.isArray(versions) ? versions.includes(version) : versions === version);
     } catch (error) {
       if (error.status === 1 && error.stderr?.includes('E404')) {
         checked.set(key, false);
