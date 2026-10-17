@@ -101,4 +101,17 @@ pnpm --filter @tensnap/agent exec tsx scripts/benchmark-run-controller.mts
 
 Follow-up package suites: core **557**, agent **145**, web **211** (913 tests), plus typechecks, affected builds, built-CLI seeded Schelling acceptance and changed-file lint. Existing core/agent 0.3.4 changelog entries are updated; no additional packages or package versions are changed. The empty Unreleased heading is removed.
 
-Large recording archive encoding still runs synchronously and is bounded by the configured recording budget; this review does not implement the plan’s later streaming/worker storage work or claim crash-tail recovery. Explicit forced scene writes retain their requested snapshots; only duplicate non-forced writes of the same revision are joined.
+Large recording archive encoding still runs synchronously and is bounded by the configured recording budget; this review does not implement the plan’s later streaming/worker storage work or claim crash-tail recovery. Only duplicate non-forced writes of the same revision are joined. The second follow-up below corrects the revision association of forced render checkpoints.
+
+## Second performance and stability follow-up (2026-10-18)
+
+Review baseline: `3f832c23`. Corrections: core `989443b`, agent `33f786b`. Four reproduced regressions are corrected:
+
+- A delayed render could save its older captured scene under the current revision and clear the dirty flag, including after a newer render had already saved. Render requests now retain their capture revision privately. Images still use their captured input; cache writes use that snapshot only while its revision is current, otherwise they save or join the latest scene checkpoint. Tests cover both a live update alone and a newer render completing first.
+- Rendering the last run action could dispatch an unrelated queued action before closing the recording. A synchronous response from that action then appeared in the old archive. Settlement now precedes sending unrelated queued work; owned stop hooks still block settlement. The regression asserts the archived model time and excludes the unrelated control frame.
+- Disconnect previously waited for scene storage before detaching the simulator. A slow or failed disk write could leave the connection active. Detachment now happens first. Tests gate the writer, assert immediate detachment, then verify shared write failures reach both render and disconnect, preserve partial artifacts and dirty state, and allow shutdown to retry successfully.
+- Environment render-data projection ran outside the per-target error boundary. A preparation failure discarded earlier successful artifacts. It now reports that target's error while retaining other targets' outputs, tested with a real in-memory PNG for the successful environment.
+
+Recording backpressure tests also cover failed archive writes and starting the next recorded run directly from the completion event. No internal alias or fallback is introduced. Package versions remain core/agent **0.3.4**, web **0.3.5**; only the existing core/agent changelog entries are extended, with no Unreleased section.
+
+Validation: core **558**, agent **151**, web **211** tests passed (**920** total). Core/agent/web typechecks and production builds, changed-file lint and version consistency passed. The built CLI's seeded Schelling acceptance again reported three completed actions, time 3, lifecycle recording, matching replay, a 34,101-byte PNG and exit codes 0/2/5/6. The same isolated 30,000-action controller microbenchmark measured about **18 ms** on this host; this is a controller-only observation, not an end-to-end speed guarantee. Reproduction commands remain those above.
