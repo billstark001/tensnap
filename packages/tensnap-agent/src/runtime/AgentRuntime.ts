@@ -116,6 +116,7 @@ export class AgentRuntime extends EventEmitter {
   private readonly recordingResults = new Map<string, RunRecordingPersistence>();
   private readonly recordingWriter: typeof writeRunRecording;
   private completedStateSyncCount = 0;
+  private connectionGeneration = 0;
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
@@ -185,38 +186,55 @@ export class AgentRuntime extends EventEmitter {
 
   /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
   async connect(options: ConnectOptions): Promise<RuntimeStatus> {
-    const ipFamily = parseIPFamily(options.ip_family ?? this.control.ip_family);
-    validateIPFamily(new URL(options.simulatorUrl).hostname, ipFamily);
+    // Own scalar options and resolved defaults before status persistence suspends.
+    const connection = {
+      ...options,
+      ip_family: parseIPFamily(options.ip_family ?? this.control.ip_family),
+      encoding: options.encoding ?? this.control.encoding,
+      clientMessageValidation:
+        options.clientMessageValidation ?? this.control.clientMessageValidation,
+      serverMessageValidation:
+        options.serverMessageValidation ?? this.control.serverMessageValidation,
+    };
+    validateIPFamily(new URL(connection.simulatorUrl).hostname, connection.ip_family);
+    const generation = ++this.connectionGeneration;
+    const assertCurrent = () => {
+      if (generation !== this.connectionGeneration)
+        throw new Error('Connection attempt was cancelled.');
+    };
     this.setPhase('connecting');
-    this.control.simulatorUrl = options.simulatorUrl;
-    this.control.ip_family = ipFamily;
-    this.control.encoding = options.encoding ?? this.control.encoding;
-    this.control.clientMessageValidation =
-      options.clientMessageValidation ?? this.control.clientMessageValidation;
-    this.control.serverMessageValidation =
-      options.serverMessageValidation ?? this.control.serverMessageValidation;
+    this.control.simulatorUrl = connection.simulatorUrl;
+    this.control.ip_family = connection.ip_family;
+    this.control.encoding = connection.encoding;
+    this.control.clientMessageValidation = connection.clientMessageValidation;
+    this.control.serverMessageValidation = connection.serverMessageValidation;
     this.completedStateSyncCount = 0;
     await this.persistStatus();
 
     try {
+      assertCurrent();
       this.client.disconnect();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
       await this.client.connect(
-        new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
-          ip_family: this.control.ip_family,
-          clientMessages: this.control.clientMessageValidation,
-          serverMessages: this.control.serverMessageValidation,
+        new NodeWebSocketTransport(connection.simulatorUrl, connection.encoding, {
+          ip_family: connection.ip_family,
+          clientMessages: connection.clientMessageValidation,
+          serverMessages: connection.serverMessageValidation,
         }),
       );
+      assertCurrent();
       await this.log('info', 'runtime', 'Connected to simulator.', {
-        simulatorUrl: options.simulatorUrl,
-        encoding: this.control.encoding,
-        clientMessageValidation: this.control.clientMessageValidation,
-        serverMessageValidation: this.control.serverMessageValidation,
+        simulatorUrl: connection.simulatorUrl,
+        encoding: connection.encoding,
+        clientMessageValidation: connection.clientMessageValidation,
+        serverMessageValidation: connection.serverMessageValidation,
       });
+      assertCurrent();
       return this.getStatus();
     } catch (error) {
+      // A retired operation must not overwrite the current connection's phase/error.
+      assertCurrent();
       this.control.lastError = error instanceof Error ? error.message : String(error);
       this.setPhase('error');
       await this.log('error', 'runtime', 'Failed to connect to simulator.', {
@@ -227,17 +245,15 @@ export class AgentRuntime extends EventEmitter {
   }
 
   async disconnect(): Promise<void> {
-    if (!this.renderer.isConnected) {
-      await this.checkpointScene();
-      this.setPhase('idle');
-      return;
-    }
-
-    this.setPhase('stopping');
+    const generation = ++this.connectionGeneration;
+    const wasConnected = this.renderer.isConnected;
+    if (wasConnected) this.setPhase('stopping');
+    // Cancel pending handshakes even before the renderer has an installed transport.
     this.client.disconnect();
     await this.checkpointScene();
+    if (generation !== this.connectionGeneration) return;
     this.setPhase('idle');
-    await this.log('info', 'runtime', 'Disconnected from simulator.');
+    if (wasConnected) await this.log('info', 'runtime', 'Disconnected from simulator.');
   }
 
   async stop(): Promise<void> {

@@ -1,5 +1,6 @@
 import type { Hono } from 'hono';
 import type { BoundedRunSpec } from '@tensnap/core/runtime';
+import { isEncodedBinaryString } from '@tensnap/protocol';
 import type { AgentRuntime } from '../AgentRuntime';
 import { validateFields, invalid } from './validation';
 import { readJsonObject } from './json-body';
@@ -45,6 +46,29 @@ export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
         checkpoint: 'object',
         legacyCreateReplacement: 'boolean',
       });
+      if (record.layerCodecs) {
+        for (const codec of Object.values(record.layerCodecs)) {
+          if (!['delta', 'keyframe', 'adaptive', 'derived'].includes(codec))
+            invalid('record.layerCodecs values must be delta, keyframe, adaptive or derived.');
+        }
+      }
+      if (record.modelIdentity) {
+        validateFields(
+          record.modelIdentity,
+          { model_id: 'string', state_schema_version: 'string', instance_id: 'string' },
+          ['model_id'],
+        );
+      }
+      if (record.checkpoint) {
+        const { data, ...metadata } = record.checkpoint;
+        validateFields(
+          metadata,
+          { model_id: 'string', state_schema_version: 'string', encoding: 'string' },
+          ['model_id', 'encoding'],
+        );
+        if (typeof data !== 'string' || !isEncodedBinaryString(data))
+          invalid('record.checkpoint.data must be encoded binary data.');
+      }
     }
     try {
       return c.json(

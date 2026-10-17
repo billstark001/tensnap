@@ -1006,3 +1006,108 @@ it('reports a background screenshot response failure after its transport becomes
     await runtime.stop();
   }
 });
+
+it('captures connection options before awaiting status persistence', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-connect-ownership-'));
+  temporaryRoots.push(rootDir);
+  const server = new WebSocketServer({ port: 0 });
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Expected TCP server.');
+  server.on('connection', (socket) =>
+    socket.send(
+      JSON.stringify({
+        type: 'simulator_info',
+        payload: {
+          protocol_version: '0.3',
+          binding: { name: 'test', version: '1' },
+          model: { id: 'test' },
+          instance_id: 'test',
+          capabilities: [],
+        },
+      }),
+    ),
+  );
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  const simulatorUrl = `ws://127.0.0.1:${address.port}`;
+  const options = { simulatorUrl, encoding: 'json' as const };
+  const connecting = runtime.connect(options);
+  options.simulatorUrl = 'invalid-url-after-call';
+  try {
+    await expect(connecting).resolves.toMatchObject({ simulatorUrl, isConnected: true });
+  } finally {
+    await runtime.stop();
+    for (const socket of server.clients) socket.terminate();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+it.each(['status-write', 'handshake'] as const)(
+  'cancels a connection during %s without attaching it after disconnect returns',
+  async (stage) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-connect-cancel-'));
+    temporaryRoots.push(rootDir);
+    const server = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected TCP server.');
+    const handshake = JSON.stringify({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test', version: '1' },
+        model: { id: 'test' },
+        instance_id: 'test',
+        capabilities: [],
+      },
+    });
+    let connectedSocket: import('ws').WebSocket | undefined;
+    let accepted!: () => void;
+    const acceptedConnection = new Promise<void>((resolve) => {
+      accepted = resolve;
+    });
+    server.on('connection', (socket) => {
+      connectedSocket = socket;
+      accepted();
+      if (stage === 'status-write') socket.send(handshake);
+    });
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+    await runtime.initialize();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const status = runtime as unknown as { persistStatus(): Promise<void> };
+    const writer =
+      stage === 'status-write'
+        ? vi.spyOn(status, 'persistStatus').mockReturnValue(gate)
+        : undefined;
+    const result = runtime
+      .connect({ simulatorUrl: `ws://127.0.0.1:${address.port}`, encoding: 'json' })
+      .then(
+        () => 'connected',
+        (error: unknown) => (error instanceof Error ? error.message : String(error)),
+      );
+    try {
+      if (stage === 'handshake') await acceptedConnection;
+      await runtime.disconnect();
+      release();
+      if (connectedSocket?.readyState === 1 && stage === 'handshake')
+        connectedSocket.send(handshake);
+      expect(await result).toMatch(/cancel/i);
+      expect(runtime.getStatus()).toMatchObject({ isConnected: false, phase: 'idle' });
+      if (stage === 'status-write') expect(connectedSocket).toBeUndefined();
+    } finally {
+      release();
+      writer?.mockRestore();
+      await runtime.stop();
+      for (const socket of server.clients) socket.terminate();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  },
+);

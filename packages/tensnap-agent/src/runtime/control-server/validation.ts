@@ -8,6 +8,7 @@ type Field =
   | 'integer'
   | 'object'
   | 'array'
+  | 'websocket-url'
   | readonly string[];
 export function validateFields(
   body: object,
@@ -22,6 +23,11 @@ export function validateFields(
     if (value === undefined) continue;
     let valid: boolean;
     if (Array.isArray(field)) valid = typeof value === 'string' && field.includes(value);
+    else if (field === 'websocket-url')
+      valid =
+        typeof value === 'string' &&
+        URL.canParse(value) &&
+        ['ws:', 'wss:'].includes(new URL(value).protocol);
     else if (field === 'array') valid = Array.isArray(value);
     else if (field === 'object')
       valid = typeof value === 'object' && value !== null && !Array.isArray(value);

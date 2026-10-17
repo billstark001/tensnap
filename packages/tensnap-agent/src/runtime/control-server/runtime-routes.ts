@@ -53,7 +53,7 @@ export function registerRuntimeRoutes(
     validateFields(
       body,
       {
-        simulatorUrl: 'string',
+        simulatorUrl: 'websocket-url',
         ip_family: ['auto', 'ipv4', 'ipv6'],
         encoding: ['json', 'msgpack'],
         clientMessageValidation: ['off', 'warning', 'error'],
