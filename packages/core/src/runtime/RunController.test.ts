@@ -764,3 +764,25 @@ it('closes the old recording before a settled-status listener starts a new run',
   expect(recordings[0]!.frames[0]!.action?.request_id).toBe(step.request_id);
   expect(recordings[1]!.frames[0]!.action?.request_id).toBe(second.request_id);
 });
+
+it('aborts only a run waiter and removes its timer', async () => {
+  vi.useFakeTimers();
+  try {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    const run = session.run.start({ mode: 'manual', actionId: 'step' });
+    const abort = new AbortController();
+    const waiting = session.run.waitForSettled(run.id, 30_000, abort.signal);
+    const assertion = expect(waiting).rejects.toThrow(/not cancelled/);
+    abort.abort();
+    await assertion;
+    expect(session.run.status?.state).toBe('running');
+    expect(sent).toHaveLength(1);
+    session.run.reset();
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
+});

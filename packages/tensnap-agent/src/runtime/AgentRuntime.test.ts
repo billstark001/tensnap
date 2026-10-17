@@ -513,3 +513,29 @@ it.each([false, true])(
     await runtime.stop();
   },
 );
+
+it('preserves rendered artifacts when the required scene checkpoint cannot be written', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-scene-write-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      throw new Error('checkpoint write failed');
+    },
+  });
+  await runtime.initialize();
+  runtime.registerPainter({
+    id: 'good',
+    render: async () => [{ painterId: 'good', kind: 'chart', path: '/tmp/chart.png' }],
+  });
+  await expect(runtime.requestRender()).rejects.toMatchObject({
+    artifacts: [{ path: '/tmp/chart.png' }],
+    errors: [
+      {
+        painterId: 'scene-checkpoint',
+        code: 'persistence_failed',
+        message: 'checkpoint write failed',
+      },
+    ],
+  });
+  await runtime.stop();
+});
