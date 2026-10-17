@@ -976,3 +976,37 @@ it('leaves the current run intact when invocation ownership cannot be establishe
     session.run.reset();
   }
 });
+
+it('isolates the start observer status from the session recording configuration', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession({
+    run: {
+      onRunStart: (status) => {
+        status.spec.record = false;
+        status.spec.actionId = 'changed';
+      },
+    },
+  });
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  try {
+    const run = session.run.start({
+      mode: 'bounded',
+      actionId: 'step',
+      maxSteps: 1,
+      record: { label: 'original' },
+    });
+    expect(session.recorder.active).toBe(true);
+    expect(session.recorder.current?.metadata.label).toBe('original');
+    expect(session.run.getRun(run.id)?.spec).toMatchObject({
+      actionId: 'step',
+      record: { label: 'original' },
+    });
+    const payload = { id: 'step', request_id: tickId(sent[0]!) };
+    session.handleIncoming({ type: 'action_result', payload });
+    session.run.markActionRendered(payload);
+    expect(session.recorder.active).toBe(false);
+  } finally {
+    session.run.reset();
+  }
+});

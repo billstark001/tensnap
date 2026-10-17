@@ -276,7 +276,8 @@ export class RendererSession extends LazyEventTarget {
         this.dispatch('run:status', status);
       },
       onRunStart: (status) => {
-        onRunStart?.(status);
+        // The observer owns its status; recording setup retains a separate input.
+        onRunStart?.(this.run.status!);
         if (status.spec.record) {
           this.beginRecording(
             {
