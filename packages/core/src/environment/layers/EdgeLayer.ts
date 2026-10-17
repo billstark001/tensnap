@@ -186,6 +186,7 @@ export class EdgeLayer extends BaseLayer {
         this._addEdgeShape(key, link);
       }
     }
+    this._updateEdgeGeometry();
     // Endpoint identity is immutable in EdgeStorage. Appearance-only updates
     // change Leafer shapes, but need not reindex every d3 link or reheat it.
     if (added.length) {
@@ -214,6 +215,7 @@ export class EdgeLayer extends BaseLayer {
       this._simulation?.nodes(this._simNodes).alpha(0.3).restart();
     }
     this._rebuildAllEdgeShapes();
+    this._updateEdgeGeometry();
   }
 
   private _onAgentData(): void {
@@ -284,7 +286,7 @@ export class EdgeLayer extends BaseLayer {
         'link',
         d3
           .forceLink<SimNode, SimLink>()
-          .id((d: SimNode) => String(d.id))
+          .id((d: SimNode) => d.id)
           .distance(linkDistance),
       )
       .force('charge', d3.forceManyBody<SimNode>().strength(chargeStrength))
@@ -349,7 +351,11 @@ export class EdgeLayer extends BaseLayer {
    * in the same synchronous call stack, before the browser paints — eliminating
    * the one-frame flicker where all agents appear at (0, 0).
    */
-  private _pushSimPositions(): void {
+  private _pushSimPositions(): void {}
+
+  private _tick(): void {
+    this._ticking = true;
+    this._updateEdgeGeometry();
     const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
     for (const n of this._simNodes) {
       if (n.x != null && n.y != null) {
@@ -362,9 +368,7 @@ export class EdgeLayer extends BaseLayer {
     }
   }
 
-  private _tick(): void {
-    this._ticking = true;
-
+  private _updateEdgeGeometry(): void {
     this._edgeShapeMap.forEach(({ line, arrowhead, link }) => {
       const src = link.source as SimNode;
       const tgt = link.target as SimNode;
@@ -464,7 +468,7 @@ export class EdgeLayer extends BaseLayer {
    */
   private _rebuildSimNodes(agents: ReadonlyMap<AgentId, AgentRenderState>): void {
     this._simNodes = [...agents.values()].map((agent) => {
-      const prev = this._simNodeMap.get(agent.id);
+      const prev = this._readOnlyLayout ? undefined : this._simNodeMap.get(agent.id);
       return {
         ...agent,
         x: prev?.x ?? agent.x,

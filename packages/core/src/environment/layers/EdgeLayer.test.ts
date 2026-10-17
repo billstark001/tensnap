@@ -40,3 +40,36 @@ describe('EdgeLayer incremental updates', () => {
     layer.destroy();
   });
 });
+
+it.each([true, false])(
+  'projects typed graph endpoints from fixed coordinates (readonly=%s)',
+  (readOnlyLayout) => {
+    const agents = new AgentStorage();
+    const input = [
+      { id: 1, x: -4, y: 2, size: 2 },
+      { id: '1', x: 4, y: 2, size: 2 },
+    ];
+    agents.setAgents(structuredClone(input));
+    const edges = new EdgeStorage([{ source: 1, target: '1', directed: true }]);
+    const layer = new EdgeLayer(edges, agents, { readOnlyLayout });
+    const internals = layer as unknown as {
+      _simulation: { stop(): void } | null;
+      _edgeShapeMap: Map<string, { line: { points: number[] } }>;
+    };
+    internals._simulation?.stop();
+    const key = EdgeStorage.edgeKey(1, '1');
+    expect(internals._edgeShapeMap.get(key)?.line.points).toEqual([-3, 2, 3, 2]);
+    if (readOnlyLayout) {
+      expect(internals._simulation).toBeNull();
+      expect([...agents.getData().agents.values()]).toMatchObject(input);
+      edges.updateEdge(1, '1', { color: '#123456' });
+      expect(internals._edgeShapeMap.get(key)?.line.points).toEqual([-3, 2, 3, 2]);
+      agents.setAgents([
+        { ...input[0]!, y: 5 },
+        { ...input[1]!, y: 5 },
+      ]);
+      expect(internals._edgeShapeMap.get(key)?.line.points).toEqual([-3, 5, 3, 5]);
+    }
+    layer.destroy();
+  },
+);
