@@ -1,3 +1,8 @@
+---
+name: tensnap-agent
+description: Drive a TenSnap simulator through the scene-level CLI, inspect state, run bounded actions, and render evidence. Use for simulator automation, not binding implementation.
+---
+
 # tensnap-agent Skill
 
 Use this skill when you need an automation agent to drive a TenSnap simulator through the scene-level CLI in `packages/tensnap-agent`.
@@ -55,7 +60,7 @@ pnpm --filter @tensnap/agent dev -- action run reseed --context demo
 
 ## Bounded Runs
 
-For a continuous action, use `run start`; `action run` is deliberately a single dispatch. `--max-steps` is required even when a condition is present, and the default policy rejects values greater than 1,000,000.
+For a continuous action, use `run start`; `action run` is deliberately a single dispatch. `--max-actions` is required even when a condition is present (`--max-steps` remains a deprecated public spelling; using both is rejected), and the default policy rejects values greater than 1,000,000.
 
 Start the runtime with a higher explicit policy only when the automation workflow requires it:
 
@@ -64,12 +69,18 @@ pnpm --filter @tensnap/agent dev -- runtime up --context demo --simulator-url ws
 ```
 
 ```bash
-pnpm --filter @tensnap/agent dev -- run start start --max-steps 1000 --context demo
-pnpm --filter @tensnap/agent dev -- run start start --max-steps 10000 --stop-when 'time >= 100 || charts.infected <= 0' --context demo
-pnpm --filter @tensnap/agent dev -- run start start --max-steps 1000 --max-wall-time-ms 60000 --record --context demo
+pnpm --filter @tensnap/agent dev -- run start start --max-actions 1000 --context demo
+pnpm --filter @tensnap/agent dev -- run start start --max-actions 10000 --stop-when 'time >= 100 || charts.infected <= 0' --context demo
+pnpm --filter @tensnap/agent dev -- run start start --max-actions 1000 --max-wall-time-ms 60000 --record --context demo
 pnpm --filter @tensnap/agent dev -- run status --context demo
 pnpm --filter @tensnap/agent dev -- run stop --context demo
 ```
+
+`action run` and `run start` return acceptance, not completion. Use the returned request/run ID to correlate results. Dispatch stop (`state`) precedes cleanup completion (`settled`); inspect `primaryFailure`, classified action counts, and `stateKnown` before treating a run as successful. Never automatically rerun against unknown state. The core `waitForSettled(runId)` waits through final rendering and the stop hook; CLI `--wait` is not implemented.
+
+`--record` closes only after settlement and saves the existing SnapshotArchive under the context's `recordings/<run-id>.snapshot.json`. Query `GET /v1/runs/<run-id>` for recording `pending`/`persisted`/`failed`, path and error. This is not the future standalone recording file format; persisted does not mean untruncated. Default retention is 10,000 frames / 64 MiB rolling.
+
+Use `--output-version 1` for versioned JSON stdout; diagnostics go to stderr. Unknown/missing flags and extra positional arguments fail before runtime access. Use `--context-dir`, not `--root-dir`. Exit codes and the full error/settlement contract are in [the runtime guide](../../../docs/user-guide/agent-runtime.md).
 
 The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first dispatch and after every `action_result`. It can read `steps`, `time`, metadata, `parameters`, `charts`, `agent(envId, layerId, id)`, and `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
 
@@ -113,10 +124,10 @@ Use manual mode when an agent wants full control over when rendering happens:
 pnpm --filter @tensnap/agent dev -- runtime render-trigger manual --context demo
 ```
 
-Use action-end mode when every completed simulator action should produce a fresh capture automatically:
+Use action-result mode when every completed simulator action should produce a fresh capture automatically:
 
 ```bash
-pnpm --filter @tensnap/agent dev -- runtime render-trigger action-end --context demo
+pnpm --filter @tensnap/agent dev -- runtime render-trigger action-result --context demo
 ```
 
 ## Event Streaming
@@ -131,7 +142,7 @@ Useful event families:
 
 - `transport.open`, `transport.close`, `transport.error`
 - `scene.sync.requested`
-- `action.start.requested`, `action.end`
+- `action.start.requested`, `action.result`
 - `render.requested`, `render.failed`, `render.trigger.updated`
 
 ## Operational Guidance
@@ -142,10 +153,10 @@ Useful event families:
 - Use `run status` or the SSE stream to observe a run; do not build a client-side wait loop for conditions the shared controller can evaluate.
 - The retired `scene start|step|reset`, `wait`, and `experiment` commands have no aliases. Use the action id or a bounded run instead.
 - Use `manual` render trigger when you need to separate simulation stepping from image capture.
-- Use `action-end` render trigger when a downstream workflow expects every action to produce a new image.
+- Use `action-result` render trigger when a downstream workflow expects every action to produce a new image.
 - If multiple environments exist and no `--env` is provided, the painter may emit one artifact per environment.
 - Use `--background-color` when a workflow needs a different base fill.
-- The current headless environment painter covers environment rendering only. Chart screenshot requests are not implemented yet.
+- Chart rendering uses `scene render --chart <id>` and chart screenshot requests are supported. Explicit missing targets, empty batches, painter exceptions, and write failures fail the request; partial successes remain in the structured error response.
 
 ## Headless Render Pitfalls
 

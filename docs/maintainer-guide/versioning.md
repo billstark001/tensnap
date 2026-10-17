@@ -1,11 +1,13 @@
 # Versioning and release sources
 
-TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-17, the package versions are:
+TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-18, the package versions are:
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/web`, `@tensnap/tauri` | `0.3.4` | Each package's `package.json`; Tauri also mirrors the version in `src-tauri/Cargo.toml` and `Cargo.lock` |
-| `@tensnap/protocol`, `@tensnap/core`, `@tensnap/js`, `@tensnap/agent`, `@tensnap/benchmark` | `0.3.3` | Each package's `package.json` |
+| `@tensnap/web` | `0.3.5` | `packages/tensnap-web/package.json` |
+| `@tensnap/tauri` | `0.3.4` | `package.json`, `src-tauri/Cargo.toml` and `Cargo.lock` |
+| `@tensnap/core`, `@tensnap/agent` | `0.3.4` | Each package's `package.json` |
+| `@tensnap/protocol`, `@tensnap/js`, `@tensnap/benchmark` | `0.3.3` | Each package's `package.json` |
 | `@tensnap/network` | `0.3.0` | `packages/network/package.json` |
 | `@tensnap/examples-js` | `0.3.3` | `examples/js/package.json` |
 | `@tensnap/examples-julia` | `0.3.2` | `examples/julia/package.json` |

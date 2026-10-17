@@ -28,6 +28,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## @tensnap/core [0.3.4] - 2026-10-18
+
+### Fixed
+
+- Count dispatched, completed, successful and failed target actions separately; preserve simultaneous stop reasons and failure priority. Duplicate or mismatched results do not count, and unchanged model time can still succeed.
+- Settle runs only after final host barriers and stop lifecycle results, retain summaries and waits by run ID, close recording at settlement, and label lifecycle frames. Keep target and lifecycle outcomes separate; mark unknown state on disconnect/timeouts without inventing completions.
+- Propagate final render-barrier failures through run outcomes and correlated client errors. Prevent cleanup dispatch after an action timeout.
+- Project readonly graph edges at stored typed node coordinates during initialization and updates, without force simulation or input writes; keep numeric and string IDs distinct in normal layouts too.
+
+### Deprecated
+
+- Public `RunStatus.completedSteps` remains available as the completed-action count; consumers use `completedActions`.
+
+## @tensnap/agent [0.3.4] - 2026-10-18
+
+### Fixed
+
+- Reject unknown/missing flags, malformed values, extra positional arguments and conflicting options before side effects; validate HTTP request fields before runtime work.
+- Propagate missing targets, empty renders, painter/export errors and output-write failures. Preserve successful artifacts and per-target errors in partial failures.
+- Save run SnapshotArchive files atomically after settlement and expose recording write status/errors by run ID. Shutdown awaits recording writes.
+
+### Added
+
+- Explicit `--output-version 1` JSON envelopes, structured HTTP error preservation, documented exit codes 0/2/3/4/5/6, and acceptance request IDs.
+- `--max-actions` completed-action quota; deprecated public `--max-steps` stays accepted and conflicts with the new spelling.
+- Repeatable built-CLI acceptance script using the local seeded Schelling model.
+
+## @tensnap/web [0.3.5] - 2026-10-18
+
+### Fixed
+
+- Show classified action outcomes and settlement status; a pending pause no longer masks an action or render failure.
+
 ## @tensnap/network [0.3.0] - 2026-10-17
 
 ### Added
