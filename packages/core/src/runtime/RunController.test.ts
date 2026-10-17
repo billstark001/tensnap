@@ -10,6 +10,7 @@ import {
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { materializeSnapshot, type Snapshot } from '../snapshot';
 import { RendererSession } from './RendererSession';
 import { compileRunCondition, createRunConditionScope } from './ScenarioConditionScope';
 
@@ -547,4 +548,186 @@ describe('RunController', () => {
     });
     expect(sent).toHaveLength(1);
   });
+});
+
+describe('run outcomes and settlement', () => {
+  function setup() {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 7 } });
+    return { session, sent };
+  }
+
+  it('keeps failure, quota and pause reasons and counts only matched results once', () => {
+    const { session, sent } = setup();
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    const request_id = tickId(sent[0]!);
+    session.run.pause();
+    expect(session.run.observeActionResult({ id: 'wrong', request_id })).toBe(false);
+    expect(session.run.observeActionResult({ id: 'step', request_id: 'wrong' })).toBe(false);
+    const payload = { id: 'step', request_id, error: { code: 'broken', message: 'failed' } };
+    expect(session.run.observeActionResult(payload)).toBe(true);
+    expect(session.run.observeActionResult(payload)).toBe(false);
+    expect(session.run.status).toMatchObject({
+      dispatchedActions: 1,
+      completedActions: 1,
+      completedSteps: 1,
+      succeededActions: 0,
+      failedActions: 1,
+      primaryFailure: 'action-error',
+      stopReason: 'action-error',
+      settled: false,
+      stopReasons: ['action-error', 'paused', 'max-steps'],
+      lastAction: { timeBefore: 7, timeAfter: 7, requestId: request_id },
+    });
+    session.run.markActionRendered(payload);
+    expect(session.run.status?.settled).toBe(true);
+  });
+
+  it('counts successful actions without a model time advance and preserves summary by ID', async () => {
+    const { session, sent } = setup();
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    const waiting = session.run.waitForSettled(run.id);
+    const payload = { id: 'step', request_id: tickId(sent[0]!) };
+    session.run.observeActionResult(payload);
+    session.run.markActionRendered(payload);
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    expect(await waiting).toMatchObject({
+      id: run.id,
+      succeededActions: 1,
+      failedActions: 0,
+      settled: true,
+    });
+    expect(await session.run.waitForSettled(run.id)).toMatchObject({
+      id: run.id,
+      lastAction: { timeBefore: 7, timeAfter: 7 },
+    });
+    session.run.reset();
+  });
+
+  it('records the stop lifecycle and waits for both host barriers', async () => {
+    const { session, sent } = setup();
+    session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
+    const recordings: Snapshot[] = [];
+    session.addEventListener('recording:complete', (event) =>
+      recordings.push((event as CustomEvent).detail.snapshot),
+    );
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+    const waiting = session.run.waitForSettled(run.id);
+    const step = { id: 'step', request_id: tickId(sent[0]!) };
+    session.handleIncoming({ type: 'action_result', payload: step });
+    expect(session.run.status?.settled).toBe(false);
+    expect(recordings).toHaveLength(0);
+    session.run.markActionRendered(step);
+    expect(session.run.status?.settled).toBe(false);
+    const stop = { id: 'stop', request_id: tickId(sent[1]!) };
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 8, stopped: true } });
+    session.handleIncoming({ type: 'action_result', payload: stop });
+    expect(recordings).toHaveLength(0);
+    session.run.markActionRendered(stop);
+    expect(await waiting).toMatchObject({
+      settled: true,
+      completedActions: 1,
+      dispatchedActions: 1,
+      lastAction: { source: 'lifecycle', id: 'stop' },
+    });
+    expect(recordings).toHaveLength(1);
+    expect(recordings[0]!.frames.find((frame) => frame.action?.id === 'stop')?.source).toBe(
+      'lifecycle',
+    );
+    expect(materializeSnapshot(recordings[0]!).metadata).toMatchObject({ time: 8, stopped: true });
+    expect(recordings[0]!.frames.flatMap((frame) => frame.controls)).toContainEqual(
+      expect.objectContaining({ payload: expect.objectContaining({ id: 'stop' }) }),
+    );
+  });
+
+  it('reports a final barrier rejection after hitting the quota', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    let rejectBarrier!: (error: Error) => void;
+    const barrier = new Promise<void>((_resolve, reject) => {
+      rejectBarrier = reject;
+    });
+    const session = new RendererSession({ run: { renderBarrier: { wait: () => barrier } } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    const waiting = session.run.waitForSettled(run.id);
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: tickId(sent[0]!) },
+    });
+    expect(session.run.status).toMatchObject({ stopReason: 'max-steps', settled: false });
+    rejectBarrier(new Error('disk/render failed'));
+    expect(await waiting).toMatchObject({
+      primaryFailure: 'render-error',
+      stopReason: 'render-error',
+      renderError: 'disk/render failed',
+      settled: true,
+    });
+  });
+
+  it('does not replace condition errors with a simultaneous quota or action result', () => {
+    const { session, sent } = setup();
+    session.run.start({
+      mode: 'bounded',
+      actionId: 'step',
+      maxSteps: 1,
+      stopWhen: 'time > 7 && missing.value',
+    });
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 8 } });
+    const payload = { id: 'step', request_id: tickId(sent[0]!) };
+    session.run.observeActionResult(payload);
+    expect(session.run.status).toMatchObject({
+      stopReason: 'condition-error',
+      stopReasons: ['condition-error', 'max-steps'],
+    });
+    session.run.markActionRendered(payload);
+  });
+
+  it('leaves unknown actions uncounted on disconnect and timeout and cleans wait timers', async () => {
+    vi.useFakeTimers();
+    const { session } = setup();
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    const expired = session.run.waitForSettled(run.id, 5);
+    const assertion = expect(expired).rejects.toThrow(/not cancelled/);
+    await vi.advanceTimersByTimeAsync(5);
+    await assertion;
+    expect(session.run.status?.state).toBe('running');
+    const waiting = session.run.waitForSettled(run.id);
+    session.run.reset('disconnected');
+    expect(await waiting).toMatchObject({
+      stateKnown: false,
+      completedActions: 0,
+      failedActions: 0,
+      settled: true,
+    });
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
+});
+
+it('does not dispatch queued cleanup after an action becomes unknown', async () => {
+  vi.useFakeTimers();
+  try {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession({ run: { actionTimeoutMs: 10 } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
+    const run = session.run.start({ mode: 'manual', actionId: 'step' });
+    session.run.stop();
+    const waiting = session.run.waitForSettled(run.id);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(await waiting).toMatchObject({
+      settled: true,
+      stateKnown: false,
+      stopReason: 'action-timeout',
+    });
+    expect(sent).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    vi.useRealTimers();
+  }
 });

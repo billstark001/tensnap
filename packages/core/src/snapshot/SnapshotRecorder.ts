@@ -495,11 +495,11 @@ export class SnapshotRecorder {
     return complete;
   }
 
-  recordMessage(message: SimulatorToRendererMessage): void {
+  recordMessage(message: SimulatorToRendererMessage, source?: SnapshotFrame['source']): void {
     if (!this.snapshot || this.retentionExhausted) return;
     this.pendingMessages.push(cloneRecordedMessage(message));
     if (message.type === 'action_result') {
-      this.flush('action', message.payload as ActionResultPayload);
+      this.flush('action', message.payload as ActionResultPayload, source);
       this.awaitingActionResult = false;
     } else if (message.type === 'state_sync_end') {
       this.flush('sync');
@@ -534,7 +534,11 @@ export class SnapshotRecorder {
     });
   }
 
-  private flush(kind: SnapshotFrame['kind'], action?: ActionResultPayload): void {
+  private flush(
+    kind: SnapshotFrame['kind'],
+    action?: ActionResultPayload,
+    source?: SnapshotFrame['source'],
+  ): void {
     const target = this.snapshot;
     if (!target || (!this.pendingMessages.length && !this.pendingControls.length)) return;
     const timestamp = now();
@@ -570,6 +574,7 @@ export class SnapshotRecorder {
       controls: coalesceControls(this.pendingControls),
       action: action ? clone(action) : undefined,
       kind,
+      ...(source ? { source } : {}),
     };
     target.frames.push(frame);
     const frameByteLength = byteLength(frame);

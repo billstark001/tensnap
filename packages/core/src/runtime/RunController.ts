@@ -56,7 +56,25 @@ export interface RunStatus {
   id: string;
   spec: RunRequest;
   state: 'running' | 'paused' | 'stopped';
+  /** @deprecated Use completedActions. Retained for the public run API. */
   completedSteps: number;
+  dispatchedActions: number;
+  completedActions: number;
+  succeededActions: number;
+  failedActions: number;
+  stopReasons: RunStopReason[];
+  primaryFailure?: RunStopReason;
+  settled: boolean;
+  settledAt?: number;
+  stateKnown: boolean;
+  lastAction?: {
+    id: string;
+    requestId: string;
+    source: 'action' | 'lifecycle';
+    timeBefore?: number;
+    timeAfter?: number;
+    result: ActionResultPayload;
+  };
   startedAt: number;
   stoppedAt?: number;
   stopReason?: RunStopReason;
@@ -89,7 +107,9 @@ export interface RunControllerOptions {
   actionTimeoutMs?: number;
   onActionTimeout?: (task: RuntimeTaskSnapshot) => void;
   /** Fired after the matching action has passed the host render barrier. */
-  onActionRendered?: (payload: Pick<ActionResultPayload, 'id' | 'request_id'>) => void;
+  onActionRendered?: (
+    payload: Pick<ActionResultPayload, 'id' | 'request_id'> & { renderError?: string },
+  ) => void;
   /** Observability hook for host rendering failures; errors are never left unhandled. */
   onRenderBarrierError?: (
     error: unknown,
@@ -101,6 +121,8 @@ export interface RunControllerOptions {
   onStateChange?: (status: RunStatus | null) => void;
   onRunStart?: (status: RunStatus) => void;
   onRunStop?: (status: RunStatus) => void;
+  /** Fired after the final action, lifecycle and host barriers have ended. */
+  onRunSettled?: (status: RunStatus) => void;
 }
 
 const nativeScheduler: RunScheduler = {
@@ -110,16 +132,7 @@ const nativeScheduler: RunScheduler = {
 };
 
 const cloneStatus = (status: RunStatus): RunStatus => {
-  // The common non-recording run contains only primitives. Avoid invoking the
-  // structured-clone machinery for every status read and every completed tick.
-  // Complex condition/recording payloads keep the stronger deep-copy boundary.
-  if (
-    status.spec.record ||
-    (typeof status.conditionValue === 'object' && status.conditionValue !== null)
-  ) {
-    return structuredClone(status);
-  }
-  return { ...status, spec: { ...status.spec } };
+  return structuredClone(status);
 };
 
 function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
@@ -157,6 +170,13 @@ export class RunController {
   private readonly maxStepsPolicy: number;
   private readonly idFactory: () => string;
   private activeRun: RunStatus | null = null;
+  private readonly retainedRuns = new Map<string, RunStatus>();
+  private readonly settledListeners = new Set<(status: RunStatus) => void>();
+  private readonly renderErrors = new Map<string, string>();
+  private readonly taskOwners = new Map<
+    string,
+    { runId: string; source: 'action' | 'lifecycle'; timeBefore?: number }
+  >();
   private condition: CompiledRunCondition | null = null;
   private deadlineHandle: unknown | null = null;
   private actionTimeoutHandle: unknown | null = null;
@@ -185,6 +205,43 @@ export class RunController {
 
   get status(): RunStatus | null {
     return this.activeRun === null ? null : cloneStatus(this.activeRun);
+  }
+
+  /** Last 100 settled summaries are retained; active runs are always available. */
+  getRun(id: string): RunStatus | null {
+    const status = this.activeRun?.id === id ? this.activeRun : this.retainedRuns.get(id);
+    return status ? cloneStatus(status) : null;
+  }
+
+  waitForSettled(id: string, timeoutMs = 30_000, signal?: AbortSignal): Promise<RunStatus> {
+    const status = this.getRun(id);
+    if (!status) return Promise.reject(new Error(`Unknown or expired run: ${id}`));
+    if (status.settled) return Promise.resolve(status);
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
+      return Promise.reject(new Error('timeoutMs must be positive.'));
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        this.scheduler.clearTimeout(timer);
+        this.settledListeners.delete(onSettled);
+        signal?.removeEventListener('abort', onAbort);
+      };
+      const onSettled = (result: RunStatus) => {
+        if (result.id !== id) return;
+        cleanup();
+        resolve(cloneStatus(result));
+      };
+      const onAbort = () => {
+        cleanup();
+        reject(new Error(`Wait for run ${id} aborted; operation was not cancelled.`));
+      };
+      const timer = this.scheduler.setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timed out waiting for run ${id}; operation was not cancelled.`));
+      }, timeoutMs);
+      this.settledListeners.add(onSettled);
+      signal?.addEventListener('abort', onAbort, { once: true });
+      if (signal?.aborted) onAbort();
+    });
   }
 
   get isRunning(): boolean {
@@ -280,7 +337,7 @@ export class RunController {
         : null;
     // Reject a new run before changing the existing one. A caller can retry
     // once the current tick has passed its render barrier.
-    if (this.runtime.peekActiveTaskRef()) {
+    if (this.runtime.peekActiveTaskRef() || (this.activeRun && !this.activeRun.settled)) {
       throw new Error('Wait for the current action tick to finish before starting another run.');
     }
     this.stop('stopped');
@@ -293,6 +350,13 @@ export class RunController {
       spec: normalized,
       state: 'running',
       completedSteps: 0,
+      dispatchedActions: 0,
+      completedActions: 0,
+      succeededActions: 0,
+      failedActions: 0,
+      stopReasons: [],
+      settled: false,
+      stateKnown: true,
       startedAt: this.scheduler.now(),
       pauseRequested: false,
       inFlight: false,
@@ -301,7 +365,7 @@ export class RunController {
     this.options.onRunStart?.(cloneStatus(status));
 
     if (normalized.mode === 'bounded' && this.evaluateCondition()) {
-      this.finish('condition');
+      this.finish(status.conditionError ? 'condition-error' : 'condition');
       return this.status!;
     }
 
@@ -321,17 +385,29 @@ export class RunController {
   }
 
   stop(reason: RunStopReason = 'stopped'): RunStatus | null {
-    if (!this.activeRun || this.activeRun.state !== 'running') return this.status;
+    if (!this.activeRun || this.activeRun.settled) return this.status;
     this.finish(reason);
     return this.status;
   }
 
   reset(reason: RunStopReason = 'disconnected'): void {
+    if (this.activeRun && !this.activeRun.settled && this.hasInFlightAction)
+      this.activeRun.stateKnown = false;
     this.finish(reason);
     this.clearActionTimeout();
     this.runtime.reset();
+    this.taskOwners.clear();
+    this.renderErrors.clear();
+    this.maybeSettle();
     this.invocationByTaskId.clear();
     this.options.scenario.endResetLifecycle();
+  }
+
+  actionSource(
+    payload: Pick<ActionResultPayload, 'id' | 'request_id'>,
+  ): 'action' | 'lifecycle' | undefined {
+    const task = this.matchActiveTask(payload);
+    return task ? this.taskOwners.get(task.id)?.source : undefined;
   }
 
   observeActionResult(payload: ActionResultPayload): boolean {
@@ -352,20 +428,33 @@ export class RunController {
     this.runtime.markTaskApplied(task.id);
 
     const run = this.activeRun;
-    if (run?.state === 'running' && task.key === run.spec.actionId) {
-      run.completedSteps += 1;
-      const conditionMatched = run.spec.mode === 'bounded' && this.evaluateCondition();
-      if (run.pauseRequested) {
-        this.finish('paused');
-      } else if (conditionMatched) {
-        this.finish('condition');
-      } else if (run.spec.mode === 'bounded' && run.completedSteps >= run.spec.maxSteps) {
-        this.finish('max-steps');
-      } else if (payload.error !== undefined) {
-        this.finish('action-error');
-      } else if (payload.should_continue === false) {
-        this.finish('simulator');
-      }
+    const owner = this.taskOwners.get(task.id);
+    if (run && owner?.runId === run.id) {
+      run.lastAction = {
+        id: task.key,
+        requestId: task.id,
+        source: owner.source,
+        timeBefore: owner.timeBefore,
+        timeAfter: this.options.scenario.time,
+        result: structuredClone(payload),
+      };
+      if (owner.source === 'action') {
+        run.completedActions += 1;
+        run.completedSteps = run.completedActions;
+        if (payload.error !== undefined) run.failedActions += 1;
+        else run.succeededActions += 1;
+        const conditionMatched =
+          run.state === 'running' && run.spec.mode === 'bounded' && this.evaluateCondition();
+        const reasons: RunStopReason[] = [];
+        if (run.conditionError) reasons.push('condition-error');
+        if (payload.error !== undefined) reasons.push('action-error');
+        if (run.pauseRequested) reasons.push('paused');
+        if (conditionMatched && !run.conditionError) reasons.push('condition');
+        if (run.spec.mode === 'bounded' && run.completedActions >= run.spec.maxSteps)
+          reasons.push('max-steps');
+        if (payload.should_continue === false) reasons.push('simulator');
+        for (const reason of reasons) this.finish(reason);
+      } else if (payload.error !== undefined) this.finish('action-error');
     }
 
     if (payload.error !== undefined || payload.should_continue === false) {
@@ -388,12 +477,16 @@ export class RunController {
     const rendered = this.runtime.markTaskRendered(task.id);
     if (rendered) {
       this.invocationByTaskId.delete(task.id);
+      this.taskOwners.delete(task.id);
       this.flushCommands();
+      this.maybeSettle();
       if (this.activeRun) {
         this.activeRun.inFlight = this.hasInFlightAction;
         this.publish();
       }
-      this.options.onActionRendered?.(payload);
+      const renderError = this.renderErrors.get(task.id);
+      this.renderErrors.delete(task.id);
+      this.options.onActionRendered?.({ ...payload, ...(renderError ? { renderError } : {}) });
     }
     return rendered;
   }
@@ -412,35 +505,72 @@ export class RunController {
       return value === true;
     } catch (error) {
       this.activeRun.conditionError = error instanceof Error ? error.message : String(error);
-      this.finish('condition-error');
       return true;
     }
   }
 
   private finish(reason: RunStopReason): void {
     const run = this.activeRun;
-    if (!run || run.state === 'stopped') return;
+    if (!run || run.settled) return;
+    if (!run.stopReasons.includes(reason)) run.stopReasons.push(reason);
+    const failures: RunStopReason[] = [
+      'disconnected',
+      'action-timeout',
+      'validation-error',
+      'action-error',
+      'condition-error',
+      'render-error',
+    ];
+    run.primaryFailure = failures.find((failure) => run.stopReasons.includes(failure));
+    run.stopReason = run.primaryFailure ?? run.stopReasons[0];
+    if (run.state !== 'running') {
+      this.publish();
+      return;
+    }
     if (this.deadlineHandle !== null) {
       this.scheduler.clearTimeout(this.deadlineHandle);
       this.deadlineHandle = null;
     }
-    this.clearActionTimeout();
+    // An in-flight simulator action still needs its timeout during cleanup.
     this.discardInvocations(this.runtime.cancel(run.spec.actionId));
+    run.state = reason === 'paused' ? 'paused' : 'stopped';
+    run.stoppedAt = this.scheduler.now();
+    this.condition = null;
     if (
       reason !== 'disconnected' &&
       reason !== 'validation-error' &&
+      reason !== 'action-timeout' &&
       this.canInvokeStopHook(run.spec.actionId)
     ) {
-      this.runtime.enqueueFront('stop');
+      const taskId = this.runtime.enqueueFront('stop');
+      this.taskOwners.set(taskId, { runId: run.id, source: 'lifecycle' });
     }
-    run.state = reason === 'paused' ? 'paused' : 'stopped';
-    run.stopReason = reason;
-    run.stoppedAt = this.scheduler.now();
     run.inFlight = this.hasInFlightAction;
-    this.condition = null;
     this.publish();
     this.options.onRunStop?.(cloneStatus(run));
     this.flushCommands();
+    this.maybeSettle();
+  }
+
+  private maybeSettle(): void {
+    const run = this.activeRun;
+    if (
+      !run ||
+      run.state === 'running' ||
+      run.settled ||
+      [...this.taskOwners.values()].some((owner) => owner.runId === run.id)
+    )
+      return;
+    run.inFlight = false;
+    run.settled = true;
+    run.settledAt = this.scheduler.now();
+    if (!this.hasInFlightAction) this.clearActionTimeout();
+    this.retainedRuns.set(run.id, cloneStatus(run));
+    while (this.retainedRuns.size > 100)
+      this.retainedRuns.delete(this.retainedRuns.keys().next().value!);
+    this.publish();
+    this.options.onRunSettled?.(cloneStatus(run));
+    for (const listener of this.settledListeners) listener(run);
   }
 
   private matchActiveTask(
@@ -459,6 +589,22 @@ export class RunController {
       if (command.type !== 'dispatch') continue;
       const invocation = this.invocationByTaskId.get(command.task.id);
       this.invocationByTaskId.delete(command.task.id);
+      const run = this.activeRun;
+      if (run && !run.settled) {
+        const source =
+          this.taskOwners.get(command.task.id)?.source ??
+          (run.state === 'running' && command.task.key === run.spec.actionId
+            ? 'action'
+            : undefined);
+        if (source) {
+          this.taskOwners.set(command.task.id, {
+            runId: run.id,
+            source,
+            timeBefore: this.options.scenario.time,
+          });
+          if (source === 'action') run.dispatchedActions += 1;
+        }
+      }
       const isReset = command.task.key === 'reset';
       if (isReset) this.options.scenario.beginResetLifecycle();
       try {
@@ -473,12 +619,22 @@ export class RunController {
         // The dispatch never reached the simulator. Release the task instead
         // of leaving the pipeline wedged until its normal action timeout.
         this.runtime.cancelPendingDispatch(command.task.id);
+        const owner = this.taskOwners.get(command.task.id);
+        this.taskOwners.delete(command.task.id);
         if (error instanceof ProtocolValidationError) {
+          if (run && owner?.source === 'action') run.dispatchedActions -= 1;
           this.finish('validation-error');
+        } else {
+          if (run) run.stateKnown = false;
+          this.finish('disconnected');
         }
         throw error;
       }
-      this.scheduleActionTimeout(command.task);
+      if (
+        this.runtime.peekActiveTaskRef()?.id === command.task.id &&
+        this.runtime.peekActiveTaskRef()?.stage === 'dispatched'
+      )
+        this.scheduleActionTimeout(command.task);
     }
   }
 
@@ -529,13 +685,17 @@ export class RunController {
     this.runtime.completeTask(activeTask.id, { should_continue: false });
     if (activeTask.key === 'reset') this.options.scenario.endResetLifecycle();
     this.runtime.markTaskApplied(activeTask.id);
-    if (this.activeRun?.state === 'running' && this.activeRun.spec.actionId === activeTask.key) {
+    if (this.activeRun && this.taskOwners.get(activeTask.id)?.runId === this.activeRun.id) {
+      this.activeRun.stateKnown = false;
       this.finish('action-timeout');
     } else {
       this.discardInvocations(this.runtime.cancel(activeTask.key));
     }
+    this.discardInvocations(this.runtime.cancel());
     if (this.runtime.markTaskRendered(activeTask.id)) this.invocationByTaskId.delete(activeTask.id);
+    this.taskOwners.delete(activeTask.id);
     this.flushCommands();
+    this.maybeSettle();
   }
 
   private releaseActionTimeout(task: RuntimeTaskSnapshot): void {
@@ -564,7 +724,10 @@ export class RunController {
   }
 
   private discardInvocations(taskIds: readonly string[]): void {
-    for (const taskId of taskIds) this.invocationByTaskId.delete(taskId);
+    for (const taskId of taskIds) {
+      this.invocationByTaskId.delete(taskId);
+      this.taskOwners.delete(taskId);
+    }
   }
 
   private canInvokeStopHook(runActionId: string): boolean {
@@ -582,6 +745,8 @@ export class RunController {
     task: RuntimeTaskSnapshot,
     payload: ActionResultPayload,
   ): void {
+    if (this.runtime.peekActiveTaskRef()?.id !== task.id) return;
+    this.renderErrors.set(task.id, error instanceof Error ? error.message : String(error));
     try {
       this.options.onRenderBarrierError?.(error, task, payload);
     } catch {
@@ -593,7 +758,12 @@ export class RunController {
     // render gate. Only stop the run that still owns this exact task; a later
     // run may already have superseded it while the host was rendering.
     const activeTask = this.runtime.peekActiveTaskRef();
-    if (activeTask?.id !== task.id || this.activeRun?.state !== 'running') return;
+    if (
+      activeTask?.id !== task.id ||
+      !this.activeRun ||
+      this.taskOwners.get(task.id)?.runId !== this.activeRun.id
+    )
+      return;
     this.activeRun.renderError = error instanceof Error ? error.message : String(error);
     this.finish('render-error');
   }

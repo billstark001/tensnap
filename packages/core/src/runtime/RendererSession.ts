@@ -58,6 +58,7 @@ export interface RendererSessionActionMetricsDetail {
 }
 
 export interface RendererSessionRecordingDetail {
+  runId?: string;
   snapshot: Snapshot;
   reason: 'manual' | 'run';
 }
@@ -263,7 +264,7 @@ export class RendererSession extends LazyEventTarget {
     this.recorder = new SnapshotRecorder(this.scenario);
     const onRunStateChange = options.run?.onStateChange;
     const onRunStart = options.run?.onRunStart;
-    const onRunStop = options.run?.onRunStop;
+    const onRunSettled = options.run?.onRunSettled;
     const onActionRendered = options.run?.onActionRendered;
     this.run = new RunController({
       ...options.run,
@@ -287,15 +288,20 @@ export class RendererSession extends LazyEventTarget {
           );
         }
       },
-      onRunStop: (status) => {
-        onRunStop?.(status);
-        if (!status.spec.record) return;
+      onRunSettled: (status) => {
+        onRunSettled?.(status);
+        if (!status.spec.record) {
+          this.dispatch('run:settled', status);
+          return;
+        }
         const snapshot = this.recorder.stop();
         if (snapshot)
           this.dispatch('recording:complete', {
             snapshot,
             reason: 'run',
+            runId: status.id,
           } satisfies RendererSessionRecordingDetail);
+        this.dispatch('run:settled', status);
       },
       onActionRendered: (payload) => {
         this.dispatch('action:rendered', payload);
@@ -1005,7 +1011,12 @@ export class RendererSession extends LazyEventTarget {
     origin: RendererMessageOrigin,
   ): void {
     this.scenario.apply(message);
-    this.recorder.recordMessage(message);
+    this.recorder.recordMessage(
+      message,
+      message.type === 'action_result'
+        ? this.run.actionSource(message.payload as ActionResultPayload)
+        : undefined,
+    );
     this.dispatch('message', { message, origin } satisfies RendererSessionMessageDetail);
     this.dispatch('commit', { origin, messages: [message] } satisfies RendererSessionCommitDetail);
   }

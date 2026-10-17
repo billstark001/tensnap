@@ -27,7 +27,13 @@ Workspace imports use TypeScript source. `pnpm build` produces ESM and declarati
 
 `RunController` drives one renderer-dispatched action at a time. Bounded runs require an explicit `mode: 'bounded'` and finite `maxSteps` (default policy limit: 1,000,000); manual runs use `mode: 'manual'` and continue until paused. An optional `stopWhen` expression is evaluated before the first bounded action and after each `action_result`. The scope is read-only and incremental (`steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`), so it never needs to call `Scenario.dump()` in the tick path.
 
-A host render barrier is part of the run contract. If it rejects, the controller reports the host error, marks that run with `render-error`, and releases the pipeline rather than leaving an unhandled rejection or a stalled continuous action.
+Run status separates `dispatchedActions`, `completedActions`, `succeededActions`, and `failedActions`. Completion counts matching results even when model time stays unchanged; `completedActions = succeededActions + failedActions`. The public `completedSteps` field remains as a deprecated synonym for completion count, and the public `maxSteps` quota still limits completed actions. `lastAction` records its request ID, action/lifecycle source, result, and observed model times.
+
+`state: 'stopped' | 'paused'` stops dispatch; `settled` additionally waits for the final host barrier and any declared stop hook. `onRunStop` retains its dispatch-stop meaning; use `onRunSettled`, the session's `run:settled` event, or `run.waitForSettled(runId, timeoutMs, signal)` for cleanup completion. A wait timeout/abort cancels only the wait. `getRun(runId)` retains the last 100 settled summaries in memory, while the active run is always queryable. Unknown/expired IDs reject immediately. Disconnects/action timeouts preserve `stateKnown: false` and never fabricate a completed action. In manual render mode settlement does not imply that images were generated.
+
+`stopReasons` keeps every observed reason. `primaryFailure` and the compatible `stopReason` prioritize disconnected, action-timeout, validation-error, action-error, condition-error, then render-error over normal quota/condition/pause reasons. Run recording closes at settlement, includes the stop hook's visible updates, and labels its action frame with `source: 'lifecycle'`.
+
+A host render barrier is part of the run contract. If it rejects, the controller reports the host error, marks that run with `render-error`, and releases the pipeline rather than leaving an unhandled rejection or a stalled continuous action. A failure on the final quota action is still reported. `RendererClient.invokeAction()` rejects with `ActionRenderError` on a failed host barrier, preserving the correlated simulator `result` on the error.
 
 ## Recordings and project archives
 
