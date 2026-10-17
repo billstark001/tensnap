@@ -8,6 +8,8 @@ import Form from '@tensnap/web-common/components/ui/Form';
 import { listBuiltinModels } from '@/transport';
 import type { ProjectSource } from '@tensnap/core/snapshot';
 import * as styles from './CreateNewProjectDialog.css';
+import { ipFamilyError } from '@/utils/network';
+import { useSettingsStore } from '@/store/settings';
 
 const FakeModelCard: React.FC<{
   model: { id: string; name: string; description: string; protocolVersion?: string };
@@ -40,9 +42,11 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
 }) => {
   const { _ } = useLingui();
   const [newItemName, setNewItemName] = useState('ws://localhost:8765');
+  const ipFamily = useSettingsStore((state) => state.ip_family);
+  const connectionError = ipFamilyError(newItemName.trim(), ipFamily);
 
   const handleCreateItem = useCallback(() => {
-    if (!newItemName.trim()) return;
+    if (!newItemName.trim() || connectionError) return;
 
     try {
       onCreateItem({ kind: 'websocket', url: newItemName.trim() });
@@ -50,7 +54,7 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
     } catch (error) {
       console.error('Failed to create item:', error);
     }
-  }, [newItemName, onCreateItem, onOpenChange]);
+  }, [newItemName, connectionError, onCreateItem, onOpenChange]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -83,6 +87,8 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
           />
         </Form.FieldSet>
 
+        {connectionError && <div role="alert">{connectionError}</div>}
+
         <Dialog.Separator />
 
         {fakeModels.length > 0 && (
@@ -110,7 +116,11 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
             <Trans>Cancel</Trans>
           </Dialog.Button>
         </Dialog.Close>
-        <Dialog.Button variant="primary" onClick={handleCreateItem} disabled={!newItemName.trim()}>
+        <Dialog.Button
+          variant="primary"
+          onClick={handleCreateItem}
+          disabled={!newItemName.trim() || !!connectionError}
+        >
           <Trans>Create</Trans>
         </Dialog.Button>
       </Dialog.Footer>

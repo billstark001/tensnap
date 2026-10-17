@@ -1,3 +1,4 @@
+import { parseIPFamily, type IPFamily } from '@tensnap/network';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Locale } from '@/i18n';
@@ -77,6 +78,7 @@ function parseSnapshotPlaybackFps(raw: string | null, fallback: number): number 
 export async function hydrateSettings(): Promise<void> {
   const persistence = getSettingsPersistence();
   const keys = [
+    'ip_family',
     'theme',
     'saveFormat',
     'locale',
@@ -96,6 +98,8 @@ export async function hydrateSettings(): Promise<void> {
   >;
 
   useSettingsStore.setState({
+    ip_family:
+      setting.ip_family === 'ipv4' || setting.ip_family === 'ipv6' ? setting.ip_family : 'auto',
     theme: setting.theme === 'dark' ? 'dark' : 'light',
     saveFormat: setting.saveFormat === 'json' ? 'json' : 'msgpack',
     locale: setting.locale === 'zh' || setting.locale === 'ja' ? setting.locale : 'en',
@@ -130,6 +134,9 @@ interface SettingsStore {
 
   isAdjusting: boolean;
   setIsAdjusting: (isAdjusting: boolean) => void;
+
+  ip_family: IPFamily;
+  setIPFamily: (family: IPFamily) => void;
 
   theme: Theme;
   saveFormat: 'json' | 'msgpack';
@@ -178,6 +185,9 @@ export const useSettingsStore = create<SettingsStore>()(
     setIsAdjusting: (isAdjusting: boolean) => {
       set({ isAdjusting });
     },
+
+    ip_family: 'auto',
+    setIPFamily: (family) => set({ ip_family: parseIPFamily(family) }),
 
     theme: 'light',
     saveFormat: 'msgpack',
@@ -333,5 +343,12 @@ useSettingsStore.subscribe(
   (state) => state.continuousRunProfiles,
   (profiles) => {
     void getSettingsPersistence().set('continuousRunProfiles', JSON.stringify(profiles));
+  },
+);
+
+useSettingsStore.subscribe(
+  (state) => state.ip_family,
+  (family) => {
+    void getSettingsPersistence().set('ip_family', family);
   },
 );

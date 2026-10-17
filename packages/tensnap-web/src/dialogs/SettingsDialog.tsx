@@ -1,3 +1,4 @@
+import type { IPFamily } from '@tensnap/network';
 import React, { useState, useCallback, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
@@ -19,12 +20,15 @@ import { listBuiltinModels } from '@/transport';
 
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
+import { ipFamilyError } from '@/utils/network';
 
 export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   const { _ } = useLingui();
   const toast = useToast();
 
   const {
+    ip_family,
+    setIPFamily,
     theme,
     saveFormat,
     locale,
@@ -187,6 +191,29 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
             </div>
 
             <div className={styles.settingItem}>
+              <label htmlFor="system-ip-family" className={styles.settingLabel}>
+                <Trans>IP family</Trans>
+              </label>
+              <div className={styles.settingControl}>
+                <Select.Root
+                  triggerProps={{ id: 'system-ip-family' }}
+                  value={ip_family}
+                  onValueChange={(family) => setIPFamily(family as IPFamily)}
+                >
+                  <Select.Item value="auto">
+                    <Trans>Auto</Trans>
+                  </Select.Item>
+                  <Select.Item value="ipv4">
+                    <Trans>IPv4 only</Trans>
+                  </Select.Item>
+                  <Select.Item value="ipv6">
+                    <Trans>IPv6 only</Trans>
+                  </Select.Item>
+                </Select.Root>
+              </div>
+            </div>
+
+            <div className={styles.settingItem}>
               <label className={styles.settingLabel}>
                 <Trans>Client Message Validation</Trans>
               </label>
@@ -333,6 +360,12 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
               </div>
             </div>
           </div>
+          <div className={styles.fieldHint}>
+            <Trans>
+              IP family applies to new connections and reconnects. Browsers can force it for IP
+              addresses or local ws://localhost connections. Other domain names require Auto.
+            </Trans>
+          </div>
         </div>
 
         <Dialog.Separator />
@@ -415,10 +448,15 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
                       type="text"
                       value={projectSource.url}
                       onChange={(e) =>
-                        updateProjectSource({ kind: 'websocket', url: e.target.value })
+                        updateProjectSource({ ...projectSource, url: e.target.value })
                       }
                       placeholder={_(msg`Enter backend WebSocket server address`)}
                     />
+                    {ipFamilyError(projectSource.url, ip_family) && (
+                      <div className={styles.fieldHint} role="alert">
+                        {ipFamilyError(projectSource.url, ip_family)}
+                      </div>
+                    )}
                     <div className={styles.fieldHint}>
                       <Trans>
                         Change the WebSocket server URL for the current project. The connection will
@@ -482,7 +520,11 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
                 <Dialog.Button
                   variant="primary"
                   onClick={handleProjectSettingsConfirm}
-                  disabled={!hasProjectChanges}
+                  disabled={
+                    !hasProjectChanges ||
+                    (projectSource.kind === 'websocket' &&
+                      !!ipFamilyError(projectSource.url, ip_family))
+                  }
                 >
                   <Trans>Apply</Trans>
                 </Dialog.Button>

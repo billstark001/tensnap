@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hydrateSettings, MAX_SNAPSHOT_PLAYBACK_FPS, useSettingsStore } from './settings';
 import { configureSettingsPersistence, getSettingsPersistence } from './settings-persistence';
 
@@ -52,4 +52,31 @@ describe('continuous run profile persistence', () => {
       useSettingsStore.setState({ continuousRunProfiles: original });
     }
   });
+});
+
+describe('IP-family system settings', () => {
+  it.each(['auto', 'ipv4', 'ipv6', 'invalid', null])(
+    'hydrates %s and persists changes',
+    async (value) => {
+      const original = useSettingsStore.getState();
+      const persistence = getSettingsPersistence();
+      const set = vi.fn(async () => {});
+      configureSettingsPersistence({
+        get: async (key) => (key === 'ip_family' ? value : null),
+        set,
+      });
+      try {
+        await hydrateSettings();
+        expect(useSettingsStore.getState().ip_family).toBe(
+          value === 'ipv4' || value === 'ipv6' ? value : 'auto',
+        );
+        useSettingsStore.getState().setIPFamily('ipv6');
+        useSettingsStore.getState().setIPFamily('ipv4');
+        expect(set).toHaveBeenLastCalledWith('ip_family', 'ipv4');
+      } finally {
+        useSettingsStore.setState(original);
+        configureSettingsPersistence(persistence);
+      }
+    },
+  );
 });

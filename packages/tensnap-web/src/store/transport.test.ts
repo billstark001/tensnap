@@ -639,3 +639,24 @@ describe('transport store reconnect state', () => {
     useTransportStore.getState().destroy();
   });
 });
+
+it('uses the global IP family for initial connections and updates reconnect policy', async () => {
+  const original = useSettingsStore.getState().ip_family;
+  const connect = vi.spyOn(WebSocketManagerImpl.prototype, 'connect').mockResolvedValue(undefined);
+  const store = createTransportStore(createScenarioStore());
+  try {
+    useSettingsStore.getState().setIPFamily('ipv6');
+    await store.getState().initialize('ws://localhost:8765/model');
+    expect((store.getState().transport as WebSocketManagerImpl).ip_family).toBe('ipv6');
+    expect(store.getState().connectionId).toBe('ws://localhost:8765/model');
+    useSettingsStore.getState().setIPFamily('ipv4');
+    expect((store.getState().transport as WebSocketManagerImpl).ip_family).toBe('ipv4');
+    await store.getState().reconnect();
+    expect((store.getState().transport as WebSocketManagerImpl).ip_family).toBe('ipv4');
+    expect(store.getState().connectionId).toBe('ws://localhost:8765/model');
+  } finally {
+    store.getState().destroy();
+    connect.mockRestore();
+    useSettingsStore.getState().setIPFamily(original);
+  }
+});

@@ -1,3 +1,4 @@
+import { type IPFamily, browserWebSocketUrl } from '@tensnap/network';
 import { generateUniqueId } from '@/utils/common';
 import type {
   ISimulatorTransport,
@@ -30,8 +31,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   private reconnectDelays = [1000, 2000, 5000, 10000, 15000]; // Progressive delays in ms
   private url: string;
   private useMsgPack: boolean;
-  private abortController: AbortController | null = null;
-  private externalAbortHandler: (() => void) | null = null;
+  private cancelConnect: (() => void) | null = null;
   private isDestroyed: boolean = false;
   private codec: ProtocolCodec | null = null;
   private codecValidationLevel: ProtocolValidationLevel = 'off';
@@ -49,6 +49,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     url: string,
     useMsgPack: boolean = false,
     private readonly protocolPreference: 'auto' | ProtocolCodecMode = 'auto',
+    public ip_family: IPFamily = 'auto',
   ) {
     this.id = id || generateUniqueId();
     this.url = url;
@@ -56,140 +57,119 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   }
 
   connect(signal?: AbortSignal): Promise<void> {
+    if (this.isDestroyed) return Promise.reject(new WebSocketDestroyedError());
+    if (signal?.aborted) return Promise.reject(new WebSocketAbortedError());
+    let endpoint: string;
+    try {
+      endpoint = browserWebSocketUrl(this.url, this.ip_family);
+    } catch (error) {
+      return Promise.reject(new WebSocketConnectionError(String(error)));
+    }
+    this.cancelConnect?.();
+    this.releaseSocket();
+    this.clearHandshakeTimer();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     this.manualDisconnect = false;
-    return new Promise((resolve, reject) => {
-      let promiseSettled = false;
 
-      const settlePromise = (settler: () => void) => {
-        if (!promiseSettled) {
-          promiseSettled = true;
-          settler();
-        }
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let socket: WebSocket | undefined;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        signal?.removeEventListener('abort', cancel);
+        if (this.cancelConnect === cancel) this.cancelConnect = null;
+        if (error) reject(error);
+        else resolve();
       };
-
+      const cancel = () => {
+        if (socket && this.ws === socket) {
+          this.manualDisconnect = true;
+          this.releaseSocket();
+          this.clearHandshakeTimer();
+        }
+        finish(new WebSocketAbortedError());
+      };
+      this.cancelConnect = cancel;
+      signal?.addEventListener('abort', cancel, { once: true });
+      if (signal?.aborted) {
+        cancel();
+        return;
+      }
       try {
-        // Check if already destroyed
-        if (this.isDestroyed) {
-          settlePromise(() => reject(new WebSocketDestroyedError()));
-          return;
-        }
-
-        // Clean up existing external abort handler if any
-        if (this.externalAbortHandler && signal) {
-          signal.removeEventListener('abort', this.externalAbortHandler);
-          this.externalAbortHandler = null;
-        }
-
-        // Create internal AbortController for connection management
-        this.abortController = new AbortController();
-
-        // Listen to external abort signal if provided
-        if (signal) {
-          this.externalAbortHandler = () => {
-            this.abortController?.abort();
-          };
-          signal.addEventListener('abort', this.externalAbortHandler, { once: true });
-        }
-
-        // Listen to abort signal
-        const internalAbortHandler = () => {
-          if (this.ws) {
-            this.emitDiagnostic('info', 'connection_aborted', 'Connection attempt aborted.');
-            this.manualDisconnect = true;
-            this.ws.close();
-            this.ws = null;
-          }
-          settlePromise(() => reject(new WebSocketAbortedError()));
-        };
-        this.abortController.signal.addEventListener('abort', internalAbortHandler, { once: true });
-
-        // Check if already aborted before starting connection
-        if (this.abortController.signal.aborted) {
-          settlePromise(() => reject(new WebSocketAbortedError()));
-          return;
-        }
-
-        this.ws = new WebSocket(this.url);
-        this.ws.binaryType = 'arraybuffer';
-
-        this.ws.onopen = () => {
-          // Check if aborted or destroyed during connection establishment
-          if (this.abortController?.signal.aborted || this.isDestroyed) {
-            this.manualDisconnect = true;
-            this.ws?.close();
-            this.ws = null;
-            settlePromise(() => reject(new WebSocketAbortedError()));
+        socket = new WebSocket(endpoint);
+        this.ws = socket;
+        const current = socket;
+        current.binaryType = 'arraybuffer';
+        current.onopen = () => {
+          if (this.ws !== current || this.isDestroyed) {
+            cancel();
             return;
           }
           this.emitDiagnostic('info', 'connected', 'WebSocket connection established.');
-
+          if (this.ws !== current || this.isDestroyed) {
+            cancel();
+            return;
+          }
           this.resetProtocolSession();
           if (this.protocolPreference === 'auto') {
             this.handshakeTimer = setTimeout(() => {
-              if (this.ws?.readyState === WebSocket.OPEN && this.codec === null) {
+              if (
+                this.ws === current &&
+                current.readyState === WebSocket.OPEN &&
+                this.codec === null
+              )
                 this.selectProtocolMode('legacy', 'handshake-timeout');
-              }
             }, 1_000);
-          } else {
-            this.selectProtocolMode(this.protocolPreference, 'configured');
+          } else this.selectProtocolMode(this.protocolPreference, 'configured');
+          if (this.ws !== current || this.isDestroyed) {
+            cancel();
+            return;
           }
-
-          // Reset reconnection state on successful connection
           this.reconnectAttempts = 0;
-          if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-          }
-
-          // Clean up AbortController after successful connection
-          this.abortController = null;
-          this.externalAbortHandler = null;
-
-          settlePromise(() => resolve());
-
-          if (!this.isDestroyed) {
-            this.emit('open', undefined);
-          }
+          finish();
+          if (!this.isDestroyed) this.emit('open', undefined);
         };
-
-        this.ws.onmessage = (event) => {
-          if (!this.isDestroyed) {
-            this.handleMessage(event.data);
-          }
+        current.onmessage = (event) => {
+          if (this.ws === current && !this.isDestroyed) this.handleMessage(event.data);
         };
-
-        this.ws.onerror = (error) => {
-          this.abortController = null;
-          this.externalAbortHandler = null;
+        current.onerror = (error) => {
+          if (this.ws !== current) return;
           this.emitDiagnostic('error', 'connection_error', 'WebSocket connection failed.', error);
-          settlePromise(() => reject(new WebSocketConnectionError(`Failed to connect: ${error}`)));
+          finish(new WebSocketConnectionError(`Failed to connect: ${error}`));
         };
-
-        this.ws.onclose = (event) => {
+        current.onclose = (event) => {
+          if (this.ws !== current) return;
+          this.ws = null;
+          finish(new WebSocketConnectionError('WebSocket closed before opening.'));
+          this.clearHandshakeTimer();
           this.emitDiagnostic(
             this.manualDisconnect || event.code === 1000 ? 'info' : 'warning',
             'closed',
             `WebSocket closed (code ${event.code}${event.reason ? `: ${event.reason}` : ''}).`,
             { code: event.code, reason: event.reason, wasClean: event.wasClean },
           );
-          this.abortController = null;
-          this.externalAbortHandler = null;
-          this.clearHandshakeTimer();
-
-          // Only attempt reconnection if not manually disconnected, not destroyed, and within retry limits
-          if (!this.isDestroyed && !this.manualDisconnect && this.shouldReconnect(event.code)) {
+          if (!this.isDestroyed && !this.manualDisconnect && this.shouldReconnect(event.code))
             this.scheduleReconnect();
-          }
-          if (!this.isDestroyed) {
-            this.emit('close', undefined);
-          }
+          if (!this.isDestroyed && this.ws === null) this.emit('close', undefined);
         };
       } catch (error) {
-        this.abortController = null;
-        this.externalAbortHandler = null;
-        settlePromise(() => reject(new WebSocketConnectionError(`Connection failed: ${error}`)));
+        if (socket && this.ws === socket) this.releaseSocket();
+        finish(new WebSocketConnectionError(`Connection failed: ${error}`));
       }
     });
+  }
+
+  private releaseSocket(): void {
+    const socket = this.ws;
+    this.ws = null;
+    if (!socket) return;
+    socket.onopen = null;
+    socket.onmessage = null;
+    socket.onerror = null;
+    socket.onclose = null;
+    socket.close(1000, 'Connection released');
   }
 
   private shouldReconnect(closeCode: number): boolean {
@@ -313,6 +293,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
       `Reconnect attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts} scheduled in ${delay}ms.`,
     );
 
+    if (this.reconnectTimer || this.isDestroyed || this.manualDisconnect) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (!this.isDestroyed && !this.manualDisconnect) {
@@ -331,27 +312,13 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
   disconnect() {
     this.manualDisconnect = true;
 
-    // Abort ongoing connection attempts
-    if (this.abortController) {
-      this.abortController.abort();
-      this.abortController = null;
-    }
-
-    // Clean up external abort handler
-    this.externalAbortHandler = null;
-
-    // Clear reconnection timer
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
+    this.cancelConnect?.();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
     this.clearHandshakeTimer();
-
-    // Close WebSocket connection
-    if (this.ws) {
-      this.ws.close(1000, 'Manual disconnect'); // Normal closure
-      this.ws = null;
-    }
+    const wasOpen = this.isConnected;
+    this.releaseSocket();
+    if (wasOpen && !this.isDestroyed) this.emit('close', undefined);
 
     this.emitDiagnostic('info', 'disconnected', 'WebSocket disconnected by request.');
   }
@@ -373,7 +340,7 @@ export class WebSocketManagerImpl implements ISimulatorTransport {
     // Reset reconnection state
     this.reconnectAttempts = 0;
     this.ws = null;
-    this.abortController = null;
+    this.cancelConnect = null;
     this.reconnectTimer = null;
     this.clearHandshakeTimer();
 

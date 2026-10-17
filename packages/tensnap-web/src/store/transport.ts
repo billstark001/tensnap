@@ -96,12 +96,20 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
       if (isInMemoryConnectionId(transportOrUrl)) {
         throw new Error(`No built-in model is registered for ${transportOrUrl}.`);
       }
-      return new WebSocketManagerImpl(null, transportOrUrl);
+      return new WebSocketManagerImpl(
+        null,
+        transportOrUrl,
+        false,
+        'auto',
+        useSettingsStore.getState().ip_family,
+      );
     };
 
     const configureTransportValidation = (transport: ISimulatorTransport) => {
-      const { clientMessageValidation, serverMessageValidation } = useSettingsStore.getState();
+      const { clientMessageValidation, serverMessageValidation, ip_family } =
+        useSettingsStore.getState();
       if (transport instanceof WebSocketManagerImpl) {
+        transport.ip_family = ip_family ?? 'auto';
         transport.clientMessageValidation = clientMessageValidation;
         transport.serverMessageValidation = serverMessageValidation;
       }
@@ -112,7 +120,8 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
       unsubscribeValidationSettings = useSettingsStore.subscribe((state, previous) => {
         if (
           state.clientMessageValidation === previous.clientMessageValidation &&
-          state.serverMessageValidation === previous.serverMessageValidation
+          state.serverMessageValidation === previous.serverMessageValidation &&
+          state.ip_family === previous.ip_family
         )
           return;
         if (get().transport === transport) configureTransportValidation(transport);
@@ -301,6 +310,8 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
           null,
           connectionId,
           transport.encoding === 'msgpack',
+          'auto',
+          useSettingsStore.getState().ip_family,
         );
 
         await get().initialize(nextTransport, state);
