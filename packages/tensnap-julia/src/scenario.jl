@@ -1,5 +1,7 @@
 mutable struct Scenario
   host::String
+  ip_family::String
+  listening_addresses::Vector{Tuple{String,Int}}
   port::Int
   use_msgpack::Bool
   step_interval::Float64
@@ -36,6 +38,7 @@ end
 
 function Scenario(;
   host = "localhost",
+  ip_family = "auto",
   port = 8765,
   use_msgpack = false,
   step_interval = 0.05,
@@ -53,6 +56,8 @@ function Scenario(;
   restore_hooks = nothing,
 )
   isempty(String(model_id)) && error("model_id must be a non-empty stable string")
+  String(ip_family) in ("auto", "ipv4", "ipv6") ||
+    error("ip_family must be auto, ipv4, or ipv6")
   if restore_hooks !== nothing
     restore_hooks isa RestoreHooks ||
       error("restore_hooks must be created with restore_hooks(...)")
@@ -82,6 +87,8 @@ function Scenario(;
     push!(caps, "scene.restore.checkpoint")
   s = Scenario(
     String(host),
+    String(ip_family),
+    Tuple{String,Int}[],
     Int(port),
     Bool(use_msgpack),
     Float64(step_interval),

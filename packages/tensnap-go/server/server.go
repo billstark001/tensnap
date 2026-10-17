@@ -12,6 +12,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -25,9 +26,11 @@ import (
 
 // Options configures the WebSocket server.
 type Options struct {
-	Addr            string         // e.g. ":8765"
-	Path            string         // WebSocket path, default "/"
-	Codec           protocol.Codec // default JSONCodec
+	IPFamily        IPFamily         // auto (default), ipv4, or ipv6
+	OnListen        func([]net.Addr) // Actual addresses, including the shared port selected for port=0.
+	Addr            string           // e.g. ":8765"
+	Path            string           // WebSocket path, default "/"
+	Codec           protocol.Codec   // default JSONCodec
 	Upgrader        *websocket.Upgrader
 	WriteTimeout    time.Duration // default 10s
 	ReadTimeout     time.Duration // default: none
@@ -64,12 +67,36 @@ func Run(ctx context.Context, opts Options, model abm.Model) error {
 // giving every renderer session its own isolated model instance.
 func RunFactory(ctx context.Context, opts Options, factory func() abm.Model) error {
 	opts.applyDefaults()
+	listeners, err := listenIP(opts.Addr, opts.IPFamily)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for _, listener := range listeners {
+			listener.Close()
+		}
+	}()
 	mux := http.NewServeMux()
-	mux.HandleFunc(opts.Path, makeHandler(opts, factory))
+	connections := &webSocketConnections{active: make(map[*websocket.Conn]struct{})}
+	mux.HandleFunc(opts.Path, makeHandler(opts, factory, connections))
 	srv := &http.Server{Addr: opts.Addr, Handler: mux}
+	defer func() {
+		srv.Close()
+		// net/http does not close hijacked WebSocket connections.
+		connections.close()
+	}()
+	if opts.OnListen != nil {
+		addresses := make([]net.Addr, len(listeners))
+		for i, listener := range listeners {
+			addresses[i] = listener.Addr()
+		}
+		opts.OnListen(addresses)
+	}
 
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.ListenAndServe() }()
+	errCh := make(chan error, len(listeners))
+	for _, listener := range listeners {
+		go func() { errCh <- srv.Serve(listener) }()
+	}
 
 	select {
 	case <-ctx.Done():
@@ -85,12 +112,48 @@ func RunFactory(ctx context.Context, opts Options, factory func() abm.Model) err
 
 // #region Internal
 
-func makeHandler(opts Options, factory func() abm.Model) http.HandlerFunc {
+type webSocketConnections struct {
+	mu      sync.Mutex
+	active  map[*websocket.Conn]struct{}
+	closing bool
+}
+
+func (connections *webSocketConnections) add(conn *websocket.Conn) bool {
+	connections.mu.Lock()
+	defer connections.mu.Unlock()
+	if connections.closing {
+		return false
+	}
+	connections.active[conn] = struct{}{}
+	return true
+}
+
+func (connections *webSocketConnections) remove(conn *websocket.Conn) {
+	connections.mu.Lock()
+	defer connections.mu.Unlock()
+	delete(connections.active, conn)
+}
+
+func (connections *webSocketConnections) close() {
+	connections.mu.Lock()
+	defer connections.mu.Unlock()
+	connections.closing = true
+	for conn := range connections.active {
+		conn.Close()
+	}
+}
+
+func makeHandler(opts Options, factory func() abm.Model, connections *webSocketConnections) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := opts.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			return
 		}
+		defer conn.Close()
+		if !connections.add(conn) {
+			return
+		}
+		defer connections.remove(conn)
 		conn.SetReadLimit(opts.MaxMessageBytes)
 
 		model := factory()
@@ -104,11 +167,9 @@ func makeHandler(opts Options, factory func() abm.Model) http.HandlerFunc {
 			}
 		}
 		if err := em.SimulatorInfo(info); err != nil {
-			_ = conn.Close()
 			return
 		}
 		readLoop(conn, opts, model, em)
-		conn.Close()
 	}
 }
 

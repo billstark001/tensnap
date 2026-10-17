@@ -2067,7 +2067,7 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 version = "1.10.0"
 
 [[deps.TenSnap]]
-deps = ["Base64", "Dates", "HTTP", "JSON3", "MsgPack", "Random", "SHA", "UUIDs"]
+deps = ["Base64", "Dates", "HTTP", "JSON3", "MsgPack", "Random", "SHA", "Sockets", "UUIDs"]
 path = "../../../../packages/tensnap-julia"
 uuid = "c4e6f1a8-4f9e-4b75-a3b4-6f4242cfb20f"
 version = "0.3.3"

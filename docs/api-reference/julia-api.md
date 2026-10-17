@@ -1,5 +1,7 @@
 # Julia API Reference
 
+See [IPv4/IPv6 networking](../user-guide/networking.md) for `ip_family` configuration, dual listeners, and ephemeral ports.
+
 This reference describes the current `TenSnap.jl` simulator-side binding package in `packages/tensnap-julia`.
 
 The Julia binding is a native Julia package with a `Project.toml`; it is not an npm workspace package. It exposes protocol v0.3 over WebSocket with JSON and MessagePack support.

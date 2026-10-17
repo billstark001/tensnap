@@ -105,3 +105,7 @@ The helper updates `packages/tensnap-julia/Project.toml`, runs native Julia pack
 ```text
 @JuliaRegistrator register subdir=packages/tensnap-julia
 ```
+
+## IP family
+
+See the [networking guide](../../docs/user-guide/networking.md) for `auto` (default), `ipv4`, and `ipv6` policies, IPv6 URLs, and shared ephemeral ports.

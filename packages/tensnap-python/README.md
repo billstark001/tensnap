@@ -140,3 +140,7 @@ Full documentation: <https://github.com/billstark001/tensnap>
 ## License
 
 See LICENSE file in the repository root.
+
+## IP family
+
+See the [networking guide](../../docs/user-guide/networking.md) for `auto` (default), `ipv4`, and `ipv6` policies, IPv6 URLs, and shared ephemeral ports.

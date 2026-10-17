@@ -12,6 +12,7 @@ import hashlib
 import json
 import logging
 from collections.abc import Awaitable, Callable
+from contextlib import AsyncExitStack
 from copy import deepcopy
 from enum import Enum
 from typing import Any, cast
@@ -24,6 +25,7 @@ from websockets.asyncio.server import ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
 from websockets.protocol import State as WebSocketState
 
+from .network import IPFamily, listen_sockets
 from .utils.codec import find_objects_by_error, json_default, msgpack_default
 from .utils.ws import BatchedMessageQueue
 
@@ -155,9 +157,18 @@ class TenSnapServer:
     """
 
     def __init__(
-        self, host: str = "localhost", port: int = 8765, use_msgpack: bool = False
+        self,
+        host: str = "localhost",
+        port: int = 8765,
+        use_msgpack: bool = False,
+        *,
+        ip_family: IPFamily = "auto",
     ) -> None:
         self.host = host
+        if ip_family not in ("auto", "ipv4", "ipv6"):
+            raise ValueError("ip_family must be auto, ipv4, or ipv6")
+        self.ip_family = ip_family
+        self.listening_addresses: list[tuple] = []
         self.port = port
         self.use_msgpack = use_msgpack
 
@@ -580,10 +591,21 @@ class TenSnapServer:
         self._stop_event = asyncio.Event()
         logger.info(f"Starting TenSnap server on {self.host}:{self.port}")
         self._bg_task = asyncio.create_task(self._background_maintenance())
+        sockets = []
         try:
-            async with serve(self.handle_client, self.host, self.port):
+            sockets = listen_sockets(self.host, self.port, self.ip_family)
+            self.listening_addresses = [sock.getsockname() for sock in sockets]
+            self.port = self.listening_addresses[0][1]
+            async with AsyncExitStack() as stack:
+                for sock in sockets:
+                    await stack.enter_async_context(
+                        serve(self.handle_client, sock=sock)
+                    )
                 await self._stop_event.wait()
         finally:
+            for sock in sockets:
+                sock.close()
+            self.listening_addresses = []
             self._running = False
             if self._bg_task:
                 self._bg_task.cancel()

@@ -227,3 +227,7 @@ Example validation:
 cd examples/go
 make check
 ```
+
+## IP family
+
+See the [networking guide](../../docs/user-guide/networking.md) for `auto` (default), `ipv4`, and `ipv6` policies, IPv6 URLs, and shared ephemeral ports.

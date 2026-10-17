@@ -1,5 +1,7 @@
 # Go API Reference
 
+See [IPv4/IPv6 networking](../user-guide/networking.md) for `ip_family` configuration (`Options.IPFamily`), dual listeners, and ephemeral ports.
+
 This reference describes the current TenSnap Go surface for protocol v0.3.
 
 The recommended workflow is:

@@ -42,6 +42,7 @@ from .handler import (
     make_default_handlers,
 )
 from .helper import broadcast_env_update, dispatch_cud, send_env_snapshot
+from .network import IPFamily
 from .models import (
     EnvironmentBinding,
     EnvironmentRegistration,
@@ -131,6 +132,7 @@ class SimulationScenario:
         use_msgpack: bool = False,
         step_interval: float = 0.05,  # not used in renderer-driven mode; kept for API compat
         *,
+        ip_family: IPFamily = "auto",
         model_id: str = "tensnap.python.model",
         model_name: Optional[str] = None,
         model_description: Optional[str] = None,
@@ -143,7 +145,7 @@ class SimulationScenario:
         checkpoint_restore: Optional[Callable[[Any], Any]] = None,
         collect_action_timings: bool = False,
     ) -> None:
-        self.server = TenSnapServer(host=host, port=port, use_msgpack=use_msgpack)
+        self.server = TenSnapServer(host=host, port=port, use_msgpack=use_msgpack, ip_family=ip_family)
         self.step_interval = step_interval
         if not model_id:
             raise ValueError("model_id must be a non-empty stable string")

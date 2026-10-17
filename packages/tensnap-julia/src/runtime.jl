@@ -146,21 +146,43 @@ function _handle_message(s::Scenario, ws, raw)
   return nothing
 end
 
-_listen_host(host::String) = lowercase(host) == "localhost" ? "127.0.0.1" : host
-
-function run!(s::Scenario; verbose = true)
-  verbose && @info "TenSnap Julia server listening" host=s.host port=s.port
-  HTTP.WebSockets.listen(_listen_host(s.host), s.port) do ws
-    push!(s.clients, ws)
+function _serve_client(s::Scenario, ws)
+  push!(s.clients, ws)
+  try
     _send_to(s, ws, "simulator_info", _simulator_info_payload(s))
     _send_asset_meta(s, ws)
+    for msg in ws
+      _handle_message(s, ws, msg)
+    end
+  finally
+    filter!(x -> x !== ws, s.clients)
+    pop!(s.client_encodings, ws, nothing)
+  end
+end
+
+function run!(s::Scenario; verbose = true)
+  listeners = _listen_sockets(s.host, s.port, s.ip_family)
+  s.listening_addresses = [
+    (string(getsockname(listener)[1]), Int(getsockname(listener)[2])) for
+    listener in listeners
+  ]
+  s.port = s.listening_addresses[1][2]
+  servers = HTTP.Servers.Server[]
+  try
+    for listener in listeners
+      push!(servers, HTTP.WebSockets.listen!(ws -> _serve_client(s, ws), listener))
+    end
+    verbose &&
+      @info "TenSnap Julia server listening" addresses=s.listening_addresses ip_family=s.ip_family
+    @sync for server in servers
+      @async wait(server)
+    end
+  finally
     try
-      for msg in ws
-        _handle_message(s, ws, msg)
-      end
+      foreach(close, servers)
     finally
-      filter!(x -> x !== ws, s.clients)
-      pop!(s.client_encodings, ws, nothing)
+      foreach(close, listeners)
+      empty!(s.listening_addresses)
     end
   end
 end

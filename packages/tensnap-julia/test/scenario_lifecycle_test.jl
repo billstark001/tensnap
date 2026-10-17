@@ -21,7 +21,7 @@
 	@test haskey(scenario.actions, "step")
 	@test haskey(scenario.actions, "reset")
 	@test scenario.actions["start"].continuous
-	@test TenSnap._listen_host("localhost") == "127.0.0.1"
+	@test scenario.ip_family == "auto"
 
 	sync!(scenario)
 	@test length(env.layers[1].last_items) == 1

@@ -310,8 +310,8 @@ async def test_stop_releases_the_run_coroutine_and_listener(monkeypatch):
         async def __aexit__(self, *_args):
             exited.set()
 
-    monkeypatch.setattr("tensnap.server.serve", lambda *_args: Listener())
-    server = TenSnapServer()
+    monkeypatch.setattr("tensnap.server.serve", lambda *_args, **_kwargs: Listener())
+    server = TenSnapServer(port=0)
     running = asyncio.create_task(server.run())
     await asyncio.wait_for(started.wait(), timeout=1)
     server.stop()

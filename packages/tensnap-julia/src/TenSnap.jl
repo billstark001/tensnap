@@ -7,6 +7,8 @@ using JSON3
 using MsgPack
 using SHA
 using UUIDs
+using Sockets
+using Sockets: TCPServer
 
 export Scenario, Parameter, Action, Chart, Monitor, RestoreHooks, Environment, Layer
 export add_parameter!,
@@ -56,6 +58,7 @@ include("restore_plan.jl")
 include("components.jl")
 include("agent_layers.jl")
 include("scenario.jl")
+include("network.jl")
 include("layers.jl")
 include("assets.jl")
 include("screenshots.jl")
