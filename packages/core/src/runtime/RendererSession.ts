@@ -289,9 +289,9 @@ export class RendererSession extends LazyEventTarget {
         }
       },
       onRunSettled: (status) => {
-        onRunSettled?.(status);
         if (!status.spec.record) {
           this.dispatch('run:settled', status);
+          onRunSettled?.(status);
           return;
         }
         const snapshot = this.recorder.stop();
@@ -302,6 +302,7 @@ export class RendererSession extends LazyEventTarget {
             runId: status.id,
           } satisfies RendererSessionRecordingDetail);
         this.dispatch('run:settled', status);
+        onRunSettled?.(status);
       },
       onActionRendered: (payload) => {
         this.dispatch('action:rendered', payload);

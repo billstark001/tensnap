@@ -52,6 +52,15 @@ export type RunStopReason =
   | 'stopped'
   | 'disconnected';
 
+export interface RunActionOutcome {
+  id: string;
+  requestId: string;
+  source: 'action' | 'lifecycle';
+  timeBefore?: number;
+  timeAfter?: number;
+  result: ActionResultPayload;
+}
+
 export interface RunStatus {
   id: string;
   spec: RunRequest;
@@ -67,14 +76,8 @@ export interface RunStatus {
   settled: boolean;
   settledAt?: number;
   stateKnown: boolean;
-  lastAction?: {
-    id: string;
-    requestId: string;
-    source: 'action' | 'lifecycle';
-    timeBefore?: number;
-    timeAfter?: number;
-    result: ActionResultPayload;
-  };
+  lastAction?: RunActionOutcome;
+  lastLifecycleAction?: RunActionOutcome;
   startedAt: number;
   stoppedAt?: number;
   stopReason?: RunStopReason;
@@ -361,8 +364,15 @@ export class RunController {
       pauseRequested: false,
       inFlight: false,
     };
+    const previous = this.activeRun;
     this.activeRun = status;
-    this.options.onRunStart?.(cloneStatus(status));
+    try {
+      this.options.onRunStart?.(cloneStatus(status));
+    } catch (error) {
+      this.activeRun = previous;
+      this.condition = null;
+      throw error;
+    }
 
     if (normalized.mode === 'bounded' && this.evaluateCondition()) {
       this.finish(status.conditionError ? 'condition-error' : 'condition');
@@ -430,7 +440,7 @@ export class RunController {
     const run = this.activeRun;
     const owner = this.taskOwners.get(task.id);
     if (run && owner?.runId === run.id) {
-      run.lastAction = {
+      const outcome: RunActionOutcome = {
         id: task.key,
         requestId: task.id,
         source: owner.source,
@@ -439,6 +449,7 @@ export class RunController {
         result: structuredClone(payload),
       };
       if (owner.source === 'action') {
+        run.lastAction = outcome;
         run.completedActions += 1;
         run.completedSteps = run.completedActions;
         if (payload.error !== undefined) run.failedActions += 1;
@@ -454,7 +465,10 @@ export class RunController {
           reasons.push('max-steps');
         if (payload.should_continue === false) reasons.push('simulator');
         for (const reason of reasons) this.finish(reason);
-      } else if (payload.error !== undefined) this.finish('action-error');
+      } else {
+        run.lastLifecycleAction = outcome;
+        if (payload.error !== undefined) this.finish('action-error');
+      }
     }
 
     if (payload.error !== undefined || payload.should_continue === false) {
@@ -481,7 +495,10 @@ export class RunController {
       this.flushCommands();
       this.maybeSettle();
       if (this.activeRun) {
-        this.activeRun.inFlight = this.hasInFlightAction;
+        const activeTask = this.runtime.peekActiveTaskRef();
+        this.activeRun.inFlight = activeTask
+          ? this.taskOwners.get(activeTask.id)?.runId === this.activeRun.id
+          : false;
         this.publish();
       }
       const renderError = this.renderErrors.get(task.id);
@@ -499,7 +516,7 @@ export class RunController {
     if (!this.activeRun || this.activeRun.spec.mode !== 'bounded' || !this.condition) return false;
     try {
       const value = this.condition.evaluate(
-        createRunConditionScope(this.options.scenario, this.activeRun.completedSteps),
+        createRunConditionScope(this.options.scenario, this.activeRun.completedActions),
       );
       this.activeRun.conditionValue = structuredClone(value);
       return value === true;
@@ -568,8 +585,8 @@ export class RunController {
     this.retainedRuns.set(run.id, cloneStatus(run));
     while (this.retainedRuns.size > 100)
       this.retainedRuns.delete(this.retainedRuns.keys().next().value!);
-    this.publish();
     this.options.onRunSettled?.(cloneStatus(run));
+    this.publish();
     for (const listener of this.settledListeners) listener(run);
   }
 

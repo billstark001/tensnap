@@ -631,7 +631,7 @@ describe('run outcomes and settlement', () => {
       settled: true,
       completedActions: 1,
       dispatchedActions: 1,
-      lastAction: { source: 'lifecycle', id: 'stop' },
+      lastLifecycleAction: { source: 'lifecycle', id: 'stop' },
     });
     expect(recordings).toHaveLength(1);
     expect(recordings[0]!.frames.find((frame) => frame.action?.id === 'stop')?.source).toBe(
@@ -730,4 +730,37 @@ it('does not dispatch queued cleanup after an action becomes unknown', async () 
   } finally {
     vi.useRealTimers();
   }
+});
+
+it('closes the old recording before a settled-status listener starts a new run', async () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  const recordings: Snapshot[] = [];
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  session.addEventListener('recording:complete', (event) =>
+    recordings.push((event as CustomEvent).detail.snapshot),
+  );
+  const first = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+  const step = { id: 'step', request_id: tickId(sent[0]!) };
+  session.handleIncoming({ type: 'action_result', payload: step });
+  session.addEventListener(
+    'run:status',
+    (event) => {
+      const status = (event as CustomEvent).detail;
+      if (status.id === first.id && status.settled)
+        session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+    },
+    { once: true },
+  );
+  session.run.markActionRendered(step);
+  expect(recordings).toHaveLength(1);
+  expect(session.run.status?.id).not.toBe(first.id);
+  expect(session.recorder.active).toBe(true);
+  const second = { id: 'step', request_id: tickId(sent[1]!) };
+  session.handleIncoming({ type: 'action_result', payload: second });
+  session.run.markActionRendered(second);
+  expect(recordings).toHaveLength(2);
+  expect(recordings[0]!.frames[0]!.action?.request_id).toBe(step.request_id);
+  expect(recordings[1]!.frames[0]!.action?.request_id).toBe(second.request_id);
 });
