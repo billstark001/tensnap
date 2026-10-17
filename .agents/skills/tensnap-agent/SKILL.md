@@ -78,7 +78,7 @@ pnpm --filter @tensnap/agent dev -- run stop --context demo
 
 `action run` and `run start` return acceptance, not completion. Use the returned request/run ID to correlate results. Dispatch stop (`state`) precedes cleanup completion (`settled`); inspect `primaryFailure`, classified action counts, and `stateKnown` before treating a run as successful. Never automatically rerun against unknown state. The core `waitForSettled(runId)` waits through final rendering and the stop hook; CLI `--wait` is not implemented.
 
-`--record` closes only after settlement and saves the existing SnapshotArchive under the context's `recordings/<run-id>.snapshot.json`. Query `GET /v1/runs/<run-id>` for recording `pending`/`persisted`/`failed`, path and error. This is not the future standalone recording file format; persisted does not mean untruncated. Default retention is 10,000 frames / 64 MiB rolling.
+`--record` closes only after settlement and saves the existing SnapshotArchive under the context's `recordings/<run-id>.snapshot.json`. Query `GET /v1/runs/<run-id>` for recording `pending`/`persisted`/`failed`, path and error. This is not the future standalone recording file format; persisted does not mean untruncated. Default retention is 10,000 frames / 64 MiB rolling. A second recorded run is rejected before dispatch while an earlier recording write is pending; retry after its persistence event/status. Unrecorded runs can continue meanwhile.
 
 Use `--output-version 1` for versioned JSON stdout; diagnostics go to stderr. Unknown/missing flags and extra positional arguments fail before runtime access. Use `--context-dir`, not `--root-dir`. Exit codes and the full error/settlement contract are in [the runtime guide](../../../docs/user-guide/agent-runtime.md).
 

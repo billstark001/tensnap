@@ -218,17 +218,10 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
 
-  emitOutput(
-    parsed,
-    JSON.stringify(
-      {
-        status: runtime.getStatus(),
-        control: address,
-      },
-      null,
-      2,
-    ),
-  );
+  printJson(parsed, {
+    status: runtime.getStatus(),
+    control: address,
+  });
 
   const shutdown = async (): Promise<void> => {
     await runtime.stop();
@@ -250,10 +243,7 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
 
   const running = await resolveRunningRuntime(context);
   if (running) {
-    emitOutput(
-      parsed,
-      JSON.stringify(await requestJson(running.baseUrl, '/v1/runtime/status'), null, 2),
-    );
+    printJson(parsed, await requestJson(running.baseUrl, '/v1/runtime/status'));
     return;
   }
 
@@ -327,10 +317,7 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
       body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
     });
   }
-  emitOutput(
-    parsed,
-    JSON.stringify(await requestJson(ready.baseUrl, '/v1/runtime/status'), null, 2),
-  );
+  printJson(parsed, await requestJson(ready.baseUrl, '/v1/runtime/status'));
 }
 
 async function stopDaemon(parsed: ParsedArgs): Promise<void> {
@@ -341,15 +328,14 @@ async function stopDaemon(parsed: ParsedArgs): Promise<void> {
   const running = await resolveRunningRuntime(context);
   if (running) {
     const result = await requestJson(running.baseUrl, '/v1/runtime/stop', { method: 'POST' });
-    if (parsed.flags['output-version'] === '1') emitOutput(parsed, JSON.stringify(result));
+    if (parsed.flags['output-version'] === '1') printJson(parsed, result);
     return;
   }
 
   const control = await readRuntimeControl(context);
   if (control?.pid && isProcessAlive(control.pid)) {
     process.kill(control.pid, 'SIGTERM');
-    if (parsed.flags['output-version'] === '1')
-      emitOutput(parsed, JSON.stringify({ stopping: true }));
+    if (parsed.flags['output-version'] === '1') printJson(parsed, { stopping: true });
     return;
   }
 
@@ -363,18 +349,12 @@ async function printStatus(parsed: ParsedArgs): Promise<void> {
   });
   const running = await resolveRunningRuntime(context);
   if (running) {
-    emitOutput(
-      parsed,
-      JSON.stringify(await requestJson(running.baseUrl, '/v1/runtime/status'), null, 2),
-    );
+    printJson(parsed, await requestJson(running.baseUrl, '/v1/runtime/status'));
     return;
   }
 
   const control = await readRuntimeControl(context);
-  emitOutput(
-    parsed,
-    JSON.stringify(control ?? { context: context.contextName, running: false }, null, 2),
-  );
+  printJson(parsed, control ?? { context: context.contextName, running: false });
 }
 
 async function printLogs(parsed: ParsedArgs): Promise<void> {
@@ -384,9 +364,9 @@ async function printLogs(parsed: ParsedArgs): Promise<void> {
   });
   try {
     const raw = await readFile(context.logFile, 'utf8');
-    emitOutput(parsed, raw);
+    emitText(parsed, raw);
   } catch {
-    emitOutput(parsed, '');
+    emitText(parsed, '');
   }
 }
 
@@ -438,7 +418,7 @@ async function streamEvents(parsed: ParsedArgs): Promise<void> {
       if (!data) {
         continue;
       }
-      emitOutput(parsed, JSON.stringify(JSON.parse(data), null, 2));
+      printJson(parsed, JSON.parse(data));
     }
   }
 }
@@ -479,32 +459,28 @@ async function execute(parsed: ParsedArgs): Promise<void> {
     const { baseUrl } = await requireRuntime(parsed);
     const trigger = rest[0] as RenderTriggerMode | undefined;
     if (!trigger) {
-      emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/runtime/status'), null, 2));
+      printJson(parsed, await requestJson(baseUrl, '/v1/runtime/status'));
       return;
     }
-    emitOutput(
+    printJson(
       parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, '/v1/runtime/render-trigger', {
-          method: 'POST',
-          body: JSON.stringify({ trigger }),
-        }),
-        null,
-        2,
-      ),
+      await requestJson(baseUrl, '/v1/runtime/render-trigger', {
+        method: 'POST',
+        body: JSON.stringify({ trigger }),
+      }),
     );
     return;
   }
 
   if (group === 'scene' && command === 'inspect') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/scene'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/scene'));
     return;
   }
 
   if (group === 'scene' && command === 'snapshot') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/scene/snapshot'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/scene/snapshot'));
     return;
   }
 
@@ -531,7 +507,7 @@ async function execute(parsed: ParsedArgs): Promise<void> {
     if (outputPath) {
       await writeFile(outputPath, `${JSON.stringify(capture, null, 2)}\n`, 'utf8');
     }
-    emitOutput(parsed, JSON.stringify(capture, null, 2));
+    printJson(parsed, capture);
     return;
   }
 
@@ -574,25 +550,19 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       );
     }
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
+    printJson(
       parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, '/v1/scene/restore', {
-          method: 'POST',
-          body: JSON.stringify(input),
-        }),
-        null,
-      ),
+      await requestJson(baseUrl, '/v1/scene/restore', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      }),
     );
     return;
   }
 
   if (group === 'scene' && command === 'sync') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
-      parsed,
-      JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2),
-    );
+    printJson(parsed, await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }));
     return;
   }
 
@@ -604,34 +574,30 @@ async function execute(parsed: ParsedArgs): Promise<void> {
     if (envId && chartId) {
       throw new Error('Flags --env and --chart are mutually exclusive.');
     }
-    emitOutput(
+    printJson(
       parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, '/v1/scene/render', {
-          method: 'POST',
-          body: JSON.stringify({
-            reason: rest[0] ?? 'manual',
-            envId,
-            chartId,
-            width: getNumberFlag(parsed, 'width'),
-            height: getNumberFlag(parsed, 'height'),
-            format: getStringFlag(parsed, 'format'),
-            quality: getNumberFlag(parsed, 'quality'),
-            backgroundColor: getColorFlag(parsed, 'background-color'),
-            outputPath: getStringFlag(parsed, 'output'),
-            viewport,
-          }),
+      await requestJson(baseUrl, '/v1/scene/render', {
+        method: 'POST',
+        body: JSON.stringify({
+          reason: rest[0] ?? 'manual',
+          envId,
+          chartId,
+          width: getNumberFlag(parsed, 'width'),
+          height: getNumberFlag(parsed, 'height'),
+          format: getStringFlag(parsed, 'format'),
+          quality: getNumberFlag(parsed, 'quality'),
+          backgroundColor: getColorFlag(parsed, 'background-color'),
+          outputPath: getStringFlag(parsed, 'output'),
+          viewport,
         }),
-        null,
-        2,
-      ),
+      }),
     );
     return;
   }
 
   if (group === 'param' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/params'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/params'));
     return;
   }
 
@@ -641,23 +607,19 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       throw new Error('Usage: tensnap-agent param set <parameter-id> <json-value>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
+    printJson(
       parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
-          method: 'POST',
-          body: JSON.stringify({ value: parseJsonValue(rawValue) }),
-        }),
-        null,
-        2,
-      ),
+      await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
+        method: 'POST',
+        body: JSON.stringify({ value: parseJsonValue(rawValue) }),
+      }),
     );
     return;
   }
 
   if (group === 'action' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/actions'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/actions'));
     return;
   }
 
@@ -667,16 +629,12 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       throw new Error('Usage: tensnap-agent action run <action-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
+    printJson(
       parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
-          method: 'POST',
-          body: JSON.stringify({}),
-        }),
-        null,
-        2,
-      ),
+      await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
     );
     return;
   }
@@ -690,45 +648,38 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       );
     }
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
+    printJson(
       parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, '/v1/runs', {
-          method: 'POST',
-          body: JSON.stringify({
-            mode: 'bounded',
-            actionId,
-            maxSteps,
-            stopWhen: getStringFlag(parsed, 'stop-when'),
-            maxWallTimeMs: getNumberFlag(parsed, 'max-wall-time-ms'),
-            record: parsed.flags.record === true,
-          }),
+      await requestJson(baseUrl, '/v1/runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          mode: 'bounded',
+          actionId,
+          maxSteps,
+          stopWhen: getStringFlag(parsed, 'stop-when'),
+          maxWallTimeMs: getNumberFlag(parsed, 'max-wall-time-ms'),
+          record: parsed.flags.record === true,
         }),
-        null,
-        2,
-      ),
+      }),
     );
     return;
   }
 
   if (group === 'run' && command === 'status') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/runs'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/runs'));
     return;
   }
 
   if (group === 'run' && command === 'stop') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
-      parsed,
-      JSON.stringify(await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }), null, 2),
-    );
+    printJson(parsed, await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }));
     return;
   }
 
   if (group === 'chart' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/charts'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/charts'));
     return;
   }
 
@@ -738,20 +689,13 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       throw new Error('Usage: tensnap-agent chart get <chart-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(
-      parsed,
-      JSON.stringify(
-        await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`),
-        null,
-        2,
-      ),
-    );
+    printJson(parsed, await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`));
     return;
   }
 
   if (group === 'asset' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/assets'), null, 2));
+    printJson(parsed, await requestJson(baseUrl, '/v1/assets'));
     return;
   }
 
@@ -760,7 +704,7 @@ async function execute(parsed: ParsedArgs): Promise<void> {
     return;
   }
 
-  emitOutput(
+  emitText(
     parsed,
     [
       'Usage:',
@@ -807,7 +751,7 @@ export class CliRequestError extends Error {
     );
     this.category =
       record?.category ??
-      (typeof record?.error === 'object' ? record.error.category : undefined) ??
+      (record?.error && typeof record.error === 'object' ? record.error.category : undefined) ??
       (status === 400
         ? 'input_error'
         : /timed out|disconnect/i.test(this.message)
@@ -824,16 +768,10 @@ export class CliRequestError extends Error {
   }
 }
 
-function emitOutput(parsed: ParsedArgs, serialized: string): void {
+function printJson(parsed: ParsedArgs, data: unknown): void {
   if (parsed.flags['output-version'] !== '1') {
-    console.log(serialized);
+    console.log(JSON.stringify(data, null, 2));
     return;
-  }
-  let data: unknown;
-  try {
-    data = JSON.parse(serialized);
-  } catch {
-    data = serialized;
   }
   const record = data as { requestId?: string; request_id?: string; run?: { id?: string } } | null;
   console.log(
@@ -844,6 +782,11 @@ function emitOutput(parsed: ParsedArgs, serialized: string): void {
       correlationId: record?.requestId ?? record?.request_id ?? record?.run?.id,
     }),
   );
+}
+
+function emitText(parsed: ParsedArgs, value: string): void {
+  if (parsed.flags['output-version'] === '1') printJson(parsed, value);
+  else console.log(value);
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {

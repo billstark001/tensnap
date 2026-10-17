@@ -539,3 +539,125 @@ it('preserves rendered artifacts when the required scene checkpoint cannot be wr
   });
   await runtime.stop();
 });
+
+function attachReviewTransport(runtime: AgentRuntime) {
+  const renderer = (
+    runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
+  ).renderer;
+  let dispatched = 0;
+  renderer.attachTransport({
+    connectionId: 'review',
+    transportKind: 'inmemory',
+    encoding: 'json',
+    connectionState: 'open',
+    isConnected: true,
+    connect: async () => {},
+    disconnect() {},
+    destroy() {},
+    on() {},
+    off() {},
+    send(message) {
+      if (message.type === 'action_invoke') {
+        dispatched++;
+        const payload = message.payload as { id: string; request_id: string };
+        renderer.handleIncoming({ type: 'metadata_update', payload: { time: dispatched } });
+        renderer.handleIncoming({ type: 'action_result', payload });
+      }
+    },
+  });
+  renderer.handleIncoming({
+    type: 'simulator_info',
+    payload: {
+      protocol_version: '0.3',
+      binding: { name: 'test', version: '1' },
+      model: { id: 'test' },
+      instance_id: 'test',
+      capabilities: [],
+    },
+  });
+  return {
+    renderer,
+    get dispatched() {
+      return dispatched;
+    },
+  };
+}
+
+it('captures and checkpoints a settled scene only once while its writer is slow', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-settled-once-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: unknown[] = [];
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async (_context, snapshot) => {
+      writes.push(snapshot);
+      await gate;
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  const dump = vi.spyOn(renderer.scenario, 'dump');
+  try {
+    const run = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    await renderer.run.waitForSettled(run.id);
+    expect(dump).toHaveBeenCalledTimes(1);
+    release();
+    await runtime.stop();
+    expect(writes).toHaveLength(1);
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});
+
+it('bounds recording snapshots held by slow persistence before dispatching another recorded run', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-recording-backpressure-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    recordingWriter: async () => {
+      await gate;
+      return '/test/archive.json';
+    },
+    checkpointWriter: async () => {},
+  });
+  await runtime.initialize();
+  const transport = attachReviewTransport(runtime);
+  const spec = { mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} } as const;
+  try {
+    const first = runtime.startRun(spec);
+    await transport.renderer.run.waitForSettled(first.id);
+    expect(runtime.getRun(first.id)?.recording?.status).toBe('pending');
+    expect(() => runtime.startRun(spec)).toThrow(/recording.*persist|pending recording/i);
+    expect(transport.dispatched).toBe(1);
+    const unrecorded = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    await transport.renderer.run.waitForSettled(unrecorded.id);
+    let next: ReturnType<AgentRuntime['startRun']> | undefined;
+    let callbackError: unknown;
+    runtime.on('event', (event) => {
+      if (event.type === 'recording.persistence' && event.data.runId === first.id) {
+        try {
+          next = runtime.startRun(spec);
+        } catch (error) {
+          callbackError = error;
+        }
+      }
+    });
+    release();
+    await vi.waitFor(() => {
+      expect(callbackError).toBeUndefined();
+      expect(next).toBeDefined();
+    });
+    await transport.renderer.run.waitForSettled(next!.id);
+    expect(transport.dispatched).toBe(3);
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});

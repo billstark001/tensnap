@@ -115,6 +115,7 @@ export class AgentRuntime extends EventEmitter {
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
+  private pendingCheckpoint: { revision: number; promise: Promise<void> } | null = null;
   private statusWriteChain: Promise<void> = Promise.resolve();
   private readonly checkpointWriter: (
     context: RuntimeContextPaths,
@@ -478,6 +479,14 @@ export class AgentRuntime extends EventEmitter {
 
   startRun(spec: BoundedRunSpec) {
     this.assertConnected();
+    if (spec.record) {
+      for (const result of this.recordingResults.values()) {
+        if (result.status === 'pending')
+          throw new Error(
+            'Wait for the pending recording to persist before starting another recorded run.',
+          );
+      }
+    }
     const status = this.renderer.run.start(spec);
     const boundedSpec = status.spec.mode === 'bounded' ? status.spec : null;
     void this.log('info', 'run', 'Bounded run started.', {
@@ -697,16 +706,14 @@ export class AgentRuntime extends EventEmitter {
       void this.log('warn', 'transport', 'Protocol validation warning.', warning);
       this.emitRuntimeEvent('transport.validation-warning', warning);
     });
-    this.renderer.addEventListener('run:status', (event) => {
-      const status = (event as CustomEvent<{ settled?: boolean; id?: string }>).detail;
-      if (status?.settled) {
-        void this.checkpointScene().catch((error) =>
-          this.emitRuntimeEvent('scene.persistence-failed', {
-            runId: status.id,
-            error: String(error),
-          }),
-        );
-      }
+    this.renderer.addEventListener('run:settled', (event) => {
+      const status = (event as CustomEvent<RunStatus>).detail;
+      void this.checkpointScene().catch((error) =>
+        this.emitRuntimeEvent('scene.persistence-failed', {
+          runId: status.id,
+          error: String(error),
+        }),
+      );
     });
     this.renderer.addEventListener('message', (event) => {
       const { message, origin } = (
@@ -1006,6 +1013,8 @@ export class AgentRuntime extends EventEmitter {
     if (!force && !this.control.sceneDirty) return this.checkpointChain;
 
     const revision = this.control.sceneRevision;
+    if (!force && this.pendingCheckpoint?.revision === revision)
+      return this.pendingCheckpoint.promise;
     const checkpoint = snapshot ?? this.renderer.scenario.dump();
     const write = async () => {
       await this.checkpointWriter(this.context, checkpoint);
@@ -1014,6 +1023,12 @@ export class AgentRuntime extends EventEmitter {
       }
     };
     const queued = this.checkpointChain.then(write, write);
+    const pending = { revision, promise: queued };
+    this.pendingCheckpoint = pending;
+    const clearPending = () => {
+      if (this.pendingCheckpoint === pending) this.pendingCheckpoint = null;
+    };
+    void queued.then(clearPending, clearPending);
     this.checkpointChain = queued.catch((error) => {
       this.control.lastError = error instanceof Error ? error.message : String(error);
     });

@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { main } from './cli';
+import { CliRequestError, main } from './cli';
 import { resolveRuntimeContextPaths, writeRuntimeControl } from './runtime/context';
 
 it.each(['Infinity', '-Infinity', 'NaN'])('rejects non-finite numeric flags: %s', async (value) => {
@@ -426,4 +426,11 @@ it('keeps structured HTTP failures and partial artifacts in versioned stdout', a
     error: { category: 'persistence_failed' },
     data: partial,
   });
+});
+
+it('preserves a malformed upstream error body without replacing it with a parser exception', () => {
+  const error = new CliRequestError(500, { error: null });
+  expect(error.message).toBe('Request failed with status 500');
+  expect(error.body).toEqual({ error: null });
+  expect(error.exitCode).toBe(3);
 });
