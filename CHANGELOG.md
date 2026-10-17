@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore synchronous force-layout position publication, keep readonly edge projection free of storage writes/notifications, and update only the changed edge geometry for appearance deltas. Force ticks publish positions once.
 - Avoid whole-status structured cloning on ordinary run ticks while preserving ownership of timings, stop reasons and structured errors; publish settlement once and defer reentrant run starts until reset cleanup completes.
 - Close a settled run's recording before dispatching unrelated queued actions, so later action updates cannot enter the previous archive.
+- Copy run recording data and codec descriptors without cloning callable policies; detach queued action targets/arguments before changing the queue. Mutating caller inputs or returned statuses cannot rewrite retained values.
 - Project readonly graph edges at stored typed node coordinates during initialization and updates, without force simulation or input writes; keep numeric and string IDs distinct in normal layouts too.
 
 ### Deprecated
@@ -53,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Serialize machine-output responses once instead of stringify/parse/stringify round trips, and preserve malformed upstream error bodies without masking them with a parser exception.
 - Keep the scene cache at its latest revision when asynchronous renders finish out of order, while preserving each image's captured input. Detach the simulator before awaiting final scene persistence; failed writes remain retryable.
 - Preserve successful environment artifacts when another target fails during render-data preparation, with the failing target reported in the partial result.
+- Return owned runtime status fields and capture render viewports/inspection scenes before asynchronous painters run. Inspection renders avoid dumping the unrelated live scene.
+- Capture control, checkpoint, recording and log values before filesystem awaits. Commit chart/environment images through same-directory temporary files and rename, preserving previous complete files on write/commit failure and cleaning temporary output.
+- Report background status/log writes, sync-checkpoint writes and screenshot-response failures through runtime events, without unhandled promise rejections; failed sync persistence retains the committed scene for retry.
 
 ### Added
 

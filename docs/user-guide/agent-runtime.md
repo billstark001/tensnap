@@ -36,7 +36,7 @@ Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run 
 
 The default recording budget remains 10,000 retained frames / 64 MiB with rolling retention. `persisted` means the archive reached disk; inspect the archive's `truncated` field before claiming full history. This patch does not implement the planned standalone recording format, GUI import, offline commands or frame manifests.
 
-Recording closes before unrelated queued actions are dispatched, so their updates cannot enter the previous run's archive. Disconnect detaches the simulator before waiting for the final scene checkpoint. A failed checkpoint is reported and leaves the scene dirty; a later disconnect or shutdown can retry saving it. Pending recording writes release their admission limit after either success or failure; this permits a new recorded run without retrying the failed archive automatically.
+Recording closes before unrelated queued actions are dispatched, so their updates cannot enter the previous run's archive. Disconnect detaches the simulator before waiting for the final scene checkpoint. A failed checkpoint of changed scene state is reported and leaves the scene dirty; a later disconnect or shutdown can retry saving it. Pending recording writes release their admission limit after either success or failure; this permits a new recorded run without retrying the failed archive automatically.
 
 `scene render` accepts an environment or chart target, PNG/JPEG format, positive integer dimensions, quality from 0 through 1, and a viewport with finite x/y and positive width/height. It rejects mutually exclusive targets and malformed values. Missing targets, no artifacts, painter exceptions, export failures and filesystem writes fail explicitly.
 
@@ -45,6 +45,14 @@ A multi-target render continues collecting successful artifacts after a target f
 Each render uses the scene captured when its request starts. If the live scene advances while rendering, the final checkpoint saves the latest live scene; a slower earlier render cannot overwrite a newer checkpoint with its captured input. The scene cache therefore need not describe the same frame as an earlier image.
 
 Readonly graph rendering uses stored coordinates without force simulation or writes to the input scene. Numeric and string IDs remain distinct. Normal interactive layouts continue using d3-force.
+
+## Library ownership and file commits
+
+`getStatus()` returns owned render settings and painter lists. Render requests copy viewport values before awaiting a painter; inspection renders also detach the supplied inspection scene and avoid dumping the unrelated live scene. The captured request, scene and assets are shared read-only among painters for that render. A custom painter must copy any values it intends to mutate.
+
+Context persistence captures control, scene, recording and log values by encoding them before its first filesystem await. Status, scene, recording and image files are written to a temporary file in the destination directory and renamed only after the write completes. A write or rename failure preserves the previous destination and cleans the temporary output. Image buffers remain owned and stable until that write resolves. Atomicity applies to each file; multi-target renders retain their documented partial-result behavior. Rename commits do not add an fsync or multi-file crash-recovery guarantee.
+
+Background write failures emit `runtime.status-write-failed`, `runtime.log-write-failed` or `scene.persistence-failed`; failure to deliver a screenshot response emits `render.screenshot-failed`. These events do not fabricate model failures or discard a successfully committed state sync. Callers awaiting an explicit persistence operation still receive its rejection.
 
 ## Machine output and exit codes
 
