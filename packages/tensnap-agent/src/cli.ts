@@ -14,10 +14,7 @@ import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protoco
 import type { RenderTriggerMode } from './types';
 import { parseIPFamily, listenerUrl } from '@tensnap/network';
 
-interface ParsedArgs {
-  positional: string[];
-  flags: Record<string, string | boolean>;
-}
+import { parseArgs, CliInputError, type ParsedArgs } from './cli-arguments';
 
 const DEFAULT_RUNTIME_READY_TIMEOUT_MS = 10000;
 
@@ -25,31 +22,6 @@ function getIPFamilyFlag(parsed: ParsedArgs) {
   if (parsed.flags['ip-family'] === true)
     throw new Error('--ip-family requires auto, ipv4, or ipv6.');
   return parseIPFamily(getStringFlag(parsed, 'ip-family'));
-}
-
-function parseArgs(argv: string[]): ParsedArgs {
-  const positional: string[] = [];
-  const flags: Record<string, string | boolean> = {};
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
-    if (!token.startsWith('--')) {
-      positional.push(token);
-      continue;
-    }
-
-    const key = token.slice(2);
-    const next = argv[index + 1];
-    if (!next || next.startsWith('--')) {
-      flags[key] = true;
-      continue;
-    }
-
-    flags[key] = next;
-    index += 1;
-  }
-
-  return { positional, flags };
 }
 
 function getStringFlag(parsed: ParsedArgs, key: string): string | undefined {
@@ -158,8 +130,14 @@ async function requestJson(baseUrl: string, path: string, init?: RequestInit): P
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with status ${response.status}`);
+    const raw = await response.text();
+    let body: unknown;
+    try {
+      body = JSON.parse(raw);
+    } catch {
+      body = { error: raw };
+    }
+    throw new CliRequestError(response.status, body);
   }
 
   if (response.status === 204) {
@@ -240,7 +218,8 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
 
-  console.log(
+  emitOutput(
+    parsed,
     JSON.stringify(
       {
         status: runtime.getStatus(),
@@ -271,7 +250,10 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
 
   const running = await resolveRunningRuntime(context);
   if (running) {
-    console.log(JSON.stringify(await requestJson(running.baseUrl, '/v1/runtime/status'), null, 2));
+    emitOutput(
+      parsed,
+      JSON.stringify(await requestJson(running.baseUrl, '/v1/runtime/status'), null, 2),
+    );
     return;
   }
 
@@ -345,7 +327,10 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
       body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
     });
   }
-  console.log(JSON.stringify(await requestJson(ready.baseUrl, '/v1/runtime/status'), null, 2));
+  emitOutput(
+    parsed,
+    JSON.stringify(await requestJson(ready.baseUrl, '/v1/runtime/status'), null, 2),
+  );
 }
 
 async function stopDaemon(parsed: ParsedArgs): Promise<void> {
@@ -355,13 +340,16 @@ async function stopDaemon(parsed: ParsedArgs): Promise<void> {
   });
   const running = await resolveRunningRuntime(context);
   if (running) {
-    await requestJson(running.baseUrl, '/v1/runtime/stop', { method: 'POST' });
+    const result = await requestJson(running.baseUrl, '/v1/runtime/stop', { method: 'POST' });
+    if (parsed.flags['output-version'] === '1') emitOutput(parsed, JSON.stringify(result));
     return;
   }
 
   const control = await readRuntimeControl(context);
   if (control?.pid && isProcessAlive(control.pid)) {
     process.kill(control.pid, 'SIGTERM');
+    if (parsed.flags['output-version'] === '1')
+      emitOutput(parsed, JSON.stringify({ stopping: true }));
     return;
   }
 
@@ -375,12 +363,18 @@ async function printStatus(parsed: ParsedArgs): Promise<void> {
   });
   const running = await resolveRunningRuntime(context);
   if (running) {
-    console.log(JSON.stringify(await requestJson(running.baseUrl, '/v1/runtime/status'), null, 2));
+    emitOutput(
+      parsed,
+      JSON.stringify(await requestJson(running.baseUrl, '/v1/runtime/status'), null, 2),
+    );
     return;
   }
 
   const control = await readRuntimeControl(context);
-  console.log(JSON.stringify(control ?? { context: context.contextName, running: false }, null, 2));
+  emitOutput(
+    parsed,
+    JSON.stringify(control ?? { context: context.contextName, running: false }, null, 2),
+  );
 }
 
 async function printLogs(parsed: ParsedArgs): Promise<void> {
@@ -390,9 +384,9 @@ async function printLogs(parsed: ParsedArgs): Promise<void> {
   });
   try {
     const raw = await readFile(context.logFile, 'utf8');
-    console.log(raw);
+    emitOutput(parsed, raw);
   } catch {
-    console.log('');
+    emitOutput(parsed, '');
   }
 }
 
@@ -444,16 +438,15 @@ async function streamEvents(parsed: ParsedArgs): Promise<void> {
       if (!data) {
         continue;
       }
-      console.log(JSON.stringify(JSON.parse(data), null, 2));
+      emitOutput(parsed, JSON.stringify(JSON.parse(data), null, 2));
     }
   }
 }
 
-export async function main(argv = process.argv.slice(2)): Promise<void> {
-  const parsed = parseArgs(argv);
-  const [group, command, ...rest] = parsed.positional;
+async function execute(parsed: ParsedArgs): Promise<void> {
+  const [group, command, ...rest] = parsed.flags.help ? [] : parsed.positional;
 
-  if (group === 'daemon' && command === 'serve') {
+  if (!parsed.flags.help && group === 'daemon' && command === 'serve') {
     await startForegroundDaemon(parsed);
     return;
   }
@@ -486,10 +479,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     const { baseUrl } = await requireRuntime(parsed);
     const trigger = rest[0] as RenderTriggerMode | undefined;
     if (!trigger) {
-      console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runtime/status'), null, 2));
+      emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/runtime/status'), null, 2));
       return;
     }
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, '/v1/runtime/render-trigger', {
           method: 'POST',
@@ -504,13 +498,13 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'scene' && command === 'inspect') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/scene'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/scene'), null, 2));
     return;
   }
 
   if (group === 'scene' && command === 'snapshot') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/scene/snapshot'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/scene/snapshot'), null, 2));
     return;
   }
 
@@ -537,7 +531,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (outputPath) {
       await writeFile(outputPath, `${JSON.stringify(capture, null, 2)}\n`, 'utf8');
     }
-    console.log(JSON.stringify(capture, null, 2));
+    emitOutput(parsed, JSON.stringify(capture, null, 2));
     return;
   }
 
@@ -580,7 +574,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       );
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, '/v1/scene/restore', {
           method: 'POST',
@@ -594,7 +589,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'scene' && command === 'sync') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }), null, 2),
     );
     return;
@@ -608,7 +604,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (envId && chartId) {
       throw new Error('Flags --env and --chart are mutually exclusive.');
     }
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, '/v1/scene/render', {
           method: 'POST',
@@ -634,7 +631,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'param' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/params'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/params'), null, 2));
     return;
   }
 
@@ -644,7 +641,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       throw new Error('Usage: tensnap-agent param set <parameter-id> <json-value>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
           method: 'POST',
@@ -659,7 +657,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'action' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/actions'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/actions'), null, 2));
     return;
   }
 
@@ -669,7 +667,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       throw new Error('Usage: tensnap-agent action run <action-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
           method: 'POST',
@@ -684,14 +683,15 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'run' && command === 'start') {
     const [actionId] = rest;
-    const maxSteps = getNumberFlag(parsed, 'max-steps');
+    const maxSteps = getNumberFlag(parsed, 'max-actions') ?? getNumberFlag(parsed, 'max-steps');
     if (!actionId || maxSteps === undefined) {
       throw new Error(
-        'Usage: tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>]',
+        'Usage: tensnap-agent run start <action-id> --max-actions <n> [--stop-when <expr>] [--max-wall-time-ms <ms>]',
       );
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, '/v1/runs', {
           method: 'POST',
@@ -713,13 +713,14 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'run' && command === 'status') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/runs'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/runs'), null, 2));
     return;
   }
 
   if (group === 'run' && command === 'stop') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }), null, 2),
     );
     return;
@@ -727,7 +728,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'chart' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/charts'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/charts'), null, 2));
     return;
   }
 
@@ -737,7 +738,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       throw new Error('Usage: tensnap-agent chart get <chart-id>');
     }
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(
+    emitOutput(
+      parsed,
       JSON.stringify(
         await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`),
         null,
@@ -749,7 +751,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 
   if (group === 'asset' && command === 'list') {
     const { baseUrl } = await requireRuntime(parsed);
-    console.log(JSON.stringify(await requestJson(baseUrl, '/v1/assets'), null, 2));
+    emitOutput(parsed, JSON.stringify(await requestJson(baseUrl, '/v1/assets'), null, 2));
     return;
   }
 
@@ -758,9 +760,12 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     return;
   }
 
-  console.log(
+  emitOutput(
+    parsed,
     [
       'Usage:',
+      '  Global: --context <name> --context-dir <path> --output-version 1',
+      '  --max-steps remains a deprecated public spelling of --max-actions; do not combine them.',
       '  tensnap-agent runtime up --simulator-url ws://localhost:8765 [--ip-family auto|ipv4|ipv6] [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
       '  tensnap-agent runtime status',
       '  tensnap-agent runtime render-trigger manual|action-result',
@@ -773,7 +778,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       '  tensnap-agent param set <parameter-id> <json-value>',
       '  tensnap-agent action list',
       '  tensnap-agent action run <action-id>',
-      '  tensnap-agent run start <action-id> --max-steps <n> [--stop-when <expr>] [--max-wall-time-ms <ms>] [--record]',
+      '  tensnap-agent run start <action-id> --max-actions <n> [--stop-when <expr>] [--max-wall-time-ms <ms>] [--record]',
       '  tensnap-agent run status',
       '  tensnap-agent run stop',
       '  tensnap-agent chart list',
@@ -782,4 +787,97 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       '  tensnap-agent stream events',
     ].join('\n'),
   );
+}
+
+export class CliRequestError extends Error {
+  readonly category: string;
+  readonly exitCode: number;
+  constructor(
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    const record = body as {
+      error?: string | { message?: string; category?: string };
+      category?: string;
+    };
+    super(
+      typeof record?.error === 'string'
+        ? record.error
+        : (record?.error?.message ?? `Request failed with status ${status}`),
+    );
+    this.category =
+      record?.category ??
+      (typeof record?.error === 'object' ? record.error.category : undefined) ??
+      (status === 400
+        ? 'input_error'
+        : /timed out|disconnect/i.test(this.message)
+          ? 'result_unknown'
+          : 'execution_failed');
+    this.exitCode =
+      {
+        input_error: 2,
+        execution_failed: 3,
+        result_unknown: 4,
+        render_failed: 5,
+        persistence_failed: 6,
+      }[this.category] ?? 3;
+  }
+}
+
+function emitOutput(parsed: ParsedArgs, serialized: string): void {
+  if (parsed.flags['output-version'] !== '1') {
+    console.log(serialized);
+    return;
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(serialized);
+  } catch {
+    data = serialized;
+  }
+  const record = data as { requestId?: string; request_id?: string; run?: { id?: string } } | null;
+  console.log(
+    JSON.stringify({
+      schemaVersion: 1,
+      ok: true,
+      data,
+      correlationId: record?.requestId ?? record?.request_id ?? record?.run?.id,
+    }),
+  );
+}
+
+export async function main(argv = process.argv.slice(2)): Promise<void> {
+  try {
+    await execute(parseArgs(argv));
+  } catch (error) {
+    if (
+      (argv.includes('--output-version') && argv[argv.indexOf('--output-version') + 1] === '1') ||
+      argv.includes('--output-version=1')
+    ) {
+      const category = classifyCliError(error).category;
+      console.log(
+        JSON.stringify({
+          schemaVersion: 1,
+          ok: false,
+          error: { category, message: error instanceof Error ? error.message : String(error) },
+          ...(error instanceof CliRequestError ? { data: error.body } : {}),
+        }),
+      );
+    }
+    throw error;
+  }
+}
+
+export function classifyCliError(error: unknown): { category: string; exitCode: number } {
+  if (error instanceof CliInputError || error instanceof CliRequestError)
+    return { category: error.category, exitCode: error.exitCode };
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  if (
+    code &&
+    ['EACCES', 'EPERM', 'ENOENT', 'ENOSPC', 'EISDIR', 'ENOTDIR', 'EROFS', 'EDQUOT'].includes(code)
+  )
+    return { category: 'persistence_failed', exitCode: 6 };
+  if (/timed out|disconnect/i.test(error instanceof Error ? error.message : String(error)))
+    return { category: 'result_unknown', exitCode: 4 };
+  return { category: 'execution_failed', exitCode: 3 };
 }

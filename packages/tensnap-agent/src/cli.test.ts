@@ -353,3 +353,77 @@ describe('agent CLI', () => {
     ]);
   });
 });
+
+it.each([
+  ['runtime', 'up', '--root-dir', '/tmp/unused'],
+  ['runtime', 'up', '--encoding', 'invalid'],
+  ['runtime', 'up', '--simulator-url', 'http://localhost'],
+  ['scene', 'restore', '--parameters', '[]'],
+  ['scene', 'restore', '--envs', '{}'],
+  ['runtime', 'up', '--render-trigger', 'action-end'],
+  ['runtime', 'status', 'extra'],
+  ['scene', 'render', '--env', 'main', '--chart', 'chart'],
+  ['scene', 'render', '--width', '0'],
+  ['scene', 'render', '--viewport', '{"x":0,"y":0,"width":-1,"height":1}'],
+  ['scene', 'render', '--output'],
+  ['action', 'run', 'step', '--record'],
+  ['action', 'run', 'step', '--width', '10'],
+  ['run', 'start', 'step', '--max-actions', '1', '--max-steps', '1'],
+  ['run', 'start', 'step', '--max-actions', '1', '--max-actions', '2'],
+  ['run', 'start', 'step', '--max-actions', '1', '--record', 'false'],
+  ['param', 'set', 'speed'],
+  ['unknown', 'command'],
+])('rejects invalid CLI input before runtime access: %j', async (...argv) => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  await expect(main(argv as string[])).rejects.toThrow();
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it('emits one versioned JSON input error without touching the runtime', async () => {
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  await expect(
+    main(['runtime', 'up', '--output-version', '1', '--root-dir', '/tmp/unused']),
+  ).rejects.toMatchObject({ exitCode: 2 });
+  expect(output).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(output.mock.calls[0]![0])).toMatchObject({
+    schemaVersion: 1,
+    ok: false,
+    error: { category: 'input_error', message: expect.stringContaining('--context-dir') },
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it('keeps structured HTTP failures and partial artifacts in versioned stdout', async () => {
+  const { writeFile, mkdir } = await import('node:fs/promises');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-partial-'));
+  tempDirs.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  await mkdir(context.contextDir, { recursive: true });
+  await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+  const partial = {
+    error: 'disk full',
+    category: 'persistence_failed',
+    artifacts: [{ path: '/tmp/saved.png' }],
+    errors: [{ targetId: 'bad', code: 'persistence_failed' }],
+    partial: true,
+  };
+  vi.spyOn(globalThis, 'fetch').mockImplementation(
+    async (input) =>
+      new Response(JSON.stringify(String(input).endsWith('/health') ? {} : partial), {
+        status: String(input).endsWith('/health') ? 200 : 422,
+        headers: { 'content-type': 'application/json' },
+      }),
+  );
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await expect(
+    main(['scene', 'render', '--context-dir', rootDir, '--output-version', '1']),
+  ).rejects.toMatchObject({ exitCode: 6, body: partial });
+  expect(output).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(output.mock.calls[0]![0])).toMatchObject({
+    schemaVersion: 1,
+    ok: false,
+    error: { category: 'persistence_failed' },
+    data: partial,
+  });
+});

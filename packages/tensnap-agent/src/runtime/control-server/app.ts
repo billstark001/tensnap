@@ -26,7 +26,19 @@ export function buildControlApp(
   app.notFound((c) => c.text('Not found\n', 404));
   app.onError((error, c) => {
     const message = error instanceof Error ? error.message : String(error);
-    return c.json({ error: message }, error instanceof HTTPException ? error.status : 500);
+    const status = error instanceof HTTPException ? error.status : 500;
+    return c.json(
+      {
+        error: message,
+        category:
+          status === 400
+            ? 'input_error'
+            : /timed out|disconnect/i.test(message)
+              ? 'result_unknown'
+              : 'execution_failed',
+      },
+      status,
+    );
   });
 
   return app;
