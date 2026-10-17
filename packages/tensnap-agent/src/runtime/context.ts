@@ -1,5 +1,4 @@
-import { appendFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { randomUUID } from 'node:crypto';
+import { appendFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   encodeSnapshotArchive,
@@ -8,6 +7,7 @@ import {
 } from '@tensnap/core/snapshot';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { RuntimeContextOptions, RuntimeControlFile, RuntimeLogEntry } from '../types';
+import { writeFileAtomically } from './atomic-file';
 
 export interface RuntimeContextPaths {
   cwd: string;
@@ -94,17 +94,13 @@ export async function writeRuntimeControl(
   paths: RuntimeContextPaths,
   control: RuntimeControlFile,
 ): Promise<void> {
+  // Encode before the first await so later caller mutations cannot change this write.
+  const data = `${JSON.stringify(control, null, 2)}\n`;
+  const pid = control.pid;
   await ensureRuntimeContext(paths);
-  const temporaryFile = `${paths.controlFile}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporaryFile, `${JSON.stringify(control, null, 2)}\n`, 'utf8');
-    await rename(temporaryFile, paths.controlFile);
-  } finally {
-    await rm(temporaryFile, { force: true });
-  }
-
-  if (typeof control.pid === 'number' && control.pid > 0) {
-    await writeFile(paths.pidFile, `${control.pid}\n`, 'utf8');
+  await writeFileAtomically(paths.controlFile, data);
+  if (typeof pid === 'number' && pid > 0) {
+    await writeFileAtomically(paths.pidFile, `${pid}\n`);
   } else {
     await rm(paths.pidFile, { force: true });
   }
@@ -114,22 +110,18 @@ export async function appendRuntimeLog(
   paths: RuntimeContextPaths,
   entry: RuntimeLogEntry,
 ): Promise<void> {
+  const data = `${JSON.stringify(entry)}\n`;
   await ensureRuntimeContext(paths);
-  await appendFile(paths.logFile, `${JSON.stringify(entry)}\n`, 'utf8');
+  await appendFile(paths.logFile, data, 'utf8');
 }
 
 export async function writeSceneSnapshot(
   paths: RuntimeContextPaths,
   snapshot: ScenarioSnapshot,
 ): Promise<void> {
+  const data = `${JSON.stringify(snapshot, snapshotReplacer, 2)}\n`;
   await ensureRuntimeContext(paths);
-  const temporaryFile = `${paths.snapshotFile}.${process.pid}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporaryFile, `${JSON.stringify(snapshot, snapshotReplacer, 2)}\n`, 'utf8');
-    await rename(temporaryFile, paths.snapshotFile);
-  } finally {
-    await rm(temporaryFile, { force: true });
-  }
+  await writeFileAtomically(paths.snapshotFile, data);
 }
 
 export function isProcessAlive(pid: number): boolean {
@@ -147,19 +139,8 @@ export async function writeRunRecording(
   runId: string,
   snapshot: Snapshot,
 ): Promise<string> {
-  const directory = join(paths.contextDir, 'recordings');
-  await mkdir(directory, { recursive: true });
-  const output = join(directory, `${runId}.snapshot.json`);
-  const temporary = `${output}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(
-      temporary,
-      `${JSON.stringify(snapshotArchiveForJson(encodeSnapshotArchive(snapshot)))}\n`,
-      'utf8',
-    );
-    await rename(temporary, output);
-    return output;
-  } finally {
-    await rm(temporary, { force: true });
-  }
+  const data = `${JSON.stringify(snapshotArchiveForJson(encodeSnapshotArchive(snapshot)))}\n`;
+  const output = join(paths.contextDir, 'recordings', `${runId}.snapshot.json`);
+  await writeFileAtomically(output, data);
+  return output;
 }

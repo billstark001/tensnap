@@ -16,6 +16,7 @@ export interface RenderAssetSource {
   source: string | Uint8Array;
 }
 
+/** Fixed request input shared read-only across painters; copy any nested values before mutation. */
 export interface RenderRequest {
   at: string;
   reason: string;
@@ -36,6 +37,7 @@ export interface RenderArtifact {
 
 export interface ScenePainter {
   readonly id: string;
+  /** Borrow the stable request for this asynchronous render; never mutate its scene, options or assets. */
   render(request: RenderRequest): Promise<RenderArtifact[] | void>;
 }
 

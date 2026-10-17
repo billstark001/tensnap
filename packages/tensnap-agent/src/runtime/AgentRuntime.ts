@@ -254,6 +254,8 @@ export class AgentRuntime extends EventEmitter {
   getStatus(): RuntimeStatus {
     return {
       ...this.control,
+      render: { ...this.control.render },
+      painters: [...this.control.painters],
       isConnected: this.renderer.isConnected,
       simulatorCapabilities: this.renderer.simulatorInfo?.capabilities,
     };
@@ -274,7 +276,7 @@ export class AgentRuntime extends EventEmitter {
   registerPainter(painter: ScenePainter): void {
     this.painters.set(painter.id, painter);
     this.control.painters = [...this.painters.keys()];
-    void this.persistStatus();
+    this.persistStatusInBackground();
     this.emitRuntimeEvent('render.painter.registered', { painterId: painter.id });
   }
 
@@ -284,7 +286,7 @@ export class AgentRuntime extends EventEmitter {
     }
 
     this.control.painters = [...this.painters.keys()];
-    void this.persistStatus();
+    this.persistStatusInBackground();
     this.emitRuntimeEvent('render.painter.unregistered', { painterId: id });
   }
 
@@ -359,8 +361,8 @@ export class AgentRuntime extends EventEmitter {
       },
       `agent-inspection:${inspection.environmentId}/${inspection.layerId}/${inspection.ref.agentId}`,
       'explicit',
+      structuredClone(inspection.renderSnapshot),
     );
-    request.snapshot = inspection.renderSnapshot;
     return this.runPainters(request);
   }
 
@@ -493,7 +495,7 @@ export class AgentRuntime extends EventEmitter {
     }
     const status = this.renderer.run.start(spec);
     const boundedSpec = status.spec.mode === 'bounded' ? status.spec : null;
-    void this.log('info', 'run', 'Bounded run started.', {
+    this.logInBackground('info', 'run', 'Bounded run started.', {
       runId: status.id,
       actionId: status.spec.actionId,
       maxSteps: boundedSpec?.maxSteps,
@@ -514,9 +516,9 @@ export class AgentRuntime extends EventEmitter {
   stopRun() {
     const status = this.renderer.run.stop();
     if (status) {
-      void this.log('info', 'run', 'Bounded run stopped.', {
+      this.logInBackground('info', 'run', 'Bounded run stopped.', {
         runId: status.id,
-        completedSteps: status.completedSteps,
+        completedActions: status.completedActions,
         stopReason: status.stopReason,
       });
       this.emitRuntimeEvent('run.stopped', status);
@@ -549,18 +551,18 @@ export class AgentRuntime extends EventEmitter {
       trigger: 'explicit',
       painterCount: this.painters.size,
       artifactCount: artifacts.length,
-      envId: options.envId,
-      chartId: options.chartId,
-      outputPath: options.outputPath,
+      envId: request.options.envId,
+      chartId: request.options.chartId,
+      outputPath: request.options.outputPath,
     });
     this.emitRuntimeEvent('render.requested', {
       reason,
       trigger: 'explicit',
       painterCount: this.painters.size,
       artifactCount: artifacts.length,
-      envId: options.envId,
-      chartId: options.chartId,
-      outputPath: options.outputPath,
+      envId: request.options.envId,
+      chartId: request.options.chartId,
+      outputPath: request.options.outputPath,
     });
     return artifacts;
   }
@@ -625,6 +627,7 @@ export class AgentRuntime extends EventEmitter {
     options: SceneRenderOptions,
     reason: string,
     trigger: RenderTriggerMode | 'explicit',
+    snapshot?: ScenarioSnapshot,
   ): RuntimeRenderRequest {
     const backgroundColor = normalizeRenderBackgroundColor(
       options.backgroundColor,
@@ -635,9 +638,10 @@ export class AgentRuntime extends EventEmitter {
       reason,
       trigger,
       sceneRevision: this.control.sceneRevision,
-      snapshot: this.renderer.scenario.dump(),
+      snapshot: snapshot ?? this.renderer.scenario.dump(),
       options: {
         ...options,
+        ...(options.viewport ? { viewport: { ...options.viewport } } : {}),
         backgroundColor,
       },
       assets: this.getAssetSources(),
@@ -703,12 +707,12 @@ export class AgentRuntime extends EventEmitter {
       const message = error instanceof Error ? error.message : String(error);
       this.control.lastError = message;
       this.setPhase('error');
-      void this.log('error', 'transport', 'Transport error.', { error: message });
+      this.logInBackground('error', 'transport', 'Transport error.', { error: message });
       this.emitRuntimeEvent('transport.error', { error: message });
     });
     this.renderer.addEventListener('transport:validation-warning', (event) => {
       const warning = (event as CustomEvent<{ message: string; direction: string }>).detail;
-      void this.log('warn', 'transport', 'Protocol validation warning.', warning);
+      this.logInBackground('warn', 'transport', 'Protocol validation warning.', warning);
       this.emitRuntimeEvent('transport.validation-warning', warning);
     });
     this.renderer.addEventListener('run:settled', (event) => {
@@ -730,11 +734,17 @@ export class AgentRuntime extends EventEmitter {
       void this.handleProtocolMessage(message, origin);
       if (message.type === 'action_result') {
         const payload = message.payload as ActionResultPayload;
-        void this.log('info', 'action', 'Action completed.', payload);
+        this.logInBackground('info', 'action', 'Action completed.', payload);
         this.emitRuntimeEvent('action.result', payload);
       }
       if (message.type === 'screenshot_request') {
-        void this.handleScreenshotRequest(message.payload as ScreenshotRequestPayload);
+        const payload = message.payload as ScreenshotRequestPayload;
+        void this.handleScreenshotRequest(payload).catch((error) =>
+          this.emitRuntimeEvent('render.screenshot-failed', {
+            requestId: payload.request_id,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
       }
     });
   }
@@ -755,7 +765,9 @@ export class AgentRuntime extends EventEmitter {
       this.completedStateSyncCount += 1;
       this.setPhase('ready');
       this.markSceneDirty();
-      await this.checkpointScene();
+      await this.checkpointScene().catch((error) =>
+        this.emitRuntimeEvent('scene.persistence-failed', { error: String(error) }),
+      );
       this.emitRuntimeEvent('scene.sync.end', {
         completedCount: this.completedStateSyncCount,
         payload: message.payload,
@@ -809,7 +821,7 @@ export class AgentRuntime extends EventEmitter {
       ]);
     }
 
-    void this.log('info', 'render', 'Auto render executed after action_result.', {
+    this.logInBackground('info', 'render', 'Auto render executed after action_result.', {
       actionId: payload.id,
       artifactCount: artifacts.length,
     });
@@ -990,6 +1002,10 @@ export class AgentRuntime extends EventEmitter {
 
   private setPhase(phase: RuntimePhase): void {
     this.control.phase = phase;
+    this.persistStatusInBackground();
+  }
+
+  private persistStatusInBackground(): void {
     void this.persistStatus().catch((error) =>
       this.emitRuntimeEvent('runtime.status-write-failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -1054,6 +1070,20 @@ export class AgentRuntime extends EventEmitter {
       data,
     };
     this.emit('event', event);
+  }
+
+  private logInBackground(
+    level: RuntimeLogEntry['level'],
+    source: string,
+    message: string,
+    data?: unknown,
+  ): void {
+    void this.log(level, source, message, data).catch((error) =>
+      this.emitRuntimeEvent('runtime.log-write-failed', {
+        source,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
   }
 
   private async log(

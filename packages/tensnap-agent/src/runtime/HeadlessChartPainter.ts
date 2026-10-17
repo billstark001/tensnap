@@ -1,5 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { writeFileAtomically } from './atomic-file';
 import { createCanvas } from 'canvas';
 import { ChartScene, type ChartConfig, type ChartGroup } from '@tensnap/core/chart';
 import type { RenderFormat } from '../types';
@@ -113,8 +112,7 @@ export class HeadlessChartPainter implements ScenePainter {
         appendId,
       );
       try {
-        await mkdir(dirname(path), { recursive: true });
-        await writeFile(path, data);
+        await writeFileAtomically(path, data);
       } catch (error) {
         throw new RenderPersistenceError(error);
       }

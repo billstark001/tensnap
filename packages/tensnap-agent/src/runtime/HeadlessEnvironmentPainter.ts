@@ -1,7 +1,6 @@
 import './leafer-runtime';
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { writeFileAtomically } from './atomic-file';
 import { resolveImageSize, resolveViewport, type Viewport } from '@tensnap/core/environment';
 import { layerRegistry, type LayerCreateContext } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentView } from '@tensnap/core/environment/headless';
@@ -171,8 +170,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
           appendEnvSuffix,
         );
         try {
-          await mkdir(dirname(outputPath), { recursive: true });
-          await writeFile(outputPath, buffer);
+          await writeFileAtomically(outputPath, buffer);
         } catch (error) {
           throw new RenderPersistenceError(error);
         }
