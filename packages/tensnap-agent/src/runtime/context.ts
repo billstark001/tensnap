@@ -1,6 +1,11 @@
 import { appendFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join, resolve } from 'node:path';
+import {
+  encodeSnapshotArchive,
+  snapshotArchiveForJson,
+  type Snapshot,
+} from '@tensnap/core/snapshot';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { RuntimeContextOptions, RuntimeControlFile, RuntimeLogEntry } from '../types';
 
@@ -133,5 +138,28 @@ export function isProcessAlive(pid: number): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Atomic storage of the existing SnapshotArchive format (not a standalone recording file). */
+export async function writeRunRecording(
+  paths: RuntimeContextPaths,
+  runId: string,
+  snapshot: Snapshot,
+): Promise<string> {
+  const directory = join(paths.contextDir, 'recordings');
+  await mkdir(directory, { recursive: true });
+  const output = join(directory, `${runId}.snapshot.json`);
+  const temporary = `${output}.${randomUUID()}.tmp`;
+  try {
+    await writeFile(
+      temporary,
+      `${JSON.stringify(snapshotArchiveForJson(encodeSnapshotArchive(snapshot)))}\n`,
+      'utf8',
+    );
+    await rename(temporary, output);
+    return output;
+  } finally {
+    await rm(temporary, { force: true });
   }
 }

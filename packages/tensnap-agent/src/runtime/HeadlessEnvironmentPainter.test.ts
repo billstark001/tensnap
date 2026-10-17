@@ -526,3 +526,81 @@ describe('HeadlessEnvironmentPainter', () => {
     expect(aggregated.height).toBe(40);
   });
 });
+
+it('renders stored graph coordinates through dependency layers without changing the snapshot', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const scenario = new Scenario();
+  scenario.apply({ type: 'env_create', payload: { id: 'graph', type: '2d' } });
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: { env_id: 'graph', layer_id: 'nodes', layer_type: 'agent' },
+  });
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: {
+      env_id: 'graph',
+      layer_id: 'links',
+      layer_type: 'edge',
+      dependency_layer_ids: { agent: 'nodes' },
+    },
+  });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'graph',
+      layer_id: 'nodes',
+      items: [
+        { id: 1, x: -3, y: 0, size: 0.5, color: '#ffffff' },
+        { id: '1', x: 3, y: 0, size: 0.5, color: '#ffffff' },
+      ],
+    },
+  });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'graph',
+      layer_id: 'links',
+      items: [{ source: 1, target: '1', width: 0.1, color: '#ffffff', directed: true }],
+    },
+  });
+  const snapshot = scenario.dump();
+  const before = structuredClone(snapshot);
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  for (let index = 0; index < 2; index++) {
+    const result = await painter.render({
+      at: 'test',
+      reason: 'regression',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: {
+        envId: 'graph',
+        readOnlyGraphLayout: true,
+        persist: false,
+        includeData: true,
+        width: 400,
+        height: 160,
+        viewport: { x: -5, y: -2, width: 10, height: 4 },
+      },
+    });
+    const { context } = await createContextFromArtifactBytes(result![0]!.data!);
+    expect(hasNonBlackPixelAround(context, 200, 80, 1)).toBe(true);
+    expect(snapshot).toEqual(before);
+    expect(scenario.dump()).toEqual(before);
+  }
+});
+
+it('rejects a missing environment target', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  await expect(
+    painter.render({
+      at: 'test',
+      reason: 'missing',
+      trigger: 'explicit',
+      snapshot: new Scenario().dump(),
+      assets: {},
+      options: { envId: 'missing', persist: false },
+    }),
+  ).rejects.toMatchObject({ errors: [{ targetId: 'missing', code: 'render_missing' }] });
+});

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocketServer } from 'ws';
 import { decodeProtocolMessage, encodeProtocolMessage } from '@tensnap/protocol';
+import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
 
@@ -365,7 +366,7 @@ describe('AgentRuntime action lifecycle', () => {
       async render() {
         painterStarted();
         await painterGate;
-        return [];
+        return [{ painterId: 'slow', kind: 'environment', path: '/test-artifact.png' }];
       },
     });
     await runtime.initialize();
@@ -399,14 +400,14 @@ describe('AgentRuntime rendering', () => {
       id: 'environment',
       async render(request) {
         outputPaths.push(request.options.outputPath!);
-        return [];
+        return [{ painterId: 'test', kind: 'environment', path: request.options.outputPath }];
       },
     });
     runtime.registerPainter({
       id: 'chart',
       async render(request) {
         outputPaths.push(request.options.outputPath!);
-        return [];
+        return [{ painterId: 'test', kind: 'environment', path: request.options.outputPath }];
       },
     });
 
@@ -421,3 +422,94 @@ describe('AgentRuntime rendering', () => {
     await runtime.stop();
   });
 });
+
+it('reports empty rendering and preserves successful artifacts in a failed painter batch', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-failures-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  await expect(runtime.requestRender()).rejects.toMatchObject({
+    errors: [{ code: 'render_missing' }],
+  });
+  runtime.registerPainter({
+    id: 'good',
+    render: async () => [{ painterId: 'good', kind: 'chart', path: '/tmp/good.png' }],
+  });
+  runtime.registerPainter({
+    id: 'bad',
+    render: async () => {
+      throw new RenderPersistenceError(new Error('disk full'));
+    },
+  });
+  await expect(runtime.requestRender()).rejects.toMatchObject({
+    artifacts: [{ path: '/tmp/good.png' }],
+    errors: [{ painterId: 'bad', code: 'persistence_failed', message: 'disk full' }],
+  });
+  await runtime.stop();
+});
+
+it.each([false, true])(
+  'associates recording persistence with the settled run (failure=%s)',
+  async (failure) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-recording-'));
+    temporaryRoots.push(rootDir);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      recordingWriter: async () => {
+        await gate;
+        if (failure) throw new Error('recording disk full');
+        return '/test/recording.snapshot.json';
+      },
+    });
+    await runtime.initialize();
+    const renderer = (
+      runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
+    ).renderer;
+    renderer.attachTransport({
+      connectionId: 'test',
+      transportKind: 'inmemory',
+      encoding: 'json',
+      connectionState: 'open',
+      isConnected: true,
+      connect: async () => {},
+      disconnect() {},
+      destroy() {},
+      on() {},
+      off() {},
+      send(message) {
+        if (message.type === 'action_invoke') {
+          const payload = message.payload as { id: string; request_id: string };
+          renderer.handleIncoming({ type: 'action_result', payload });
+        }
+      },
+    });
+    renderer.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test', version: '1' },
+        model: { id: 'test' },
+        instance_id: 'test',
+        capabilities: [],
+      },
+    });
+    const run = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+    await renderer.run.waitForSettled(run.id);
+    expect(runtime.getRun(run.id)).toMatchObject({
+      settled: true,
+      recording: { status: 'pending' },
+    });
+    release();
+    await vi.waitFor(() =>
+      expect(runtime.getRun(run.id)).toMatchObject({
+        recording: failure
+          ? { status: 'failed', error: 'recording disk full' }
+          : { status: 'persisted', path: '/test/recording.snapshot.json' },
+      }),
+    );
+    await runtime.stop();
+  },
+);

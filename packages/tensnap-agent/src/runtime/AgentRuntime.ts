@@ -18,6 +18,8 @@ import {
   RendererClient,
   RendererSession,
   type BoundedRunSpec,
+  type RunStatus,
+  type RendererSessionRecordingDetail,
   type SceneRestoreOptions,
 } from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
@@ -50,9 +52,13 @@ import {
   type RuntimeContextPaths,
   writeRuntimeControl,
   writeSceneSnapshot,
+  writeRunRecording,
 } from './context';
 import {
   normalizeRenderBackgroundColor,
+  RenderBatchError,
+  renderTargetError,
+  type RenderTargetError,
   type RenderArtifact,
   type RenderAssetSource,
   type RenderRequest,
@@ -71,8 +77,16 @@ export interface AgentRuntimeOptions {
   render?: Partial<RenderSettings>;
   /** Delay between dirty scene updates and disk checkpoints. */
   checkpointIntervalMs?: number;
+  /** Injectable recording store; failures remain queryable on the run. */
+  recordingWriter?: typeof writeRunRecording;
   /** Injectable for checkpoint regression tests and alternative durable stores. */
   checkpointWriter?: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
+}
+
+export interface RunRecordingPersistence {
+  status: 'pending' | 'persisted' | 'failed';
+  path?: string;
+  error?: string;
 }
 
 const DEFAULT_CHECKPOINT_INTERVAL_MS = 2_000;
@@ -94,6 +108,9 @@ export class AgentRuntime extends EventEmitter {
   private readonly renderer: RendererSession;
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
+  private readonly recordingWrites = new Set<Promise<void>>();
+  private readonly recordingResults = new Map<string, RunRecordingPersistence>();
+  private readonly recordingWriter: typeof writeRunRecording;
   private completedStateSyncCount = 0;
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
@@ -149,6 +166,7 @@ export class AgentRuntime extends EventEmitter {
       sceneDirty: false,
     };
 
+    this.recordingWriter = options.recordingWriter ?? writeRunRecording;
     this.bindRenderer();
   }
 
@@ -221,6 +239,7 @@ export class AgentRuntime extends EventEmitter {
     this.setPhase('stopping');
     await this.disconnect();
     await this.checkpointScene();
+    await Promise.all(this.recordingWrites);
     this.control.pid = null;
     this.control.controlPort = null;
     this.setPhase('stopped');
@@ -443,15 +462,18 @@ export class AgentRuntime extends EventEmitter {
   }
 
   /** Dispatch one action; completion is reported through runtime events. */
-  async runAction(id: string): Promise<void> {
+  async runAction(id: string): Promise<string> {
     this.assertConnected();
-    this.client.requestAction(id);
+    const requestId = this.client.requestAction(id);
     await this.log('info', 'action', 'Action requested.', {
       id,
+      requestId,
     });
     this.emitRuntimeEvent('action.start.requested', {
       id,
+      requestId,
     });
+    return requestId;
   }
 
   startRun(spec: BoundedRunSpec) {
@@ -469,8 +491,11 @@ export class AgentRuntime extends EventEmitter {
     return status;
   }
 
-  getRun() {
-    return this.renderer.run.status;
+  getRun(id?: string): (RunStatus & { recording?: RunRecordingPersistence }) | null {
+    const status = id ? this.renderer.run.getRun(id) : this.renderer.run.status;
+    if (!status) return null;
+    const recording = this.recordingResults.get(status.id);
+    return { ...status, ...(recording ? { recording: structuredClone(recording) } : {}) };
   }
 
   stopRun() {
@@ -495,7 +520,17 @@ export class AgentRuntime extends EventEmitter {
     }
     const request = this.createRenderRequest(options, reason, 'explicit');
     const artifacts = await this.runPainters(request);
-    await this.checkpointScene(request.snapshot, true);
+    try {
+      await this.checkpointScene(request.snapshot, true);
+    } catch (error) {
+      throw new RenderBatchError(artifacts, [
+        {
+          painterId: 'scene-checkpoint',
+          code: 'persistence_failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    }
     await this.log('info', 'render', 'Render requested.', {
       reason,
       trigger: 'explicit',
@@ -519,6 +554,7 @@ export class AgentRuntime extends EventEmitter {
 
   private async runPainters(request: RenderRequest): Promise<RenderArtifact[]> {
     const artifacts: RenderArtifact[] = [];
+    const errors: RenderTargetError[] = [];
     const disambiguateOutput = Boolean(
       request.options.outputPath &&
       !request.options.envId &&
@@ -545,15 +581,30 @@ export class AgentRuntime extends EventEmitter {
           artifacts.push(...result);
         }
       } catch (error) {
+        if (error instanceof RenderBatchError) {
+          artifacts.push(...error.artifacts);
+          errors.push(...error.errors);
+        } else
+          errors.push(
+            renderTargetError(painter.id, request.options.envId ?? request.options.chartId, error),
+          );
         const message = error instanceof Error ? error.message : String(error);
         await this.log('error', 'render', 'Painter render failed.', {
           painterId: painter.id,
           error: message,
-        });
+        }).catch(() => {});
         this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
       }
     }
 
+    if (!artifacts.length && !errors.length)
+      errors.push({
+        painterId: '*',
+        targetId: request.options.envId ?? request.options.chartId,
+        code: 'render_missing',
+        message: 'No render artifacts were produced.',
+      });
+    if (errors.length) throw new RenderBatchError(artifacts, errors);
     return artifacts;
   }
 
@@ -586,6 +637,42 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private bindRenderer(): void {
+    this.renderer.addEventListener('recording:complete', (event) => {
+      const { snapshot, runId } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
+      if (!runId) return;
+      this.recordingResults.set(runId, { status: 'pending' });
+      while (this.recordingResults.size > 100) {
+        const removable = [...this.recordingResults].find(
+          ([, value]) => value.status !== 'pending',
+        );
+        if (!removable) break;
+        this.recordingResults.delete(removable[0]);
+      }
+      const write = Promise.resolve()
+        .then(() => this.recordingWriter(this.context, runId, snapshot))
+        .then(
+          (path) => {
+            this.recordingResults.set(runId, { status: 'persisted', path });
+          },
+          (error: unknown) => {
+            this.recordingResults.set(runId, {
+              status: 'failed',
+              error: error instanceof Error ? error.message : String(error),
+            });
+          },
+        )
+        .then(() => {
+          this.emitRuntimeEvent('recording.persistence', {
+            runId,
+            ...this.recordingResults.get(runId),
+          });
+        });
+      this.recordingWrites.add(write);
+      void write.then(
+        () => this.recordingWrites.delete(write),
+        () => this.recordingWrites.delete(write),
+      );
+    });
     this.renderer.addEventListener('transport:open', () => {
       this.setPhase('open');
       this.emitRuntimeEvent('transport.open', { simulatorUrl: this.control.simulatorUrl });
@@ -611,9 +698,14 @@ export class AgentRuntime extends EventEmitter {
       this.emitRuntimeEvent('transport.validation-warning', warning);
     });
     this.renderer.addEventListener('run:status', (event) => {
-      const status = (event as CustomEvent<{ state?: string }>).detail;
-      if (status?.state === 'stopped') {
-        void this.checkpointScene();
+      const status = (event as CustomEvent<{ settled?: boolean; id?: string }>).detail;
+      if (status?.settled) {
+        void this.checkpointScene().catch((error) =>
+          this.emitRuntimeEvent('scene.persistence-failed', {
+            runId: status.id,
+            error: String(error),
+          }),
+        );
       }
     });
     this.renderer.addEventListener('message', (event) => {
@@ -680,8 +772,30 @@ export class AgentRuntime extends EventEmitter {
   private async renderActionResult(payload: ActionResultPayload): Promise<void> {
     if (this.control.render.trigger !== 'action-result') return;
     const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
-    const artifacts = await this.runPainters(request);
-    await this.checkpointScene(request.snapshot, true);
+    let artifacts: RenderArtifact[];
+    try {
+      artifacts = await this.runPainters(request);
+    } catch (error) {
+      this.emitRuntimeEvent('render.action-failed', {
+        actionId: payload.id,
+        requestId: payload.request_id,
+        ...(error instanceof RenderBatchError
+          ? { artifacts: error.artifacts, errors: error.errors }
+          : { error: String(error) }),
+      });
+      throw error;
+    }
+    try {
+      await this.checkpointScene(request.snapshot, true);
+    } catch (error) {
+      throw new RenderBatchError(artifacts, [
+        {
+          painterId: 'scene-checkpoint',
+          code: 'persistence_failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    }
 
     void this.log('info', 'render', 'Auto render executed after action_result.', {
       actionId: payload.id,
@@ -877,7 +991,9 @@ export class AgentRuntime extends EventEmitter {
     if (this.checkpointTimer) return;
     this.checkpointTimer = setTimeout(() => {
       this.checkpointTimer = null;
-      void this.checkpointScene();
+      void this.checkpointScene().catch((error) =>
+        this.emitRuntimeEvent('scene.persistence-failed', { error: String(error) }),
+      );
     }, this.checkpointIntervalMs);
   }
 

@@ -4,6 +4,12 @@ import { createCanvas } from 'canvas';
 import { ChartScene, type ChartConfig, type ChartGroup } from '@tensnap/core/chart';
 import type { RenderFormat } from '../types';
 import type { RenderArtifact, RenderRequest, ScenePainter } from './painter';
+import {
+  RenderBatchError,
+  RenderPersistenceError,
+  renderTargetError,
+  type RenderTargetError,
+} from './painter';
 import { buildImageOutputPath, imageMimeType } from './image-output';
 
 export interface HeadlessChartPainterOptions {
@@ -54,9 +60,28 @@ export class HeadlessChartPainter implements ScenePainter {
             group.id === request.options.chartId || request.options.chartId! in group.metadataDict,
         )
       : request.snapshot.charts;
+    if (request.options.chartId && !charts.length)
+      throw new RenderBatchError(
+        [],
+        [
+          {
+            painterId: this.id,
+            targetId: request.options.chartId,
+            code: 'render_missing',
+            message: 'Unknown chart.',
+          },
+        ],
+      );
+    const errors: RenderTargetError[] = [];
     const artifacts: RenderArtifact[] = [];
-    for (const group of charts)
-      artifacts.push(await this.renderGroup(group, request, charts.length > 1));
+    for (const group of charts) {
+      try {
+        artifacts.push(await this.renderGroup(group, request, charts.length > 1));
+      } catch (error) {
+        errors.push(renderTargetError(this.id, group.id, error));
+      }
+    }
+    if (errors.length) throw new RenderBatchError(artifacts, errors);
     return artifacts;
   }
 
@@ -87,8 +112,12 @@ export class HeadlessChartPainter implements ScenePainter {
         request.options.outputPath,
         appendId,
       );
-      await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, data);
+      try {
+        await mkdir(dirname(path), { recursive: true });
+        await writeFile(path, data);
+      } catch (error) {
+        throw new RenderPersistenceError(error);
+      }
     }
 
     return {
