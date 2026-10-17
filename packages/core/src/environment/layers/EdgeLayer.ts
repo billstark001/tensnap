@@ -186,7 +186,6 @@ export class EdgeLayer extends BaseLayer {
         this._addEdgeShape(key, link);
       }
     }
-    this._updateEdgeGeometry();
     // Endpoint identity is immutable in EdgeStorage. Appearance-only updates
     // change Leafer shapes, but need not reindex every d3 link or reheat it.
     if (added.length) {
@@ -215,7 +214,6 @@ export class EdgeLayer extends BaseLayer {
       this._simulation?.nodes(this._simNodes).alpha(0.3).restart();
     }
     this._rebuildAllEdgeShapes();
-    this._updateEdgeGeometry();
   }
 
   private _onAgentData(): void {
@@ -351,16 +349,11 @@ export class EdgeLayer extends BaseLayer {
    * in the same synchronous call stack, before the browser paints — eliminating
    * the one-frame flicker where all agents appear at (0, 0).
    */
-  private _pushSimPositions(): void {}
-
-  private _tick(): void {
-    this._ticking = true;
-    this._updateEdgeGeometry();
+  private _pushSimPositions(): void {
     const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
     for (const n of this._simNodes) {
-      if (n.x != null && n.y != null) {
+      if (n.x != null && n.y != null)
         positions.set(n.id, { x: n.x, y: n.y, vx: n.vx ?? 0, vy: n.vy ?? 0 });
-      }
     }
     if (positions.size > 0) {
       this._agentStorage.mergePositions(positions);
@@ -368,35 +361,32 @@ export class EdgeLayer extends BaseLayer {
     }
   }
 
-  private _updateEdgeGeometry(): void {
-    this._edgeShapeMap.forEach(({ line, arrowhead, link }) => {
-      const src = link.source as SimNode;
-      const tgt = link.target as SimNode;
-      if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
-
-      const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const srcRadius = resolveAgentSize(src.size) / 2;
-      const tgtRadius = resolveAgentSize(tgt.size) / 2;
-      const x1 = src.x + (dx / dist) * srcRadius;
-      const y1 = src.y + (dy / dist) * srcRadius;
-      const x2 = tgt.x - (dx / dist) * tgtRadius;
-      const y2 = tgt.y - (dy / dist) * tgtRadius;
-
-      line.set({ points: [x1, y1, x2, y2] });
-      if (arrowhead)
-        arrowhead.set({ x: x2, y: y2, rotation: (Math.atan2(dy, dx) * 180) / Math.PI });
-    });
-
-    const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
-    for (const n of this._simNodes) {
-      if (n.x != null && n.y != null) positions.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy });
+  private _tick(): void {
+    this._ticking = true;
+    try {
+      this._edgeShapeMap.forEach((entry) => this._updateEdgeGeometry(entry));
+      this._pushSimPositions();
+    } finally {
+      this._ticking = false;
     }
-    this._agentStorage.mergePositions(positions);
-    this._agentStorage.flushPositions();
+  }
 
-    this._ticking = false;
+  /** Project a shape from resolved nodes without writing or notifying storage. */
+  private _updateEdgeGeometry({ line, arrowhead, link }: EdgeShapeEntry): void {
+    const src = link.source as SimNode;
+    const tgt = link.target as SimNode;
+    if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
+    const dx = tgt.x - src.x;
+    const dy = tgt.y - src.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const srcRadius = resolveAgentSize(src.size) / 2;
+    const tgtRadius = resolveAgentSize(tgt.size) / 2;
+    const x1 = src.x + (dx / dist) * srcRadius;
+    const y1 = src.y + (dy / dist) * srcRadius;
+    const x2 = tgt.x - (dx / dist) * tgtRadius;
+    const y2 = tgt.y - (dy / dist) * tgtRadius;
+    line.set({ points: [x1, y1, x2, y2] });
+    if (arrowhead) arrowhead.set({ x: x2, y: y2, rotation: (Math.atan2(dy, dx) * 180) / Math.PI });
   }
 
   // #endregion
@@ -412,7 +402,9 @@ export class EdgeLayer extends BaseLayer {
       arrowhead = createArrowhead(color);
       this.group.add(arrowhead);
     }
-    this._edgeShapeMap.set(key, { line, arrowhead, link });
+    const entry = { line, arrowhead, link };
+    this._edgeShapeMap.set(key, entry);
+    this._updateEdgeGeometry(entry);
   }
 
   private _removeEdgeShape(key: string): void {

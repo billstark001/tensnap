@@ -134,8 +134,38 @@ const nativeScheduler: RunScheduler = {
   clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
+/** Action results contain primitive fields, flat timing buckets and optional structured error data. */
+const cloneActionResult = (payload: ActionResultPayload): ActionResultPayload => ({
+  ...payload,
+  ...(payload.timings ? { timings: { ...payload.timings } } : {}),
+  ...(payload.error
+    ? {
+        error:
+          payload.error.data === undefined ? { ...payload.error } : structuredClone(payload.error),
+      }
+    : {}),
+});
+
+const cloneOutcome = (outcome: RunActionOutcome): RunActionOutcome => ({
+  ...outcome,
+  result: cloneActionResult(outcome.result),
+});
+
 const cloneStatus = (status: RunStatus): RunStatus => {
-  return structuredClone(status);
+  if (
+    status.spec.record ||
+    (typeof status.conditionValue === 'object' && status.conditionValue !== null)
+  )
+    return structuredClone(status);
+  return {
+    ...status,
+    spec: { ...status.spec },
+    stopReasons: [...status.stopReasons],
+    ...(status.lastAction ? { lastAction: cloneOutcome(status.lastAction) } : {}),
+    ...(status.lastLifecycleAction
+      ? { lastLifecycleAction: cloneOutcome(status.lastLifecycleAction) }
+      : {}),
+  };
 };
 
 function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
@@ -180,6 +210,7 @@ export class RunController {
     string,
     { runId: string; source: 'action' | 'lifecycle'; timeBefore?: number }
   >();
+  private resetting = false;
   private condition: CompiledRunCondition | null = null;
   private deadlineHandle: unknown | null = null;
   private actionTimeoutHandle: unknown | null = null;
@@ -340,7 +371,11 @@ export class RunController {
         : null;
     // Reject a new run before changing the existing one. A caller can retry
     // once the current tick has passed its render barrier.
-    if (this.runtime.peekActiveTaskRef() || (this.activeRun && !this.activeRun.settled)) {
+    if (
+      this.resetting ||
+      this.runtime.peekActiveTaskRef() ||
+      (this.activeRun && !this.activeRun.settled)
+    ) {
       throw new Error('Wait for the current action tick to finish before starting another run.');
     }
     this.stop('stopped');
@@ -401,16 +436,21 @@ export class RunController {
   }
 
   reset(reason: RunStopReason = 'disconnected'): void {
-    if (this.activeRun && !this.activeRun.settled && this.hasInFlightAction)
-      this.activeRun.stateKnown = false;
-    this.finish(reason);
-    this.clearActionTimeout();
-    this.runtime.reset();
-    this.taskOwners.clear();
-    this.renderErrors.clear();
+    this.resetting = true;
+    try {
+      if (this.activeRun && !this.activeRun.settled && this.hasInFlightAction)
+        this.activeRun.stateKnown = false;
+      this.finish(reason);
+      this.clearActionTimeout();
+      this.runtime.reset();
+      this.taskOwners.clear();
+      this.renderErrors.clear();
+      this.invocationByTaskId.clear();
+      this.options.scenario.endResetLifecycle();
+    } finally {
+      this.resetting = false;
+    }
     this.maybeSettle();
-    this.invocationByTaskId.clear();
-    this.options.scenario.endResetLifecycle();
   }
 
   actionSource(
@@ -446,7 +486,7 @@ export class RunController {
         source: owner.source,
         timeBefore: owner.timeBefore,
         timeAfter: this.options.scenario.time,
-        result: structuredClone(payload),
+        result: cloneActionResult(payload),
       };
       if (owner.source === 'action') {
         run.lastAction = outcome;
@@ -493,13 +533,12 @@ export class RunController {
       this.invocationByTaskId.delete(task.id);
       this.taskOwners.delete(task.id);
       this.flushCommands();
-      this.maybeSettle();
-      if (this.activeRun) {
+      if (this.activeRun && !this.activeRun.settled) {
         const activeTask = this.runtime.peekActiveTaskRef();
         this.activeRun.inFlight = activeTask
           ? this.taskOwners.get(activeTask.id)?.runId === this.activeRun.id
           : false;
-        this.publish();
+        if (!this.maybeSettle()) this.publish();
       }
       const renderError = this.renderErrors.get(task.id);
       this.renderErrors.delete(task.id);
@@ -569,15 +608,16 @@ export class RunController {
     this.maybeSettle();
   }
 
-  private maybeSettle(): void {
+  private maybeSettle(): boolean {
     const run = this.activeRun;
     if (
+      this.resetting ||
       !run ||
       run.state === 'running' ||
       run.settled ||
       [...this.taskOwners.values()].some((owner) => owner.runId === run.id)
     )
-      return;
+      return false;
     run.inFlight = false;
     run.settled = true;
     run.settledAt = this.scheduler.now();
@@ -588,6 +628,7 @@ export class RunController {
     this.options.onRunSettled?.(cloneStatus(run));
     this.publish();
     for (const listener of this.settledListeners) listener(run);
+    return true;
   }
 
   private matchActiveTask(

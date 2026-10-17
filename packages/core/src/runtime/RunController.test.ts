@@ -786,3 +786,54 @@ it('aborts only a run waiter and removes its timer', async () => {
     vi.useRealTimers();
   }
 });
+
+it('finishes a reset before a settled listener can start the next run', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  session.run.requestStateSync('blocked');
+  const first = session.run.start({ mode: 'manual', actionId: 'step' });
+  expect(sent).toHaveLength(0);
+  session.addEventListener(
+    'run:settled',
+    () => session.run.start({ mode: 'manual', actionId: 'step' }),
+    { once: true },
+  );
+  session.run.reset();
+  expect(session.run.status?.id).not.toBe(first.id);
+  expect(session.run.status?.state).toBe('running');
+  expect(sent).toHaveLength(1);
+  expect(session.run.hasInFlightAction).toBe(true);
+  session.run.reset();
+});
+
+it('keeps status snapshots and simulator results independently owned', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+  const payload = {
+    id: 'step',
+    request_id: tickId(sent[0]!),
+    timings: { simulate_ms: 2 },
+    error: { code: 'failure', message: 'failed', data: { nested: [1, 2] } },
+  };
+  session.run.observeActionResult(payload);
+  payload.timings.simulate_ms = 999;
+  payload.error.data.nested[0] = 999;
+  const first = session.run.status!;
+  first.spec.actionId = 'mutated';
+  first.stopReasons.length = 0;
+  first.lastAction!.result.timings!.simulate_ms = 500;
+  (first.lastAction!.result.error!.data as { nested: number[] }).nested[0] = 500;
+  session.run.markActionRendered({ id: 'step', request_id: payload.request_id });
+  const retained = session.run.getRun(run.id)!;
+  expect(retained.spec.actionId).toBe('step');
+  expect(retained.stopReasons).toContain('action-error');
+  expect(retained.lastAction?.result).toMatchObject({
+    timings: { simulate_ms: 2 },
+    error: { data: { nested: [1, 2] } },
+  });
+});
