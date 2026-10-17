@@ -1,0 +1,283 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected"
+          ],
+          "instance_id": "0e8e6d0296e24b2d8345ae6705c6699c",
+          "same_host_reconnect": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "1f53ad598f724ee28e73d1c4017bc5c7"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c44883a4c5ddb7642b6eb08b9676a0dac2901d7ec30ae741c4823f03ce730e54",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected"
+          ],
+          "instance_id": "8430aa1fb8034ca1a12376f92fcf5cf3",
+          "same_host_reconnect": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "7a7ce1b1071c428ea1b4c0d87fe9ac3a"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c44883a4c5ddb7642b6eb08b9676a0dac2901d7ec30ae741c4823f03ce730e54",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected"
+          ],
+          "instance_id": "1e33fee41f00b94b38ceb06accb8836e",
+          "same_host_reconnect": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "c51f65be6ab0e0b9706350bca988766c"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "aed567ea96c0781f55fabdacab0a049b1bd520dec0f09ffa3be4936d6f9f7c61",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected"
+          ],
+          "instance_id": "703446ca85309924822512fc07057e88",
+          "same_host_reconnect": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "fb19b3225a4a7ee2cff19ab9bb025888"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "aed567ea96c0781f55fabdacab0a049b1bd520dec0f09ffa3be4936d6f9f7c61",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.projected",
+            "scene.restore.checkpoint"
+          ],
+          "instance_id": "20a9de23-e805-4ce5-9156-cec7c752ad7e",
+          "same_host_reconnect": false
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "1beb55de-d709-4ef8-a054-2757d91e3bfe"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4956bfa2e113e16d69d547268cc3a976475be1af3f1a6e289f09b8a955c27e4c",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.projected",
+            "scene.restore.checkpoint"
+          ],
+          "instance_id": "d55033c0-3d40-43ab-bdea-a2f6dd2806f4",
+          "same_host_reconnect": false
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "f0e429d5-abf7-4b1b-a471-7eb3241cb82d"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4956bfa2e113e16d69d547268cc3a976475be1af3f1a6e289f09b8a955c27e4c",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected"
+          ],
+          "instance_id": "4155f25e-b8ce-4103-bae9-23b67f605aec",
+          "same_host_reconnect": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "bbf10be3-848a-432d-a0d1-e5d4a48078db"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "beeff5cbde4f20bb2610ed19cc2ed95664f808e536a1d21347eaf1202e0a22ff",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "binding_version": "0.3.3",
+          "capabilities": [
+            "monitor",
+            "scene.restore.checkpoint",
+            "scene.restore.projected"
+          ],
+          "instance_id": "429bbe49-a801-4b72-bc76-65a3928c73c8",
+          "same_host_reconnect": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "actual_transport": "NodeWebSocketTransport",
+          "instance_id": "ac8e095d-0cd1-4b27-a6aa-e65caeb649fb"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "beeff5cbde4f20bb2610ed19cc2ed95664f808e536a1d21347eaf1202e0a22ff",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "identity_handshake",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "detail": "all eight live renderer probes",
+    "status": "pass"
+  },
+  "revision": "f44651d75613e85d3865566ed4ee60610b1832d2"
+}

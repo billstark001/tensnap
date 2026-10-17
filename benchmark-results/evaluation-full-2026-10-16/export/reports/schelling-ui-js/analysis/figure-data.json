@@ -1,0 +1,74 @@
+[
+  {
+    "runId": "js-headless|node|-|-",
+    "system": "JavaScript headless (kernel baseline)",
+    "featureLevel": "kernel-only",
+    "dimensions": {
+      "grid": "50x50",
+      "steps": 500,
+      "similarityThreshold": 0.8
+    },
+    "primaryMetric": "cycle",
+    "summary": {
+      "count": 15,
+      "meanMs": 298.2781944666667,
+      "medianMs": 299.11350000000004,
+      "p95Ms": 306.643334,
+      "madMs": 2.4418340000000853,
+      "bootstrapMedianCi95Ms": [
+        297.335125,
+        304.237209
+      ]
+    }
+  },
+  {
+    "runId": "js-tensnap-web-raf|browser|-|-",
+    "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
+    "featureLevel": "agents+charts+monitor",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "requestAnimationFrame"
+    },
+    "primaryMetric": "actionToRenderCompleteMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 16.693670033662006,
+      "medianMs": 16.69999998807907,
+      "p95Ms": 18.299999952316284,
+      "madMs": 0.19999998807907104,
+      "bootstrapMedianCi95Ms": [
+        16.600000023841858,
+        16.69999998807907
+      ]
+    }
+  },
+  {
+    "runId": "js-tensnap-web-timeout|browser|-|-",
+    "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
+    "featureLevel": "agents+charts+monitor",
+    "dimensions": {
+      "grid": "50x50",
+      "finalTick": 500,
+      "similarityThreshold": 0.8,
+      "warmupActions": 5,
+      "measuredActions": 495,
+      "renderTrigger": "setTimeout"
+    },
+    "primaryMetric": "actionToRunCompletionMs",
+    "summary": {
+      "count": 7425,
+      "meanMs": 6.960026936049413,
+      "medianMs": 5.100000023841858,
+      "p95Ms": 10.800000011920929,
+      "madMs": 0.7000000476837158,
+      "bootstrapMedianCi95Ms": [
+        5.100000023841858,
+        5.199999988079071
+      ]
+    }
+  }
+]

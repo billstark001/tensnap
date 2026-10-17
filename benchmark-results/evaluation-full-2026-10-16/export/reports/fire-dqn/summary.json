@@ -1,0 +1,119 @@
+{
+  "reference100": {
+    "dqn": {
+      "dead": 0.15,
+      "episodes": 100,
+      "evacuated": 27.64,
+      "reward": 92.05340000000001,
+      "steps": 26.89,
+      "unresolved": 0.21
+    },
+    "no-guide": {
+      "dead": 4.63,
+      "episodes": 100,
+      "evacuated": 14.28,
+      "reward": -10.837800000000028,
+      "steps": 49.9,
+      "unresolved": 9.09
+    },
+    "random": {
+      "dead": 2.73,
+      "episodes": 100,
+      "evacuated": 18.65,
+      "reward": 27.641699999999997,
+      "steps": 48.13,
+      "unresolved": 6.62
+    },
+    "safe-heuristic": {
+      "dead": 0.08,
+      "episodes": 100,
+      "evacuated": 27.87,
+      "reward": 94.67599999999999,
+      "steps": 19.78,
+      "unresolved": 0.05
+    }
+  },
+  "stability500": {
+    "baselines": {
+      "no-guide": {
+        "dead": 4.7,
+        "episodes": 500,
+        "evacuated": 14.392,
+        "reward": -10.670860000000026,
+        "steps": 49.944,
+        "unresolved": 8.908
+      },
+      "random": {
+        "dead": 2.684,
+        "episodes": 500,
+        "evacuated": 18.768,
+        "reward": 28.516139999999993,
+        "steps": 48.41,
+        "unresolved": 6.548
+      },
+      "safe-heuristic": {
+        "dead": 0.08,
+        "episodes": 500,
+        "evacuated": 27.872,
+        "reward": 94.63905999999999,
+        "steps": 20.024,
+        "unresolved": 0.048
+      }
+    },
+    "dqnAcrossTrainingSeeds": {
+      "maxEvacuated": 27.892,
+      "meanEvacuated": 27.6524,
+      "minEvacuated": 27.448,
+      "sampleSdEvacuated": 0.1655922703510035,
+      "trainingSeeds": [
+        7,
+        11,
+        23,
+        37,
+        53
+      ]
+    },
+    "dqnByTrainingSeed": {
+      "11": {
+        "dead": 0.156,
+        "episodes": 500,
+        "evacuated": 27.562,
+        "reward": 91.66296,
+        "steps": 28.856,
+        "unresolved": 0.282
+      },
+      "23": {
+        "dead": 0.13,
+        "episodes": 500,
+        "evacuated": 27.7,
+        "reward": 92.88062000000001,
+        "steps": 24.818,
+        "unresolved": 0.17
+      },
+      "37": {
+        "dead": 0.19,
+        "episodes": 500,
+        "evacuated": 27.448,
+        "reward": 90.66225999999999,
+        "steps": 32.318,
+        "unresolved": 0.362
+      },
+      "53": {
+        "dead": 0.076,
+        "episodes": 500,
+        "evacuated": 27.892,
+        "reward": 94.60206,
+        "steps": 21.438,
+        "unresolved": 0.032
+      },
+      "7": {
+        "dead": 0.154,
+        "episodes": 500,
+        "evacuated": 27.66,
+        "reward": 92.14118,
+        "steps": 26.582,
+        "unresolved": 0.186
+      }
+    }
+  }
+}

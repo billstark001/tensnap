@@ -1,0 +1,331 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "1f53ad598f724ee28e73d1c4017bc5c7",
+          "previous_instance": "0e8e6d0296e24b2d8345ae6705c6699c",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "1f53ad598f724ee28e73d1c4017bc5c7",
+          "previous_instance": "0e8e6d0296e24b2d8345ae6705c6699c",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c44883a4c5ddb7642b6eb08b9676a0dac2901d7ec30ae741c4823f03ce730e54",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "7a7ce1b1071c428ea1b4c0d87fe9ac3a",
+          "previous_instance": "8430aa1fb8034ca1a12376f92fcf5cf3",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "7a7ce1b1071c428ea1b4c0d87fe9ac3a",
+          "previous_instance": "8430aa1fb8034ca1a12376f92fcf5cf3",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c44883a4c5ddb7642b6eb08b9676a0dac2901d7ec30ae741c4823f03ce730e54",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "c51f65be6ab0e0b9706350bca988766c",
+          "previous_instance": "1e33fee41f00b94b38ceb06accb8836e",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "c51f65be6ab0e0b9706350bca988766c",
+          "previous_instance": "1e33fee41f00b94b38ceb06accb8836e",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "aed567ea96c0781f55fabdacab0a049b1bd520dec0f09ffa3be4936d6f9f7c61",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "fb19b3225a4a7ee2cff19ab9bb025888",
+          "previous_instance": "703446ca85309924822512fc07057e88",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "fb19b3225a4a7ee2cff19ab9bb025888",
+          "previous_instance": "703446ca85309924822512fc07057e88",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "aed567ea96c0781f55fabdacab0a049b1bd520dec0f09ffa3be4936d6f9f7c61",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "8d2af444-f4d7-4f41-9d8c-3fa4342598f1",
+          "previous_instance": "3b649f08-0837-4bc3-916e-008f9185bb65",
+          "reused_client_object": true,
+          "same_instance_reconnect": false,
+          "session_scope": "isolated",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "8d2af444-f4d7-4f41-9d8c-3fa4342598f1",
+          "previous_instance": "3b649f08-0837-4bc3-916e-008f9185bb65",
+          "reused_client_object": true,
+          "same_instance_reconnect": false,
+          "session_scope": "isolated",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4956bfa2e113e16d69d547268cc3a976475be1af3f1a6e289f09b8a955c27e4c",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "b544de0f-8d4e-4450-80b0-d30932289450",
+          "previous_instance": "541bb4ec-3898-41fa-8564-54599f342fd0",
+          "reused_client_object": true,
+          "same_instance_reconnect": false,
+          "session_scope": "isolated",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "b544de0f-8d4e-4450-80b0-d30932289450",
+          "previous_instance": "541bb4ec-3898-41fa-8564-54599f342fd0",
+          "reused_client_object": true,
+          "same_instance_reconnect": false,
+          "session_scope": "isolated",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4956bfa2e113e16d69d547268cc3a976475be1af3f1a6e289f09b8a955c27e4c",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "bbf10be3-848a-432d-a0d1-e5d4a48078db",
+          "previous_instance": "4155f25e-b8ce-4103-bae9-23b67f605aec",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "bbf10be3-848a-432d-a0d1-e5d4a48078db",
+          "previous_instance": "4155f25e-b8ce-4103-bae9-23b67f605aec",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "beeff5cbde4f20bb2610ed19cc2ed95664f808e536a1d21347eaf1202e0a22ff",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "ac8e095d-0cd1-4b27-a6aa-e65caeb649fb",
+          "previous_instance": "429bbe49-a801-4b72-bc76-65a3928c73c8",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "host_state_unchanged": true,
+          "new_handshake_observed": true,
+          "new_instance": "ac8e095d-0cd1-4b27-a6aa-e65caeb649fb",
+          "previous_instance": "429bbe49-a801-4b72-bc76-65a3928c73c8",
+          "reused_client_object": true,
+          "same_instance_reconnect": true,
+          "session_scope": "shared",
+          "stale_items_and_chart_cleared": true
+        },
+        "status": "pass"
+      },
+      "source_sha256": "beeff5cbde4f20bb2610ed19cc2ed95664f808e536a1d21347eaf1202e0a22ff",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "reconnect",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "detail": "all eight live renderer probes",
+    "status": "pass"
+  },
+  "revision": "f44651d75613e85d3865566ed4ee60610b1832d2"
+}

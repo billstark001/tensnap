@@ -1,0 +1,291 @@
+{
+  "bindings": [
+    {
+      "binding": "python",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "inspector_population": 1025,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c44883a4c5ddb7642b6eb08b9676a0dac2901d7ec30ae741c4823f03ce730e54",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "python",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/python.py",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "inspector_population": 1025,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "c44883a4c5ddb7642b6eb08b9676a0dac2901d7ec30ae741c4823f03ce730e54",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "inspector_population": 1025,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "aed567ea96c0781f55fabdacab0a049b1bd520dec0f09ffa3be4936d6f9f7c61",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "go",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/go/main.go",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "inspector_population": 1025,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "aed567ea96c0781f55fabdacab0a049b1bd520dec0f09ffa3be4936d6f9f7c61",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+          "inspector_population": 4,
+          "session_scope": "isolated"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "isolated"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4956bfa2e113e16d69d547268cc3a976475be1af3f1a6e289f09b8a955c27e4c",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "js",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/js.ts",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "f5ed44038c2be82b4a7ade7ac26672ad4b06417648d3ad7253c97758400d0af2",
+          "inspector_population": 4,
+          "session_scope": "isolated"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "isolated"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "4956bfa2e113e16d69d547268cc3a976475be1af3f1a6e289f09b8a955c27e4c",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "json",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "inspector_population": 1025,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "beeff5cbde4f20bb2610ed19cc2ed95664f808e536a1d21347eaf1202e0a22ff",
+      "test": "conformance/run_matrix.py"
+    },
+    {
+      "binding": "julia",
+      "binding_version": "0.3.3",
+      "client_test": [
+        "conformance/renderer-client.ts",
+        "conformance/renderer-live-client.ts",
+        "conformance/renderer-capability-client.ts"
+      ],
+      "encoding": "msgpack",
+      "fixture": "conformance/fixtures/julia.jl",
+      "host_log": "",
+      "outcome": {
+        "evidence": {
+          "action_advanced_host_once": true,
+          "clients": 2,
+          "first_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "first_population": 1025,
+          "inspection_advanced_host": false,
+          "inspector_host_sha256": "dab633107c3bd964f81e4125b0138035d5dbe766231fc286b7748f53405bebc2",
+          "inspector_population": 1025,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "renderer_client_outcome": {
+        "evidence": {
+          "inspection_advanced_host": false,
+          "primary_action_advanced_once": true,
+          "session_scope": "shared"
+        },
+        "status": "pass"
+      },
+      "source_sha256": "beeff5cbde4f20bb2610ed19cc2ed95664f808e536a1d21347eaf1202e0a22ff",
+      "test": "conformance/run_matrix.py"
+    }
+  ],
+  "invariant": "multi_client_inspection",
+  "protocol_version": "0.3",
+  "renderer_client": {
+    "detail": "all eight live renderer probes",
+    "status": "pass"
+  },
+  "revision": "f44651d75613e85d3865566ed4ee60610b1832d2"
+}

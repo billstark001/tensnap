@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 2,
+  "archives": {
+    "data": "data.tar.gz",
+    "figures": "figures.tar.gz"
+  },
+  "compression": {
+    "algorithm": "gzip",
+    "level": 6
+  },
+  "mode": "publication",
+  "source": {
+    "commit": "f44651d75613e85d3865566ed4ee60610b1832d2",
+    "dirty": false,
+    "filesSha256": "ca0772566efba033cf177fa77c41e94b4c60b18283a7c4620180e168c53bba51"
+  },
+  "environment": {
+    "host": {
+      "os": "darwin",
+      "release": "27.0.0",
+      "arch": "arm64",
+      "cpu": "Apple M3",
+      "memoryBytes": 17179869184
+    },
+    "node": "v26.8.1",
+    "pnpm": "12.11.2",
+    "python": {
+      "version": "3.13.15",
+      "packages": {
+        "mesa": "3.5.1",
+        "solara": "1.57.3",
+        "ipyvue": "1.12.0",
+        "ipyvuetify": "1.11.3",
+        "torch": "2.11.0",
+        "pynetlogo": "0.5.2",
+        "jpype1": "1.7.1",
+        "Pillow": "11.3.0",
+        "websockets": "16.0",
+        "msgpack": "1.1.2",
+        "numpy": "2.4.4"
+      },
+      "bindingPath": "/Users/billstark001/Desktop/programs/tensnap/packages/tensnap-python/tensnap/__init__.py"
+    },
+    "pythonFreezeSha256": "6f9f940eafec958162583e3e81cc3017dd12fc8e45691c6529bc4f58175ea313",
+    "go": "go version go1.27.2 darwin/arm64",
+    "julia": {
+      "version": "1.13.2",
+      "bindingPath": "/Users/billstark001/Desktop/programs/tensnap/packages/tensnap-julia/src/TenSnap.jl",
+      "agents": "7.0.2",
+      "wglmakie": "0.13.11"
+    },
+    "chromium": {
+      "version": "153.0.8010.12",
+      "executable": "/Users/billstark001/Library/Caches/ms-playwright/chromium-1243/chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
+    },
+    "netlogoHome": "/Applications/NetLogo 7.0.4",
+    "locks": {
+      "benchmarks/profiles/evaluation-2026-paper-v0.3.json": "d68b5962415849fe817c565aca21679223697ae94e4733d774ebdcb11179827e",
+      "benchmarks/profiles/evaluation-2026-schelling-kernel-v2.json": "e3c81abab40d7e05012bfcf1dc04590fdad47033d55d32d2ee8ca0f758ae89f3",
+      "benchmarks/environments/python-mesa.requirements.lock": "8b819128d634ec01dcffceba0ceaca6dcbe9641f49753ea38e5e36837f9f105a",
+      "benchmarks/environments/python-evaluation.requirements.lock": "2754b87ff29070f5e41474cce9cee9dccc8ca91e06604d31116e74169f79f010",
+      "benchmarks/evaluation/environments/go/go.mod": "38fd30b29f6e778f9d8abea130f67fd36f038649287bb953b82da72d72031e29",
+      "benchmarks/evaluation/environments/go/go.sum": "5d9e0a9753367c2e11a8e669600d05e2b8af00b96a358f112510e1a49b7e1b63",
+      "benchmarks/evaluation/environments/julia/Project.toml": "533863cbb5286c130975583ccc6358277970b6c79686ce27857ef997251e7fac",
+      "benchmarks/evaluation/environments/julia/Manifest.toml": "ddf688f3d6a92075b52e1ede04379941787d0b4e6177b981ce5873a5898b3193",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-go-v2.json": "648cf747eabde42568912853c29557a865ac7802cd4ba7e25551e20b3447f71e",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-js-v2.json": "ef03c7ab6162df0070aa9a91ebfdc8bebbadb9baca863648ff909a3eb61d0178",
+      "examples/js/package.json": "8ce9e682d6727278b6bc0318f2ee1829d6401973181bd4fab258a1f2b4a10cd9",
+      "pnpm-lock.yaml": "d0a37b31333fc672e616b984f6a93b6cfe89fc2cc6b22c8d5d6f269a857d07d5",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-julia-v2.json": "7e95d9c315fe8868f0f5640907aa1c9d3eba4b98ac44f036b67bd4e73c61cffc",
+      "benchmarks/profiles/evaluation-2026-schelling-ui-mesa-v2.json": "c14a52298f080e3f2b9f31cd4fa27d8cc94919c351e6c509fa0b0c434e9dc4be",
+      "benchmarks/profiles/evaluation-2026-schelling-netlogo-render-v2.json": "c6fb4b9764d3e4c23c392d916e83395ac5e9984d21860089af12ee0d45f5e029",
+      "benchmarks/environments/python-netlogo7-render.requirements.lock": "f95974adf0dffaa44700a7db48cff47b3346607d025d3078cb89e5e727d5fa23",
+      "examples/python_mesa/schelling.nlogox": "371526d99d12c8cd798b7a996870031e38ae08760db43c81e73a858be55d02ec"
+    }
+  },
+  "specification": {
+    "schemaVersion": 1,
+    "id": "tensnap-paper-2026",
+    "experiments": [
+      {
+        "id": "conformance",
+        "kind": "conformance"
+      },
+      {
+        "id": "schelling-workflow",
+        "kind": "workflow"
+      },
+      {
+        "id": "protocol-core",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-paper-v0.3.json"
+      },
+      {
+        "id": "schelling-kernel",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-kernel-v2.json"
+      },
+      {
+        "id": "schelling-ui-go",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-go-v2.json"
+      },
+      {
+        "id": "schelling-ui-js",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-js-v2.json"
+      },
+      {
+        "id": "schelling-ui-julia",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-julia-v2.json"
+      },
+      {
+        "id": "schelling-ui-mesa",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-ui-mesa-v2.json"
+      },
+      {
+        "id": "schelling-netlogo-render",
+        "kind": "benchmark",
+        "profile": "benchmarks/profiles/evaluation-2026-schelling-netlogo-render-v2.json"
+      },
+      {
+        "id": "fire-dqn",
+        "kind": "fire"
+      }
+    ]
+  },
+  "filesSha256": {
+    "data.tar.gz": "246b0913ae48e9bd7d3c43914ff2c849c4f749c172530f4d65c07989c8eb1c33",
+    "figures.tar.gz": "6c431079c71b5b969625a4b716e0404c28e7aa077f9420bfa36f642a9b3cbf65",
+    "reports/conformance/MATRIX.md": "e8b9a8a322bc896faa5eb82191400008d4c6b081ea16986db7606120321fd3d3",
+    "reports/conformance/evidence/action_correlation.json": "9d39dc1be3d2a4fd97697ca119eca7a562441f9e2db7ddf3afb62ef5a900543a",
+    "reports/conformance/evidence/atomic_sync.json": "ae7e374b69a8d719ce6fc54949970e10b606902323180c6225bfc0964033e562",
+    "reports/conformance/evidence/dense_checkpoint_replay.json": "863af9f97eb40eb2cc3e75a931c26cc7b4ddc40e1344d391967d6a62435b5a88",
+    "reports/conformance/evidence/dense_population.json": "c6a2f794a9119524c0429c5ebc23f3af0085b7d8cae304b133456c7e01ecf714",
+    "reports/conformance/evidence/empty_reseed.json": "a8ea4debc7bba60a6efe462377494c2ae686a58efe49a9b55aa26a7788baf8d7",
+    "reports/conformance/evidence/exact_checkpoint.json": "950d37e9c391754fc5c68c7a9a95666994498d01127a0a739f535fc4a977d816",
+    "reports/conformance/evidence/future_replay.json": "794f6842c7fa7a1d10bd23cf1fb68d52e0de9cea5a05bbd1ca43c69cba9a3aab",
+    "reports/conformance/evidence/host_only_transition.json": "625ca690135aaf00ebd794c3d8a00575f71b4ee9a6619dd1aa63ea69db198921",
+    "reports/conformance/evidence/identity_handshake.json": "37fa5eed551ecab59cfd07404dadd2c6029c47e6eb59772d0d4e69eb22756788",
+    "reports/conformance/evidence/multi_client_inspection.json": "cc3e8a3fd07b3f38d075374950f2c2a7056b3f32ff1279bc132d91df8a52f179",
+    "reports/conformance/evidence/negative_identity_capability.json": "be1bf5eda15924c5ee70da51100b3f4dca164c4d12ccc292257deb7ba3cc83a5",
+    "reports/conformance/evidence/parameter_control.json": "c15c68c4dd9e0f9d0ce416fca0ac77e96303c5ba4cb45e9b7401d94203a12afa",
+    "reports/conformance/evidence/parameter_extremes.json": "951d60dfb847ad38b09890ac6da94bb7b96c19d65ad3ac58e431b9ddeeba8499",
+    "reports/conformance/evidence/population_churn.json": "c4279ba46fe31ce438551aa60307c8685a8131c8d33f7c263ab3d74ac388c07c",
+    "reports/conformance/evidence/reconnect.json": "adccd56bd660517c85a7c88f03d52ce7ebf6ea48c28af7e5b307dc1fea02401c",
+    "reports/conformance/evidence/spatial_population.json": "c560508f13073351da7b4e9a12bbedd803dd809f0581d10342c2c635e72627bb",
+    "reports/fire-dqn/summary.json": "37b8a4d6d1b525833af1e6dcce7ac84b346a03a373141b727aea23bc1f3f6e05",
+    "reports/protocol-core/analysis/comparisons.csv": "83204d9dd21c0bce2aeb78b55b95851c9138a0e4598c048165c67b1475f42df2",
+    "reports/protocol-core/analysis/figure-data.json": "f8511724b2e99d31009930c10a22640d5924a71337a13552f774af28f97d86b4",
+    "reports/protocol-core/analysis/runs.csv": "4d7776c24ca88f363cc290759e511881178d99682d3c6f2e759e6fb2f59cfc6f",
+    "reports/protocol-core/report.md": "5ef638c0af6593dbd16169dc5a4a9fca637d805cfe89736f5b3b440f695313a0",
+    "reports/schelling-kernel/analysis/comparisons.csv": "4d2dcd9e4ce1681fee3ad571431e9b7be08d2ddd41bd7dd1ab5fbae0fb729679",
+    "reports/schelling-kernel/analysis/figure-data.json": "f18786a135e0662ff7bb86ef865c96b0b2d3e0ade4b52a7fdcadc65df56ed4db",
+    "reports/schelling-kernel/analysis/runs.csv": "383bb00a05553efb65ecaa6aa2c07cc115a7e2a2933fa5027961dec3e0ab16b3",
+    "reports/schelling-kernel/report.md": "63756e6e2e14808795eaea2554be5361f6931a55dcf3b86252e8bf6bec28b025",
+    "reports/schelling-netlogo-render/analysis/comparisons.csv": "a4a779cf63c71ff1f4e908e9e4e77eb7328421a835b1f544caf96b0a4f2b9b56",
+    "reports/schelling-netlogo-render/analysis/figure-data.json": "9f0f309039c1294f495c828cd44fec4da3e7ac5ffebabe774fc3fd003e8c81be",
+    "reports/schelling-netlogo-render/analysis/runs.csv": "1424ba4a1f83c1135b4ccaf53209efacede9293d4bae9ca38f96a5f39e288c68",
+    "reports/schelling-netlogo-render/report.md": "492866a411e0fe8e21ed1473af4a7b76f69fcf9a199fd87d21d341b0e73e016e",
+    "reports/schelling-ui-go/analysis/comparisons.csv": "a4a779cf63c71ff1f4e908e9e4e77eb7328421a835b1f544caf96b0a4f2b9b56",
+    "reports/schelling-ui-go/analysis/figure-data.json": "78a1386d3489fc627b1564140b113177de365d9880f42b948bde4bc7619d2751",
+    "reports/schelling-ui-go/analysis/runs.csv": "0491b9c04b557a57fff2f445a0e47094271f11a1c465e770eadc7bd3abdc32ff",
+    "reports/schelling-ui-go/report.md": "7203d41d0adcca022f2643449815d01af0b6b514c598cb0eaa7e6524db9198b7",
+    "reports/schelling-ui-js/analysis/comparisons.csv": "a4a779cf63c71ff1f4e908e9e4e77eb7328421a835b1f544caf96b0a4f2b9b56",
+    "reports/schelling-ui-js/analysis/figure-data.json": "c8b0fa57491d7537c0ef2e21c66e225530ba5a82917b6676c1fd06311c16b41e",
+    "reports/schelling-ui-js/analysis/runs.csv": "bf6df136d69a20d72c014fd88d3dfab838732840aee5d50a7a51d32f739b03f8",
+    "reports/schelling-ui-js/report.md": "bda9b247eea014640a451c457c1453a92be9296349aebad39092df0b779ab6f4",
+    "reports/schelling-ui-julia/analysis/comparisons.csv": "ed0de26a2be70e08358ce09a2b432453bdf64cd1249cb13c6bdab7f53cda9967",
+    "reports/schelling-ui-julia/analysis/figure-data.json": "ce86c9659e8898b73573ebe3839d5e7edb39ece741201ff462d03ea758d5c262",
+    "reports/schelling-ui-julia/analysis/runs.csv": "b4b5fc09c58de1daf28188aad4710f7ec58b6d9041046aaeef6dcdef4318b33d",
+    "reports/schelling-ui-julia/report.md": "fc9bc54075998464b28b98e9572f338929bef46ba04a8f426d0b9df8a932dfe4",
+    "reports/schelling-ui-mesa/analysis/comparisons.csv": "80702f138d8446d0d98d8f1cd0b85be3de6ec950da1cd049bed0e252609f3791",
+    "reports/schelling-ui-mesa/analysis/figure-data.json": "1e91f9a9216aaff37845818585bcfa9d1c659ea711b0abf43abc830250662fbc",
+    "reports/schelling-ui-mesa/analysis/runs.csv": "61f111c789888902efb12628d25506a47e479de3cc7b51a9397ff7cd9a980e57",
+    "reports/schelling-ui-mesa/report.md": "b93d17a08255fc96a9b1b84c4ed5197b872a8b0c878623ef8c33f206077f6de4",
+    "reports/schelling-workflow/summary.json": "15452f1c13800728c31ffebff922eadc20a4593b431a73ba75a28dd3f90ed580",
+    "summary.md": "f3637365ea7cfef3520a5de164689f24fb2c4c8887ddc414ef29b7b6f0b11dfb",
+    "tables/conformance-full.csv": "066b7ef1f9a61994ce9422ad308c5bb1aa599c1f7a5023f1344a2796362d2d95",
+    "tables/conformance-full.tex": "0627c1af3eaae259d41a62ab28df8c17dbb90ece3b0a45a2cf82720dbef9e2f2",
+    "tables/conformance.csv": "79f89313f597af4f6e9baa1c615b7878ed993b2cf589980285f4e265bc188ed6",
+    "tables/conformance.tex": "a5b7d8fd54f1540a9c78d1d25e7b944b4737d6fe388665b1e36c2c810e2d7f2a",
+    "tables/fire-reference.csv": "4fd4b7e7c4bb1310d2e3309bf29ef85fde954dc85ac8c04eceede997f9044de0",
+    "tables/fire-reference.tex": "6323fbc7f2c19df8012f3be805d089a7e67f158dcdd887d2ec41710180af9beb",
+    "tables/fire-stability.csv": "5ea1d06dce1d1d76f2cf7369293bd40c1f752f92afc7313c72851bbfa354ce63",
+    "tables/fire-stability.tex": "959d680e5838a81406e886cf2efb39650e330e2082c97c6ff3249a94b9117429",
+    "tables/protocol-stages.csv": "5e3c365616ead2e37a089f72f10e2d7009122109c6ecf4596e31b1b367852376",
+    "tables/protocol-stages.tex": "7e1443b61147499e2720655c5efc5f9f58d06c7ebec7e4aad5e04186ec57ffe5",
+    "tables/recording-storage.csv": "c27cf8bb02d0567ebc367c2a75092d6a4f406cf165cf0fd415d6d07515d4df68",
+    "tables/recording-storage.tex": "6912348bf3e9f182c4a5535e4df847028a985a77f9fb51aec58f3930fc19b594",
+    "tables/results.json": "cc13585b570a8d2bf62df87cff937ccd25c2a10e1c3fd351db92c895332300c4",
+    "tables/schelling-routes.csv": "02656a9edfcf672482a6fedc2a2129eb89cfa8d667d40c4d0da891675c184e19",
+    "tables/schelling-routes.tex": "df81bcfc19049aa3f6bce042fa7c5f9cbc541beade9f9bf9de14bcf45709626f",
+    "tables/schelling-workflow.csv": "675b06bf1311a2e49c07ad5064fc6112850d23ef397961e4e992450192135fc8",
+    "tables/schelling-workflow.tex": "589152bc01d143ae1429819cdd2d72e069c041ad2ea2bc6769880f28cde48d65"
+  }
+}

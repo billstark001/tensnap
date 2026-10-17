@@ -1,0 +1,2 @@
+comparison_id,metric,suite,baseline,treatment,pairs,median_ratio,ratio_ci95_low,ratio_ci95_high,median_difference_ms,difference_ci95_low_ms,difference_ci95_high_ms
+julia-ui-render-complete:actionToRenderCompleteMs:browser:-:-,actionToRenderCompleteMs,browser,agents-wglmakie,agents-tensnap-web-raf,15,1.3149606302168995,1.28461538369839,1.3359999990463256,4,3.699999988079071,4.199999988079071

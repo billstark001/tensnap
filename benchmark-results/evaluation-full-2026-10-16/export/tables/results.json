@@ -1,0 +1,504 @@
+{
+  "mode": "publication",
+  "source": {
+    "commit": "f44651d75613e85d3865566ed4ee60610b1832d2",
+    "dirty": false,
+    "filesSha256": "ca0772566efba033cf177fa77c41e94b4c60b18283a7c4620180e168c53bba51"
+  },
+  "tables": [
+    {
+      "id": "protocol-stages",
+      "caption": "Protocol/core costs. Median and P95 are measured-action statistics; recording/restoration is a compound workflow.",
+      "columns": [
+        {
+          "key": "operation",
+          "label": "Operation"
+        },
+        {
+          "key": "medianMs",
+          "label": "Median (ms)"
+        },
+        {
+          "key": "p95Ms",
+          "label": "P95 (ms)"
+        }
+      ],
+      "rows": [
+        {
+          "operation": "Core update",
+          "runId": "core-trace-10k-c100|node|-|-",
+          "medianMs": 0.03504151105880737,
+          "p95Ms": 0.042333006858825684
+        },
+        {
+          "operation": "Validated WS sparse",
+          "runId": "tensnap-random-walk-10k-c100|ws|msgpack|error",
+          "medianMs": 0.5540420264005661,
+          "p95Ms": 0.7939999997615814
+        },
+        {
+          "operation": "Validated WS dense",
+          "runId": "tensnap-random-walk-10k-c10000|ws|msgpack|error",
+          "medianMs": 38.77145801484585,
+          "p95Ms": 41.893290996551514
+        },
+        {
+          "operation": "Browser rAF sparse",
+          "runId": "tensnap-random-walk-10k-c100|browser|msgpack|error",
+          "medianMs": 16.600000023841858,
+          "p95Ms": 19.099999994039536
+        },
+        {
+          "operation": "Browser rAF dense",
+          "runId": "tensnap-random-walk-10k-c10000|browser|msgpack|error",
+          "medianMs": 51.400000005960464,
+          "p95Ms": 56.30000001192093
+        },
+        {
+          "operation": "State synchronization",
+          "runId": "state-sync-10k|node|-|-",
+          "medianMs": 27.636021003127098,
+          "p95Ms": 29.569499999284744
+        },
+        {
+          "operation": "Recording and restoration",
+          "runId": "snapshot-restore-10k|node|-|-",
+          "medianMs": 108.4077505171299,
+          "p95Ms": 162.83208400011063
+        }
+      ]
+    },
+    {
+      "id": "recording-storage",
+      "caption": "Storage from the compound recording/restoration workflow; MB uses decimal bytes.",
+      "columns": [
+        {
+          "key": "medianBytes",
+          "label": "Median archive bytes"
+        },
+        {
+          "key": "medianMB",
+          "label": "Median archive MB"
+        },
+        {
+          "key": "medianSegments",
+          "label": "Median segments"
+        }
+      ],
+      "rows": [
+        {
+          "medianBytes": 2815638,
+          "medianMB": 2.815638,
+          "medianSegments": 3
+        }
+      ]
+    },
+    {
+      "id": "schelling-routes",
+      "caption": "Model-step medians are replicate-average step times. rAF and timeout are distinct graphical action intervals.",
+      "columns": [
+        {
+          "key": "platform",
+          "label": "Platform"
+        },
+        {
+          "key": "modelStepMs",
+          "label": "Model step (ms)"
+        },
+        {
+          "key": "rafMs",
+          "label": "rAF interval (ms)"
+        },
+        {
+          "key": "timeoutMs",
+          "label": "Timeout interval (ms)"
+        }
+      ],
+      "rows": [
+        {
+          "platform": "Python/Mesa",
+          "modelStepMs": 2.167711916,
+          "rafMs": 20.30000001192093,
+          "timeoutMs": 16.600000023841858,
+          "kernelSteps": 500
+        },
+        {
+          "platform": "Go",
+          "modelStepMs": 0.044929582,
+          "rafMs": 16.69999998807907,
+          "timeoutMs": 8.899999976158142,
+          "kernelSteps": 500
+        },
+        {
+          "platform": "JavaScript",
+          "modelStepMs": 0.5982270000000001,
+          "rafMs": 16.69999998807907,
+          "timeoutMs": 5.100000023841858,
+          "kernelSteps": 500
+        },
+        {
+          "platform": "Julia/Agents.jl",
+          "modelStepMs": 0.23817124999999997,
+          "rafMs": 16.69999998807907,
+          "timeoutMs": 8.400000035762787,
+          "kernelSteps": 500
+        }
+      ]
+    },
+    {
+      "id": "conformance",
+      "caption": "Two encodings per binding, not independent trials.",
+      "columns": [
+        {
+          "key": "property",
+          "label": "Property"
+        },
+        {
+          "key": "python",
+          "label": "python"
+        },
+        {
+          "key": "go",
+          "label": "go"
+        },
+        {
+          "key": "js",
+          "label": "js"
+        },
+        {
+          "key": "julia",
+          "label": "julia"
+        }
+      ],
+      "rows": [
+        {
+          "property": "Identity handshake",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Atomic sync",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Host-only transition",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Action correlation",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Parameter control",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Reconnect",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Identity/capability rejection",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Checkpoint restore",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "Matching rerun after restore",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        }
+      ]
+    },
+    {
+      "id": "conformance-full",
+      "caption": "All sixteen conformance properties.",
+      "columns": [
+        {
+          "key": "property",
+          "label": "Property"
+        },
+        {
+          "key": "python",
+          "label": "python"
+        },
+        {
+          "key": "go",
+          "label": "go"
+        },
+        {
+          "key": "js",
+          "label": "js"
+        },
+        {
+          "key": "julia",
+          "label": "julia"
+        }
+      ],
+      "rows": [
+        {
+          "property": "action_correlation",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "atomic_sync",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "dense_checkpoint_replay",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "dense_population",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "empty_reseed",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "exact_checkpoint",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "future_replay",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "host_only_transition",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "identity_handshake",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "multi_client_inspection",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "negative_identity_capability",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "parameter_control",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "parameter_extremes",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "population_churn",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "reconnect",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        },
+        {
+          "property": "spatial_population",
+          "python": "pass 2/2",
+          "go": "pass 2/2",
+          "js": "pass 2/2",
+          "julia": "pass 2/2"
+        }
+      ]
+    },
+    {
+      "id": "schelling-workflow",
+      "caption": "One checkpoint comparison, three rerun points, and two six-step branches per host.",
+      "columns": [
+        {
+          "key": "host",
+          "label": "Host"
+        },
+        {
+          "key": "restore",
+          "label": "Restored audit state"
+        },
+        {
+          "key": "rerun",
+          "label": "Rerun"
+        },
+        {
+          "key": "branches",
+          "label": "Threshold branches"
+        },
+        {
+          "key": "outputs",
+          "label": "Retained outputs"
+        }
+      ],
+      "rows": [
+        {
+          "host": "python",
+          "restore": "equal 1/1",
+          "rerun": "match 3/3",
+          "branches": "2 x 6, different",
+          "outputs": "JSON, PNG"
+        },
+        {
+          "host": "go",
+          "restore": "equal 1/1",
+          "rerun": "match 3/3",
+          "branches": "2 x 6, different",
+          "outputs": "JSON, PNG"
+        },
+        {
+          "host": "js",
+          "restore": "equal 1/1",
+          "rerun": "match 3/3",
+          "branches": "2 x 6, different",
+          "outputs": "JSON, PNG"
+        },
+        {
+          "host": "julia",
+          "restore": "equal 1/1",
+          "rerun": "match 3/3",
+          "branches": "2 x 6, different",
+          "outputs": "JSON, PNG"
+        }
+      ]
+    },
+    {
+      "id": "fire-reference",
+      "caption": "Policy comparison on common evaluation cases.",
+      "columns": [
+        {
+          "key": "policy",
+          "label": "Policy"
+        },
+        {
+          "key": "episodes",
+          "label": "Episodes"
+        },
+        {
+          "key": "evacuated",
+          "label": "Mean evacuated"
+        },
+        {
+          "key": "dead",
+          "label": "Mean dead"
+        }
+      ],
+      "rows": [
+        {
+          "policy": "dqn",
+          "episodes": 100,
+          "evacuated": 27.64,
+          "dead": 0.15
+        },
+        {
+          "policy": "no-guide",
+          "episodes": 100,
+          "evacuated": 14.28,
+          "dead": 4.63
+        },
+        {
+          "policy": "random",
+          "episodes": 100,
+          "evacuated": 18.65,
+          "dead": 2.73
+        },
+        {
+          "policy": "safe-heuristic",
+          "episodes": 100,
+          "evacuated": 27.87,
+          "dead": 0.08
+        }
+      ]
+    },
+    {
+      "id": "fire-stability",
+      "caption": "Uncertainty across training-seed means on a shared holdout.",
+      "columns": [
+        {
+          "key": "meanEvacuated",
+          "label": "Mean evacuated"
+        },
+        {
+          "key": "sampleSdEvacuated",
+          "label": "Sample SD across training seeds"
+        }
+      ],
+      "rows": [
+        {
+          "meanEvacuated": 27.6524,
+          "sampleSdEvacuated": 0.1655922703510035
+        }
+      ]
+    }
+  ]
+}
