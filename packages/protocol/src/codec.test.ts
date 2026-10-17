@@ -1,3 +1,4 @@
+import { deepStrictEqual } from 'node:assert';
 import { describe, expect, it, vi } from 'vitest';
 import {
   decodeProtocolMessage,
@@ -61,7 +62,9 @@ describe('session codec ownership and reuse', () => {
         },
       };
       const frame = codec.encode(message, 'msgpack');
-      expect(codec.decode(frame)).toEqual(message);
+      // Native assertions compare the full byte array without enumerating millions
+      // of indexed properties through the assertion library on slower CI runners.
+      deepStrictEqual(codec.decode(frame), message);
       other.encode(message, 'msgpack');
       expect(encoded).toEqual(saved);
       expect(codec.decode(encoded)).toEqual(first);
