@@ -26,8 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## Unreleased
-
 ## @tensnap/core [0.3.4] - 2026-10-18
 
 ### Fixed
@@ -35,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Count dispatched, completed, successful and failed target actions separately; preserve simultaneous stop reasons and failure priority. Duplicate or mismatched results do not count, and unchanged model time can still succeed.
 - Settle runs only after final host barriers and stop lifecycle results, retain summaries and waits by run ID, close recording at settlement, and label lifecycle frames. Keep target and lifecycle outcomes separate; mark unknown state on disconnect/timeouts without inventing completions.
 - Propagate final render-barrier failures through run outcomes and correlated client errors. Prevent cleanup dispatch after an action timeout.
+- Restore synchronous force-layout position publication, keep readonly edge projection free of storage writes/notifications, and update only the changed edge geometry for appearance deltas. Force ticks publish positions once.
+- Avoid whole-status structured cloning on ordinary run ticks while preserving ownership of timings, stop reasons and structured errors; publish settlement once and defer reentrant run starts until reset cleanup completes.
 - Project readonly graph edges at stored typed node coordinates during initialization and updates, without force simulation or input writes; keep numeric and string IDs distinct in normal layouts too.
 
 ### Deprecated
@@ -48,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reject unknown/missing flags, malformed values, extra positional arguments and conflicting options before side effects; validate HTTP request fields before runtime work.
 - Propagate missing targets, empty renders, painter/export errors and output-write failures. Preserve successful artifacts and per-target errors in partial failures.
 - Save run SnapshotArchive files atomically after settlement and expose recording write status/errors by run ID. Shutdown awaits recording writes.
+- Bound pending recording snapshots by rejecting another recorded run before dispatch until the previous recording write finishes; unrecorded runs remain available. Checkpoint a settled scene once and reuse a pending write for the same scene revision, including shutdown.
+- Serialize machine-output responses once instead of stringify/parse/stringify round trips, and preserve malformed upstream error bodies without masking them with a parser exception.
 
 ### Added
 

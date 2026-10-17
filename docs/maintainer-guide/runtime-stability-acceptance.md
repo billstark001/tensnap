@@ -81,3 +81,24 @@ The PNG byte count is an observation, not a cross-platform equality assertion. T
 The recording write added for A2.6 persists the existing SnapshotArchive and reports pending/persisted/failed by run ID. It does not implement standalone recording files, import/export management or frame evidence directories. Defaults remain 10,000 frames / 64 MiB rolling; persistence does not promise untruncated history. Summaries and recording statuses are retained in memory for 100 settled runs and reset with the runtime; files remain on disk.
 
 CLI action/run waiting commands, public persistence extraction, independent recording/GUI interchange and frame restoration/comparison belong to plans two/three. Their joint business scenarios were not claimed or tested as implemented. Browser behavior was checked with the existing automated web and browser/headless equivalence suites; no manual browser/Tauri walkthrough or cross-language conformance run was needed for this renderer-only change.
+
+## Performance and stability follow-up (2026-10-18)
+
+Review baseline: `226f4625`. Corrections: core `5eb94ec5`, agent `2fc11ef7`. The initial full suites missed a graph extraction error: the geometry helper still contained position-write code and the original synchronous push helper was empty. Earlier readonly tests compared selected coordinates or the caller’s scene, which did not detect added velocity fields in the internal storage. New regressions assert exact storage snapshots/revisions/notifications, one publication per force tick, immediate positions for newly laid out nodes, and no redraw of unrelated edges after one appearance delta.
+
+The follow-up corrects these paths:
+
+- Geometry projection is pure and bounded to the changed shape on an appearance update; simulation ticks alone publish force positions once, and initialization/new-node layout still publishes synchronously.
+- Ordinary run statuses/results use explicit owned copies of their known small fields; recording options and arbitrary structured condition/error values retain deep-copy boundaries. Settlement is published once. Reset finishes clearing the old pipeline before settled listeners may start a new run.
+- The agent checkpoints on `run:settled`, joins a pending non-forced write of the same scene revision, and rejects another recorded run before dispatch while the previous snapshot is pending. This bounds retained recording-write memory; non-recorded runs are unaffected.
+- CLI machine output serializes the response only once. Non-JSON text output keeps its public behavior; malformed upstream error bodies remain available to callers.
+
+An isolated synchronous run-controller microbenchmark (30,000 actions, flat timing buckets, status observer, nine rounds with two warmups discarded) measured about **118 ms before / 16 ms after** on this host. This measures controller overhead only; it is not an end-to-end model or rendering speed claim. The redraw/notification regressions use deterministic work counts rather than timing thresholds. Reproduce the current microbenchmark with:
+
+```sh
+pnpm --filter @tensnap/agent exec tsx scripts/benchmark-run-controller.mts
+```
+
+Follow-up package suites: core **557**, agent **145**, web **211** (913 tests), plus typechecks, affected builds, built-CLI seeded Schelling acceptance and changed-file lint. Existing core/agent 0.3.4 changelog entries are updated; no additional packages or package versions are changed. The empty Unreleased heading is removed.
+
+Large recording archive encoding still runs synchronously and is bounded by the configured recording budget; this review does not implement the plan’s later streaming/worker storage work or claim crash-tail recovery. Explicit forced scene writes retain their requested snapshots; only duplicate non-forced writes of the same revision are joined.
