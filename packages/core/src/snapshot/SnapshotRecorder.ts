@@ -15,6 +15,7 @@ import type {
   SnapshotLayerCodecImplementation,
 } from './types';
 import { snapshotEncodedByteLength } from './SnapshotArchive';
+import { cloneRecordingOptions } from './recording-options';
 
 const DEFAULT_KEYFRAME_EVERY = 120;
 const retainItemDelta = () => true;
@@ -424,18 +425,19 @@ export class SnapshotRecorder {
     if (options.timestamp !== undefined && !Number.isFinite(options.timestamp)) {
       throw new Error('RecordingOptions.timestamp must be finite.');
     }
+    // Only retain policy data here. Identity/checkpoint data is owned by snapshot.metadata.
+    const ownedOptions = cloneRecordingOptions({
+      maxSteps: options.maxSteps,
+      maxDurationMs: options.maxDurationMs,
+      maxBytes: options.maxBytes,
+      layerCodecs: options.layerCodecs,
+      layerCodecImplementations: options.layerCodecImplementations,
+    });
     const nextOptions = {
-      ...options,
+      ...ownedOptions,
       keyframeEvery: options.keyframeEvery ?? DEFAULT_KEYFRAME_EVERY,
       ringBuffer: options.ringBuffer === true,
-      layerCodecs: clone(options.layerCodecs ?? {}),
-      layerCodecImplementations:
-        options.layerCodecImplementations &&
-        Object.fromEntries(
-          Object.entries(options.layerCodecImplementations)
-            .filter(([, implementation]) => implementation !== undefined)
-            .map(([id, implementation]) => [id, { ...implementation }]),
-        ),
+      layerCodecs: ownedOptions.layerCodecs ?? {},
     };
     const snapshot = createSingleSnapshot(this.scenario.dump(), options);
     snapshot.metadata.endedAt = undefined;

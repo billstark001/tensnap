@@ -57,6 +57,7 @@ export interface RendererSessionActionMetricsDetail {
   metrics: ActionRunMetricSnapshot | null;
 }
 
+/** Event consumers share this read-only snapshot, including hosts awaiting persistence. */
 export interface RendererSessionRecordingDetail {
   runId?: string;
   snapshot: Snapshot;

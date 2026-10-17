@@ -873,3 +873,106 @@ it('closes run recording before dispatching an unrelated queued action', () => {
   );
   session.run.markActionRendered({ id: 'other', request_id: tickId(sent[1]!) });
 });
+
+it('preserves callable recording policies while detaching their data and descriptors', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  session.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+  session.handleIncoming({
+    type: 'env_layer_create',
+    payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+  });
+  const recordings: Snapshot[] = [];
+  session.addEventListener('recording:complete', (event) =>
+    recordings.push((event as CustomEvent).detail.snapshot),
+  );
+  const retainItemDelta = vi.fn(() => true);
+  const record = {
+    label: 'original',
+    layerCodecs: { agent: 'delta' as const },
+    layerCodecImplementations: {
+      delta: { id: 'delta' as const, retainItemDelta, forceKeyframe: false },
+    },
+    checkpoint: {
+      model_id: 'test-model',
+      encoding: 'opaque' as const,
+      data: new Uint8Array([1, 2]),
+    },
+  };
+  try {
+    const first = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record });
+    record.label = 'changed';
+    record.layerCodecImplementations.delta.forceKeyframe = true;
+    record.checkpoint.data[0] = 9;
+    const published = first.spec.record!;
+    expect(published).not.toBe(false);
+    if (!published) throw new Error('Expected recording options.');
+    expect(published.layerCodecImplementations!.delta!.retainItemDelta).toBe(retainItemDelta);
+    published.layerCodecs!.agent = 'derived';
+    published.layerCodecImplementations!.delta!.forceKeyframe = true;
+    (published.checkpoint!.data as Uint8Array)[1] = 9;
+    const step = { id: 'step', request_id: tickId(sent[0]!) };
+    session.handleIncoming({
+      type: 'item_create',
+      payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 2 }] },
+    });
+    session.handleIncoming({ type: 'action_result', payload: step });
+    session.run.markActionRendered(step);
+    const retained = session.run.getRun(first.id)?.spec.record;
+    expect(retained).toMatchObject({
+      label: 'original',
+      layerCodecs: { agent: 'delta' },
+      layerCodecImplementations: { delta: { retainItemDelta, forceKeyframe: false } },
+    });
+    if (!retained) throw new Error('Expected recording options.');
+    expect(Array.from(retained.checkpoint!.data as Uint8Array)).toEqual([1, 2]);
+    expect(retainItemDelta).toHaveBeenCalled();
+    expect(recordings).toHaveLength(1);
+    expect(Array.from(recordings[0]!.metadata.checkpoint!.data as Uint8Array)).toEqual([1, 2]);
+  } finally {
+    session.run.reset();
+  }
+});
+
+it('owns queued invocation values before retaining them behind an action barrier', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  session.run.requestAction('step');
+  const step = { id: 'step', request_id: tickId(sent[0]!) };
+  session.handleIncoming({ type: 'action_result', payload: step });
+  const invocation = {
+    target: { type: 'env' as const, env_id: 'main' },
+    kwargs: { data: { list: [1], nested: { value: 2 } } },
+  };
+  session.run.requestAction('other', false, invocation);
+  invocation.target.env_id = 'changed';
+  invocation.kwargs.data.list[0] = 9;
+  invocation.kwargs.data.nested.value = 9;
+  session.run.markActionRendered(step);
+  expect(sent[1]!.payload).toMatchObject({
+    target: { env_id: 'main' },
+    kwargs: { data: { list: [1], nested: { value: 2 } } },
+  });
+  session.run.reset();
+});
+
+it('leaves the current run intact when invocation ownership cannot be established', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  const run = session.run.start({ mode: 'manual', actionId: 'step' });
+  try {
+    expect(() =>
+      session.run.requestAction('other', false, { kwargs: { invalid: () => {} } } as never),
+    ).toThrow();
+    expect(session.run.status).toMatchObject({ id: run.id, state: 'running', stopReasons: [] });
+    expect(sent).toHaveLength(1);
+  } finally {
+    session.run.reset();
+  }
+});

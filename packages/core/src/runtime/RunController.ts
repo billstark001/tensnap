@@ -8,6 +8,7 @@ import type {
 import { ProtocolValidationError } from '@tensnap/protocol';
 import type { Scenario } from '../scenario';
 import type { RecordingOptions as SnapshotRecordingOptions } from '../snapshot';
+import { cloneRecordingOptions } from '../snapshot/recording-options';
 import { PipelineRuntime } from './PipelineRuntime';
 import type { RuntimeTaskSnapshot } from './TaskQueue';
 import {
@@ -151,15 +152,18 @@ const cloneOutcome = (outcome: RunActionOutcome): RunActionOutcome => ({
   result: cloneActionResult(outcome.result),
 });
 
+const cloneRunSpec = (spec: RunRequest): RunRequest => ({
+  ...spec,
+  ...(spec.record ? { record: cloneRecordingOptions(spec.record) } : {}),
+});
+
 const cloneStatus = (status: RunStatus): RunStatus => {
-  if (
-    status.spec.record ||
-    (typeof status.conditionValue === 'object' && status.conditionValue !== null)
-  )
-    return structuredClone(status);
   return {
     ...status,
-    spec: { ...status.spec },
+    spec: cloneRunSpec(status.spec),
+    ...(typeof status.conditionValue === 'object' && status.conditionValue !== null
+      ? { conditionValue: structuredClone(status.conditionValue) }
+      : {}),
     stopReasons: [...status.stopReasons],
     ...(status.lastAction ? { lastAction: cloneOutcome(status.lastAction) } : {}),
     ...(status.lastLifecycleAction
@@ -189,7 +193,7 @@ function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
   ) {
     throw new Error('RunRequest.maxWallTimeMs must be a positive finite number when specified.');
   }
-  return structuredClone(spec);
+  return cloneRunSpec(spec);
 }
 
 /**
@@ -321,13 +325,17 @@ export class RunController {
     continuous = false,
     invocation: Pick<ActionInvokePayload, 'target' | 'kwargs'> = {},
   ): string {
+    // Detach before queue mutation: a failed copy must leave the current operation intact.
+    const ownedInvocation =
+      invocation.target !== undefined || invocation.kwargs !== undefined
+        ? structuredClone(invocation)
+        : undefined;
     if (!continuous) {
       this.discardInvocations(this.runtime.cancel());
       this.finish('stopped');
     }
     const taskId = this.runtime.enqueue(actionId, { continuous });
-    if (invocation.target !== undefined || invocation.kwargs !== undefined)
-      this.invocationByTaskId.set(taskId, invocation);
+    if (ownedInvocation) this.invocationByTaskId.set(taskId, ownedInvocation);
     this.flushCommands();
     return taskId;
   }
