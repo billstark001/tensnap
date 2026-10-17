@@ -837,3 +837,39 @@ it('keeps status snapshots and simulator results independently owned', () => {
     error: { data: { nested: [1, 2] } },
   });
 });
+
+it('closes run recording before dispatching an unrelated queued action', () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  const transport = createTransport(sent);
+  const send = transport.send;
+  transport.send = (message) => {
+    send(message);
+    if (message.type === 'action_invoke' && (message.payload as { id: string }).id === 'other') {
+      session.handleIncoming({ type: 'metadata_update', payload: { time: 99 } });
+      session.handleIncoming({
+        type: 'action_result',
+        payload: message.payload as { id: string; request_id: string },
+      });
+    }
+  };
+  session.attachTransport(transport);
+  announce(session);
+  const recordings: Snapshot[] = [];
+  session.addEventListener('recording:complete', (event) =>
+    recordings.push((event as CustomEvent).detail.snapshot),
+  );
+  session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+  const step = { id: 'step', request_id: tickId(sent[0]!) };
+  session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+  session.handleIncoming({ type: 'action_result', payload: step });
+  session.run.requestAction('other');
+  session.run.markActionRendered(step);
+  expect(sent).toHaveLength(2);
+  expect(recordings).toHaveLength(1);
+  expect(materializeSnapshot(recordings[0]!).metadata.time).toBe(1);
+  expect(recordings[0]!.frames.flatMap((frame) => frame.controls)).not.toContainEqual(
+    expect.objectContaining({ payload: expect.objectContaining({ id: 'other' }) }),
+  );
+  session.run.markActionRendered({ id: 'other', request_id: tickId(sent[1]!) });
+});

@@ -532,13 +532,15 @@ export class RunController {
     if (rendered) {
       this.invocationByTaskId.delete(task.id);
       this.taskOwners.delete(task.id);
+      // Close the owning run before sending a queued action that belongs to another operation.
+      const settled = this.maybeSettle();
       this.flushCommands();
-      if (this.activeRun && !this.activeRun.settled) {
+      if (!settled && this.activeRun && !this.activeRun.settled) {
         const activeTask = this.runtime.peekActiveTaskRef();
         this.activeRun.inFlight = activeTask
           ? this.taskOwners.get(activeTask.id)?.runId === this.activeRun.id
           : false;
-        if (!this.maybeSettle()) this.publish();
+        this.publish();
       }
       const renderError = this.renderErrors.get(task.id);
       this.renderErrors.delete(task.id);
