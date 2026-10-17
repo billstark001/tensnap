@@ -25,6 +25,7 @@
     "@lingui/react": "^6.9.0",
     "@tensnap/core": "workspace:*",
     "@tensnap/js": "workspace:*",
+    "@tensnap/network": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "@tensnap/web": "workspace:*",
     "@tensnap/web-common": "workspace:*",

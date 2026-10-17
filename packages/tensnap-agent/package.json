@@ -2,18 +2,17 @@
   "name": "@tensnap/agent",
   "version": "0.3.3",
   "private": true,
-  "type": "module",
   "description": "Scene-centric CLI runtime for TenSnap automation agents.",
+  "keywords": [
+    "agent",
+    "automation",
+    "cli",
+    "tensnap"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/billstark001/tensnap.git",
     "directory": "packages/tensnap-agent"
-  },
-  "main": "./dist/index.js",
-  "exports": {
-    ".": "./dist/index.js",
-    "./runtime": "./dist/runtime/index.js",
-    "./session": "./dist/session/index.js"
   },
   "bin": {
     "tensnap-agent": "./dist/cli.js"
@@ -21,6 +20,13 @@
   "files": [
     "dist"
   ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./runtime": "./dist/runtime/index.js",
+    "./session": "./dist/session/index.js"
+  },
   "scripts": {
     "dev": "tsx src/bin.ts",
     "build": "node ./scripts/build.mjs",
@@ -37,6 +43,7 @@
     "@leafer-ui/core": "^2.3.0",
     "@leafer-ui/node": "^2.3.0",
     "@tensnap/core": "workspace:*",
+    "@tensnap/network": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "canvas": "^3.2.3",
     "hono": "^4.13.13",
@@ -49,11 +56,5 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
-  },
-  "keywords": [
-    "tensnap",
-    "cli",
-    "agent",
-    "automation"
-  ]
+  }
 }

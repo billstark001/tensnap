@@ -3,10 +3,15 @@ name: js-publish
 on:
   push:
     tags:
+      - 'network-v*'
       - 'protocol-v*'
       - 'js-v*'
   workflow_dispatch:
     inputs:
+      network:
+        description: 'Publish @tensnap/network'
+        type: boolean
+        default: false
       protocol:
         description: 'Publish @tensnap/protocol'
         type: boolean
@@ -57,6 +62,7 @@ jobs:
       - name: Select release packages
         id: selection
         env:
+          INPUT_NETWORK: ${{ inputs.network }}
           INPUT_PROTOCOL: ${{ inputs.protocol }}
           INPUT_CORE: ${{ inputs.core }}
           INPUT_JS: ${{ inputs.js }}

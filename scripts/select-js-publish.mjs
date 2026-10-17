@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const packageDirs = {
+  network: 'network',
   protocol: 'protocol',
   core: 'core',
   js: 'tensnap-js',
@@ -19,7 +20,7 @@ const refName = process.env.GITHUB_REF_NAME;
 let selected;
 if (event === 'push') {
   assert.equal(refType, 'tag', 'JavaScript publishing requires a release tag');
-  const match = /^(protocol|js)-v(.+)$/.exec(refName ?? '');
+  const match = /^(network|protocol|js)-v(.+)$/.exec(refName ?? '');
   assert.ok(match, `Unexpected JavaScript release tag: ${refName}`);
   const [, component, version] = match;
   const manifest = JSON.parse(

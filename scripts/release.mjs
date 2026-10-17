@@ -5,15 +5,16 @@
  * Usage: node scripts/release.mjs <component> [version]
  *
  * Components:
- *   go      - Release Go module
- *   python  - Release Python package to PyPI
- *   julia   - Release Julia package
+ *   go       - Release Go module
+ *   python   - Release Python package to PyPI
+ *   julia    - Release Julia package
+ *   network  - Release shared networking package
  *   protocol - Release protocol package
- *   core    - Release core package
- *   js      - Release JavaScript bindings package
- *   agent   - Release agent CLI package
- *   app     - Release Tauri desktop app
- *   web     - Deploy web app (automatic on main)
+ *   core     - Release core package
+ *   js       - Release JavaScript bindings package
+ *   agent    - Release agent CLI package
+ *   app      - Release Tauri desktop app
+ *   web      - Deploy web app (automatic on main)
  */
 
 import { execFileSync } from 'child_process';
@@ -185,6 +186,7 @@ Components:
   go      - Release Go module
   python  - Release Python package to PyPI
   julia   - Release Julia package
+  network - Release shared networking package
   protocol - Release protocol package
   core    - Release core package
   js      - Release JavaScript bindings package
@@ -274,6 +276,21 @@ function releaseJulia(version) {
 
   log('\nFor Julia General registration, comment on the release commit or PR:');
   log('  @JuliaRegistrator register subdir=packages/tensnap-julia');
+}
+
+function releaseNetwork(version) {
+  if (!version) die('Version required for network release');
+  const pkgPath = join(ROOT, 'packages', 'network', 'package.json');
+  updateJsonVersion(pkgPath, version);
+  for (const command of ['lint', 'test', 'build'])
+    run('pnpm', ['--dir', 'packages/network', command]);
+  finalizeRelease({
+    componentLabel: 'Network package',
+    version,
+    filePaths: [pkgPath],
+    commitMessage: `Release network package v${version}`,
+    tagName: `network-v${version}`,
+  });
 }
 
 function releaseProtocol(version) {
@@ -437,6 +454,9 @@ switch (component) {
     break;
   case 'julia':
     releaseJulia(version);
+    break;
+  case 'network':
+    releaseNetwork(version);
     break;
   case 'protocol':
     releaseProtocol(version);

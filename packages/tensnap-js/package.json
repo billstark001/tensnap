@@ -65,6 +65,7 @@
     "clean": "rm -rf dist node_modules"
   },
   "dependencies": {
+    "@tensnap/network": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "@types/ws": "^8.18.2",
     "dequal": "^2.0.3",

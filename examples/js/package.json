@@ -2,8 +2,8 @@
   "name": "@tensnap/examples-js",
   "version": "0.3.3",
   "private": true,
-  "type": "module",
   "description": "JavaScript example manifest and example entrypoints for TenSnap",
+  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -27,6 +27,7 @@
   "dependencies": {
     "@tensnap/core": "workspace:*",
     "@tensnap/js": "workspace:*",
+    "@tensnap/network": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "@tensnap/web-adapter": "workspace:*"
   },

@@ -114,6 +114,7 @@ Comprehensive documentation is available in the `/docs` folder:
 - **[Architecture Overview](./docs/maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./docs/maintainer-guide/development-setup.md)** - Setting up development environment
 - **[Contributing Guidelines](./docs/maintainer-guide/contributing.md)** - How to contribute to TenSnap
+- **[Network Package](./packages/network/README.md)** - Shared IP-family policy and browser/Node transport utilities
 - **[Protocol Package](./packages/protocol/README.md)** - Source of truth for renderer/simulator schemas, codecs, and generated protocol documentation
 - **[Internationalization (i18n)](./docs/maintainer-guide/i18n.md)** - Translation and localization guide
 
@@ -223,6 +224,7 @@ tensnap/
 │   └── js/                      # Built-in JS examples, manifests, and local transports
 ├── packages/
 │   ├── benchmark/               # Generic reproducible benchmark execution harness
+│   ├── network/                 # IP-family policy and transport utilities
 │   ├── protocol/                # Protocol payload types, schemas, and codecs
 │   ├── core/                    # Scenario, runtime, stores, and rendering primitives
 │   ├── tensnap-agent/           # Headless shared-session host and automation CLI
@@ -239,6 +241,7 @@ tensnap/
 
 ### Package Responsibilities
 
+- **network**: Browser-safe IP-family policy and URLs, plus Node listener lifecycle and WebSocket frame normalization.
 - **protocol**: Renderer/simulator schemas, type definitions, codecs, built-in layer contracts, and generated protocol reference.
 - **core**: Renderer-side `Scenario`, `RendererSession`, bounded `RunController`, condition evaluation, inspection/trajectory semantics, recording/replay, layer registry, rendering primitives, and `AssetStore`.
 - **tensnap-web**: Main browser renderer, transport wiring, project UI (including offline recordings and content-addressed assets), and scenario store integration.
