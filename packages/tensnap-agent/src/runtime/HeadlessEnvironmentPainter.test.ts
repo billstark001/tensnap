@@ -2,7 +2,7 @@ import { access, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
-import { afterEach, assert, describe, expect, it } from 'vitest';
+import { afterEach, assert, describe, expect, it, vi } from 'vitest';
 import { collectRenderData } from '@tensnap/core/scenario';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentPainter } from './HeadlessEnvironmentPainter';
@@ -603,4 +603,52 @@ it('rejects a missing environment target', async () => {
       options: { envId: 'missing', persist: false },
     }),
   ).rejects.toMatchObject({ errors: [{ targetId: 'missing', code: 'render_missing' }] });
+});
+
+it('keeps successful environments when another target fails while collecting render data', async () => {
+  const { layerRegistry, Scenario } = await import('@tensnap/core/scenario');
+  const definition = layerRegistry.get('agent')!.renderer!;
+  const collect = definition.getSnapshotAgentLayer!;
+  const projection = vi.spyOn(definition, 'getSnapshotAgentLayer').mockImplementation((layer) => {
+    if (layer.id === 'bad') throw new Error('projection failed');
+    return collect(layer);
+  });
+  const snapshot = new Scenario().dump();
+  snapshot.environments = ['good', 'bad'].map((id) => ({
+    id,
+    type: '2d',
+    layers: [
+      {
+        id,
+        layerType: 'agent',
+        metadata: {},
+        dependencyLayerIds: {},
+        storageSnapshot: { agents: [{ id: 'a', x: 1, y: 1 }] },
+      },
+    ],
+  }));
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  try {
+    await expect(
+      painter.render({
+        at: 'test',
+        reason: 'partial-preparation',
+        trigger: 'explicit',
+        snapshot,
+        assets: {},
+        options: {
+          persist: false,
+          includeData: true,
+          width: 32,
+          height: 32,
+          viewport: { x: 0, y: 0, width: 3, height: 3 },
+        },
+      }),
+    ).rejects.toMatchObject({
+      artifacts: [{ kind: 'environment', metadata: { envId: 'good' } }],
+      errors: [{ targetId: 'bad', code: 'render_failed', message: 'projection failed' }],
+    });
+  } finally {
+    projection.mockRestore();
+  }
 });

@@ -76,8 +76,8 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     const errors: RenderTargetError[] = [];
     const artifacts: RenderArtifact[] = [];
     for (const environment of targetEnvironments) {
-      const renderData = collectRenderData(environment);
       try {
+        const renderData = collectRenderData(environment);
         artifacts.push(
           await this.renderEnvironment(
             environment,

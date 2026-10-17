@@ -545,7 +545,9 @@ function attachReviewTransport(runtime: AgentRuntime) {
     runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
   ).renderer;
   let dispatched = 0;
-  renderer.attachTransport({
+  const client = (runtime as unknown as { client: import('@tensnap/core/runtime').RendererClient })
+    .client;
+  client.attachTransport({
     connectionId: 'review',
     transportKind: 'inmemory',
     encoding: 'json',
@@ -613,49 +615,178 @@ it('captures and checkpoints a settled scene only once while its writer is slow'
   }
 });
 
-it('bounds recording snapshots held by slow persistence before dispatching another recorded run', async () => {
-  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-recording-backpressure-'));
+it.each([false, true])(
+  'bounds pending recordings and permits retry after write completion (failure=%s)',
+  async (failure) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-recording-backpressure-'));
+    temporaryRoots.push(rootDir);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      recordingWriter: async () => {
+        await gate;
+        if (++writes === 1 && failure) throw new Error('recording write failed');
+        return '/test/archive.json';
+      },
+      checkpointWriter: async () => {},
+    });
+    await runtime.initialize();
+    const transport = attachReviewTransport(runtime);
+    const spec = { mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} } as const;
+    try {
+      const first = runtime.startRun(spec);
+      await transport.renderer.run.waitForSettled(first.id);
+      expect(runtime.getRun(first.id)?.recording?.status).toBe('pending');
+      expect(() => runtime.startRun(spec)).toThrow(/recording.*persist|pending recording/i);
+      expect(transport.dispatched).toBe(1);
+      const unrecorded = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+      await transport.renderer.run.waitForSettled(unrecorded.id);
+      let next: ReturnType<AgentRuntime['startRun']> | undefined;
+      let callbackError: unknown;
+      runtime.on('event', (event) => {
+        if (event.type === 'recording.persistence' && event.data.runId === first.id) {
+          try {
+            next = runtime.startRun(spec);
+          } catch (error) {
+            callbackError = error;
+          }
+        }
+      });
+      release();
+      await vi.waitFor(() => {
+        expect(callbackError).toBeUndefined();
+        expect(next).toBeDefined();
+      });
+      await transport.renderer.run.waitForSettled(next!.id);
+      expect(transport.dispatched).toBe(3);
+    } finally {
+      release();
+      await runtime.stop();
+    }
+  },
+);
+
+it.each([false, true])(
+  'does not checkpoint a late render snapshot as newer scene state (newer render=%s)',
+  async (newerRender) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-render-revision-'));
+    temporaryRoots.push(rootDir);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const savedTimes: unknown[] = [];
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      checkpointWriter: async (_context, snapshot) => {
+        savedTimes.push(snapshot.metadata.time);
+      },
+    });
+    await runtime.initialize();
+    const { renderer } = attachReviewTransport(runtime);
+    const renderedTimes: unknown[] = [];
+    runtime.registerPainter({
+      id: 'delayed',
+      render: async (request) => {
+        renderedTimes.push(request.snapshot.metadata.time);
+        if (request.reason === 'older') await gate;
+        return [
+          {
+            painterId: 'delayed',
+            kind: 'chart',
+            path: '/test.png',
+            metadata: { time: request.snapshot.metadata.time },
+          },
+        ];
+      },
+    });
+    try {
+      renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+      const older = runtime.requestRender({}, 'older');
+      renderer.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+      if (newerRender) await runtime.requestRender({}, 'newer');
+      release();
+      expect((await older)[0]?.metadata?.time).toBe(1);
+      expect(renderedTimes[0]).toBe(1);
+      expect(savedTimes.at(-1)).toBe(2);
+      expect(runtime.getStatus().sceneDirty).toBe(false);
+    } finally {
+      release();
+      await runtime.stop();
+    }
+  },
+);
+
+it('disconnects the simulator before awaiting slow final scene persistence', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-disconnect-first-'));
   temporaryRoots.push(rootDir);
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
   const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
-    recordingWriter: async () => {
+    checkpointWriter: async () => {
       await gate;
-      return '/test/archive.json';
     },
-    checkpointWriter: async () => {},
   });
   await runtime.initialize();
-  const transport = attachReviewTransport(runtime);
-  const spec = { mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} } as const;
+  const { renderer } = attachReviewTransport(runtime);
+  renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+  const disconnecting = runtime.disconnect();
   try {
-    const first = runtime.startRun(spec);
-    await transport.renderer.run.waitForSettled(first.id);
-    expect(runtime.getRun(first.id)?.recording?.status).toBe('pending');
-    expect(() => runtime.startRun(spec)).toThrow(/recording.*persist|pending recording/i);
-    expect(transport.dispatched).toBe(1);
-    const unrecorded = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
-    await transport.renderer.run.waitForSettled(unrecorded.id);
-    let next: ReturnType<AgentRuntime['startRun']> | undefined;
-    let callbackError: unknown;
-    runtime.on('event', (event) => {
-      if (event.type === 'recording.persistence' && event.data.runId === first.id) {
-        try {
-          next = runtime.startRun(spec);
-        } catch (error) {
-          callbackError = error;
-        }
-      }
-    });
+    expect(renderer.isConnected).toBe(false);
+  } finally {
     release();
-    await vi.waitFor(() => {
-      expect(callbackError).toBeUndefined();
-      expect(next).toBeDefined();
-    });
-    await transport.renderer.run.waitForSettled(next!.id);
-    expect(transport.dispatched).toBe(3);
+    await disconnecting;
+    await runtime.stop();
+  }
+});
+
+it('propagates a joined checkpoint failure and allows a clean shutdown retry', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-checkpoint-retry-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writing = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let attempts = 0;
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      attempts++;
+      if (attempts === 1) {
+        started();
+        await gate;
+        throw new Error('disk full');
+      }
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  runtime.registerPainter({
+    id: 'test',
+    render: async () => [{ painterId: 'test', kind: 'chart', path: '/test.png' }],
+  });
+  renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+  const rendering = expect(runtime.requestRender()).rejects.toMatchObject({
+    artifacts: [{ path: '/test.png' }],
+    errors: [{ code: 'persistence_failed' }],
+  });
+  await writing;
+  const disconnected = expect(runtime.disconnect()).rejects.toThrow('disk full');
+  try {
+    expect(renderer.isConnected).toBe(false);
+    release();
+    await Promise.all([rendering, disconnected]);
+    expect(runtime.getStatus().sceneDirty).toBe(true);
+    await runtime.stop();
+    expect(attempts).toBe(2);
+    expect(runtime.getStatus().sceneDirty).toBe(false);
   } finally {
     release();
     await runtime.stop();

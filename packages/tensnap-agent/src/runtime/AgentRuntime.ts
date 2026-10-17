@@ -89,6 +89,10 @@ export interface RunRecordingPersistence {
   error?: string;
 }
 
+interface RuntimeRenderRequest extends RenderRequest {
+  sceneRevision: number;
+}
+
 const DEFAULT_CHECKPOINT_INTERVAL_MS = 2_000;
 
 const cloneValue = <T>(value: T): T => structuredClone(value);
@@ -230,8 +234,8 @@ export class AgentRuntime extends EventEmitter {
     }
 
     this.setPhase('stopping');
-    await this.checkpointScene();
     this.client.disconnect();
+    await this.checkpointScene();
     this.setPhase('idle');
     await this.log('info', 'runtime', 'Disconnected from simulator.');
   }
@@ -530,7 +534,7 @@ export class AgentRuntime extends EventEmitter {
     const request = this.createRenderRequest(options, reason, 'explicit');
     const artifacts = await this.runPainters(request);
     try {
-      await this.checkpointScene(request.snapshot, true);
+      await this.checkpointRenderedScene(request);
     } catch (error) {
       throw new RenderBatchError(artifacts, [
         {
@@ -621,7 +625,7 @@ export class AgentRuntime extends EventEmitter {
     options: SceneRenderOptions,
     reason: string,
     trigger: RenderTriggerMode | 'explicit',
-  ): RenderRequest {
+  ): RuntimeRenderRequest {
     const backgroundColor = normalizeRenderBackgroundColor(
       options.backgroundColor,
       this.control.render.backgroundColor,
@@ -630,6 +634,7 @@ export class AgentRuntime extends EventEmitter {
       at: new Date().toISOString(),
       reason,
       trigger,
+      sceneRevision: this.control.sceneRevision,
       snapshot: this.renderer.scenario.dump(),
       options: {
         ...options,
@@ -793,7 +798,7 @@ export class AgentRuntime extends EventEmitter {
       throw error;
     }
     try {
-      await this.checkpointScene(request.snapshot, true);
+      await this.checkpointRenderedScene(request);
     } catch (error) {
       throw new RenderBatchError(artifacts, [
         {
@@ -1002,6 +1007,13 @@ export class AgentRuntime extends EventEmitter {
         this.emitRuntimeEvent('scene.persistence-failed', { error: String(error) }),
       );
     }, this.checkpointIntervalMs);
+  }
+
+  /** Images retain their captured input; the runtime scene cache must retain the latest revision. */
+  private checkpointRenderedScene(request: RuntimeRenderRequest): Promise<void> {
+    return request.sceneRevision === this.control.sceneRevision
+      ? this.checkpointScene(request.snapshot, true)
+      : this.checkpointScene();
   }
 
   /** Serialize checkpoints so an older async write can never overwrite a newer one. */
