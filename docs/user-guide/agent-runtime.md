@@ -12,6 +12,8 @@ pnpm --filter @tensnap/agent dev -- runtime down --context demo
 
 Use `--context-dir <path>` to change the `.tensnap` storage root. Every command validates flags, value types, enums, mutually exclusive options and positional argument counts before runtime access or file writes. `--root-dir` is rejected with a `--context-dir` hint. `--record` and `--foreground` are switches; do not append `true` or `false`. `--max-actions` is a positive completed-action limit, including failed results. The deprecated public `--max-steps` spelling remains accepted; combining the two fails. HTTP/core still name this quota `maxSteps`.
 
+HTTP connection requests require a `ws://` or `wss://` URL. Recording options validate nested codec names, model identity and checkpoint fields before starting a run. Checkpoint bytes in JSON must use base64 or a base64 data URL.
+
 A run is driven by its target action's `should_continue` result. For standard model-builder examples, use the continuous `start` action for bounded runs; the one-shot `step` action can explicitly stop after one result. Model time need not advance on a successful action.
 
 ## Acceptance, completion and settlement
@@ -49,6 +51,8 @@ Readonly graph rendering uses stored coordinates without force simulation or wri
 ## Library ownership and file commits
 
 `getStatus()` returns owned render settings and painter lists. Render requests copy viewport values before awaiting a painter; inspection renders also detach the supplied inspection scene and avoid dumping the unrelated live scene. The captured request, scene and assets are shared read-only among painters for that render. A custom painter must copy any values it intends to mutate.
+
+Connection requests capture scalar options and resolved defaults before waiting for status writes. Disconnect cancels attempts still waiting on that write or their handshake, as well as an installed connection. Retired attempts reject without attaching later or replacing the current operation's phase/error.
 
 Context persistence captures control, scene, recording and log values by encoding them before its first filesystem await. Status, scene, recording and image files are written to a temporary file in the destination directory and renamed only after the write completes. A write or rename failure preserves the previous destination and cleans the temporary output. Image buffers remain owned and stable until that write resolves. Atomicity applies to each file; multi-target renders retain their documented partial-result behavior. Rename commits do not add an fsync or multi-file crash-recovery guarantee.
 

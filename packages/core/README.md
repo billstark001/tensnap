@@ -157,6 +157,8 @@ These diagnostic suites are distinct from the locked paper evaluation; use [the 
 
 `RunController` owns the values in its run specification and queued action targets/arguments. Returned run statuses own their nested value data. Recording options follow the recorder's policy: copy value data (including checkpoint bytes) and codec descriptors, but retain callable policy functions. Functions and their closed-over application state are not cloned; keep that state stable while the recording uses it. Invocation copying happens before queue mutation, so a copy failure leaves the current run intact. The recorder retains only the policy fields it uses; identity and checkpoint data belong to snapshot metadata.
 
+Startup observers receive their own status copy, separate from the recording configuration used by `RendererSession`. Editing that copy cannot disable or rewrite the requested recording.
+
 `RendererSession` recording events share a read-only snapshot among listeners, including asynchronous persistence hosts. Consumers that need to edit it must copy it first. This event lifetime differs from an independently owned run status.
 
 Storage loaders publish complete replacements. A failed trajectory load preserves its previous data and configurations; a successful load replaces stale configuration and emits one change notification. Removed edges release empty adjacency buckets so repeated topology churn does not retain old IDs.

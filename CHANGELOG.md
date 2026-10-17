@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Avoid whole-status structured cloning on ordinary run ticks while preserving ownership of timings, stop reasons and structured errors; publish settlement once and defer reentrant run starts until reset cleanup completes.
 - Close a settled run's recording before dispatching unrelated queued actions, so later action updates cannot enter the previous archive.
 - Copy run recording data and codec descriptors without cloning callable policies; detach queued action targets/arguments before changing the queue. Mutating caller inputs or returned statuses cannot rewrite retained values.
+- Isolate startup observer statuses from recording setup, so observer changes cannot disable or rewrite the requested recording.
 - Project readonly graph edges at stored typed node coordinates during initialization and updates, without force simulation or input writes; keep numeric and string IDs distinct in normal layouts too.
 
 ### Deprecated
@@ -57,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Return owned runtime status fields and capture render viewports/inspection scenes before asynchronous painters run. Inspection renders avoid dumping the unrelated live scene.
 - Capture control, checkpoint, recording and log values before filesystem awaits. Commit chart/environment images through same-directory temporary files and rename, preserving previous complete files on write/commit failure and cleaning temporary output.
 - Report background status/log writes, sync-checkpoint writes and screenshot-response failures through runtime events, without unhandled promise rejections; failed sync persistence retains the committed scene for retry.
+- Capture connection options/defaults before asynchronous status writes and cancel pending connections during both status persistence and handshake. Retired connection attempts cannot attach after disconnect or overwrite a newer operation's phase.
+- Validate nested HTTP recording codec, identity and checkpoint values, and require WebSocket URLs before invoking the runtime; malformed inputs fail before model dispatch.
 
 ### Added
 
