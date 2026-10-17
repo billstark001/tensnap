@@ -111,6 +111,9 @@ def source_digest(binding: str) -> str:
         *source_dir.rglob(f"*{suffix}"),
         *sorted((HERE / "traces").glob("*.json")),
         *fixture_files,
+        *(path for path in (ROOT / "packages/network/src").rglob("*.ts")
+          if not path.name.endswith((".test.ts", ".bench.ts"))),
+        ROOT / "packages/network/package.json",
         manifest,
         HERE / "run_matrix.py",
         HERE / "test_harness_canaries.py",

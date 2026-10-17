@@ -24,6 +24,12 @@ The protocol intentionally uses `renderer` / `simulator` terminology rather than
 
 ## Package Map
 
+### `packages/network`
+
+Shared transport utilities, independent of protocol payloads and renderer state. The root entry is browser-safe and owns IP-family validation and URL handling. Its Node entry owns dual listener startup/rollback/cleanup, WebSocket data normalization and byte counting, non-owning socket-open waits, and bounded socket closure. Simulator transports and the CLI consume the Node entry; the frontend consumes the root entry and keeps its IP-family preference in system settings.
+
+Protocol codecs, model identity, session cleanup, retry policy, frame observers, and browser EventTarget lifecycle remain in their owning transports and runtimes. Python, Go, and Julia implement listener policy with their native networking stacks; they have no runtime dependency on this JavaScript package.
+
 ### `packages/protocol`
 
 Shared protocol package.

@@ -2,6 +2,9 @@
 
 import copy
 import unittest
+from pathlib import Path
+from unittest.mock import patch
+import run_matrix
 
 from run_matrix import (
     apply_agent_frames,
@@ -18,6 +21,20 @@ from run_matrix import (
 
 
 class HarnessCanaries(unittest.TestCase):
+    def test_network_sources_and_exports_affect_every_binding_fingerprint(self):
+        read_bytes = Path.read_bytes
+        for relative in ("packages/network/src/index.ts", "packages/network/src/node.ts",
+                         "packages/network/src/websocket.ts", "packages/network/package.json"):
+            target = run_matrix.ROOT / relative
+            def changed(path):
+                original = read_bytes(path)
+                return original + b"\nchanged for fingerprint canary" if path == target else original
+            for binding in run_matrix.BINDINGS:
+                with self.subTest(source=relative, binding=binding):
+                    original = run_matrix.source_digest(binding)
+                    with patch.object(Path, "read_bytes", changed):
+                        self.assertNotEqual(original, run_matrix.source_digest(binding))
+
     def test_wrong_handshake_model_is_detected(self):
         info = {
             "protocol_version": "0.3",

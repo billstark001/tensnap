@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## @tensnap/network [0.3.0] - 2026-10-17
+
+### Added
+
+- Introduce a dependency-free shared networking package with browser-safe IP-family validation and URL handling, plus Node dual-stack listeners, WebSocket frame normalization, byte counting, non-owning socket-open waits, and bounded socket closure.
+- Roll back partial listener startup, preserve a shared ephemeral port across address families, retain binary views without copying, and count fragmented frame bytes without concatenation. Add focused lifecycle regressions and current-implementation benchmarks.
+- Include the package in workspace lint, format, test, build, and npm release tooling, with independent patch versioning.
+
 ## @tensnap/protocol [0.3.3] - 2026-10-16
 
 ### Changed
@@ -59,6 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A browser-safe `@tensnap/js/transport/browser` entry point that excludes the Node WebSocket host.
+- Support local `ip_family` configuration (`auto`, `ipv4`, `ipv6`) for managed WebSocket listeners; external listeners configure their own family policy.
 
 ### Changed
 
@@ -66,13 +75,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reuse equal owned nested fields during eligible built-in session scans while preserving standalone projector and explicit-copy guarantees. Function-valued item keys retain eager projection so callbacks never receive the private borrowed view.
 - Retain directional protocol codecs per WebSocket connection so repeated frames reuse MessagePack state without changing transport buffer copies or validation policies.
 - Compile field selectors once, preserve symbol selectors, own nested item snapshots, reuse structurally equal values, and encode typed scalar/compound identities without delimiter collisions.
+- Import shared listener and WebSocket helpers directly from `@tensnap/network`; remove the former `normalizeWebSocketRawData` export without a compatibility alias. Protocol codecs, model identity, session state, and frame observers remain in the binding.
 
 ### Fixed
 
 - Compare binary buffer/view contents when deciding whether to reuse projected values; changed `ArrayBuffer` and `DataView` contents no longer disappear as equal empty objects.
 - Deduplicate endpoint listeners, route postMessage replies to the negotiated renderer identity, reject stale peers, and detach sessions even when disconnect cleanup throws.
+- Advertise the actual bound endpoint, bracket IPv6 URL hosts, and share one ephemeral port across dual-stack listeners. This prevents connecting to an unrelated IPv4 service and reporting a misleading `model_mismatch` when the intended simulator listens on IPv6.
+- Share concurrent host shutdowns, reject upgrades during shutdown, close failed session initialization, run session disconnect cleanup once, and release listeners even when another cleanup fails. Handle diagnostic/send failures without unhandled promise rejections, and allow shutdown before an external listener starts.
+- Skip frame byte counting when transport observers are disabled and count received wire bytes directly when enabled.
 
 ## @tensnap/python [0.3.3] - 2026-10-16
+
+### Added
+
+- Support local `ip_family` configuration (`auto`, `ipv4`, `ipv6`) through the native networking stack, with no runtime dependency on JavaScript.
 
 ### Changed
 
@@ -87,8 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Drain batched message tails in order, shield shared sends from waiter cancellation, release the listener on stop, clean up failed client setup, and fail screenshot waits when the last renderer disconnects.
 - Preserve asset metadata-only changes and copy mutable asset buffers; keep restore layer identities distinct across environments and reject attribute selectors with trailing newlines.
+- Bind dual-stack listeners to one shared ephemeral port and roll back partial startup failures.
 
 ## @tensnap/go [0.3.3] - 2026-10-16
+
+### Added
+
+- Support local `ip_family` configuration (`auto`, `ipv4`, `ipv6`) through the native networking stack, with no runtime dependency on JavaScript.
 
 ### Changed
 
@@ -105,8 +127,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Deep-copy nested tracker state by default so in-place map/slice mutations cannot rewrite previous baselines or hide changes. Preserve typed nested containers; built-in/projector ownership and layer copy controls avoid duplicate publication/seeding copies. Add regression tests and focused allocation benchmarks.
 - Emit cleared fields from complete item projections, reject non-finite numeric identities before caching, and preserve environment/layer boundaries during restore planning.
 - Reject impossible MessagePack container and wide binary lengths during one-pass decoding, without scanning every valid frame twice. Failed decoders no longer retain scratch buffers in the pool. Regression seeds, replay fuzzing, and focused allocation benchmarks cover these paths.
+- Bind dual-stack listeners to one shared ephemeral port and roll back partial startup failures. Close upgraded WebSocket connections when the HTTP service stops.
 
 ## @tensnap/julia [0.3.3] - 2026-10-16
+
+### Added
+
+- Support local `ip_family` configuration (`auto`, `ipv4`, `ipv6`) through the native networking stack, with no runtime dependency on JavaScript.
 
 ### Changed
 
@@ -116,13 +143,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Use structured environment/layer identities in restore plans so embedded separators and same-named layers in different environments cannot collide.
+- Bind dual-stack listeners to one shared ephemeral port and roll back partial startup failures. Release client bookkeeping after handshake failures and close listeners even when server cleanup fails.
 
 ## @tensnap/web [0.3.4] - 2026-10-16
+
+### Added
+
+- Add a globally persisted IP-family preference to System Settings using the shared setting-row and selector UI. Default to `auto`; support forced `ipv4`/`ipv6` where the browser permits it and explain domain-name/TLS restrictions.
 
 ### Changed
 
 - Use native ESM-compatible Vite configuration and keep the Node JS demo host out of browser bundles.
 - Separate pure project-history and view-patch models from React bindings, share iterative view traversal, and reduce repeated container scans in collision detection and guideline matching. Import model types directly from their owning modules; internal forwarding exports and unused alias modules are removed.
+- Apply the IP-family preference to the next connection or reconnect, including automatic retries; retain original project URLs and keep the machine-local preference out of project files.
 
 ### Fixed
 
@@ -130,6 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reset failed views during state derivation rather than scheduling a second render; preserve errors for unchanged identity, including a `NaN` reset key. Pass view renderer component types directly so replacements render immediately and retain normal React component lifetimes.
 - Preserve undo access to saved states and branched edits, separate merge scopes, recover idle history state when error callbacks throw, and settle replaced dialog requests with cancellation.
 - Handle deep/cyclic view trees without recursive lookup overflow; retain guideline geometry snapshots, continue past singleton size groups, and exclude disabled/self containers from pointer fallback.
+- Release replaced WebSocket connections and abort subscriptions, reject early handshake closure and cancellation, and ignore stale socket events after reconnecting.
 
 ## @tensnap/web-adapter [0.3.2] - 2026-10-16
 
@@ -145,15 +179,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## @tensnap/agent [0.3.3] - 2026-10-16
 
+### Added
+
+- Support `--ip-family auto|ipv4|ipv6` for simulator connections and the local HTTP control listener, propagate it to background daemons, and accept `ip_family` in the runtime connect API.
+
 ### Changed
 
 - Retain directional codecs in the Node WebSocket transport so repeated frames reuse MessagePack state while continuing to honor current validation options.
 - Wait for checkpoint cleanup and scene persistence to finish before asserting save completion.
+- Use shared listener, URL, frame, and socket lifecycle helpers from `@tensnap/network`; remove the former `normalizeRawData` export without a compatibility alias.
 
 ### Fixed
 
 - Validate finite CLI numeric options, integer port ranges, and context paths before starting a runtime; return HTTP 400 for invalid JSON control bodies.
 - Encode binary render artifacts as Base64 with `dataEncoding` in both scene and inspection HTTP responses, while retaining native bytes in painter APIs.
+- Roll back control listeners when address persistence fails, share concurrent startup/shutdown, release runtime event subscriptions, and format IPv6/wildcard control addresses as reachable URLs.
+- Clean up cancelled WebSocket handshakes and ignore stale socket events after reconnecting.
 
 ## @tensnap/tauri [0.3.4] - 2026-10-16
 
@@ -179,16 +220,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preserve browser initialization failures with connection and transaction state, recent diagnostics, workload configuration, server errors and message counts, wire bytes, and a bounded startup message timeline. Both page-returned failures and outer timeouts retain this context.
 - Use native ESM-compatible Vite/Vitest configuration and verify active publication environment-lock hashes against the checkout.
+- Reuse network frame normalization, wire-byte counting, socket-open waits, and bounded close helpers; remove duplicate implementations.
 
 ### Fixed
 
 - Inspect the local Julia binding through the evaluation project without personal startup files, report its resolved source path, and parse probe JSON from stdout independently of diagnostic stderr.
+- Connect to the actual simulator listener endpoint, including IPv6, and cover the advertised-endpoint path with a regression test.
 
 ## @tensnap/examples-js [0.3.3] - 2026-10-16
+
+### Added
+
+- Accept `--ip-family auto|ipv4|ipv6` in the WebSocket demo entry and document explicit IPv6 endpoints.
 
 ### Fixed
 
 - Keep Node demo hosts out of browser bundles. Import browser model types directly and use the explicit `entries/main-ws` entry for WebSocket hosting instead of the removed manifest `startDemoServer` method.
+- Print URLs from actual bound listeners, including bracketed IPv6 and shared ephemeral ports.
 
 ## tensnap [0.3.2] - 2026-10-16
 
@@ -198,6 +246,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Translate useful development comments to English, remove obsolete notes, and use paired folding regions with the existing separator lint rule.
 - Document projection and snapshot ownership, canonical imports, server lifecycle, recorder limits, and focused benchmark/fuzz commands. Update the ABM binding skill with identity and environment checks.
 - Apply the configured repository formatters to maintained source and documentation.
+- Include shared network runtime sources and package exports in every conformance source digest, with mutation canaries and explicit network-package CI checks.
+- Include Julia in the root format command and add network benchmark/release commands. Document IP-family configuration, browser restrictions, endpoint diagnostics, and package ownership boundaries.
 
 ## @tensnap/web [0.3.3] - 2026-10-04
 

@@ -8,6 +8,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 
 - **[Getting Started](./user-guide/getting-started.md)** - Quick introduction and first steps
 - **[Installation Guide](./user-guide/installation.md)** - Detailed installation instructions
+- **[IPv4 and IPv6](./user-guide/networking.md)** - Shared IP-family configuration, browser restrictions and endpoint diagnostics
 - **[User Guide](./user-guide/user-guide.md)** - Comprehensive guide to using TenSnap
 - **[Tutorials](./tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned
 - **[Python API Reference](./api-reference/python-api.md)** - Complete Python API documentation
@@ -20,6 +21,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Architecture Overview](./maintainer-guide/architecture.md)** - System architecture and design
 
 - **[Contributing Guidelines](./maintainer-guide/contributing.md)** - How to contribute to TenSnap
+- **[Network Package](../packages/network/README.md)** - Shared browser/Node networking policy and transport utilities
 - **[Protocol Package](../packages/protocol/README.md)** - Source of truth for protocol schemas, codecs, and generated Markdown documentation
 - **[Protocol Conformance](../conformance/README.md)** - Cross-binding wire/client checks and schema traces
 - **[Paper Evaluation](../benchmarks/evaluation/README.md)** - Current locked batch, offline evidence verification, separate data/figure archives and table export
