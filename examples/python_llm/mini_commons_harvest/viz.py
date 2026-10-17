@@ -1,0 +1,127 @@
+"""Commons resource grid, harvesters, local messages, and charts."""
+
+from dataclasses import replace
+
+from tensnap import (
+    EnumParameter,
+    NumberParameter,
+    agent_layer,
+    chart,
+    env,
+    grid_layer,
+    matrix_agent_layer,
+    monitor,
+)
+
+from ..common.config import probability
+from ..common.viz import ModelView, controls
+from .model import Harvester
+
+
+def harvester_item(view, player: Harvester):
+    """Align top-down model rows with the matrix layer's bottom-up scene y."""
+    return {
+        "id": player.id,
+        "x": player.x,
+        "y": view.model.config.height - 1 - player.y,
+        "icon": "circle",
+        "size": 0.65,
+        "color": "#7c3aed",
+        "data": player.data,
+    }
+
+
+def resource_color(view, row, col, resource):
+    """Distinguish barren cells from fertile cells containing zero to three units."""
+    if not view.model.habitat[row][col]:
+        return "#f1f5f9"
+    return ["#fde6c8", "#bbf7d0", "#4ade80", "#15803d"][resource]
+
+
+@controls(
+    {
+        "regrowth": NumberParameter("", min=0, max=1, step=0.05),
+        "rule": EnumParameter("", options=["greedy", "conserve"]),
+    }
+)
+@grid_layer(
+    "grid",
+    width=lambda view: view.model.config.width,
+    height=lambda view: view.model.config.height,
+    z_index=1,
+)
+@agent_layer(
+    "agents",
+    width=lambda view: view.model.config.width,
+    height=lambda view: view.model.config.height,
+    item_dynamic_projector=harvester_item,
+    z_index=2,
+)
+@matrix_agent_layer(
+    "resources",
+    source=lambda view: view.model.resources,
+    fields={
+        "data": lambda view, key, resource: {
+            "value": resource,
+            "fertile": view.model.habitat[key[0]][key[1]],
+        }
+    },
+    icon="square",
+    color=resource_color,
+    size=0.96,
+    z_index=0,
+    restore=False,
+)
+@env("main")
+class CommonsView(ModelView):
+    """Expose spatial resources, local behavior and global researcher metrics."""
+
+    regrowth: float
+    rule: str
+
+    @property
+    def regrowth(self) -> float:
+        """Read the environmental regeneration multiplier."""
+        return self.model.config.regrowth
+
+    @regrowth.setter
+    def regrowth(self, value):
+        """Validate changes; the next regeneration event uses the accepted value."""
+        self.model.config = replace(
+            self.model.config, regrowth=probability(value, "regrowth")
+        )
+
+    @property
+    def rule(self) -> str:
+        """Read the scripted baseline strategy; this setting does not affect LLMs."""
+        return self.model.config.rule
+
+    @rule.setter
+    def rule(self, value):
+        """Change the baseline through the same validated configuration constructor."""
+        self.model.config = replace(self.model.config, rule=value)
+
+    @chart("resource", "Remaining resource", color="#15803d")
+    def resource(self):
+        """Track remaining units across the whole grid."""
+        return self.model.metrics()["resource"]
+
+    @chart("harvested", "Cumulative harvest", color="#d97706")
+    def harvested(self):
+        """Track cumulative yield, including agents outside the selected local view."""
+        return self.model.metrics()["harvested"]
+
+    @chart("gini", "Harvest inequality (Gini)", color="#7c3aed")
+    def gini(self):
+        """Track inequality of accumulated harvest rather than current-cell resources."""
+        return self.model.metrics()["gini"]
+
+    @monitor("local_messages", "Recent local messages", render_hint="tree")
+    def messages(self):
+        """Let the researcher inspect all recent messages, beyond agent hearing range."""
+        return self.model.messages
+
+    @monitor("last_event", "Last activation", render_hint="tree")
+    def last_event(self):
+        """Show the last completed activation and its actual harvest gain."""
+        return self.model.last_event

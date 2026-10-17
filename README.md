@@ -302,6 +302,7 @@ TenSnap addresses that systems boundary. A thin binding projects host state and 
 - **[JavaScript Examples](./examples/js/)** - JavaScript/TypeScript examples and local simulator entry points
 - **[Julia Examples](./examples/julia/)** - Julia examples and simulator entry points
 - **[Python Examples](./examples/python/)** - Standard Python examples
+- **[Rule / LLM Examples](./examples/python_llm/)** - Naming game and spatial commons with bounded inference, replay, and shared GUI/CLI workflows
 - **[Mesa Examples](./examples/python_mesa/)** - Mesa-based examples
 - **[Issues](https://github.com/billstark001/tensnap/issues)** - Report bugs or request features
 - **[Discussions](https://github.com/billstark001/tensnap/discussions)** - Ask questions and share ideas
