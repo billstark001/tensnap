@@ -114,6 +114,10 @@ writeFileSync(
       '../../docs/user-guide/agent-runtime.md',
       './skills/tensnap-agent/references/docs/user-guide/agent-runtime.md',
     )
+    .replaceAll(
+      '../../docs/api-reference/recording-storage.md',
+      './skills/tensnap-agent/references/docs/api-reference/recording-storage.md',
+    )
     .replace(
       '../protocol/SPECIFICATION.md',
       './skills/tensnap-agent/references/packages/protocol/SPECIFICATION.md',

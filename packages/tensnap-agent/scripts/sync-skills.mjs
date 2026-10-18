@@ -10,7 +10,11 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../..', import.meta.url));
 const check = process.argv.includes('--check');
 const references = {
-  'tensnap-agent': ['docs/user-guide/agent-runtime.md', 'packages/protocol/SPECIFICATION.md'],
+  'tensnap-agent': [
+    'docs/user-guide/agent-runtime.md',
+    'docs/api-reference/recording-storage.md',
+    'packages/protocol/SPECIFICATION.md',
+  ],
   'tensnap-abm-binding': [
     ...['python', 'go', 'julia', 'js'].map((language) => `docs/api-reference/${language}-api.md`),
     'docs/user-guide/networking.md',

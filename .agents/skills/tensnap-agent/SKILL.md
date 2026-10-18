@@ -20,7 +20,7 @@ Consult the bundled [runtime guide](references/docs/user-guide/agent-runtime.md)
 - You need to connect to a running simulator and inspect the current scene state.
 - You need to trigger one simulator action by id.
 - You need to change parameters from an agent workflow.
-- You need a bounded continuous run with a condition based on time, charts, metadata, parameters, or agent counts.
+- You need a bounded continuous run with a condition based on time, charts, monitors, metadata, parameters, or agent counts.
 - You need an environment render, optionally for a specific viewport.
 - You need a long-lived local runtime instead of a one-shot WebSocket client.
 
@@ -90,7 +90,7 @@ tensnap-agent run stop --context demo
 
 Use `--output-version 1` for versioned JSON stdout; diagnostics go to stderr. Unknown/missing flags and extra positional arguments fail before runtime access. Use `--context-dir`, not `--root-dir`. Exit codes and the full error/settlement contract are in [the runtime guide](references/docs/user-guide/agent-runtime.md).
 
-The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first dispatch and after every `action_result`. It can read `steps`, `time`, metadata, `parameters`, `charts`, `agent(envId, layerId, id)`, and `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
+The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first dispatch and after every `action_result`. It can read `steps`, `time`, metadata, `parameters`, `charts`, `monitors`, `agent(envId, layerId, id)`, and `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
 
 ## Offline recordings and fixed evidence
 
@@ -114,6 +114,16 @@ Manual recording uses `recording start --max-frames <n> --max-bytes <n> --retent
 A frame evidence directory contains a verified manifest, a self-contained single-frame recording, and requested images. Checkpoint policies are `none|if-supported|required`; required capture must prove an unchanged renderer revision and source identity. Historical checkpoints exist only at their original captured boundary. Never attach a current online checkpoint to historical state. Missing checkpoints allow viewing/rendering but fail exact restoration. Restore validates identity/schema, preserves history on model failure, and reports model/history status and state certainty. A complete manifest is committed only after every requested artifact succeeds; failures preserve explicit partial output. Existing evidence directories are never overwritten.
 
 Use the GUI's **File → Open recording** from an empty app; the replay dialog exports full recordings or the current frame. Cursor selection retains the whole timeline. Checkpoint-only models can replace/truncate renderer charts without projected wire time.
+
+## Bounded queries and long collection
+
+Use `scene inspect --query <json>` and `recording inspect <file-or-store> --frame <index> --query <json>` for independent small results. Select typed agents, neighbors, projected x/y cells, monitors, parameters, chart metadata/latest values, layers or metadata; fields are bounded path arrays/JSON Pointers. Cursors belong to the exact source revision/generation. `agent inspect <id>` requires `--env`, `--layer` and `--id-type string|number`; `--output` requests a screenshot. Use `monitor list|get` and `recording monitor-history ... --sampling boundaries|changes` for current values versus recorded history.
+
+`frame diff` and `recording diff` report exact and selected equality independently. Pass explicit object/field/ignore/tolerance policy files; do not invent a diagnostic-field whitelist or treat truncated changes as complete. Checkpoint bytes and model/schema compatibility remain independent constraints. Keep using `frame compare` for its released exact behavior.
+
+For long collection use `run start ... --collection <config.json> --store <new-directory> --wait --until persisted`. Read the bundled [collection/configuration guide](references/docs/user-guide/agent-runtime.md#incremental-collection-stores) for actual supported rules, windows and budgets, and the [storage contract](references/docs/api-reference/recording-storage.md) for ownership and resource guarantees. Full-history never silently becomes rolling; rolling requires an explicit frame budget. Check observed versus committed position, evidence errors, checkpoint availability and partial windows. Wait for persistence before issuing another mutation. A trigger never authorizes extra model/provider calls or retries.
+
+Use offline `recording recover`, `recording recover --rebuild-index`, `recording export-range`, and `recording render-range` for store operations. An interrupted store is read-only; recovery never restarts the model. Existing single-file recordings remain supported with their eager read cost. Browser store links are local to their owner/origin, and do not embed a transferable recording.
 
 ## Rendering
 
