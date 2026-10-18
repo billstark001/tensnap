@@ -300,6 +300,35 @@ describe('RendererClient', () => {
     expect(result.id).toBe('step');
     client.disconnect();
   });
+
+  it.each([false, true])(
+    'can await an action without retaining its message stream (synchronous=%s)',
+    async (synchronous) => {
+      const client = new RendererClient();
+      const transport = synchronousTransport();
+      await client.connect(transport);
+      transport.emitMessage({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
+      let respond: (() => void) | undefined;
+      transport.send = (message) => {
+        if (message.type !== 'action_invoke') return;
+        const requestId = (message.payload as { request_id: string }).request_id;
+        respond = () => {
+          for (let time = 0; time < 100; time++)
+            transport.emitMessage({ type: 'metadata_update', payload: { time } });
+          transport.emitMessage({
+            type: 'action_result',
+            payload: { id: 'step', request_id: requestId },
+          });
+        };
+        if (synchronous) respond();
+      };
+      const { completion } = client.beginAction('step', 1000, { retainMessages: false });
+      if (!synchronous) respond!();
+      expect(await completion).toMatchObject({ result: { id: 'step' }, messages: [] });
+      expect(client.renderer.scenario.time).toBe(99);
+      client.disconnect();
+    },
+  );
 });
 
 it('returns the correlated action result when its render barrier fails', async () => {

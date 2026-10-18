@@ -203,21 +203,27 @@ export class RendererClient {
   beginAction(
     id: string,
     timeoutMs = 30_000,
+    options: { retainMessages?: boolean } = {},
   ): {
     requestId: string;
     completion: Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }>;
   } {
     let requestId: string | undefined;
     let dispatchError: unknown;
-    const completion = this.performAction(id, timeoutMs, () => {
-      try {
-        requestId = this.requestAction(id);
-        return requestId;
-      } catch (error) {
-        dispatchError = error;
-        throw error;
-      }
-    });
+    const completion = this.performAction(
+      id,
+      timeoutMs,
+      () => {
+        try {
+          requestId = this.requestAction(id);
+          return requestId;
+        } catch (error) {
+          dispatchError = error;
+          throw error;
+        }
+      },
+      options.retainMessages ?? true,
+    );
     if (!requestId) {
       void completion.catch(() => {});
       throw dispatchError ?? new Error(`Unable to dispatch action ${id}.`);
@@ -229,6 +235,7 @@ export class RendererClient {
     id: string,
     timeoutMs: number,
     dispatch: () => string,
+    retainMessages: boolean,
   ): Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }> {
     const renderedIds = new Set<string>();
     const renderErrors = new Map<string, string>();
@@ -251,6 +258,7 @@ export class RendererClient {
             : null,
         timeoutMs,
         `action ${id}`,
+        retainMessages,
       );
       const requestId = completed.value.request_id;
       if (!renderedIds.has(requestId)) {
@@ -309,6 +317,7 @@ export class RendererClient {
     ) => { value: T } | { error: Error } | null,
     timeoutMs: number,
     label: string,
+    retainMessages = true,
   ): Promise<{ value: T; messages: SimulatorToRendererMessage[] }> {
     const messages: SimulatorToRendererMessage[] = [];
     const protocolErrors: ErrorPayload[] = [];
@@ -331,7 +340,8 @@ export class RendererClient {
       const onMessage = (event: Event): void => {
         const message = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail
           .message;
-        messages.push(message);
+        // Before dispatch returns, buffer only until the request ID is known.
+        if (retainMessages || requestId === null) messages.push(message);
         decide(message);
       };
       const onDisconnect = (): void => {
@@ -370,6 +380,7 @@ export class RendererClient {
       try {
         requestId = start();
         for (const message of messages) decide(message);
+        if (!retainMessages) messages.length = 0;
         for (const payload of protocolErrors) decideProtocolError(payload);
       } catch (error) {
         cleanup();

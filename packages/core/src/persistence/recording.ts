@@ -1,6 +1,8 @@
 import { omitUndefinedObjectProperties } from './serialization';
 import { z } from 'zod';
-import type { AssetMetadataPayload, AssetDataPayload, EnvLayerCreatePayload, EnvLayerUpdatePayload, ItemCreatePayload, ItemUpdatePayload } from '@tensnap/protocol';
+import { inspectRecording, type RecordingReport } from '../snapshot/recording-report';
+export { inspectRecording, type RecordingReport } from '../snapshot/recording-report';
+import type { AssetDataPayload, MetadataUpdatePayload } from '@tensnap/protocol';
 import { decodeMessagePack, encodeMessagePack, encodeBytesAsDataUrl } from '@tensnap/protocol';
 import {
   decodeSnapshotArchive,
@@ -46,19 +48,6 @@ const RecordingFileSchema = z
     origin: RecordingOriginSchema.optional(),
   })
   .strict();
-export interface RecordingReport {
-  firstFrame: number;
-  lastFrame: number;
-  frameCount: number;
-  keyframeCount: number;
-  byteLength: number;
-  truncated: boolean;
-  missingAssets: string[];
-  externalUrls: string[];
-  resourcesComplete: boolean;
-  legacy: boolean;
-  retention?: Snapshot['metadata']['retention'];
-}
 export interface RecordingDocument {
   snapshot: Snapshot;
   origin?: RecordingOrigin;
@@ -86,11 +75,17 @@ export function validateRecording(snapshot: Snapshot): void {
     previous = frame.index;
   }
   let keyframeIndex = snapshot.initial.frame;
+  let retainedIndex = 0;
   for (const keyframe of snapshot.keyframes) {
+    while (
+      retainedIndex < snapshot.frames.length &&
+      snapshot.frames[retainedIndex].index < keyframe.frame
+    )
+      retainedIndex++;
     if (
       keyframe.frame <= keyframeIndex ||
       keyframe.frame > previous ||
-      !snapshot.frames.some((frame) => frame.index === keyframe.frame)
+      snapshot.frames[retainedIndex]?.index !== keyframe.frame
     )
       throw new Error('Recording keyframes must be ordered and belong to retained frames.');
     keyframeIndex = keyframe.frame;
@@ -106,74 +101,6 @@ export function validateRecording(snapshot: Snapshot): void {
       checkpoint.state_schema_version !== identity.state_schema_version)
   )
     throw new Error('Recording checkpoint identity does not match its model identity.');
-}
-
-function resourceReport(
-  snapshot: Snapshot,
-): Pick<RecordingReport, 'missingAssets' | 'externalUrls' | 'resourcesComplete'> {
-  const available = new Set<string>();
-  const referenced = new Set<string>();
-  const external = new Set<string>();
-  const referencedIds = new Set<string>();
-  const announcedIds = new Set<string>();
-  const visit = (value: unknown): void => {
-    if (typeof value === 'string') {
-      if (/^(https?:|blob:|file:)/.test(value)) external.add(value);
-      if (value.startsWith('asset:')) referencedIds.add(value.slice(6));
-    } else if (Array.isArray(value)) value.forEach(visit);
-    else if (value && typeof value === 'object' && !ArrayBuffer.isView(value)) {
-      const record = value as Record<string, unknown>;
-      if (typeof record.asset_id === 'string') referencedIds.add(record.asset_id);
-      // Item data is model-owned information, not a renderer resource reference.
-      for (const [key, child] of Object.entries(record)) if (key !== 'data') visit(child);
-    }
-  };
-  for (const keyframe of [snapshot.initial, ...snapshot.keyframes]) {
-    for (const asset of keyframe.scenario.assets) {
-      referenced.add(asset.meta.hash);
-      announcedIds.add(asset.meta.id);
-      if (asset.data !== undefined) available.add(asset.meta.hash);
-    }
-    for (const environment of keyframe.scenario.environments) for (const layer of environment.layers) {
-      visit(layer.metadata);
-      // Background storage URLs are derived when metadata already owns its source.
-      if (layer.layerType !== 'background' || layer.metadata.background === undefined) visit(layer.storageSnapshot);
-    }
-  }
-  for (const frame of snapshot.frames)
-    for (const message of frame.messages) {
-      if (message.type === 'asset_metadata')
-        for (const meta of (message.payload as AssetMetadataPayload).assets) {
-          referenced.add(meta.hash); announcedIds.add(meta.id);
-        }
-      if (message.type === 'asset_data') referenced.add((message.payload as AssetDataPayload).hash);
-      if (message.type === 'asset_data' && (message.payload as AssetDataPayload).data !== undefined)
-        available.add((message.payload as AssetDataPayload).hash);
-      if (message.type === 'env_layer_create' || message.type === 'env_layer_update') visit((message.payload as EnvLayerCreatePayload | EnvLayerUpdatePayload).metadata);
-      if (message.type === 'item_create' || message.type === 'item_update') visit((message.payload as ItemCreatePayload | ItemUpdatePayload).items);
-    }
-  const missingAssets = [...[...referenced].filter((hash) => !available.has(hash)), ...[...referencedIds].filter((id) => !announcedIds.has(id)).map((id) => `asset:${id}`)].sort();
-  return {
-    missingAssets,
-    externalUrls: [...external].sort(),
-    resourcesComplete: missingAssets.length === 0 && external.size === 0,
-  };
-}
-
-export function inspectRecording(snapshot: Snapshot, legacy = false): RecordingReport {
-  return {
-    firstFrame: snapshot.initial.frame,
-    lastFrame: snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame,
-    frameCount: snapshot.frames.length,
-    keyframeCount: snapshot.keyframes.length,
-    byteLength: snapshot.byteLength,
-    truncated: snapshot.truncated,
-    legacy,
-    ...(snapshot.metadata.retention
-      ? { retention: structuredClone(snapshot.metadata.retention) }
-      : {}),
-    ...resourceReport(snapshot),
-  };
 }
 
 export function createRecordingFile(
@@ -285,35 +212,47 @@ export function selectRecordingFrame(
   snapshot: Snapshot,
   selection: RecordingSelection,
 ): { frame: number; modelTime?: number } {
-  const indexes = [snapshot.initial.frame, ...snapshot.frames.map((frame) => frame.index)];
   if ('frame' in selection) {
-    if (!indexes.includes(selection.frame))
+    if (
+      selection.frame !== snapshot.initial.frame &&
+      !snapshot.frames.some((frame) => frame.index === selection.frame)
+    )
       throw new Error(`Frame ${selection.frame} is not a retained boundary.`);
     const time = materializeSnapshot(snapshot, selection.frame).metadata.time;
     return { frame: selection.frame, ...(typeof time === 'number' ? { modelTime: time } : {}) };
   }
-  const entries = indexes
-    .map((frame) => ({ frame, modelTime: materializeSnapshot(snapshot, frame).metadata.time }))
-    .filter(
-      (entry): entry is { frame: number; modelTime: number } => typeof entry.modelTime === 'number',
-    );
-  let matches = entries.filter((entry) =>
-    selection.match === 'before'
-      ? entry.modelTime <= selection.time
-      : selection.match === 'after'
-        ? entry.modelTime >= selection.time
-        : entry.modelTime === selection.time,
-  );
-  if (selection.match === 'before' || selection.match === 'after') {
-    const nearest = (selection.match === 'before' ? Math.max : Math.min)(
-      ...matches.map((entry) => entry.modelTime),
-    );
-    matches = matches.filter((entry) => entry.modelTime === nearest);
+  // Time changes only through metadata updates or a stored keyframe. Inspect those
+  // boundaries once, without reconstructing scenes, chart prefixes or asset bytes.
+  let modelTime = snapshot.initial.scenario.metadata.time;
+  let result: { frame: number; modelTime: number } | undefined;
+  const consider = (frame: number): void => {
+    if (typeof modelTime !== 'number') return;
+    if (selection.match === 'before') {
+      if (modelTime <= selection.time && (!result || modelTime >= result.modelTime))
+        result = { frame, modelTime };
+    } else if (selection.match === 'after') {
+      if (modelTime >= selection.time && (!result || modelTime < result.modelTime))
+        result = { frame, modelTime };
+    } else if (modelTime === selection.time && (!result || selection.match === 'last')) {
+      result = { frame, modelTime };
+    }
+  };
+  consider(snapshot.initial.frame);
+  let keyframeIndex = 0;
+  for (const frame of snapshot.frames) {
+    const keyframe = snapshot.keyframes[keyframeIndex];
+    if (keyframe?.frame === frame.index) {
+      modelTime = keyframe.scenario.metadata.time;
+      keyframeIndex++;
+    } else {
+      for (const message of frame.messages) {
+        if (message.type !== 'metadata_update') continue;
+        const payload = message.payload as MetadataUpdatePayload;
+        if (Object.prototype.hasOwnProperty.call(payload, 'time')) modelTime = payload.time;
+      }
+    }
+    consider(frame.index);
   }
-  const result =
-    selection.match === 'first' || selection.match === 'after'
-      ? matches[0]
-      : matches[matches.length - 1];
   if (!result) throw new Error('No retained frame matches the requested model time.');
   return result;
 }

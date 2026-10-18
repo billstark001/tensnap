@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Move layout DTOs and project serialization out of Web; remove migrated internal modules without aliases. Preserve released file/API compatibility only.
 
+### Fixed
+
+- Select model-time boundaries in one pass without reconstructing every scene or spreading large match arrays; validate keyframe membership with an ordered scan.
+- Inspect an active recording without copying its scene/history/asset payload, and allow settlement-only action handles to avoid retaining protocol streams.
+
 ## @tensnap/agent [0.3.5] - 2026-10-18
 
 ### Added

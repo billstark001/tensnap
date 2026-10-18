@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Scenario } from '../scenario';
-import { SnapshotRecorder, createSingleSnapshot, encodeSnapshotArchive } from '../snapshot';
+import {
+  SnapshotRecorder,
+  createSingleSnapshot,
+  encodeSnapshotArchive,
+  materializeSnapshot,
+} from '../snapshot';
 import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile } from './index';
 import {
   createRecordingFile,
@@ -161,11 +166,34 @@ describe('portable persistence', () => {
 
   it('reports missing frame resources and ignores derived background URLs and model data links', () => {
     const snapshot = fixture();
-    snapshot.initial.scenario.environments = [{ id: 'world', type: '2d', layers: [
-      { id: 'background', layerType: 'background', metadata: { background: { asset_id: 'image' } }, dependencyLayerIds: {}, storageSnapshot: { kind: 'image', url: 'blob:derived' } },
-      { id: 'agents', layerType: 'agent', metadata: {}, dependencyLayerIds: {}, storageSnapshot: { agents: [{ id: 'agent', data: { url: 'https://example.org/model-information' } }] } },
-    ] }];
-    snapshot.initial.scenario.assets.push({ meta: { id: 'image', hash: 'hash', mime: 'image/png', size: 1 }, data: Uint8Array.of(1) });
+    snapshot.initial.scenario.environments = [
+      {
+        id: 'world',
+        type: '2d',
+        layers: [
+          {
+            id: 'background',
+            layerType: 'background',
+            metadata: { background: { asset_id: 'image' } },
+            dependencyLayerIds: {},
+            storageSnapshot: { kind: 'image', url: 'blob:derived' },
+          },
+          {
+            id: 'agents',
+            layerType: 'agent',
+            metadata: {},
+            dependencyLayerIds: {},
+            storageSnapshot: {
+              agents: [{ id: 'agent', data: { url: 'https://example.org/model-information' } }],
+            },
+          },
+        ],
+      },
+    ];
+    snapshot.initial.scenario.assets.push({
+      meta: { id: 'image', hash: 'hash', mime: 'image/png', size: 1 },
+      data: Uint8Array.of(1),
+    });
     const file = createRecordingFile(snapshot);
     expect(parseRecordingFile(file).report.resourcesComplete).toBe(true);
     file.assetTable = {};
@@ -190,5 +218,68 @@ describe('portable persistence', () => {
     expect(selectRecordingFrame(snapshot, { time: 7, match: 'before' }).frame).toBe(20);
     expect(selectRecordingFrame(snapshot, { time: 9, match: 'after' }).frame).toBe(30);
     expect(() => selectRecordingFrame(snapshot, { frame: 12 })).toThrow(/retained/);
+  });
+
+  it('matches replay time across keyframes, inherited time and metadata-only updates', () => {
+    const snapshot = fixture();
+    snapshot.frames[2].messages.unshift({ type: 'metadata_update', payload: { label: 'final' } });
+    snapshot.frames.push({
+      index: 4,
+      timestamp: 4,
+      kind: 'control',
+      controls: [],
+      messages: [{ type: 'metadata_update', payload: { label: 'inherited time' } }],
+    });
+    for (const time of [3, 7, 8, 9, 12, 20]) {
+      const entries = [snapshot.initial.frame, ...snapshot.frames.map((frame) => frame.index)].map(
+        (frame) => ({
+          frame,
+          modelTime: materializeSnapshot(snapshot, frame).metadata.time as number,
+        }),
+      );
+      for (const match of ['first', 'last', 'before', 'after'] as const) {
+        let candidates = entries.filter((entry) =>
+          match === 'before'
+            ? entry.modelTime <= time
+            : match === 'after'
+              ? entry.modelTime >= time
+              : entry.modelTime === time,
+        );
+        if (match === 'before' || match === 'after') {
+          const nearest = (match === 'before' ? Math.max : Math.min)(
+            ...candidates.map((entry) => entry.modelTime),
+          );
+          candidates = candidates.filter((entry) => entry.modelTime === nearest);
+        }
+        const expected =
+          match === 'first' || match === 'after'
+            ? candidates[0]
+            : candidates[candidates.length - 1];
+        if (expected) expect(selectRecordingFrame(snapshot, { time, match })).toEqual(expected);
+        else expect(() => selectRecordingFrame(snapshot, { time, match })).toThrow(/No retained/);
+      }
+    }
+  });
+
+  it('selects time in large recordings without replaying scene data or spreading matches', () => {
+    const snapshot = createSingleSnapshot(new Scenario().dump());
+    snapshot.initial.scenario.metadata.time = 8;
+    let reads = 0;
+    const count = 150_000;
+    snapshot.frames = Array.from({ length: count }, (_, index) => ({
+      index: index + 1,
+      timestamp: index,
+      kind: 'action',
+      controls: [],
+      get messages() {
+        if (++reads > count) throw new Error('Repeated history traversal');
+        return [];
+      },
+    }));
+    expect(selectRecordingFrame(snapshot, { time: 9, match: 'before' })).toEqual({
+      frame: count,
+      modelTime: 8,
+    });
+    expect(reads).toBe(count);
   });
 });

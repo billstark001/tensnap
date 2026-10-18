@@ -16,6 +16,7 @@ import type {
 } from './types';
 import { snapshotEncodedByteLength } from './SnapshotArchive';
 import { cloneRecordingOptions } from './recording-options';
+import { inspectRecording, type RecordingReport } from './recording-report';
 
 const DEFAULT_KEYFRAME_EVERY = 120;
 const retainItemDelta = () => true;
@@ -406,6 +407,13 @@ export class SnapshotRecorder {
 
   get current(): Snapshot | null {
     return this.snapshot ? clone(this.snapshot) : null;
+  }
+
+  /** Report retained boundaries/resources without copying scene, history or binary payloads. */
+  inspect(): { id: string; report: RecordingReport } | null {
+    return this.snapshot
+      ? { id: this.snapshot.metadata.id, report: inspectRecording(this.snapshot) }
+      : null;
   }
 
   /** Start a recording only after its options and initial byte budget are valid. */
