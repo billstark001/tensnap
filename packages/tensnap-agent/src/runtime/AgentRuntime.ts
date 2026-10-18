@@ -69,14 +69,12 @@ import {
 import {
   normalizeRenderBackgroundColor,
   RenderBatchError,
-  renderTargetError,
-  type RenderTargetError,
+  renderPainterBatch,
   type RenderArtifact,
   type RenderAssetSource,
   type RenderRequest,
   type ScenePainter,
 } from './painter';
-import { appendImageOutputSuffix } from './image-output';
 
 export interface AgentRuntimeOptions {
   ip_family?: IPFamily;
@@ -823,59 +821,14 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private async runPainters(request: RenderRequest): Promise<RenderArtifact[]> {
-    const artifacts: RenderArtifact[] = [];
-    const errors: RenderTargetError[] = [];
-    const disambiguateOutput = Boolean(
-      request.options.outputPath &&
-      !request.options.envId &&
-      !request.options.chartId &&
-      this.painters.size > 1,
-    );
-    for (const painter of this.painters.values()) {
-      try {
-        const painterRequest = disambiguateOutput
-          ? {
-              ...request,
-              options: {
-                ...request.options,
-                outputPath: appendImageOutputSuffix(
-                  request.options.outputPath!,
-                  painter.id,
-                  request.options.format ?? 'png',
-                ),
-              },
-            }
-          : request;
-        const result = await painter.render(painterRequest);
-        if (result?.length) {
-          artifacts.push(...result);
-        }
-      } catch (error) {
-        if (error instanceof RenderBatchError) {
-          artifacts.push(...error.artifacts);
-          errors.push(...error.errors);
-        } else
-          errors.push(
-            renderTargetError(painter.id, request.options.envId ?? request.options.chartId, error),
-          );
-        const message = error instanceof Error ? error.message : String(error);
-        await this.log('error', 'render', 'Painter render failed.', {
-          painterId: painter.id,
-          error: message,
-        }).catch(() => {});
-        this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
-      }
-    }
-
-    if (!artifacts.length && !errors.length)
-      errors.push({
-        painterId: '*',
-        targetId: request.options.envId ?? request.options.chartId,
-        code: 'render_missing',
-        message: 'No render artifacts were produced.',
-      });
-    if (errors.length) throw new RenderBatchError(artifacts, errors);
-    return artifacts;
+    return renderPainterBatch([...this.painters.values()], request, async (painter, error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.log('error', 'render', 'Painter render failed.', {
+        painterId: painter.id,
+        error: message,
+      }).catch(() => {});
+      this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
+    });
   }
 
   private createRenderRequest(

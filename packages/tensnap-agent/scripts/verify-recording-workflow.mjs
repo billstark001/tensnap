@@ -165,6 +165,21 @@ try {
     png,
   ]);
   assert.deepEqual(await readFile(png), await readFile(join(history, 'environment-main.png')));
+  const batch = await run([
+    'recording',
+    'render',
+    file,
+    '--frame',
+    '3',
+    '--output',
+    join(output, 'all.png'),
+    '--width',
+    '640',
+    '--height',
+    '480',
+  ]);
+  assert.equal(batch.artifacts.length, 2);
+  assert.equal(new Set(batch.artifacts.map((artifact) => artifact.path)).size, 2);
   const report = {
     ok: true,
     model: 'schelling',

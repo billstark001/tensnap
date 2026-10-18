@@ -12,7 +12,7 @@ import {
 import { frameFromRecording } from '@tensnap/core/snapshot';
 import type { SceneRenderOptions } from '../types';
 import { fixedRenderRequest, saveCapturedFrame } from './frame-files';
-import { RenderBatchError, type RenderArtifact, type RenderRequest } from './painter';
+import { renderPainterBatch, type RenderArtifact, type RenderRequest } from './painter';
 
 /** Reads project contents without opening a source or connecting its simulator. */
 export async function readRecording(path: string, snapshotId?: string): Promise<RecordingDocument> {
@@ -46,26 +46,7 @@ export async function renderHistoricalFrame(request: RenderRequest): Promise<Ren
     new HeadlessEnvironmentPainter({ capturesDir: '.' }),
     new HeadlessChartPainter({ capturesDir: '.' }),
   ];
-  const artifacts: RenderArtifact[] = [];
-  const errors: RenderBatchError['errors'] = [];
-  for (const painter of painters) {
-    try {
-      artifacts.push(...((await painter.render(request)) ?? []));
-    } catch (error) {
-      if (error instanceof RenderBatchError) {
-        artifacts.push(...error.artifacts);
-        errors.push(...error.errors);
-      } else errors.push({ painterId: painter.id, code: 'render_failed', message: String(error) });
-    }
-  }
-  if (!artifacts.length && !errors.length)
-    errors.push({
-      painterId: '*',
-      code: 'render_missing',
-      message: 'No render artifacts were produced.',
-    });
-  if (errors.length) throw new RenderBatchError(artifacts, errors);
-  return artifacts;
+  return renderPainterBatch(painters, request);
 }
 
 export async function exportRecordingFrame(

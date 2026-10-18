@@ -650,7 +650,11 @@ export function createProgram(
   const actionRun = action.command('run <action-id>').description('Dispatch one simulator action.');
   addOptions(actionRun, [
     new Option('--wait', 'Wait for action result and host barrier.'),
-    numericOption('--timeout-ms <ms>', 'Wait deadline without cancellation.', 'positive'),
+    numericOption(
+      '--timeout-ms <ms>',
+      'Wait deadline without cancellation; enables --wait.',
+      'positive',
+    ).implies({ wait: true }),
   ]);
   handle(actionRun, async (options, rest) => {
     const [actionId] = rest;
@@ -695,21 +699,25 @@ export function createProgram(
     new Option('--until <phase>', 'Wait phase (default: settled).')
       .choices(['settled', 'persisted'])
       .implies({ wait: true }),
-    numericOption('--timeout-ms <ms>', 'Wait deadline without cancellation.', 'positive'),
+    numericOption(
+      '--timeout-ms <ms>',
+      'Wait deadline without cancellation; enables --wait.',
+      'positive',
+    ).implies({ wait: true }),
   ]);
   runStart.hook('preAction', (_parent, command) => {
     const options = command.optsWithGlobals<CliOptions>();
     if (options.maxActions === undefined && options.maxSteps === undefined) {
       throw new CliInputError('run start requires --max-actions <n> (or --max-steps <n>).');
     }
+    if (options.until === 'persisted' && !options.record)
+      throw new CliInputError('--until persisted requires --record.');
   });
   handle(runStart, async (options, rest) => {
     const [actionId] = rest;
     if (!actionId) throw new CliInputError('Action ID must not be empty.');
     const maxSteps = options.maxActions ?? options.maxSteps;
     const { baseUrl } = await requireRuntime(options);
-    if (options.until === 'persisted' && !options.record)
-      throw new CliInputError('--until persisted requires --record.');
     const accepted = (await requestJson(baseUrl, '/v1/runs', {
       method: 'POST',
       body: JSON.stringify({
