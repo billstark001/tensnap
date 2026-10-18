@@ -46,39 +46,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## @tensnap/agent [0.3.4] - 2026-10-18
 
-### Fixed
-
-- Reject unknown/missing flags, malformed values, extra positional arguments and conflicting options before side effects; validate HTTP request fields before runtime work.
-- Propagate missing targets, empty renders, painter/export errors and output-write failures. Preserve successful artifacts and per-target errors in partial failures.
-- Save run SnapshotArchive files atomically after settlement and expose recording write status/errors by run ID. Shutdown awaits recording writes.
-- Bound pending recording snapshots by rejecting another recorded run before dispatch until the previous recording write finishes; unrecorded runs remain available. Checkpoint a settled scene once and reuse a pending write for the same scene revision, including shutdown.
-- Serialize machine-output responses once instead of stringify/parse/stringify round trips, and preserve malformed upstream error bodies without masking them with a parser exception.
-- Keep the scene cache at its latest revision when asynchronous renders finish out of order, while preserving each image's captured input. Detach the simulator before awaiting final scene persistence; failed writes remain retryable.
-- Preserve successful environment artifacts when another target fails during render-data preparation, with the failing target reported in the partial result.
-- Return owned runtime status fields and capture render viewports/inspection scenes before asynchronous painters run. Inspection renders avoid dumping the unrelated live scene.
-- Capture control, checkpoint, recording and log values before filesystem awaits. Commit chart/environment images through same-directory temporary files and rename, preserving previous complete files on write/commit failure and cleaning temporary output.
-- Report background status/log writes, sync-checkpoint writes and screenshot-response failures through runtime events, without unhandled promise rejections; failed sync persistence retains the committed scene for retry.
-- Capture connection options/defaults before asynchronous status writes and cancel pending connections during both status persistence and handshake. Retired connection attempts cannot attach after disconnect or overwrite a newer operation's phase.
-- Validate nested HTTP recording codec, identity and checkpoint values, and require WebSocket URLs before invoking the runtime; malformed inputs fail before model dispatch.
-- Preserve installed skill content and executable permissions through upgrades, detect local edits and changes during staging, and keep staged copies outside skill discovery. Roll back failed installs without masking secondary failures; retain original backups and a recovery lock when restoration cannot complete.
-- Load native headless painters only when starting a daemon, so CLI help, version queries and skill installation remain usable without the canvas native binary.
-- Normalize generated protocol skill references with the repository formatter so Markdown formatting does not invalidate bundle freshness checks.
-
 ### Added
 
-- Explicit `--output-version 1` JSON envelopes, structured HTTP error preservation, documented exit codes 0/2/3/4/5/6, and acceptance request IDs.
-- `--max-actions` completed-action quota; deprecated public `--max-steps` stays accepted and conflicts with the new spelling.
-- Repeatable built-CLI acceptance script using the local seeded Schelling model.
-- Offline `skills list` and `skills install` commands for the bundled `tensnap-agent` and `tensnap-abm-binding` skills, with stable names, discovery metadata and self-contained API/protocol references matched to the CLI version.
-- Explicit project/user scope and non-interactive installation for Codex, shared Agent Skills directories and Claude Code. Reinstalls leave unchanged copies intact; upgrades use receipts and file hashes, while conflicting content requires explicit replacement with a backup.
-- npm tarball acceptance outside the source checkout, covering isolated user directories, upgrades, conflicts, executable resources, offline installation, recordings and headless rendering, plus the Vercel skills local-bundle installation path.
-- Run agent npm tarball acceptance on Node 22 in the npm publishing workflow before allowing the publish job to proceed.
+- Versioned JSON output with structured errors and documented exit codes, plus the `--max-actions` quota; deprecated `--max-steps` remains accepted.
+- Bundled, version-matched agent skills with offline project/user installation for Codex, Claude Code and shared Agent Skills directories. Preserve local edits and permissions, back up replacements, and roll back failed installs.
 
 ### Changed
 
-- Set the agent CLI's minimum supported Node.js version and build target to Node 22; workspace development retains its existing Node 24 requirement.
-- Replace staged npm package documentation with installation and simulator usage guidance, bundled-skill lifecycle behavior, and Vercel skills instructions for repository and local-bundle sources. Check bundled reference snapshots during builds and validate YAML metadata before packaging.
-- Use [commander](https://www.npmjs.com/package/commander) for CLI parsing and help generation, with explicit `--help` and `--version` handling, consistent error categories, and a shared acceptance script for CLI commands.
+- Use commander for command parsing and generated subcommand help. Validate CLI and HTTP inputs before side effects.
+- Require Node.js 22 or newer. Help, version queries and skill installation work without native canvas binaries.
+
+### Fixed
+
+- Persist recordings atomically after run settlement, bound pending recorded runs, and await recording writes during shutdown.
+- Preserve successful artifacts and structured per-target errors when rendering or persistence partially fails.
+- Own retained inputs and status values, preserve newer scene revisions, and cancel retired simulator connections before they can attach or overwrite current state.
+- Atomically commit scene, status, log and image files, retain previous complete files on failure, and report background persistence and screenshot failures through runtime events.
 
 ## @tensnap/web [0.3.5] - 2026-10-18
 
