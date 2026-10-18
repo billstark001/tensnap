@@ -36,50 +36,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Portable `core/persistence` project/recording codecs, released project migrations, resource closure, strict format/range validation and explicit model-time selection.
-- Owned frame capture, checkpoint/revision association, durable original-frame provenance, frame manifest schemas and independent model/history restoration with local `historyTime`.
-- Correlated action handles and persisted retention-policy reporting; discard initial checkpoints when rolling retention moves the initial boundary.
-- Bounded typed live/historical queries, current monitor conditions, monitor boundary/change history, and structured diffs with explicit object/field selection, ignored paths and numeric tolerances.
-- Incremental recording stores with independent scene/stream baselines, content-addressed assets, atomic committed roots, bounded queues/caches, indexed selection, pinned generations, recovery/index rebuild, streamed range export and asynchronous playback.
-- Action-boundary collection holds, action-error/expression/value-change triggers, cooldown/deduplication budgets, honest pre/post windows and scheduled checkpoint capture for full-history/rolling collection.
+- Portable project/recording codecs and migrations, owned frame/checkpoint capture, durable provenance, explicit frame/model-time selection and independent model/history restore.
+- Bounded typed queries, monitor history and structured diffs with default identity/exact item strategies, per-layer overrides, custom item collections, field selection and numeric tolerances. Report `sceneEqual`, selected equality and checkpoint equality separately.
+- Incremental recording stores with atomic roots, indexed frame/time/request and stream selection, content-addressed assets, bounded queues/caches, pinned readers, recovery/index rebuild, streamed range export and asynchronous playback.
+- Action-boundary collection with error/expression/value-change triggers, cooldown/deduplication, honest pre/post windows and scheduled checkpoints for full-history or rolling retention.
 
 ### Changed
 
-- Move layout DTOs and project serialization out of Web; remove migrated internal modules without aliases. Preserve released file/API compatibility only.
+- Move layout DTOs and project serialization from Web into `core/persistence`; remove obsolete internal modules while retaining released formats and APIs. Wire protocol remains 0.3.
 
 ### Fixed
 
-- Select model-time boundaries in one pass without reconstructing every scene or spreading large match arrays; validate keyframe membership with an ordered scan.
-- Inspect an active recording without copying its scene/history/asset payload, and allow settlement-only action handles to avoid retaining protocol streams.
-- Own frame restore inputs before asynchronous settlement and recheck the target identity before dispatch. Validate checkpoint association without constructing and discarding an encoded scene snapshot.
-- Detach hydrated resource bytes from caller-owned tables once per hash, avoid repeated whole-scene copies inside owned persistence transforms, and capture frame-operation scalar options before waiting while retaining live cancellation signals.
-- Reject recording exports whose explicit origin conflicts with retained provenance.
-- Send only checkpoint encoding/data through strict restore codecs while retaining archive provenance; roll back frames/keyframes/accounting when bounded retention exceeds its transition-frame limit.
-- Index actual chart/log changes and verify their stream chain; skip unchanged prefixes and repeated chart/log scans during batch reads, preserve normalized log timestamps and exported source origins, validate cached baselines once, cap encoded storage before writes and batch rolling garbage collection without reclaiming pinned generations.
-- Reject overlapping capture/restore/sync controls before mutating run state; cancelled boundary captures never resume automatic dispatch. Release retained checkpoint count/byte budgets when rolling boundaries are evicted.
-- Compare finite numeric tolerances without overflow, including opposite values near the largest representable number.
+- Send only checkpoint encoding/data on strict restore; verify checkpoint/source alignment and discard checkpoints outside retained boundaries. Roll back bounded-retention frames, keyframes and accounting together.
+- Own asynchronous frame/options/resource inputs, preserve cancellation and reject conflicting capture/restore/sync controls before changing run state.
+- Avoid whole-recording copies, repeated scene decoding and unchanged chart/log prefix scans. Verify stream chains, enforce encoded storage budgets, protect pinned generations during GC and release rolling checkpoint budgets on eviction.
+- Keep item diff traversal linear and output copying limited to the requested page. Preserve typed identities, sparse-array distinctions and parent-subtree selection; reject duplicate keys and prevent numeric-tolerance overflow.
 
 ## @tensnap/agent [0.3.5] - 2026-10-18
 
 ### Added
 
-- By-ID action/run waits through host settlement and requested recording persistence, with retained outcomes and classified failures.
-- Manual/context recording catalog/export, independent recording files, and daemon-free info/seek/inspect/render/frame export.
-- Fixed-scene evidence directories with verified manifests, checkpoint restore, chart history policies and exact public-scene/opaque-checkpoint comparison. Preserve partial failures and never overwrite existing evidence.
-- Seeded real-model workflow acceptance and published portable-persistence import checks; update bundled offline guidance.
-- Public typed agent/monitor commands, bounded scene/recording queries, monitor history, explicit frame/recording diff policies, collection configuration and offline store recovery/range export/batch rendering.
-- Node recording storage with separate immutable object and rebuildable index databases, exclusive writer leases and generation pins; process-interruption acceptance covers immutable-write and root-publication boundaries.
+- By-ID action/run waits through host settlement and recording persistence, with retained outcomes and classified failures.
+- Recording catalog/export and daemon-free selection, inspection, rendering and fixed-frame evidence with checkpoint restore, provenance and independent scene/checkpoint comparison.
+- Typed agent/monitor commands, historical queries and diffs, collection configuration, offline recovery, range export and batch rendering.
+- SQLite recording stores with separate immutable/derived databases, exclusive writer leases, generation pins and committed-prefix recovery. Bundle matching offline skills and storage/runtime guidance.
 
 ### Fixed
 
-- Avoid full recording copies during live catalog inspection and unused protocol-message retention during daemon action waits; release completed recording-write wait handles.
-- Ignore malformed external recording filenames without failing the catalog. Own/deduplicate evidence render targets and renderer callbacks before asynchronous work, and encode punctuation in target IDs into valid manifest paths.
-- Verify loaded frame checkpoint association without building and discarding another serialized scene snapshot.
-- Detach frame/offline operation options before asynchronous work and return independent action-wait results. Separate callable recording policies from serializable status before starting the recorder.
-- Preserve foreign writes during evidence-directory cleanup and retain original/cleanup errors, completed artifact values and actual partial paths when recovery writes or renames fail.
-- Classify exceptions from custom frame renderers as rendering failures while preserving explicit persistence failures.
-- Include collection persistence in by-ID waits; own startup inputs and reject concurrent mutation/recording during collection admission or collection. Preserve model outcomes alongside evidence failures and partial windows.
-- Close offline store backends on failed opens and preserve original recording provenance through frame export. Reclaim dead writer leases atomically; distinguish live writers, superseded generations and unknown interrupted tails during recovery.
+- Preserve structured request/run IDs on wait timeout or transport failure so callers can resume waiting without repeating actions. Report early daemon exits, bounded stderr diagnostics and startup cleanup errors while retaining the original cause.
+- Preserve partial evidence, original/cleanup errors and foreign files during failed rendering or atomic publication; distinguish rendering and persistence failures.
+- Own asynchronous inputs/results, avoid unused recording/message copies and guard collection admission against concurrent mutation. Include collection closure in persisted waits while preserving model outcomes and partial windows.
+- Close failed offline readers, preserve source provenance, reclaim dead writer leases atomically and distinguish live writers, superseded generations and unknown interrupted tails.
 
 ## @tensnap/web [0.3.6] - 2026-10-18
 

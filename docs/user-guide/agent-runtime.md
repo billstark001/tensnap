@@ -20,6 +20,8 @@ Use `--context-dir <path>` to change the `.tensnap` storage root. Every command 
 
 Commands and command groups provide generated help through `--help` (or `-h`). For example, `tensnap-agent run start --help` works without an action ID or quota, and `tensnap-agent scene --help` lists scene commands. Help does not access the runtime or write files; `--output-version 1` wraps the complete help text in one successful JSON envelope. Global options may appear before or after subcommands; `--context` and `--context-dir` apply to runtime operations and are rejected by skills commands. Use `--` to end option processing when a positional value begins with a dash: `tensnap-agent param set label -- --literal`.
 
+Background `runtime up` detects child exit before readiness and reports its exit code/signal and stderr. The current launch writes `contexts/<context>/logs/daemon.stderr.log`, replacing the previous launch log; versioned failures include `data.phase` (`spawn|exit|readiness`), PID/exit details, `data.stderrPath` and up to 64 KiB of `data.stderrTail`. Diagnostic read/close failures are reported alongside the original startup cause. The launch keeps its own log handle, so replacing or removing the pathname does not substitute another launch's stderr. A process that exits during startup is an execution failure, while a readiness deadline with no observed exit remains unknown. Foreground startup failures close initialized runtime/listener resources. If stderr identifies a missing `canvas.node`, repair or reinstall that installation using the package manager's script-approval mechanism for `canvas`; the CLI does not change package-manager approval settings.
+
 HTTP connection requests require a `ws://` or `wss://` URL. Recording options validate nested codec names, model identity and checkpoint fields before starting a run. Checkpoint bytes in JSON must use base64 or a base64 data URL.
 
 A run is driven by its target action's `should_continue` result. For standard model-builder examples, use the continuous `start` action for bounded runs; the one-shot `step` action can explicitly stop after one result. Model time need not advance on a successful action.
@@ -37,6 +39,8 @@ A run status reports:
 - `stateKnown: false` after action timeout/disconnection while an owned action is in flight. Do not automatically run a recovery comparison against unknown state.
 
 Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run happens to be latest. Core's `run.getRun(id)` and `run.waitForSettled(id, timeoutMs, signal)` use the same identity. The last 100 settled summaries are retained in memory; the active run remains available. Restarting the runtime clears these summaries. Unknown or expired IDs fail immediately. Wait timeout/abort stops the wait only and does not cancel simulator work. CLI `action run --wait`, `run start --wait`, `action wait <request-id>` and `run wait <run-id>` expose these boundaries. `--until persisted` requires a recorded run and also waits for its file commit. Wait endpoints propagate failure categories and preserve their correlated summaries.
+
+For `action run --wait` and `run start --wait`, a wait failure retains the accepted ID even when the HTTP wait times out or disconnects. With `--output-version 1`, the error envelope carries `correlationId` plus `data.requestId` or `data.runId`; existing structured server error details remain in `data`. Resume with `action wait <requestId>` or `run wait <runId>` rather than dispatching again. Separate wait commands and HTTP wait timeout errors also include the requested ID. The wait deadline does not cancel the accepted operation.
 
 `RendererClient.invokeAction()` waits through the matching host barrier. A barrier failure rejects with `ActionRenderError`, which preserves the simulator's correlated `result`. An action result's own `error` remains part of that result.
 
@@ -159,9 +163,32 @@ tensnap-agent recording monitor-history run.store metrics --from 0 --to 40 --sam
 
 Queries return version 1, `found`, `count`, `items`, `truncated`, and the actual `location` (source/revision/frame/time/generation where available). Default page size is 100, maximum 1,000. Pass the returned `cursor` in the same query; a different boundary or selector rejects it. Current monitor values are replace-only. `recording monitor-history` explicitly samples `boundaries` or `changes`, returns actual positions and gaps, and does not interpolate model time. `--after` continues after the returned frame continuation; check the returned source/generation when continuing a store that is still being written.
 
-`frame diff <left-evidence> <right-evidence>` and `recording diff <left> <right> --left-frame <index> --right-frame <index>` accept `--policy <json-file>`, `--limit`, and `--offset`. A policy can select typed `objects`, scene-relative `fields`, ignored paths, and nonnegative finite `absoluteTolerance` / `relativeTolerance`. Numbers match when `abs(a-b) <= absoluteTolerance + relativeTolerance * max(abs(a), abs(b))`. Default tolerances and ignored paths are zero/empty. Entities match by typed identity; arrays within an entity retain their order.
+`frame diff <left-evidence> <right-evidence>` and `recording diff <left> <right> --left-frame <index> --right-frame <index>` accept `--policy <json-file>`, `--limit`, and `--offset`. A policy can select typed `objects`, scene-relative `fields`, ignored paths, and nonnegative finite `absoluteTolerance` / `relativeTolerance`. Numbers match when `abs(a-b) <= absoluteTolerance + relativeTolerance * max(abs(a), abs(b))`. Default tolerances and ignored paths are zero/empty.
 
-Diff reports `exactSceneEqual`, `selectedEqual`, `identityCompatible`, independent opaque `checkpointEqual`, the effective policy, and changes with typed refs, paths, before/after values and selection/ignore/tolerance flags. Pagination never hides the total change counts or a false selected equality; `complete` and `continuation` describe enumeration. Neither identity/schema mismatch nor different checkpoint bytes can be ignored by a scene policy. For example, a model whose diagnostic counter does not rewind may explicitly ignore `["monitors","inference","value","replayed_calls"]`; exact scene equality remains false. Existing `frame compare` keeps its exact comparison behavior.
+Every layer defaults to `"comparison": "identity"`. Agent items match by typed `id`; edges by the ordered typed `(source, target)` pair; trajectory `configs` and `trajectories` each by typed `id`. Numeric and string IDs differ, embedded separators are preserved, and reversing endpoints changes edge identity even when `directed` is false. Environment/layer IDs and named scene collections also match by identity. Only declared item collections disregard their outer order: agent data arrays, trajectory points, trajectory segments, logs and other ordinary arrays remain ordered. Duplicate or malformed identities fail explicitly. Grid/background fields retain their normal structural comparison.
+
+Use `"comparison": "exact"` for position-sensitive scene and item arrays. `layerComparisons` overrides the item strategy for a particular environment/layer while retaining the default elsewhere. For example:
+
+```json
+{
+  "comparison": "identity",
+  "layerComparisons": [{ "environmentId": "main", "layerId": "trails", "comparison": "exact" }]
+}
+```
+
+Custom item layers describe their storage layout in `itemCollections`; no item identity is inferred from an arbitrary array. Each descriptor gives a `layerType`, a storage-relative JSON Pointer or path array, and ordered `keyFields` naming fields whose values are strings or finite numbers. Multiple disjoint collection paths are supported. Built-in keys cannot be redefined; duplicate overrides and overlapping paths reject the policy. For a custom layer storing its items under `storageSnapshot.nested.items`:
+
+```json
+{
+  "itemCollections": [
+    { "layerType": "particles", "path": "/nested/items", "keyFields": ["group", "id"] }
+  ]
+}
+```
+
+Identity-mode item change paths contain the JSON tuple of key values under the declared storage path; exact-mode paths contain array indices. Agent changes carry an agent ref; other item changes carry their environment/layer ref. Selecting a layer includes its agent items; selecting an agent also detects changes when its containing layer or environment is added or removed.
+
+Diff reports `sceneEqual`, `selectedEqual`, `identityCompatible`, independent opaque `checkpointEqual`, the effective policy, and changes with typed refs, paths, before/after values and selection/ignore/tolerance flags. `sceneEqual` uses the chosen identity/exact strategies before selection, ignored paths or tolerances; `selectedEqual` applies those policies and additionally requires compatible model identity/schema and checkpoints. Reordered item collections can therefore be scene-equal in identity mode and unequal in exact mode. Pagination never hides total change counts or a false selected equality; `complete` and `continuation` describe enumeration. For example, a model whose diagnostic counter does not rewind may explicitly ignore `["monitors","inference","value","replayed_calls"]`; `sceneEqual` remains false while `selectedEqual` can be true. Existing `frame compare` keeps its strict comparison behavior.
 
 ## Incremental collection stores
 
