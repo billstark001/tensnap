@@ -60,7 +60,8 @@ export function frameFromRecording(snapshot: Snapshot, frameIndex: number): Capt
   });
 }
 
-export function snapshotFromFrame(frame: CapturedFrame): Snapshot {
+/** Verify checkpoint association without cloning or encoding the projected scene. */
+export function assertFrameCheckpoint(frame: CapturedFrame): void {
   if (
     frame.checkpoint &&
     (frame.consistency !== 'aligned' || frame.checkpointStatus !== 'captured')
@@ -73,6 +74,10 @@ export function snapshotFromFrame(frame: CapturedFrame): Snapshot {
       frame.modelIdentity.state_schema_version !== frame.checkpoint.state_schema_version)
   )
     throw new Error('Frame checkpoint identity does not match its source.');
+}
+
+export function snapshotFromFrame(frame: CapturedFrame): Snapshot {
+  assertFrameCheckpoint(frame);
   const snapshot = createSingleSnapshot(frame.scene, {
     id: frame.id,
     timestamp: frame.capturedAt,

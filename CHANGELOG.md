@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Select model-time boundaries in one pass without reconstructing every scene or spreading large match arrays; validate keyframe membership with an ordered scan.
 - Inspect an active recording without copying its scene/history/asset payload, and allow settlement-only action handles to avoid retaining protocol streams.
+- Own frame restore inputs before asynchronous settlement and recheck the target identity before dispatch. Validate checkpoint association without constructing and discarding an encoded scene snapshot.
 
 ## @tensnap/agent [0.3.5] - 2026-10-18
 

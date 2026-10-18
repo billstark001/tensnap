@@ -890,6 +890,72 @@ describe('RendererSession', () => {
 });
 
 describe('fixed frame capture and renderer-local restore history', () => {
+  it.each([false, true])(
+    'owns restore inputs and rechecks the target after an in-flight action (sourceChanged=%s)',
+    async (sourceChanged) => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const session = new RendererSession({ run: { renderBarrier: { wait: () => gate } } });
+      const sent: RendererToSimulatorMessage[] = [];
+      session.attachTransport(createTransport(sent));
+      announce(session, 'test-instance', ['scene.restore.checkpoint']);
+      const frame = await session.captureFrame();
+      frame.checkpoint = { model_id: 'test-model', encoding: 'raw', data: Uint8Array.of(1) };
+      frame.consistency = 'aligned';
+      frame.checkpointStatus = 'captured';
+      session.scenario.apply({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
+      const requestId = session.run.requestAction('step');
+      const restore = session.restoreFrame(frame, { mode: 'checkpoint' });
+      const rejection = sourceChanged
+        ? expect(restore).rejects.toThrow(/identity\/schema/)
+        : undefined;
+      (frame.checkpoint.data as Uint8Array)[0] = 99;
+      session.handleIncoming({
+        type: 'action_result',
+        payload: { id: 'step', request_id: requestId },
+      });
+      if (sourceChanged) {
+        session.resetSimulatorIdentity();
+        session.handleIncoming({
+          type: 'simulator_info',
+          payload: {
+            protocol_version: '0.3',
+            binding: { name: 'test', version: '1' },
+            model: { id: 'other-model' },
+            instance_id: 'other-instance',
+            capabilities: ['scene.restore.checkpoint'],
+          },
+        });
+      }
+      release();
+      if (sourceChanged) {
+        await rejection;
+        expect(sent.some((message) => message.type === 'scene_restore')).toBe(false);
+      } else {
+        await vi.waitFor(() =>
+          expect(sent.some((message) => message.type === 'scene_restore')).toBe(true),
+        );
+        const request = sent.find((message) => message.type === 'scene_restore')!;
+        expect(
+          Array.from((request.payload as { checkpoint: { data: Uint8Array } }).checkpoint.data),
+        ).toEqual([1]);
+        const restoreId = (request.payload as { request_id: string }).request_id;
+        session.handleIncoming({
+          type: 'scene_restore_begin',
+          payload: { request_id: restoreId, model_id: 'test-model' },
+        });
+        session.handleIncoming({
+          type: 'scene_restore_end',
+          payload: { request_id: restoreId, status: 'ok' },
+        });
+        expect(await restore).toMatchObject({ modelStatus: 'restored' });
+      }
+      session.destroy();
+    },
+  );
+
   it('owns nested monitor data after capture', async () => {
     const session = new RendererSession();
     session.attachTransport(createTransport([]));
@@ -910,23 +976,57 @@ describe('fixed frame capture and renderer-local restore history', () => {
 
   it('pins the scene only after an in-flight barrier and stop lifecycle have settled', async () => {
     let release!: () => void;
-    const gate = new Promise<void>((resolve) => { release = resolve; });
-    const session = new RendererSession({ run: { renderBarrier: { wait: async (_task, result) => { if (result.id === 'start') await gate; } } } });
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const session = new RendererSession({
+      run: {
+        renderBarrier: {
+          wait: async (_task, result) => {
+            if (result.id === 'start') await gate;
+          },
+        },
+      },
+    });
     const sent: RendererToSimulatorMessage[] = [];
-    session.attachTransport(createTransport(sent)); announce(session);
-    session.scenario.apply({ type: 'action_create', payload: { id: 'start', label: 'Start', continuous: true } });
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.scenario.apply({
+      type: 'action_create',
+      payload: { id: 'start', label: 'Start', continuous: true },
+    });
     session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
     session.run.start({ mode: 'bounded', actionId: 'start', maxSteps: 2 });
     let captured = false;
-    const capture = session.captureFrame().then((frame) => { captured = true; return frame; });
+    const capture = session.captureFrame().then((frame) => {
+      captured = true;
+      return frame;
+    });
     const start = sent.find((message) => message.type === 'action_invoke')!;
-    session.handleIncoming({ type: 'action_result', payload: start.payload as import('@tensnap/protocol').ActionResultPayload });
-    await Promise.resolve(); expect(captured).toBe(false);
+    session.handleIncoming({
+      type: 'action_result',
+      payload: start.payload as import('@tensnap/protocol').ActionResultPayload,
+    });
+    await Promise.resolve();
+    expect(captured).toBe(false);
     release();
-    await vi.waitFor(() => expect(sent.some((message) => message.type === 'action_invoke' && (message.payload as { id: string }).id === 'stop')).toBe(true));
-    const stop = sent.find((message) => message.type === 'action_invoke' && (message.payload as { id: string }).id === 'stop')!;
+    await vi.waitFor(() =>
+      expect(
+        sent.some(
+          (message) =>
+            message.type === 'action_invoke' && (message.payload as { id: string }).id === 'stop',
+        ),
+      ).toBe(true),
+    );
+    const stop = sent.find(
+      (message) =>
+        message.type === 'action_invoke' && (message.payload as { id: string }).id === 'stop',
+    )!;
     session.handleIncoming({ type: 'metadata_update', payload: { time: 100 } });
-    session.handleIncoming({ type: 'action_result', payload: stop.payload as import('@tensnap/protocol').ActionResultPayload });
+    session.handleIncoming({
+      type: 'action_result',
+      payload: stop.payload as import('@tensnap/protocol').ActionResultPayload,
+    });
     expect((await capture).scene.metadata.time).toBe(100);
     expect(session.run.status?.settled).toBe(true);
   });

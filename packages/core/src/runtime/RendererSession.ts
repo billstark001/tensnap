@@ -23,7 +23,7 @@ import { RunController, type RunControllerOptions } from './RunController';
 import { applySnapshotFrame, projectedRestoreChangesTopology, SnapshotRecorder } from '../snapshot';
 import type { RecordingOptions, Snapshot, SnapshotFrame, SnapshotModelIdentity } from '../snapshot';
 import type { ChartGroup } from '../chart';
-import { snapshotFromFrame, projectSnapshotForRestore, type CapturedFrame } from '../snapshot';
+import { assertFrameCheckpoint, projectSnapshotForRestore, type CapturedFrame } from '../snapshot';
 import { ActionRunMetrics, type ActionRunMetricSnapshot } from './ActionRunMetrics';
 
 export type RendererMessageOrigin =
@@ -692,24 +692,30 @@ export class RendererSession extends LazyEventTarget {
 
   /** Restore a validated frame; renderer history changes only after a successful model commit. */
   async restoreFrame(
-    frame: CapturedFrame,
+    frameInput: CapturedFrame,
     options: SceneOperationOptions & {
       mode: 'checkpoint' | 'projected';
       chartPolicy?: RestoreChartPolicy;
       historyTime?: number;
     },
   ): Promise<FrameRestoreResult> {
-    snapshotFromFrame(frame); // Validate ownership/association before any dispatch.
-    const identity = this.modelIdentity;
-    if (
-      !identity ||
-      !frame.modelIdentity ||
-      identity.model_id !== frame.modelIdentity.model_id ||
-      identity.state_schema_version !== frame.modelIdentity.state_schema_version
-    )
-      throw new Error(
-        'Frame model identity/schema cannot be verified against the target simulator.',
-      );
+    // Detach inputs before waiting for lifecycle/render settlement.
+    const frame = structuredClone(frameInput);
+    options = { ...options };
+    assertFrameCheckpoint(frame);
+    const assertIdentity = (): void => {
+      const identity = this.modelIdentity;
+      if (
+        !identity ||
+        !frame.modelIdentity ||
+        identity.model_id !== frame.modelIdentity.model_id ||
+        identity.state_schema_version !== frame.modelIdentity.state_schema_version
+      )
+        throw new Error(
+          'Frame model identity/schema cannot be verified against the target simulator.',
+        );
+    };
+    assertIdentity();
     if (options.mode === 'checkpoint' && (!frame.checkpoint || frame.consistency !== 'aligned'))
       throw new Error('An aligned checkpoint is required for exact frame restore.');
     const run = this.run.status;
@@ -718,13 +724,14 @@ export class RendererSession extends LazyEventTarget {
       await this.run.waitForSettled(run.id, options.timeoutMs, options.signal);
     }
     if (this.run.hasInFlightAction) await this.waitForActionBoundary(options);
+    assertIdentity();
     const projected =
       options.mode === 'projected' ? projectSnapshotForRestore(frame.scene) : undefined;
     const payload = options.mode === 'checkpoint' ? { checkpoint: frame.checkpoint! } : projected!;
     const chartPolicy = options.chartPolicy ?? 'replace';
     try {
       const result = await this.restoreScene(
-        { ...payload, state_schema_version: identity.state_schema_version },
+        { ...payload, state_schema_version: frame.modelIdentity!.state_schema_version },
         {
           ...options,
           chartPolicy,
