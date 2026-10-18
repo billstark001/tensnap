@@ -79,3 +79,16 @@ it('selects explicit typed objects without hiding the remaining exact changes', 
     diffCapturedFrames(a, b, { objects: [{ kind: 'monitor', id: 'diagnostic' }] }).selectedEqual,
   ).toBe(false);
 });
+
+it('compares finite numeric extremes without tolerance arithmetic overflowing', () => {
+  const a = frame(),
+    b = frame();
+  a.scene.monitors[0].value = Number.MAX_VALUE;
+  b.scene.monitors[0].value = -Number.MAX_VALUE;
+  expect(diffCapturedFrames(a, b, { relativeTolerance: 1.5 }).selectedEqual).toBe(false);
+  expect(diffCapturedFrames(a, b, { relativeTolerance: 2 }).selectedEqual).toBe(true);
+  expect(
+    diffCapturedFrames(a, b, { absoluteTolerance: Number.MAX_VALUE, relativeTolerance: 0.5 })
+      .selectedEqual,
+  ).toBe(false);
+});

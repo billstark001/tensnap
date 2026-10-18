@@ -141,6 +141,8 @@ export function diffCapturedFrames(
       objectSelected &&
       (fields === undefined || fields.some((p) => prefix(p, path) || prefix(path, p)));
     const ignore = ignored.some((p) => prefix(p, path));
+    const magnitude =
+      typeof a === 'number' && typeof b === 'number' ? Math.max(Math.abs(a), Math.abs(b)) : 0;
     const tolerance =
       hasA &&
       hasB &&
@@ -148,8 +150,10 @@ export function diffCapturedFrames(
       typeof b === 'number' &&
       Number.isFinite(a) &&
       Number.isFinite(b) &&
-      Math.abs(a - b) <=
-        policy.absoluteTolerance + policy.relativeTolerance * Math.max(Math.abs(a), Math.abs(b));
+      // Normalize before subtraction/multiplication so finite extremes cannot become Infinity <= Infinity.
+      (magnitude === 0 ||
+        Math.abs(a / magnitude - b / magnitude) <=
+          policy.absoluteTolerance / magnitude + policy.relativeTolerance);
     if (selected && !ignore && !tolerance) selectedChangeCount++;
     if (changeCount >= offset && changes.length < limit)
       changes.push({
