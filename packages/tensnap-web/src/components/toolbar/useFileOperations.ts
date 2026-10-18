@@ -1,7 +1,8 @@
+import { useSelectRecordingStore } from '@/dialogs/SelectRecordingDialogStore';
 import { useCallback } from 'react';
 import { useFileSystem } from '@/store/file-system/provider';
 import { useWithLoading } from '@/store/loading';
-import { useProjectStore } from '@/store/project';
+import { readRecordingSources, useProjectStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
 import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
 import { useToast } from '@/store/toast';
@@ -11,6 +12,7 @@ export interface FileOperationsContextValue {
   canSaveFile: boolean;
   onNewFile: () => void;
   onFileOpen: () => void;
+  onRecordingOpen: () => void;
   onFileSave: () => void;
   onFileSaveAs: () => void;
 }
@@ -27,6 +29,8 @@ export const useFileOperations = (): FileOperationsContextValue => {
 
   const createNewProject = useProjectStore((store) => store.new);
   const open = useProjectStore((store) => store.open);
+  const openOfflineSnapshot = useProjectStore((store) => store.openOfflineSnapshot);
+  const selectRecording = useSelectRecordingStore((store) => store.invoke);
   const save = useProjectStore((store) => store.save);
 
   const canSaveFile = activeTabId != null;
@@ -67,6 +71,21 @@ export const useFileOperations = (): FileOperationsContextValue => {
     }
   }, [withLoading, openFile, open, toast]);
 
+  const onRecordingOpen = useCallback(async () => {
+    try {
+      const file = await openFile(t`Open recording`);
+      if (!file) return;
+      const { snapshots, layout } = await withLoading(() => readRecordingSources(file.path));
+      if (!snapshots.length) throw new Error(t`The file contains no recordings.`);
+      const id =
+        snapshots.length === 1 ? snapshots[0].metadata.id : await selectRecording({ snapshots });
+      const snapshot = snapshots.find((snapshot) => snapshot.metadata.id === id);
+      if (snapshot) openOfflineSnapshot(snapshot, undefined, snapshot.initial.frame, layout);
+    } catch (error) {
+      toast.error(t`Failed to open recording`, String(error));
+    }
+  }, [openFile, withLoading, selectRecording, openOfflineSnapshot, toast]);
+
   const onFileSaveAs = useCallback(async () => {
     try {
       const extension = saveFormat === 'msgpack' ? 'msgpack' : 'json';
@@ -93,6 +112,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
     canSaveFile,
     onNewFile,
     onFileOpen,
+    onRecordingOpen,
     onFileSave: requiresSaveAs ? onFileSaveAs : onFileSave,
     onFileSaveAs,
   };

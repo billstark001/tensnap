@@ -1,3 +1,10 @@
+import {
+  omitUndefinedObjectProperties,
+  decodePersistenceValue,
+  parseRecordingFile,
+  type ContainerView,
+} from '@tensnap/core/persistence';
+import { createAutoLayout } from '@/utils/view/pack';
 import { archiveProjectFileContentInWorker } from '@/workers/project-archive';
 import { create, StoreApi, UseBoundStore } from 'zustand';
 import { createTransportStore, TransportStore } from './transport';
@@ -9,7 +16,7 @@ import {
   recoverProjectFileContent,
   type ProjectFileContent,
 } from '@tensnap/core/persistence';
-import { decode, encode } from '@msgpack/msgpack';
+import { encode } from '@msgpack/msgpack';
 import { createHistoryStore } from './undo-redo';
 import type { HistoryState } from './history-model';
 import { useSettingsStore } from './settings';
@@ -19,7 +26,7 @@ import {
   type StateSyncInventory,
 } from '@tensnap/core/scenario';
 import {
-  materializeSnapshot,
+  SNAPSHOT_PLAYBACK_ACTIONS,
   SnapshotPlaybackSource,
   type ProjectSource,
   type Snapshot,
@@ -63,39 +70,6 @@ export const projectSourceConnectionId = (source: ProjectSource): string | null 
 export const projectSourceDisplayName = (source: ProjectSource): string =>
   projectSourceConnectionId(source) ??
   (source.kind === 'snapshot' ? `offline:${source.snapshot_id}` : 'offline');
-
-/** Rebase a recording so a snapshot project starts at the frame the user chose. */
-const snapshotSourceFromFrame = (snapshot: Snapshot, frame?: number): Snapshot => {
-  if (frame !== undefined && !Number.isSafeInteger(frame)) {
-    throw new Error('Snapshot frame must be a safe integer.');
-  }
-  const initialFrame =
-    frame ?? snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
-  const bounded = Math.max(
-    snapshot.initial.frame,
-    Math.min(
-      initialFrame,
-      snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame,
-    ),
-  );
-  let selectedFrame = snapshot.initial.frame;
-  let frameTimestamp = snapshot.initial.timestamp;
-  for (const entry of snapshot.frames) {
-    if (entry.index > bounded) break;
-    selectedFrame = entry.index;
-    frameTimestamp = entry.timestamp;
-  }
-  if (selectedFrame === snapshot.initial.frame) return structuredClone(snapshot);
-  const rebased = structuredClone(snapshot);
-  rebased.initial = {
-    frame: selectedFrame,
-    timestamp: frameTimestamp,
-    scenario: materializeSnapshot(snapshot, selectedFrame),
-  };
-  rebased.keyframes = rebased.keyframes.filter((keyframe) => keyframe.frame > selectedFrame);
-  rebased.frames = rebased.frames.filter((entry) => entry.index > selectedFrame);
-  return rebased;
-};
 
 const createProject = (
   source: ProjectSource,
@@ -163,32 +137,6 @@ function startProjectTransport(
     });
 }
 
-/**
- * JSON omits undefined object properties, whereas MessagePack writes them as
- * null. Strip them explicitly so both save formats have the same on-disk
- * shape and continue to satisfy the project schema after a round trip.
- */
-const omitUndefinedObjectProperties = (value: unknown): unknown => {
-  if (value === undefined || value === null || typeof value !== 'object') return value;
-  if (value instanceof Uint8Array || value instanceof ArrayBuffer) return value;
-  if (Array.isArray(value)) {
-    return value.map((item, index) => {
-      if (item === undefined) {
-        throw new Error(`Project data contains an undefined array item at index ${index}.`);
-      }
-      return omitUndefinedObjectProperties(item);
-    });
-  }
-  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
-    return value;
-
-  const result: Record<string, unknown> = Object.create(null);
-  for (const [key, item] of Object.entries(value)) {
-    if (item !== undefined) result[key] = omitUndefinedObjectProperties(item);
-  }
-  return result;
-};
-
 export interface ProjectStore {
   projects: ProjectContextScheme[];
   activeIndex: number | null;
@@ -208,7 +156,12 @@ export interface ProjectStore {
   confirmClose: () => void;
   cancelClose: () => void;
   changeSource: (index: number, source: ProjectSource) => Promise<void>;
-  openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number, frame?: number) => void;
+  openOfflineSnapshot: (
+    snapshot: Snapshot,
+    indexHint?: number,
+    frame?: number,
+    layout?: ContainerView,
+  ) => void;
 }
 
 function projectInsertionIndex(indexHint: number | undefined, count: number): number {
@@ -280,7 +233,22 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const rawContent: unknown =
       typeof fileContent.content === 'string'
         ? JSON.parse(fileContent.content)
-        : decode(new Uint8Array(fileContent.content));
+        : decodePersistenceValue(new Uint8Array(fileContent.content));
+    if (
+      rawContent &&
+      typeof rawContent === 'object' &&
+      'kind' in rawContent &&
+      rawContent.kind === 'tensnap-recording'
+    ) {
+      const document = parseRecordingFile(rawContent);
+      get().openOfflineSnapshot(document.snapshot, indexHint, document.snapshot.initial.frame);
+      return {
+        recovered: false,
+        warnings: document.report.resourcesComplete
+          ? []
+          : ['Recording has unresolved resources or external URL dependencies.'],
+      };
+    }
     let parsedContent: ProjectFileContent;
     let warnings: string[] = [];
     try {
@@ -399,15 +367,47 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     refreshActiveProject();
   },
 
-  openOfflineSnapshot(snapshot, indexHint, frame) {
+  openOfflineSnapshot(snapshot, indexHint, frame, layout) {
     const { projects, setActive } = get();
     const targetIndex = projectInsertionIndex(indexHint, projects.length);
-    const sourceSnapshot = snapshotSourceFromFrame(snapshot, frame);
+    if (frame !== undefined && !Number.isSafeInteger(frame))
+      throw new Error('Snapshot frame must be a safe integer.');
+    const sourceSnapshot = structuredClone(snapshot);
+    if (
+      frame !== undefined &&
+      frame !== snapshot.initial.frame &&
+      !snapshot.frames.some((entry) => entry.index === frame)
+    )
+      throw new Error('Select an actual retained snapshot frame.');
     const identity = sourceSnapshot.metadata.id;
     const source: ProjectSource = { kind: 'snapshot', snapshot_id: identity };
     const project = createProject(source, null, sourceSnapshot.metadata.model_identity);
     project.snapshotPlayback = new SnapshotPlaybackSource(sourceSnapshot);
-    project.useScenarioStore.getState().load(sourceSnapshot.initial.scenario);
+    if (frame !== undefined) project.snapshotPlayback.seek(frame);
+    project.useScenarioStore.getState().load(project.snapshotPlayback.scenario.dump());
+    const scenario = project.useScenarioStore.getState().scenario;
+    project.useScenarioStore.setState({
+      mainView: layout
+        ? structuredClone(layout)
+        : createAutoLayout(
+            undefined,
+            [...scenario.environments.values()].map((env) => ({
+              id: env.id,
+              type: env.type,
+              label: env.id,
+            })),
+            [...scenario.parameters.values()],
+            scenario.charts.getGroupList(),
+            {},
+            SNAPSHOT_PLAYBACK_ACTIONS.map((id) => ({
+              id,
+              label: id,
+              scope: 'model' as const,
+              continuous: id === 'start',
+            })),
+            [...scenario.monitors.all.values()],
+          ),
+    });
     project.useScenarioStore.setState({ snapshots: [sourceSnapshot] });
     const nextProjects = [...projects];
     nextProjects.splice(targetIndex, 0, project);
@@ -526,4 +526,21 @@ function closeProject(
 
   set({ projects: nextProjects, pendingCloseProjectId: null });
   setActive(newActiveIndex);
+}
+
+/** Parse external recordings without opening the source of an enclosing project. */
+export async function readRecordingSources(
+  filepath: string,
+): Promise<{ snapshots: Snapshot[]; layout?: ContainerView }> {
+  const file = await getFileSystemState().readFile(filepath);
+  if (!file?.content) throw new Error(`File not found: ${filepath}`);
+  const raw =
+    typeof file.content === 'string'
+      ? JSON.parse(file.content)
+      : decodePersistenceValue(new Uint8Array(file.content));
+  if (raw && typeof raw === 'object' && 'snapshots' in raw && !('kind' in raw)) {
+    const project = parseProjectFileContent(raw);
+    return { snapshots: project.snapshots, layout: project.mainView };
+  }
+  return { snapshots: [parseRecordingFile(raw, { allowLegacy: true }).snapshot] };
 }

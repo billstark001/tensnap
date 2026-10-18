@@ -1,3 +1,4 @@
+import { SelectRecordingDialogAnchor } from './dialogs/SelectRecordingDialogStore';
 import { PropsWithChildren } from 'react';
 import { I18nProvider } from '@lingui/react';
 import { i18n } from '@/i18n';
@@ -30,6 +31,7 @@ export function Providers({ children }: ProvidersProps) {
     <I18nProvider i18n={i18n}>
       {projectProvider}
       <CreateNewProjectDialogAnchor />
+      <SelectRecordingDialogAnchor />
       <DiscardProjectChangesDialog />
       <ToastAnchor />
     </I18nProvider>

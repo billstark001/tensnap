@@ -13,7 +13,8 @@ export interface MenuBarProps {
 }
 
 export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
-  const { canSaveFile, onNewFile, onFileOpen, onFileSave, onFileSaveAs } = useFileOperations();
+  const { canSaveFile, onNewFile, onFileOpen, onRecordingOpen, onFileSave, onFileSaveAs } =
+    useFileOperations();
 
   const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
@@ -94,6 +95,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
               </DropdownMenu.Item>
               <DropdownMenu.Item className={styles.dropdownItem} onClick={onFileOpen}>
                 <Trans>Open File</Trans>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item className={styles.dropdownItem} onClick={onRecordingOpen}>
+                <Trans>Open recording</Trans>
               </DropdownMenu.Item>
               <DropdownMenu.Item
                 className={styles.dropdownItem}

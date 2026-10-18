@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { useProjectStore } from './project';
+import { useProjectStore, readRecordingSources } from './project';
 import { getFileSystemState } from './file-system/provider';
 import { createSingleSnapshot } from '@tensnap/core/snapshot';
 import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
@@ -7,6 +7,7 @@ import { decode, encode } from '@msgpack/msgpack';
 import {
   archiveProjectFileContent,
   parseProjectFileContent,
+  encodeRecordingFile,
   PROJECT_FILE_VERSION,
   recoverProjectFileContent,
 } from '@tensnap/core/persistence';
@@ -734,6 +735,61 @@ describe('ProjectStore', () => {
     expect(opened.snapshots[0]?.initial.scenario.assets[0]?.data).toBe(asset.data);
   });
 
+  it('extracts recordings from an external online project without opening its source', async () => {
+    const one = createSingleSnapshot(emptyScenario(), { id: 'one' });
+    const two = createSingleSnapshot(emptyScenario(), { id: 'two' });
+    const project = archiveProjectFileContent(
+      {
+        version: 3,
+        source: { kind: 'websocket', url: 'ws://unreachable.invalid:8765' },
+        mainView,
+        scenario: emptyScenario(),
+        snapshots: [one, two],
+      },
+      true,
+    );
+    (getFileSystemState as any).mockReturnValue({
+      readFile: vi.fn().mockResolvedValue({ content: JSON.stringify(project) }),
+    });
+    const result = await readRecordingSources('/external.json');
+    expect(result.snapshots.map((snapshot) => snapshot.metadata.id)).toEqual(['one', 'two']);
+    expect(result.layout).toEqual(mainView);
+    expect(useProjectStore.getState().projects).toHaveLength(0);
+  });
+
+  it('opens a self-contained recording from an empty app at its retained initial frame with playback controls', async () => {
+    const snapshot = createSingleSnapshot(
+      { ...emptyScenario(), metadata: { time: 7 } },
+      { id: 'standalone' },
+    );
+    snapshot.initial.frame = 4;
+    snapshot.frames = [
+      {
+        index: 9,
+        timestamp: 8,
+        kind: 'control',
+        controls: [],
+        messages: [{ type: 'metadata_update', payload: { time: 10 } }],
+      },
+    ];
+    (getFileSystemState as any).mockReturnValue({
+      readFile: vi
+        .fn()
+        .mockResolvedValue({ content: uint8ArrayToArrayBuffer(encodeRecordingFile(snapshot)) }),
+    });
+    await useProjectStore.getState().open('/standalone.recording.json');
+    const project = useProjectStore.getState().activeProject!;
+    expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'standalone' });
+    expect(project.snapshotPlayback?.frame).toBe(4);
+    expect(project.snapshotPlayback?.snapshot.frames).toHaveLength(1);
+    expect(project.useTransportStore.getState().transport).toBeFalsy();
+    const layout = JSON.stringify(project.useScenarioStore.getState().mainView);
+    for (const action of ['start', 'step', 'stop', 'reset'])
+      expect(layout).toContain(`"id":"${action}"`);
+    project.snapshotPlayback!.step();
+    expect(project.snapshotPlayback!.scenario.metadata.time).toBe(10);
+  });
+
   it('persists an offline snapshot as a first-class playback source', async () => {
     const mockWriteFile = vi.fn().mockResolvedValue(undefined);
     (getFileSystemState as any).mockReturnValue({ writeFile: mockWriteFile });
@@ -763,7 +819,7 @@ describe('ProjectStore', () => {
     expect(useProjectStore.getState().projects).toBe(before);
   });
 
-  it('rebases an offline project to the last recorded frame at or before a requested gap', () => {
+  it('moves the offline cursor while retaining the entire timeline', () => {
     const snapshot = createSingleSnapshot(emptyScenario(), { id: 'sparse-frames' });
     snapshot.frames = [1, 5].map((index) => ({
       index,
@@ -773,11 +829,15 @@ describe('ProjectStore', () => {
       kind: 'action' as const,
     }));
 
-    useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 3);
+    useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 1);
     const playback = useProjectStore.getState().activeProject!.snapshotPlayback!;
-    expect(playback.snapshot.initial.frame).toBe(1);
-    expect(playback.snapshot.initial.timestamp).toBe(10);
-    expect(playback.snapshot.frames.map((entry) => entry.index)).toEqual([5]);
+    expect(playback.snapshot.initial.frame).toBe(0);
+    expect(playback.frame).toBe(1);
+    expect(playback.snapshot.initial.timestamp).toBe(snapshot.initial.timestamp);
+    expect(playback.snapshot.frames.map((entry) => entry.index)).toEqual([1, 5]);
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot, undefined, 3)).toThrow(
+      /retained/,
+    );
   });
 
   it('protects the recording used by an active snapshot source', () => {

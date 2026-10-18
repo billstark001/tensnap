@@ -22,7 +22,6 @@ import { getEffectiveViewBox } from './geometry';
 import { assertValidViewTree, iterateViews } from './container';
 import { createDefaultRootLayout } from '@tensnap/core/persistence';
 import {
-  
   createVerticalContainer,
   createButtonViews,
   createParameterViews,
