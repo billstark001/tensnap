@@ -23,6 +23,7 @@ import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { once } from 'node:events';
 import WebSocket from 'ws';
+import type { Page } from 'playwright';
 import {
   createProtocolCodec,
   PROTOCOL_VERSION,
@@ -69,7 +70,6 @@ import {
   type SamplesReference,
 } from './sample-files';
 import { sourcePathspecs } from './source';
-import { Page } from 'playwright';
 
 const EMPTY_BYTES: BenchmarkWireBytes = { rendererToSimulator: 0, simulatorToRenderer: 0 };
 const benchmarkRequire = createRequire(import.meta.url);
@@ -1605,7 +1605,7 @@ function sha256Bytes(value: Uint8Array): string {
  * byte-identical PNGs before accepting the checkpoint.
  */
 export async function captureStableExternalBrowserScreenshot(
-  page: Pick<import('playwright').Page, 'screenshot' | 'waitForTimeout'>,
+  page: Pick<Page, 'screenshot' | 'waitForTimeout'>,
   timeoutMs = 15_000,
   intervalMs = 100,
 ): Promise<Uint8Array> {
