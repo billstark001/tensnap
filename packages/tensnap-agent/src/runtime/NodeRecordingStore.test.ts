@@ -251,3 +251,144 @@ it.each(['objects/', 'segments/', 'index', 'root'])(
     backend.close();
   },
 );
+
+it.each([1, 2, 3, 4, 5, 6])(
+  'survives process termination at immutable write/root stage %i',
+  async (stage) => {
+    const { spawn } = await import('node:child_process');
+    const { once } = await import('node:events');
+    const { createRequire } = await import('node:module');
+    const path = await directory();
+    const child = spawn(
+      process.execPath,
+      [
+        '--import',
+        createRequire(import.meta.url).resolve('tsx'),
+        new URL('./fixtures/store-interruption.ts', import.meta.url).pathname,
+        path,
+        String(stage),
+      ],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    let stderr = '';
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        let output = '';
+        const timer = setTimeout(
+          () => reject(new Error(`Child did not reach fault stage: ${stderr}`)),
+          8000,
+        );
+        child.stdout.on('data', (chunk) => {
+          output += chunk;
+          if (output.includes('interrupt-here')) {
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+        child.once('exit', () => {
+          clearTimeout(timer);
+          reject(new Error(`Unexpected fixture exit: ${stderr}`));
+        });
+      });
+      const exited = once(child, 'exit');
+      child.kill('SIGKILL');
+      await exited;
+      const backend = new NodeRecordingStore(path);
+      const reader = await RecordingStoreReader.open(backend);
+      expect(await reader.recover()).toMatchObject({
+        status: 'interrupted',
+        complete: false,
+        recoverablePrefix: { from: 0, to: 0 },
+      });
+      expect((await reader.readFrame(0)).scene.assets).toEqual([]);
+      await reader.close();
+      backend.close();
+    } finally {
+      if (child.exitCode === null) child.kill('SIGKILL');
+    }
+  },
+  12000,
+);
+
+it('preserves normalized log timestamps when raw simulator events omit their clock', async () => {
+  const backend = new NodeRecordingStore(await directory());
+  const writer = await RecordingStoreWriter.create(backend, { id: 'logs', mode: 'full-history' });
+  const scenario = new Scenario();
+  await writer.append(input(scenario, 0));
+  const messages = [
+    { type: 'log' as const, payload: { message: 'hello' } },
+    { type: 'error' as const, payload: { code: 'probe', message: 'failure' } },
+  ];
+  for (const message of messages) scenario.apply(message);
+  const boundary = input(scenario, 1);
+  boundary.frame.messages.push(...(messages as never[]));
+  const expected = structuredClone([...scenario.logs]);
+  await writer.append(boundary);
+  await writer.close();
+  const reader = await RecordingStoreReader.open(backend);
+  expect((await reader.readFrame(1)).scene.logs).toEqual(expected);
+  await reader.close();
+  backend.close();
+});
+
+it('bounds encoded payload storage before writing a new object and counts metadata separately from heap', async () => {
+  const backend = new NodeRecordingStore(await directory());
+  const scenario = new Scenario();
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'budget',
+    mode: 'full-history',
+    maxStoredBytes: 12000,
+  });
+  await writer.append(input(scenario, 0));
+  let failed = false;
+  for (let frame = 1; frame < 40; frame++) {
+    try {
+      await writer.append(input(scenario, frame));
+    } catch (error) {
+      expect(String(error)).toMatch(/budget/);
+      failed = true;
+      break;
+    }
+  }
+  expect(failed).toBe(true);
+  let bytes = 0;
+  for await (const key of backend.list())
+    if (key !== 'writer') bytes += (await backend.read(key)).length;
+  expect(bytes).toBeLessThanOrEqual(12000);
+  await writer.close().catch(() => {});
+  const reader = await RecordingStoreReader.open(backend);
+  expect((await reader.recover()).complete).toBe(false);
+  await reader.close();
+  backend.close();
+});
+
+it('owns an admitted slow write even when its caller reuses the scene input', async () => {
+  let unblock!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    unblock = resolve;
+  });
+  let blocked = false;
+  const backend = new NodeRecordingStore(await directory(), async () => {
+    if (blocked) await gate;
+  });
+  const writer = await RecordingStoreWriter.create(backend, { id: 'owned', mode: 'full-history' });
+  const scenario = new Scenario();
+  await writer.append(input(scenario, 0));
+  blocked = true;
+  const frame = input(scenario, 1),
+    work = writer.append(frame);
+  frame.scene.metadata.time = 999;
+  unblock();
+  await work;
+  await writer.close();
+  const reader = await RecordingStoreReader.open(backend);
+  expect(
+    (await reader.query(1, { selector: { kind: 'metadata' }, fields: ['/time'] })).items[0]
+      .fields![0].value,
+  ).toBe(1);
+  await reader.close();
+  backend.close();
+});

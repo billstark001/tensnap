@@ -41,7 +41,8 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
   }
   async read(key: string): Promise<Uint8Array> {
     const value = await (await this.open()).get('objects', this.key(key));
-    if (!value) throw new Error(`Missing recording store object: ${key}.`);
+    if (!value)
+      throw Object.assign(new Error(`Missing recording store object: ${key}.`), { code: 'ENOENT' });
     return Uint8Array.from(value);
   }
   async put(key: string, bytes: Uint8Array): Promise<boolean> {
@@ -104,7 +105,7 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     const lower = exact
       ? query.by === 'frame'
         ? key
-        : [this.prefix, query.value, 0]
+        : [this.prefix, query.value, query.firstFrame]
       : query.match === 'after'
         ? key
         : query.by === 'frame'
@@ -113,7 +114,7 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     const upper = exact
       ? query.by === 'frame'
         ? key
-        : [this.prefix, query.value, Number.MAX_SAFE_INTEGER]
+        : [this.prefix, query.value, query.lastFrame]
       : query.match === 'before'
         ? key
         : query.by === 'frame'
