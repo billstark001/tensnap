@@ -10,7 +10,11 @@ import {
   createRunConditionScope,
   type CompiledRunCondition,
 } from './ScenarioConditionScope';
-import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
+import {
+  RendererSession,
+  type RendererSessionCommitDetail,
+  type RendererSessionMessageDetail,
+} from './RendererSession';
 
 const ruleBase = {
   id: z.string().min(1),
@@ -144,6 +148,14 @@ export class RecordingCollection extends EventTarget {
   private activeHistoryFrom = 0;
   private readonly onCommit = (event: Event) =>
     this.commit((event as CustomEvent<RendererSessionCommitDetail>).detail);
+  private readonly onMessage = (event: Event) => {
+    const message = (event as CustomEvent<RendererSessionMessageDetail>).detail.message;
+    if (
+      message.type === 'action_result' &&
+      !this.session.run.matchesActiveAction(message.payload as ActionResultPayload)
+    )
+      this.deduplication.ignoredActionResults++;
+  };
   private readonly onClose = () =>
     this.fail(new Error('Simulator disconnected during collection.'));
   private constructor(
@@ -174,6 +186,7 @@ export class RecordingCollection extends EventTarget {
       await collection.append(initial, [], undefined, []);
       collection.initializeChanges();
       session.addEventListener('commit', collection.onCommit);
+      session.addEventListener('message', collection.onMessage);
       session.addEventListener('transport:close', collection.onClose);
       return collection;
     } catch (error) {
@@ -183,22 +196,29 @@ export class RecordingCollection extends EventTarget {
     }
   }
   get status() {
+    return { ...this.progress, windows: structuredClone(this.windows) };
+  }
+  /** Compact automatic events and retained run summaries do not duplicate every window. */
+  get progress() {
+    const writer = this.writer.status;
+    const windowCounts = { pending: 0, complete: 0, partial: 0 };
+    for (const window of this.windows) windowCounts[window.state]++;
     return structuredClone({
       version: 1,
-      recordingId: this.writer.status.root?.id,
+      recordingId: writer.root?.id,
       observedFrame: this.frame,
-      committedFrame: this.writer.status.committedFrame,
-      pendingBytes: this.writer.status.pendingBytes,
+      committedFrame: writer.committedFrame,
+      pendingBytes: writer.pendingBytes,
       hold: this.pending,
-      backpressure: this.writer.status.backpressure,
+      backpressure: writer.backpressure,
       activeHistoryRange: { from: this.activeHistoryFrom, to: this.frame },
-      retainedRange: this.writer.status.root
-        ? { from: this.writer.status.root.firstFrame, to: this.writer.status.root.lastFrame }
+      retainedRange: writer.root
+        ? { from: writer.root.firstFrame, to: writer.root.lastFrame }
         : undefined,
-      truncated: this.writer.status.root?.truncated,
+      truncated: writer.root?.truncated,
       checkpointTruncated: this.checkpointTruncated,
       deduplication: this.deduplication,
-      windows: this.windows,
+      windowCounts,
       error: this.error,
       state: this.ended
         ? this.error
@@ -241,7 +261,6 @@ export class RecordingCollection extends EventTarget {
     const actionMessage = detail.messages.find((message) => message.type === 'action_result');
     const action = actionMessage?.payload as ActionResultPayload | undefined;
     if (action && !this.session.run.matchesActiveAction(action)) {
-      this.deduplication.ignoredActionResults++;
       return;
     }
     if (this.pending) {
@@ -481,6 +500,7 @@ export class RecordingCollection extends EventTarget {
       await this.chain;
       this.ended = true;
       this.session.removeEventListener('commit', this.onCommit);
+      this.session.removeEventListener('message', this.onMessage);
       this.session.removeEventListener('transport:close', this.onClose);
       for (const window of this.windows)
         if (window.state === 'pending') {
@@ -501,7 +521,10 @@ export class RecordingCollection extends EventTarget {
       });
       if (this.error) throw new Error(this.error);
       return root;
-    })();
+    })().catch((error) => {
+      this.fail(error);
+      throw error;
+    });
     return this.closing;
   }
 }

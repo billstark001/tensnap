@@ -8,6 +8,7 @@ import type {
 
 interface RecordingDatabase extends DBSchema {
   objects: { key: string; value: Uint8Array };
+  streams: { key: [string, number]; value: StoreIndexRow & { prefix: string } };
   boundaries: {
     key: [string, number];
     value: StoreIndexRow & { prefix: string };
@@ -27,8 +28,10 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     this.prefix = JSON.stringify([owner, recordingId]);
   }
   private open() {
-    return (this.database ??= openDB<RecordingDatabase>('tensnap-recording-stores', 1, {
-      upgrade(db) {
+    return (this.database ??= openDB<RecordingDatabase>('tensnap-recording-stores', 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 2) db.createObjectStore('streams');
+        if (oldVersion >= 1) return;
         db.createObjectStore('objects');
         const boundaries = db.createObjectStore('boundaries');
         boundaries.createIndex('time', ['prefix', 'time', 'frame']);
@@ -89,9 +92,11 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     await (await this.open()).delete('objects', this.key(key));
   }
   async putIndex(row: StoreIndexRow) {
-    await (
-      await this.open()
-    ).add('boundaries', { ...row, prefix: this.prefix }, [this.prefix, row.frame]);
+    const tx = (await this.open()).transaction(['boundaries', 'streams'], 'readwrite');
+    const value = { ...row, prefix: this.prefix };
+    await tx.objectStore('boundaries').add(value, [this.prefix, row.frame]);
+    if (row.stream) await tx.objectStore('streams').add(value, [this.prefix, row.frame]);
+    await tx.done;
   }
   async findIndex(query: StoreIndexQuery): Promise<StoreIndexRow | undefined> {
     const tx = (await this.open()).transaction('boundaries');
@@ -152,14 +157,27 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
       next = rows[rows.length - 1].frame + 1;
     }
   }
+  async *streamIndex(firstFrame: number, lastFrame: number): AsyncGenerator<StoreIndexRow> {
+    const db = await this.open();
+    let next = firstFrame;
+    while (next <= lastFrame) {
+      const rows = await db.getAll(
+        'streams',
+        IDBKeyRange.bound([this.prefix, next], [this.prefix, lastFrame]),
+        64,
+      );
+      if (!rows.length) break;
+      for (const row of rows) yield row;
+      next = rows[rows.length - 1].frame + 1;
+    }
+  }
   async pruneIndex(firstFrame: number) {
     if (firstFrame <= 0) return;
-    await (
-      await this.open()
-    ).delete(
-      'boundaries',
-      IDBKeyRange.bound([this.prefix, 0], [this.prefix, firstFrame], false, true),
-    );
+    const range = IDBKeyRange.bound([this.prefix, 0], [this.prefix, firstFrame], false, true);
+    const tx = (await this.open()).transaction(['boundaries', 'streams'], 'readwrite');
+    await tx.objectStore('boundaries').delete(range);
+    await tx.objectStore('streams').delete(range);
+    await tx.done;
   }
   async rebuildIndex(rows: AsyncIterable<StoreIndexRow>) {
     const db = await this.open();
@@ -168,16 +186,15 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     try {
       for await (const row of rows)
         await db.put('boundaries', { ...row, prefix: staging }, [staging, row.frame]);
-      const tx = db.transaction('boundaries', 'readwrite');
-      await tx.store.delete(
-        IDBKeyRange.bound([this.prefix, 0], [this.prefix, Number.MAX_SAFE_INTEGER]),
-      );
-      let cursor = await tx.store.openCursor(stagingRange);
+      const tx = db.transaction(['boundaries', 'streams'], 'readwrite');
+      const range = IDBKeyRange.bound([this.prefix, 0], [this.prefix, Number.MAX_SAFE_INTEGER]);
+      await tx.objectStore('boundaries').delete(range);
+      await tx.objectStore('streams').delete(range);
+      let cursor = await tx.objectStore('boundaries').openCursor(stagingRange);
       while (cursor) {
-        await tx.store.put({ ...cursor.value, prefix: this.prefix }, [
-          this.prefix,
-          cursor.value.frame,
-        ]);
+        const value = { ...cursor.value, prefix: this.prefix };
+        await tx.objectStore('boundaries').put(value, [this.prefix, cursor.value.frame]);
+        if (value.stream) await tx.objectStore('streams').put(value, [this.prefix, value.frame]);
         cursor = await cursor.continue();
       }
       await tx.done;

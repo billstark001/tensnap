@@ -11,7 +11,6 @@ import type {
 } from '@tensnap/core/persistence';
 
 const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
-const exists = (error: unknown) => (error as NodeJS.ErrnoException).code === 'EEXIST';
 function alive(pid: number) {
   try {
     process.kill(pid, 0);
@@ -48,6 +47,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
       const db = new DatabaseSync(join(this.directory, 'index.sqlite'));
       db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-1024; PRAGMA busy_timeout=5000;
         CREATE TABLE IF NOT EXISTS boundaries(frame INTEGER PRIMARY KEY, time REAL, request TEXT, ref BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS streams(frame INTEGER PRIMARY KEY);
         CREATE INDEX IF NOT EXISTS by_time ON boundaries(time, frame);
         CREATE INDEX IF NOT EXISTS by_request ON boundaries(request, frame);`);
       this.indexDatabase = db;
@@ -63,6 +63,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
       row.requestId ?? null,
       encodeMessagePack(row.ref),
     );
+    if (row.stream) db.prepare('INSERT INTO streams(frame) VALUES(?)').run(row.frame);
   }
   private indexRow(row: Record<string, unknown> | undefined): StoreIndexRow | undefined {
     return row
@@ -71,6 +72,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
           time: row.time === null ? undefined : Number(row.time),
           requestId: row.request === null ? undefined : String(row.request),
           ref: decodeMessagePack(row.ref as Uint8Array),
+          stream: row.stream === 1,
         }
       : undefined;
   }
@@ -82,7 +84,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     return this.indexRow(
       db
         .prepare(
-          `SELECT * FROM boundaries WHERE frame BETWEEN ? AND ? AND ${column} ${comparison} ? ORDER BY ${column} ${direction}, frame ${direction} LIMIT 1`,
+          `SELECT boundaries.*, EXISTS(SELECT 1 FROM streams WHERE streams.frame=boundaries.frame) AS stream FROM boundaries WHERE frame BETWEEN ? AND ? AND ${column} ${comparison} ? ORDER BY ${column} ${direction}, frame ${direction} LIMIT 1`,
         )
         .get(query.firstFrame, query.lastFrame, query.value),
     );
@@ -93,7 +95,23 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     let next = firstFrame;
     while (next <= lastFrame) {
       const rows = db
-        .prepare('SELECT * FROM boundaries WHERE frame BETWEEN ? AND ? ORDER BY frame LIMIT 64')
+        .prepare(
+          'SELECT boundaries.*, EXISTS(SELECT 1 FROM streams WHERE streams.frame=boundaries.frame) AS stream FROM boundaries WHERE frame BETWEEN ? AND ? ORDER BY frame LIMIT 64',
+        )
+        .all(next, lastFrame);
+      if (!rows.length) break;
+      for (const row of rows) yield this.indexRow(row)!;
+      next = Number(rows[rows.length - 1].frame) + 1;
+    }
+  }
+  async *streamIndex(firstFrame: number, lastFrame: number): AsyncGenerator<StoreIndexRow> {
+    const db = await this.index();
+    let next = firstFrame;
+    while (next <= lastFrame) {
+      const rows = db
+        .prepare(
+          'SELECT boundaries.*, 1 AS stream FROM streams JOIN boundaries USING(frame) WHERE streams.frame BETWEEN ? AND ? ORDER BY streams.frame LIMIT 64',
+        )
         .all(next, lastFrame);
       if (!rows.length) break;
       for (const row of rows) yield this.indexRow(row)!;
@@ -101,11 +119,13 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     }
   }
   async pruneIndex(firstFrame: number) {
-    (await this.index()).prepare('DELETE FROM boundaries WHERE frame < ?').run(firstFrame);
+    const db = await this.index();
+    db.prepare('DELETE FROM streams WHERE frame < ?').run(firstFrame);
+    db.prepare('DELETE FROM boundaries WHERE frame < ?').run(firstFrame);
   }
   async rebuildIndex(rows: AsyncIterable<StoreIndexRow>) {
     const db = await this.index();
-    db.exec('BEGIN IMMEDIATE; DELETE FROM boundaries;');
+    db.exec('BEGIN IMMEDIATE; DELETE FROM boundaries; DELETE FROM streams;');
     try {
       for await (const row of rows) await this.putIndex(row);
       db.exec('COMMIT');
@@ -131,7 +151,12 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     return join(this.directory, key);
   }
   private isDatabaseKey(key: string) {
-    return key.startsWith('objects/') || key.startsWith('segments/') || key.startsWith('roots/');
+    return (
+      key === 'writer' ||
+      key.startsWith('objects/') ||
+      key.startsWith('segments/') ||
+      key.startsWith('roots/')
+    );
   }
   async read(key: string): Promise<Uint8Array> {
     this.path(key);
@@ -222,23 +247,38 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     }
   }
   async acquireWriter(): Promise<() => Promise<void>> {
-    await mkdir(this.directory, { recursive: true });
+    const db = await this.objects();
     const token = randomUUID();
+    // Reclaiming a dead lease is one SQLite transaction, so two processes cannot
+    // both remove a stale lock and steal the replacement from each other.
+    db.exec('BEGIN IMMEDIATE');
     try {
-      await writeFile(this.path('writer'), JSON.stringify({ pid: process.pid, token }), {
-        flag: 'wx',
-      });
+      const row = db.prepare("SELECT bytes FROM objects WHERE key='writer'").get();
+      if (row) {
+        const owner = decodeMessagePack<{ pid: number; token: string }>(row.bytes as Uint8Array);
+        if (alive(owner.pid)) throw new Error('Recording store already has a writer.');
+      }
+      db.prepare("INSERT OR REPLACE INTO objects(key,bytes) VALUES('writer',?)").run(
+        encodeMessagePack({ pid: process.pid, token }),
+      );
+      db.exec('COMMIT');
     } catch (error) {
-      if (!exists(error)) throw error;
-      const owner = JSON.parse(await readFile(this.path('writer'), 'utf8')) as { pid: number };
-      if (alive(owner.pid)) throw new Error('Recording store already has a writer.');
-      await this.remove('writer');
-      return this.acquireWriter();
+      db.exec('ROLLBACK');
+      throw error;
     }
     return async () => {
-      const owner = JSON.parse(await readFile(this.path('writer'), 'utf8')) as { token: string };
-      if (owner.token !== token) throw new Error('Recording writer ownership changed.');
-      await this.remove('writer');
+      const database = await this.objects();
+      database.exec('BEGIN IMMEDIATE');
+      try {
+        const row = database.prepare("SELECT bytes FROM objects WHERE key='writer'").get();
+        const owner = row && decodeMessagePack<{ token: string }>(row.bytes as Uint8Array);
+        if (owner?.token !== token) throw new Error('Recording writer ownership changed.');
+        database.prepare("DELETE FROM objects WHERE key='writer'").run();
+        database.exec('COMMIT');
+      } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+      }
     };
   }
   async pin(generation: number): Promise<() => Promise<void>> {

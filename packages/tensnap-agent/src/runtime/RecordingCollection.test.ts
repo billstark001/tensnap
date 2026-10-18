@@ -126,6 +126,8 @@ it('collects trigger windows and scheduled aligned checkpoints while bounding li
     await collection.close();
     expect(sent.filter((m) => m.type === 'action_invoke')).toHaveLength(5);
     expect(collection.status.error).toBeUndefined();
+    expect(collection.progress).not.toHaveProperty('windows');
+    expect(collection.progress.deduplication.cooldown).toBe(2);
     expect(session.scenario.charts.getGroup('population')!.data).toHaveLength(2);
     const reader = await RecordingStoreReader.open(backend);
     expect((await reader.readFrame(5)).scene.charts[0].data).toHaveLength(5);
@@ -263,6 +265,72 @@ it('fails explicitly on autonomous updates while a collection boundary is held',
       state: 'failed',
       committedFrame: 0,
       observedFrame: 1,
+    });
+  } finally {
+    backend.close();
+    session.run.reset();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it('ignores duplicate action results during checkpoint holds without invalidating the captured scene', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tensnap-duplicate-result-'));
+  const backend = new NodeRecordingStore(directory);
+  const { session, sent } = harness();
+  session.addEventListener('outbound', (event) => {
+    const message = (event as CustomEvent<{ message: RendererToSimulatorMessage }>).detail.message;
+    if (message.type !== 'scene_capture') return;
+    const last = sent.filter((m) => m.type === 'action_invoke').at(-1);
+    if (last) {
+      const payload = last.payload as ActionInvokePayload;
+      session.handleIncoming({
+        type: 'action_result',
+        payload: { id: payload.id, request_id: payload.request_id },
+      });
+    }
+  });
+  try {
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'duplicates',
+      ...config,
+      modelIdentity: { model_id: 'm' },
+    });
+    const collection = await RecordingCollection.start(session, writer, config);
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 3 });
+    expect((await session.run.waitForSettled(run.id)).completedActions).toBe(3);
+    await collection.close();
+    expect(collection.status).toMatchObject({
+      state: 'complete',
+      observedFrame: 3,
+      committedFrame: 3,
+    });
+  } finally {
+    backend.close();
+    session.run.reset();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it('reports final-manifest failure as failed collection instead of completed evidence', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tensnap-final-root-'));
+  let fail = false;
+  const backend = new NodeRecordingStore(directory, (stage) => {
+    if (fail && stage === 'root') throw new Error('Final root failure');
+  });
+  const { session } = harness();
+  try {
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'final-root',
+      ...config,
+      modelIdentity: { model_id: 'm' },
+    });
+    const collection = await RecordingCollection.start(session, writer, config);
+    fail = true;
+    await expect(collection.close()).rejects.toThrow('Final root failure');
+    expect(collection.progress).toMatchObject({
+      state: 'failed',
+      error: 'Final root failure',
+      committedFrame: 0,
     });
   } finally {
     backend.close();

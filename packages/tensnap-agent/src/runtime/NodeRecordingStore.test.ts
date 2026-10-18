@@ -392,3 +392,126 @@ it('owns an admitted slow write even when its caller reuses the scene input', as
   await reader.close();
   backend.close();
 });
+
+it('rebuilds a lost index database and stops recovery at a missing committed middle segment', async () => {
+  const path = await directory(),
+    backend = new NodeRecordingStore(path);
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'index-loss',
+    mode: 'full-history',
+  });
+  const scenario = new Scenario();
+  for (let i = 0; i < 3; i++) await writer.append(input(scenario, i));
+  await writer.close();
+  backend.close();
+  for (const suffix of ['', '-wal', '-shm'])
+    await rm(join(path, `index.sqlite${suffix}`), { force: true });
+  const { rebuildRecordingStoreIndex } = await import('@tensnap/core/persistence');
+  await rebuildRecordingStoreIndex(backend);
+  let reader = await RecordingStoreReader.open(backend);
+  expect((await reader.recover()).complete).toBe(true);
+  await reader.close();
+  const { decodeMessagePack } = await import('@tensnap/protocol');
+  const descriptor = decodeMessagePack<{ ref: { hash: string } }>(
+    await backend.read('segments/0000000000000001'),
+  );
+  await backend.remove(`objects/${descriptor.ref.hash}`);
+  reader = await RecordingStoreReader.open(backend);
+  expect(await reader.recover()).toMatchObject({
+    complete: false,
+    recoverablePrefix: { from: 0, to: 0 },
+    errors: [{ frame: 1 }],
+  });
+  // The independent end-state remains usable; recovery never calls the damaged history complete.
+  expect((await reader.readFrame(2)).scene.metadata.time).toBe(2);
+  await reader.close();
+  backend.close();
+});
+
+it('rejects an oversized atomic frame while preserving the previous prefix and observed failure position', async () => {
+  const backend = new NodeRecordingStore(await directory());
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'oversized',
+    mode: 'full-history',
+    maxSegmentBytes: 1024,
+  });
+  const scenario = new Scenario();
+  await writer.append(input(scenario, 0));
+  scenario.apply({ type: 'metadata_update', payload: { large: 'x'.repeat(2048) } });
+  await expect(writer.append(input(scenario, 1))).rejects.toThrow(/Atomic frame/);
+  await writer.close().catch(() => {});
+  const reader = await RecordingStoreReader.open(backend);
+  expect(await reader.recover()).toMatchObject({
+    complete: false,
+    committedRange: { from: 0, to: 0 },
+    uncommittedRange: { from: 1, to: 1 },
+  });
+  await reader.close();
+  backend.close();
+});
+
+it('atomically reclaims a dead writer lease under concurrent admission', async () => {
+  const path = await directory(),
+    a = new NodeRecordingStore(path),
+    b = new NodeRecordingStore(path);
+  const { encodeMessagePack } = await import('@tensnap/protocol');
+  await a.put('writer', encodeMessagePack({ pid: 9999999, token: 'dead' }));
+  const outcomes = await Promise.allSettled([a.acquireWriter(), b.acquireWriter()]);
+  expect(outcomes.filter((outcome) => outcome.status === 'fulfilled')).toHaveLength(1);
+  for (const outcome of outcomes) if (outcome.status === 'fulfilled') await outcome.value();
+  a.close();
+  b.close();
+});
+
+it('skips unchanged frame prefixes for complete history reads', async () => {
+  const path = await directory(),
+    backend = new NodeRecordingStore(path);
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'streams',
+    mode: 'full-history',
+  });
+  const scenario = new Scenario();
+  for (let frame = 0; frame < 256; frame++) await writer.append(input(scenario, frame));
+  await writer.close();
+  const reader = await RecordingStoreReader.open(backend, { cacheBytes: 128 });
+  expect((await reader.readFrame(255)).scene.metadata.time).toBe(255);
+  expect(reader.metrics.objectsRead).toBeLessThanOrEqual(3);
+  await reader.close();
+  backend.close();
+});
+
+it('detects a hole in the derived stream index without silently returning incomplete chart history', async () => {
+  const path = await directory(),
+    backend = new NodeRecordingStore(path);
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'stream-gap',
+    mode: 'full-history',
+  });
+  const scenario = new Scenario();
+  scenario.apply({ type: 'chart_create', payload: { id: 'c', label: 'C' } });
+  for (let frame = 0; frame < 30; frame++) {
+    const boundary = input(scenario, frame);
+    if (frame === 10 || frame === 20) {
+      const update = {
+        type: 'chart_update' as const,
+        payload: { updates: [{ id: 'c', time: frame, value: frame }] },
+      };
+      scenario.apply(update);
+      boundary.scene = scenario.dump();
+      boundary.frame.messages.push(update as never);
+    }
+    await writer.append(boundary);
+  }
+  await writer.close();
+  const db = new DatabaseSync(join(path, 'index.sqlite'));
+  db.exec('DELETE FROM streams WHERE frame = 10');
+  db.close();
+  const reader = await RecordingStoreReader.open(backend);
+  await expect(reader.readFrame(29)).rejects.toThrow(/stream index.*gap/);
+  expect(await reader.recover()).toMatchObject({
+    complete: false,
+    recoverablePrefix: { from: 0, to: 9 },
+  });
+  await reader.close();
+  backend.close();
+});

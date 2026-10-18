@@ -41,13 +41,14 @@ export async function readRecordingBoundary(
   path: string,
   selection: RecordingSelection,
   snapshotId?: string,
+  history: 'full' | 'active' = 'full',
 ) {
   selection = { ...selection };
   if (await isRecordingStore(path)) {
     if (snapshotId) throw new ArtifactInputError('--snapshot-id requires a project file.');
     return withRecordingStore(path, async (reader) => {
       const position = await reader.select(selection);
-      return { position, frame: await reader.readFrame(position.frame!) };
+      return { position, frame: await reader.readFrame(position.frame!, { history }) };
     });
   }
   const document = await readRecording(path, snapshotId);
@@ -212,7 +213,12 @@ export async function renderRecordingFrame(
 ) {
   selection = { ...selection };
   options = structuredClone(options);
-  const { frame, position } = await readRecordingBoundary(path, selection, snapshotId);
+  const { frame, position } = await readRecordingBoundary(
+    path,
+    selection,
+    snapshotId,
+    options.envId ? 'active' : 'full',
+  );
   const artifacts = await renderHistoricalFrame(
     fixedRenderRequest(frame.scene, options, 'recording'),
   );

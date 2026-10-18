@@ -1139,7 +1139,9 @@ export function createProgram(
     const { fixedRenderRequest } = await import('./runtime/frame-files');
     let count = 0;
     await withRecordingStore(path, async (reader) => {
-      for await (const captured of reader.range(options.from!, options.to!)) {
+      for await (const captured of reader.range(options.from!, options.to!, {
+        history: options.env ? 'active' : 'full',
+      })) {
         const outputPath = join(options.output!, String(captured.source.frame), 'scene.png');
         await mkdir(join(outputPath, '..'), { recursive: true });
         await renderHistoricalFrame(

@@ -158,7 +158,7 @@ export class AgentRuntime extends EventEmitter {
   private activeCollection?: RecordingCollection;
   private readonly collections = new Map<
     string,
-    { collection?: RecordingCollection; status?: RecordingCollection['status']; path: string }
+    { collection?: RecordingCollection; status?: RecordingCollection['progress']; path: string }
   >();
   private manualRecordingId: string | null = null;
   private readonly actionBoundaryTimes = new Map<
@@ -846,13 +846,13 @@ export class AgentRuntime extends EventEmitter {
     }
     const entry = { collection, path: output } as {
       collection?: RecordingCollection;
-      status?: RecordingCollection['status'];
+      status?: RecordingCollection['progress'];
       path: string;
     };
     this.collections.set(run.id, entry);
     this.recordingResults.set(run.id, { status: 'pending', path: output });
     collection.addEventListener('status', () =>
-      this.emitRuntimeEvent('collection.status', { runId: run.id, ...collection.status }),
+      this.emitRuntimeEvent('collection.status', { runId: run.id, ...collection.progress }),
     );
     const settlement = run.settled
       ? Promise.resolve()
@@ -871,7 +871,7 @@ export class AgentRuntime extends EventEmitter {
       } catch (error) {
         this.recordingResults.set(run.id, { status: 'failed', path: output, error: String(error) });
       } finally {
-        entry.status = collection.status;
+        entry.status = collection.progress;
         entry.collection = undefined;
         if (this.activeCollection === collection) this.activeCollection = undefined;
         backend.close();

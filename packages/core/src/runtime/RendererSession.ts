@@ -1273,6 +1273,21 @@ export class RendererSession extends LazyEventTarget {
     message: SimulatorToRendererMessage,
     origin: RendererMessageOrigin,
   ): void {
+    if (
+      message.type === 'action_result' &&
+      !this.run.matchesActiveAction(message.payload as ActionResultPayload)
+    ) {
+      // Preserve published observation/recording events for autonomous or late results.
+      // They own no new checkpoint revision or correlated source action.
+      this.recorder.recordMessage(message);
+      this.dispatch('message', { message, origin } satisfies RendererSessionMessageDetail);
+      this.dispatch('commit', {
+        revision: this.commitRevision,
+        origin,
+        messages: [message],
+      } satisfies RendererSessionCommitDetail);
+      return;
+    }
     this.scenario.apply(message);
     if (message.type === 'action_result')
       this.lastCommittedActionRequestId = (message.payload as ActionResultPayload).request_id;

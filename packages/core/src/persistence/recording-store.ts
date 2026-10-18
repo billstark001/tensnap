@@ -7,6 +7,7 @@ import {
   SimulatorToRendererMessageSchema,
   RendererToSimulatorMessageSchema,
   ActionResultPayloadSchema,
+  CheckpointSchema,
 } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '../scenario';
 import { queryScenario, type ScenarioQuery, type QueryLocation } from '../scenario/query';
@@ -28,6 +29,7 @@ export interface RecordingStoreBackend {
   putIndex(row: StoreIndexRow): Promise<void>;
   findIndex(query: StoreIndexQuery): Promise<StoreIndexRow | undefined>;
   frameIndex(firstFrame: number, lastFrame: number): AsyncIterable<StoreIndexRow>;
+  streamIndex(firstFrame: number, lastFrame: number): AsyncIterable<StoreIndexRow>;
   pruneIndex(firstFrame: number): Promise<void>;
   rebuildIndex(rows: AsyncIterable<StoreIndexRow>): Promise<void>;
 }
@@ -53,6 +55,7 @@ export interface StoreIndexRow {
   frame: number;
   time?: number;
   requestId?: string;
+  stream?: boolean;
   ref: StoreReference;
 }
 
@@ -155,13 +158,10 @@ const boundarySchema = z
     scene: ScenarioSnapshotSchema,
     stream: referenceSchema,
     previous: referenceSchema.optional(),
-    checkpoint: z
-      .object({
-        model_id: z.string(),
-        state_schema_version: z.string().optional(),
-        encoding: z.string(),
-        data: z.union([z.string(), z.instanceof(Uint8Array)]),
-      })
+    checkpoint: CheckpointSchema.extend({
+      model_id: z.string().min(1),
+      state_schema_version: z.string().optional(),
+    })
       .strict()
       .optional(),
     assets: z.array(z.object({ id: z.string(), ref: referenceSchema }).strict()),
@@ -283,6 +283,7 @@ export interface RecordingStoreOptions {
 export class RecordingStoreWriter {
   private rootValue?: RecordingStoreRoot;
   private tail?: StoreReference;
+  private streamTail?: StoreReference;
   private readonly objects: Objects;
   private readonly options: RecordingStoreOptions;
   private chain: Promise<void> = Promise.resolve();
@@ -431,16 +432,23 @@ export class RecordingStoreWriter {
   }) {
     const scene = input.scene;
     const initial = !this.rootValue;
+    if (!initial && !input.frame && (scene.charts.length || scene.logs.length))
+      throw new Error('Chart/log boundaries require their atomic frame message span.');
     const logCount =
       input.frame?.messages.filter((m) => m.type === 'log' || m.type === 'error').length ?? 0;
-    const stream = await this.objects.put(
-      initial
-        ? { initial: input.initialStreams }
-        : {
-            messages: input.frame?.messages.filter((m) => streamTypes.has(m.type)) ?? [],
-            logs: logCount ? scene.logs.slice(-logCount) : [],
-          },
-    );
+    const streamChanged =
+      initial || logCount > 0 || !!input.frame?.messages.some((m) => streamTypes.has(m.type));
+    const stream = streamChanged
+      ? await this.objects.put(
+          initial
+            ? { initial: input.initialStreams }
+            : {
+                previous: this.streamTail,
+                messages: input.frame?.messages.filter((m) => streamTypes.has(m.type)) ?? [],
+                logs: logCount ? scene.logs.slice(-logCount) : [],
+              },
+        )
+      : this.streamTail!;
     // Current-value monitors and latest chart samples are independently recoverable.
     const compact = {
       ...scene,
@@ -496,6 +504,7 @@ export class RecordingStoreWriter {
         ref: segment,
         time: location.modelTime,
         requestId: location.actionRequestId,
+        stream: streamChanged,
       }),
     );
     await this.backend.putIndex({
@@ -503,6 +512,7 @@ export class RecordingStoreWriter {
       ref: segment,
       time: location.modelTime,
       requestId: location.actionRequestId,
+      stream: streamChanged,
     });
     const generation = this.nextGeneration++;
     let count = (this.rootValue?.count ?? 0) + 1;
@@ -550,6 +560,7 @@ export class RecordingStoreWriter {
       throw new Error('Full recording storage budget exhausted.');
     await this.publish(root);
     this.tail = segment;
+    this.streamTail = stream;
   }
   private async putMetadata(key: string, bytes: Uint8Array) {
     if (
@@ -685,6 +696,12 @@ export class RecordingStoreReader {
     backend: RecordingStoreBackend,
     options: { cacheBytes?: number } = {},
   ): Promise<RecordingStoreReader> {
+    options = { ...options };
+    if (
+      options.cacheBytes !== undefined &&
+      (!Number.isSafeInteger(options.cacheBytes) || options.cacheBytes < 1)
+    )
+      throw new Error('Invalid reader cache budget.');
     const root = rootSchema.parse(decodeMessagePack(await backend.read('root')));
     const release = await backend.pin(root.generation);
     try {
@@ -787,38 +804,51 @@ export class RecordingStoreReader {
     options = { ...options };
     if (options.signal?.aborted) throw new Error('Store read cancelled.');
     const boundary = await this.get(frame);
+    return this.readBoundaryFrame(boundary, frame, options);
+  }
+  private async readBoundaryFrame(
+    boundary: StoredBoundary,
+    frame: number,
+    options: { history?: 'full' | 'active'; signal?: AbortSignal },
+  ): Promise<CapturedFrame> {
+    this.assertOpen();
+    if (options.signal?.aborted) throw new Error('Store read cancelled.');
     let scene = structuredClone(boundary.scene);
     if ((options.history ?? 'full') === 'full') {
       const scenario = new Scenario();
-      scenario.load({ ...scene, charts: [], logs: [] });
       const first = this.root.firstFrame;
-      let expected = first;
-      for await (const entry of this.backend.frameIndex(first, frame)) {
-        if (entry.frame !== expected++) throw new Error('Committed stream index has a gap.');
+      const baseline = frame === first ? boundary : await this.get(first);
+      const initial = await this.objects.get<{
+        initial?: Pick<ScenarioSnapshot, 'charts' | 'logs'>;
+      }>(baseline.stream);
+      scenario.load({
+        ...scenario.dump(),
+        charts:
+          this.root.mode === 'rolling' && this.root.truncated
+            ? baseline.scene.charts
+            : (initial.initial?.charts ?? baseline.scene.charts),
+        logs:
+          this.root.mode === 'rolling' && this.root.truncated
+            ? baseline.scene.logs
+            : (initial.initial?.logs ?? baseline.scene.logs),
+      });
+      let previousStream = baseline.stream;
+      for await (const entry of this.backend.streamIndex(first + 1, frame)) {
         if (options.signal?.aborted) throw new Error('Store read cancelled.');
-        const state = await this.boundary(entry.ref);
+        const state = await this.indexedBoundary(entry);
         const chunk = await this.objects.get<{
-          initial?: Pick<ScenarioSnapshot, 'charts' | 'logs'>;
+          previous?: StoreReference;
           messages?: SnapshotFrame['messages'];
           logs?: ScenarioSnapshot['logs'];
         }>(state.stream);
-        if (chunk.initial) {
-          scenario.load({
-            ...scenario.dump(),
-            charts: chunk.initial.charts,
-            logs: chunk.initial.logs,
-          });
-        } else {
-          // Rolling starts from the independently recoverable stream window baseline.
-          if (entry.frame === this.root.firstFrame && this.root.mode === 'rolling')
-            scenario.load({ ...state.scene, environments: [], assets: [] });
-          else {
-            for (const message of chunk.messages ?? []) scenario.apply(message);
-            for (const log of chunk.logs ?? []) scenario.apply({ type: 'log', payload: log });
-          }
-        }
+        if (chunk.previous?.hash !== previousStream.hash)
+          throw new Error('Committed stream index has a gap.');
+        for (const message of chunk.messages ?? []) scenario.apply(message);
+        for (const log of chunk.logs ?? []) scenario.apply({ type: 'log', payload: log });
+        previousStream = state.stream;
       }
-      if (expected !== frame + 1) throw new Error('Committed stream index is incomplete.');
+      if (previousStream.hash !== boundary.stream.hash)
+        throw new Error('Committed stream index is incomplete.');
       scene = {
         ...scene,
         charts: scenario.charts.dump(),
@@ -830,6 +860,7 @@ export class RecordingStoreReader {
       const target = scene.assets.find((a) => a.meta.id === asset.id);
       if (target) target.data = structuredClone(payload.data);
     }
+    this.assertOpen();
     if (options.signal?.aborted) throw new Error('Store read cancelled.');
     return {
       id: `${this.root.id}:${frame}`,
@@ -855,10 +886,18 @@ export class RecordingStoreReader {
       checkpointStatus: boundary.checkpoint ? 'captured' : 'unavailable',
     };
   }
-  range(from: number, to: number, options: { signal?: AbortSignal } = {}) {
+  range(
+    from: number,
+    to: number,
+    options: { history?: 'full' | 'active'; signal?: AbortSignal } = {},
+  ) {
     return this.readRange(from, to, { ...options });
   }
-  private async *readRange(from: number, to: number, options: { signal?: AbortSignal }) {
+  private async *readRange(
+    from: number,
+    to: number,
+    options: { history?: 'full' | 'active'; signal?: AbortSignal },
+  ) {
     this.assertOpen();
     if (
       !Number.isSafeInteger(from) ||
@@ -871,25 +910,43 @@ export class RecordingStoreReader {
     options = { ...options };
     const streams = new Scenario();
     let expected = from;
+    let previousStreamHash: string | undefined;
     for await (const entry of this.backend.frameIndex(from, to)) {
       if (options.signal?.aborted) throw new Error('Store range cancelled.');
       if (entry.frame !== expected++) throw new Error('Committed range has a gap.');
-      const captured = await this.readFrame(entry.frame, {
-        history: entry.frame === from ? 'full' : 'active',
+      this.assertOpen();
+      const state = await this.indexedBoundary(entry);
+      const captured = await this.readBoundaryFrame(state, entry.frame, {
+        history: options.history === 'active' ? 'active' : entry.frame === from ? 'full' : 'active',
         signal: options.signal,
       });
-      if (entry.frame === from) streams.load({ ...captured.scene, environments: [], assets: [] });
-      else {
-        const boundary = await this.boundary(entry.ref);
+      if (options.history === 'active') {
+        yield captured;
+        continue;
+      }
+      if (entry.frame === from)
+        streams.load({
+          ...captured.scene,
+          environments: [],
+          assets: [],
+          monitors: [],
+          parameters: [],
+          actions: [],
+          metadata: {},
+        });
+      else if (state.stream.hash !== previousStreamHash) {
         const chunk = await this.objects.get<{
           messages?: SnapshotFrame['messages'];
           logs?: ScenarioSnapshot['logs'];
-        }>(boundary.stream);
+        }>(state.stream);
         for (const message of chunk.messages ?? []) streams.apply(message);
         for (const log of chunk.logs ?? []) streams.apply({ type: 'log', payload: log });
+      }
+      if (entry.frame !== from) {
         captured.scene.charts = streams.charts.dump();
         captured.scene.logs = structuredClone([...streams.logs]);
       }
+      previousStreamHash = state.stream.hash;
       yield captured;
     }
     if (expected !== to + 1) throw new Error('Committed range is incomplete.');
@@ -930,9 +987,14 @@ export class RecordingStoreReader {
     )
       throw new Error('Invalid export range.');
     let first = true;
-    for await (const location of this.locations(from, to, signal)) {
-      const boundary = await this.get(location.frame!);
-      const frame = await this.readFrame(location.frame!, {
+    let previousStreamHash: string | undefined;
+    let expected = from;
+    for await (const row of this.backend.frameIndex(from, to)) {
+      this.assertOpen();
+      if (row.frame !== expected++) throw new Error('Committed export range has a gap.');
+      const boundary = await this.indexedBoundary(row);
+      const location = { ...boundary.location, generation: this.root.generation };
+      const frame = await this.readBoundaryFrame(boundary, row.frame, {
         history: first ? 'full' : 'active',
         signal,
       });
@@ -940,6 +1002,7 @@ export class RecordingStoreReader {
         messages?: SnapshotFrame['messages'];
         logs?: ScenarioSnapshot['logs'];
       }>(boundary.stream);
+      const streamChanged = first || boundary.stream.hash !== previousStreamHash;
       await writer.append({
         location,
         timestamp: frame.capturedAt,
@@ -951,14 +1014,19 @@ export class RecordingStoreReader {
           ? {
               ...boundary.frame,
               messages: [
-                ...(stream.messages ?? []),
-                ...(stream.logs ?? []).map((log) => ({ type: 'log' as const, payload: log })),
+                ...(streamChanged ? (stream.messages ?? []) : []),
+                ...(streamChanged ? (stream.logs ?? []) : []).map((log) => ({
+                  type: 'log' as const,
+                  payload: log,
+                })),
               ],
             }
           : undefined,
       });
+      previousStreamHash = boundary.stream.hash;
       first = false;
     }
+    if (expected !== to + 1) throw new Error('Committed export range is incomplete.');
   }
 
   async summary(): Promise<unknown> {
@@ -979,25 +1047,44 @@ export class RecordingStoreReader {
     }
   }
   async recover() {
+    this.assertOpen();
     const errors: Array<{ frame?: number; reason: string }> = [];
     let lastFrame: number | undefined;
     let previous: StoreReference | undefined;
     let count = 0;
+    const streamRows = this.backend
+      .streamIndex(this.root.firstFrame, this.root.lastFrame)
+      [Symbol.asyncIterator]();
+    let nextStream: IteratorResult<StoreIndexRow> = { done: true, value: undefined };
+    let previousStreamHash: string | undefined;
     try {
+      nextStream = await streamRows.next();
       let expected = this.root.firstFrame;
       for await (const entry of this.backend.frameIndex(
         this.root.firstFrame,
         this.root.lastFrame,
       )) {
         try {
-          const state = await this.boundary(entry.ref);
+          const state = await this.indexedBoundary(entry);
           if (
+            (count === 0 && entry.ref.hash !== this.rootValue.streamStart.hash) ||
             entry.frame !== expected++ ||
             state.location.frame !== entry.frame ||
             (previous && state.previous?.hash !== previous.hash)
           )
             throw new Error('Committed index/segment chain has a gap.');
-          await this.objects.get(state.stream);
+          const chunk = await this.objects.get<{ previous?: StoreReference }>(state.stream);
+          const changed =
+            previousStreamHash !== undefined && previousStreamHash !== state.stream.hash;
+          if (changed && chunk.previous?.hash !== previousStreamHash)
+            throw new Error('Committed stream chain has a gap.');
+          if (!nextStream.done && nextStream.value.frame === entry.frame) {
+            if (nextStream.value.ref.hash !== entry.ref.hash || (count > 0 && !changed))
+              throw new Error('Derived stream index disagrees with committed history.');
+            nextStream = await streamRows.next();
+          } else if (changed || (count === 0 && this.root.mode === 'full-history'))
+            throw new Error('Derived stream index is incomplete; rebuild the index.');
+          previousStreamHash = state.stream.hash;
           for (const asset of state.assets) await this.objects.get(asset.ref);
           lastFrame = state.location.frame;
           previous = entry.ref;
@@ -1009,12 +1096,15 @@ export class RecordingStoreReader {
       }
     } catch (error) {
       errors.push({ reason: `index: ${String(error)}` });
+    } finally {
+      await streamRows.return?.();
     }
     if (
       !errors.length &&
       (lastFrame !== this.root.lastFrame ||
         previous?.hash !== this.root.lastSegment.hash ||
-        count !== this.root.count)
+        count !== this.root.count ||
+        !nextStream.done)
     )
       errors.push({
         reason: 'Committed index is incomplete; rebuild it from immutable segment descriptors.',
@@ -1053,6 +1143,7 @@ export async function rebuildRecordingStoreIndex(backend: RecordingStoreBackend)
     async function* rows(): AsyncGenerator<StoreIndexRow> {
       let expected = root.firstFrame;
       let previous: StoreReference | undefined;
+      let previousStreamHash: string | undefined;
       for await (const key of backend.list('segments/')) {
         const frame = Number(key.slice(9));
         if (frame < root.firstFrame || frame > root.lastFrame) continue;
@@ -1065,13 +1156,22 @@ export async function rebuildRecordingStoreIndex(backend: RecordingStoreBackend)
           (previous && state.previous?.hash !== previous.hash)
         )
           throw new Error('Committed segment chain is corrupt.');
-        await objects.get(state.stream);
+        const chunk = await objects.get<{ previous?: StoreReference }>(state.stream);
+        if (
+          previousStreamHash !== undefined &&
+          previousStreamHash !== state.stream.hash &&
+          chunk.previous?.hash !== previousStreamHash
+        )
+          throw new Error('Committed stream chain is corrupt.');
+        const streamChanged = previousStreamHash !== state.stream.hash;
+        previousStreamHash = state.stream.hash;
         for (const asset of state.assets) await objects.get(asset.ref);
         previous = row.ref;
         yield {
           frame,
           time: state.location.modelTime,
           requestId: state.location.actionRequestId,
+          stream: streamChanged,
           ref: row.ref,
         };
       }
