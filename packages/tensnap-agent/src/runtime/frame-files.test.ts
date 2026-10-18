@@ -115,3 +115,27 @@ it('preserves partial output without a successful manifest after a required rend
     JSON.parse(await readFile(join(error!.partialDirectory, 'failure.json'), 'utf8')).status,
   ).toBe('failed');
 });
+
+it('owns and deduplicates render targets and supports punctuation in public IDs', async () => {
+  const envIds = ["world!'()*", "world!'()*"];
+  let calls = 0;
+  const options: NonNullable<Parameters<typeof saveCapturedFrame>[2]> = {
+    envIds,
+    chartIds: ['chart'],
+    render: async () => {
+      calls++;
+      envIds.push('added-during-render');
+      options.render = async () => {
+        throw new Error('Changed renderer');
+      };
+      return [{ painterId: 'fixture', kind: 'environment', data: Uint8Array.of(1) }];
+    },
+  };
+  const result = await saveCapturedFrame(fixture(), join(await root(), 'punctuation'), options);
+  expect(calls).toBe(2);
+  expect(result.manifest.artifacts).toMatchObject([
+    { path: 'environment-world%21%27%28%29%2A.png' },
+    { path: 'chart-chart.png' },
+  ]);
+  expect((await readCapturedFrame(result.directory)).manifest).toEqual(result.manifest);
+});

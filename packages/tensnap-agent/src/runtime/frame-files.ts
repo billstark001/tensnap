@@ -9,7 +9,12 @@ import {
   FrameManifestSchema,
   type FrameManifest,
 } from '@tensnap/core/persistence';
-import { frameFromRecording, snapshotFromFrame, type CapturedFrame } from '@tensnap/core/snapshot';
+import {
+  assertFrameCheckpoint,
+  frameFromRecording,
+  snapshotFromFrame,
+  type CapturedFrame,
+} from '@tensnap/core/snapshot';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from '../types';
 import { RenderBatchError, type RenderArtifact, type RenderRequest } from './painter';
@@ -73,6 +78,9 @@ export async function saveCapturedFrame(
   // Own everything before filesystem/render awaits.
   const frame = structuredClone(frameInput);
   const settings = structuredClone(options.renderOptions ?? {});
+  const envIds = [...new Set(options.envIds ?? [])];
+  const chartIds = [...new Set(options.chartIds ?? [])];
+  const render = options.render;
   const state = encodeRecordingFile(snapshotFromFrame(frame), {
     origin:
       frame.source.kind === 'recording'
@@ -94,11 +102,11 @@ export async function saveCapturedFrame(
     await writeFile(join(temporary, 'state.recording.json'), state);
     const saved: FrameManifest['artifacts'] = [];
     for (const [kind, ids] of [
-      ['environment', options.envIds ?? []],
-      ['chart', options.chartIds ?? []],
+      ['environment', envIds],
+      ['chart', chartIds],
     ] as const) {
       for (const id of ids) {
-        if (!options.render)
+        if (!render)
           throw new RenderBatchError(
             [],
             [
@@ -116,7 +124,7 @@ export async function saveCapturedFrame(
           persist: false,
           includeData: true,
         });
-        const batch = await options.render(request);
+        const batch = await render(request);
         if (!batch.length || batch.some((artifact) => !artifact.data?.length))
           throw new RenderBatchError(batch, [
             {
@@ -125,8 +133,12 @@ export async function saveCapturedFrame(
               message: `Renderer produced no image bytes for ${kind} ${id}.`,
             },
           ]);
+        const encodedId = encodeURIComponent(id).replace(
+          /[!'()*]/g,
+          (character) => '%' + character.charCodeAt(0).toString(16).toUpperCase(),
+        );
         for (const artifact of batch) {
-          const path = `${kind}-${encodeURIComponent(id)}${batch.length > 1 ? '-' + saved.length : ''}.${settings.format === 'jpeg' ? 'jpeg' : 'png'}`;
+          const path = `${kind}-${encodedId}${batch.length > 1 ? '-' + saved.length : ''}.${settings.format === 'jpeg' ? 'jpeg' : 'png'}`;
           await writeFile(join(temporary, path), artifact.data!);
           artifacts.push({ ...artifact, path });
           saved.push({
@@ -238,7 +250,7 @@ export async function readCapturedFrame(
     });
     if (!!frame.checkpoint !== (manifest.checkpointStatus === 'captured'))
       throw new Error('Frame checkpoint availability does not match its manifest.');
-    snapshotFromFrame(frame);
+    assertFrameCheckpoint(frame);
     return { frame, manifest };
   } catch (error) {
     if (isFileSystemFailure(error)) throw error;

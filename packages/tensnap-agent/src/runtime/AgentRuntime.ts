@@ -529,7 +529,9 @@ export class AgentRuntime extends EventEmitter {
   /** Dispatch once; the completion is retained independently of subsequent runs. */
   async runAction(id: string): Promise<string> {
     this.assertConnected();
-    const { requestId, completion } = this.client.beginAction(id);
+    const { requestId, completion } = this.client.beginAction(id, 30_000, {
+      retainMessages: false,
+    });
     const timeBefore = this.actionBoundaryTimes.get(requestId)?.timeBefore;
     this.actionResults.set(requestId, {
       requestId,
@@ -701,7 +703,14 @@ export class AgentRuntime extends EventEmitter {
     }
     for (const name of files.filter((file) => file.endsWith('.tensnap-recording.json'))) {
       const path = join(this.context.recordingsDir, name);
-      const id = decodeURIComponent(name.slice(0, -'.tensnap-recording.json'.length));
+      const encodedId = name.slice(0, -'.tensnap-recording.json'.length);
+      let id: string;
+      try {
+        id = decodeURIComponent(encodedId);
+      } catch {
+        // A malformed external filename must not hide the rest of the catalog.
+        continue;
+      }
       if (this.recordingEntries.has(id)) continue;
       try {
         const document = decodeRecordingFile(await readFile(path));
@@ -710,10 +719,10 @@ export class AgentRuntime extends EventEmitter {
         this.recordingEntries.set(id, { id, status: 'failed', path, error: String(error) });
       }
     }
-    const active = this.renderer.recorder.current;
+    const active = this.renderer.recorder.inspect();
     if (active) {
-      const entry = this.recordingEntries.get(active.metadata.id);
-      if (entry) entry.report = inspectRecording(active);
+      const entry = this.recordingEntries.get(active.id);
+      if (entry) entry.report = active.report;
     }
     return structuredClone([...this.recordingEntries.values()]);
   }
@@ -932,7 +941,12 @@ export class AgentRuntime extends EventEmitter {
         });
       this.recordingCompletionByRun.set(runId ?? id, write);
       this.recordingWrites.add(write);
-      void write.finally(() => this.recordingWrites.delete(write));
+      void write.finally(() => {
+        this.recordingWrites.delete(write);
+        const key = runId ?? id;
+        if (this.recordingCompletionByRun.get(key) === write)
+          this.recordingCompletionByRun.delete(key);
+      });
     });
     this.renderer.addEventListener('transport:open', () => {
       this.setPhase('open');

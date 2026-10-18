@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed-scene evidence directories with verified manifests, checkpoint restore, chart history policies and exact public-scene/opaque-checkpoint comparison. Preserve partial failures and never overwrite existing evidence.
 - Seeded real-model workflow acceptance and published portable-persistence import checks; update bundled offline guidance.
 
+### Fixed
+
+- Avoid full recording copies during live catalog inspection and unused protocol-message retention during daemon action waits; release completed recording-write wait handles.
+- Ignore malformed external recording filenames without failing the catalog. Own/deduplicate evidence render targets and renderer callbacks before asynchronous work, and encode punctuation in target IDs into valid manifest paths.
+- Verify loaded frame checkpoint association without building and discarding another serialized scene snapshot.
+
 ## @tensnap/web [0.3.6] - 2026-10-18
 
 ### Added

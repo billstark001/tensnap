@@ -24,8 +24,8 @@ The final release/documentation commit includes this record, the dated version t
 
 | Checks | Outcome |
 | --- | --- |
-| Core full Vitest suite | 577 passed in the final full run, including the rolling-checkpoint regression |
-| Agent full Vitest suite | 359 passed |
+| Core full Vitest suite | 583 passed after the performance/stability review, including rolling checkpoint, large recording selection and restore-wait regressions |
+| Agent full Vitest suite | 361 passed |
 | Web full Vitest suite | 214 passed |
 | Core, agent, Web, Tauri TypeScript | Passed |
 | Core, agent and Web production builds | Passed |
@@ -36,6 +36,18 @@ The final release/documentation commit includes this record, the dated version t
 | Seeded real Schelling CLI workflow | Passed, including multi-target output path separation |
 
 The tarball test installs actual locally packed dependencies outside the checkout. The persistence probe imports without `window`, Web aliases or a Web tsconfig. It tests both recording and existing project round trips from published artifacts, followed by installed CLI sync, bounded recording, headless PNG and shutdown.
+
+### Performance and stability follow-up
+
+The follow-up review fixes model-time selection that previously materialized every historical scene and spread all matching times into a function call. Selection now scans metadata and keyframe boundaries once; keyframe membership validation also uses an ordered scan. Sparse boundaries, missing/inherited time, repeated/backward time and nearest-time tie rules retain their original meaning. A 150,000-frame regression guards against repeated history traversal and large argument lists.
+
+Live catalog inspection returns owned summaries without cloning retained scene/history/asset payloads. Resource inspection still scans retained references; it is not a constant-time catalog index. Daemon action waits opt out of unused message-stream retention, and completed recording-write promises are released. Malformed percent escapes in external recording filenames no longer abort the catalog.
+
+Restore inputs are detached before asynchronous action/render settlement and the target model/schema is checked again before dispatch. Checkpoint association checks no longer construct and discard a complete serialized scene snapshot. Evidence exports own their target lists and renderer callbacks, deduplicate repeated targets and encode punctuation in public IDs into valid manifest paths. Regressions cover caller mutations during waits and rendering, target model replacement, report ownership and punctuation-bearing IDs.
+
+A local synthetic probe under `.tensnap/runtime-regression-review/` compared the previous reconstruction-based selector against the new selector and verified identical results. Its 4,000-frame sample took approximately 6.59 s with the previous algorithm and 0.17 ms with the new scan; 150,000 matching boundaries completed in approximately 5.59 ms. These single-process diagnostic samples use minimal scenes and are not a statistical benchmark or a production latency claim.
+
+The final core/agent/Web suites pass 1,158 tests. Type checks, core/agent/Web builds, repository lint, version consistency and release tests pass. The seeded real-model workflow again verifies restore/re-run scene and checkpoint equality and offline PNG equality. One installed-tarball attempt timed out at the existing five-second daemon startup probe; two consecutive complete repeats passed, including installed CLI sync, recorded-run persistence, native PNG output, shutdown and portable-persistence imports. The startup timeout did not recur; its cause was not established. No release versions or Unreleased section were added for this follow-up; existing core/agent 0.3.5 entries are amended.
 
 ### Plan test matrix
 

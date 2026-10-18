@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -7,8 +7,54 @@ import { decodeProtocolMessage, encodeProtocolMessage } from '@tensnap/protocol'
 import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
+import type { RendererSession } from '@tensnap/core/runtime';
 
 const temporaryRoots: string[] = [];
+
+it('lists live recordings without copying their payloads and tolerates malformed external filenames', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-catalog-'));
+  temporaryRoots.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  const runtime = new AgentRuntime(context);
+  await runtime.initialize();
+  const internal = runtime as unknown as {
+    renderer: RendererSession;
+    recordingCompletionByRun: Map<string, Promise<void>>;
+  };
+  try {
+    await mkdir(context.recordingsDir, { recursive: true });
+    await writeFile(join(context.recordingsDir, 'malformed%.tensnap-recording.json'), '{}');
+    internal.renderer.startRecording({ id: 'active', maxSteps: 10, ringBuffer: true });
+    internal.renderer.recorder.recordMessage({ type: 'metadata_update', payload: { time: 1 } });
+    internal.renderer.recorder.recordMessage({
+      type: 'action_result',
+      payload: { id: 'step', request_id: 'catalog-step' },
+    });
+    const copy = vi.spyOn(internal.renderer.recorder, 'current', 'get').mockImplementation(() => {
+      throw new Error('Catalog copied full history');
+    });
+    const entries = await runtime.listRecordings();
+    expect(entries).toMatchObject([
+      {
+        id: 'active',
+        status: 'recording',
+        report: { frameCount: 1, lastFrame: 1, resourcesComplete: true },
+      },
+    ]);
+    entries[0].report!.retention!.maxFrames = 99;
+    expect((await runtime.listRecordings())[0].report?.retention?.maxFrames).toBe(10);
+    copy.mockRestore();
+    internal.renderer.stopRecording();
+    await vi.waitFor(() => {
+      expect(internal.recordingCompletionByRun.size).toBe(0);
+    });
+    const persisted = await runtime.listRecordings();
+    expect(persisted[0].error).toBeUndefined();
+    expect(persisted).toMatchObject([{ id: 'active', status: 'persisted' }]);
+  } finally {
+    await runtime.stop();
+  }
+});
 
 afterEach(async () => {
   await Promise.all(
