@@ -314,6 +314,12 @@ syncBuiltinESMExports();
     );
     assert.equal((await run(['skills', 'list'])).data.skills.length, 2);
     assert.equal((await run(['skills', 'install', '--all'])).data.results[0].status, 'unchanged');
+    const failedStartup = await run(['runtime', 'up', '--context', 'missing-canvas'], 3);
+    assert.equal(failedStartup.error.category, 'execution_failed');
+    assert.equal(failedStartup.data.exitCode, 3);
+    assert.match(failedStartup.data.stderrTail, /canvas\.node/);
+    assert.match(failedStartup.error.message, /exited before readiness/);
+    assert.match(await readFile(failedStartup.data.stderrPath, 'utf8'), /canvas\.node/);
   } finally {
     await rename(savedBuild, nativeBuild);
   }

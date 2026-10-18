@@ -919,3 +919,20 @@ it.each([
     });
   },
 );
+
+it('releases the unused health-response body before making a control request', async () => {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-health-body-'));
+  tempDirs.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  await mkdir(context.contextDir, { recursive: true });
+  await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+  const cancel = vi.fn();
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    if (String(input).endsWith('/health')) return new Response(new ReadableStream({ cancel }));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    return Response.json({ running: true });
+  });
+  await main(['runtime', 'status', '--context-dir', rootDir]);
+});

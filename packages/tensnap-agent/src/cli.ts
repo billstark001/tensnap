@@ -21,7 +21,8 @@ import { monitorHistory, diffCapturedFrames, ComparisonPolicySchema } from '@ten
 import { ScenarioQuerySchema, type ScenarioQuery } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from './types';
 import { RenderBatchError } from './runtime/painter';
-import { spawn } from 'node:child_process';
+import { DaemonStartupError, startDetachedDaemon } from './runtime/daemon-startup';
+import { join } from 'node:path';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -65,6 +66,7 @@ function buildBaseUrl(control: { host: string; controlPort: number | null }): st
 
 async function resolveRunningRuntime(
   context: RuntimeContextPaths,
+  signal?: AbortSignal,
 ): Promise<{ baseUrl: string } | null> {
   const control = await readRuntimeControl(context);
   if (!control?.controlPort) {
@@ -72,7 +74,8 @@ async function resolveRunningRuntime(
   }
 
   try {
-    const response = await fetch(`${buildBaseUrl(control)}/health`);
+    const response = await fetch(`${buildBaseUrl(control)}/health`, { signal });
+    await response.body?.cancel();
     if (!response.ok) {
       return null;
     }
@@ -128,17 +131,23 @@ async function requestWait(
 async function waitForDaemon(
   context: RuntimeContextPaths,
   timeoutMs = 5000,
+  signal?: AbortSignal,
 ): Promise<{ baseUrl: string }> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const running = await resolveRunningRuntime(context);
-    if (running) {
-      return running;
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const pollingSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+  try {
+    for (;;) {
+      pollingSignal.throwIfAborted();
+      const running = await resolveRunningRuntime(context, pollingSignal);
+      if (running) return running;
+      await delay(100, undefined, { signal: pollingSignal });
     }
-    await delay(100);
+  } catch (cause) {
+    if (!deadline.aborted || signal?.aborted) throw cause;
+    throw new Error(`Timed out waiting for runtime daemon in context ${context.contextName}.`, {
+      cause,
+    });
   }
-
-  throw new Error(`Timed out waiting for runtime daemon in context ${context.contextName}.`);
 }
 
 function resolveRuntimeContextPathsFromOptions(options: CliOptions): RuntimeContextPaths {
@@ -168,44 +177,58 @@ async function startForegroundDaemon(options: CliOptions): Promise<void> {
       backgroundColor: options.backgroundColor,
     },
   });
-  await runtime.initialize();
-  runtime.registerPainter(
-    new HeadlessEnvironmentPainter({
-      capturesDir: context.capturesDir,
-      defaultFormat: 'png',
-      backgroundColor: options.backgroundColor,
-    }),
-  );
-  runtime.registerPainter(
-    new HeadlessChartPainter({
-      capturesDir: context.capturesDir,
-      defaultFormat: 'png',
-    }),
-  );
-
   const server = new RuntimeControlServer(runtime, {
     ip_family: options.ipFamily ?? 'auto',
     host: options.host,
     port: controlPort,
   });
-  const address = await server.listen();
+  try {
+    await runtime.initialize();
+    runtime.registerPainter(
+      new HeadlessEnvironmentPainter({
+        capturesDir: context.capturesDir,
+        defaultFormat: 'png',
+        backgroundColor: options.backgroundColor,
+      }),
+    );
+    runtime.registerPainter(
+      new HeadlessChartPainter({
+        capturesDir: context.capturesDir,
+        defaultFormat: 'png',
+      }),
+    );
 
-  const simulatorUrl = options.simulatorUrl;
-  if (simulatorUrl) {
-    await runtime.connect({
-      ip_family: options.ipFamily ?? 'auto',
-      simulatorUrl,
-      encoding: options.encoding ?? 'msgpack',
-      clientMessageValidation: options.clientMessageValidation,
-      serverMessageValidation: options.serverMessageValidation,
+    const address = await server.listen();
+
+    const simulatorUrl = options.simulatorUrl;
+    if (simulatorUrl) {
+      await runtime.connect({
+        ip_family: options.ipFamily ?? 'auto',
+        simulatorUrl,
+        encoding: options.encoding ?? 'msgpack',
+        clientMessageValidation: options.clientMessageValidation,
+        serverMessageValidation: options.serverMessageValidation,
+      });
+      await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
+    }
+
+    printJson(options, {
+      status: runtime.getStatus(),
+      control: address,
     });
-    await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
+  } catch (error) {
+    const cleanup = await Promise.allSettled([runtime.stop(), server.close()]);
+    const failures = cleanup
+      .filter((result) => result.status === 'rejected')
+      .map((result) => result.reason);
+    if (failures.length)
+      throw new AggregateError(
+        [error, ...failures],
+        `${error instanceof Error ? error.message : String(error)}; daemon startup cleanup failed.`,
+        { cause: error },
+      );
+    throw error;
   }
-
-  printJson(options, {
-    status: runtime.getStatus(),
-    control: address,
-  });
 
   const shutdown = async (): Promise<void> => {
     await runtime.stop();
@@ -222,7 +245,7 @@ async function startBackgroundDaemon(options: CliOptions): Promise<void> {
   const port = options.port;
   const context = resolveRuntimeContextPathsFromOptions(options);
 
-  const running = await resolveRunningRuntime(context);
+  const running = await resolveRunningRuntime(context, AbortSignal.timeout(5000));
   if (running) {
     printJson(options, await requestJson(running.baseUrl, '/v1/runtime/status'));
     return;
@@ -286,21 +309,30 @@ async function startBackgroundDaemon(options: CliOptions): Promise<void> {
     if (level !== undefined) childArgs.push(`--${flag}`, level);
   }
 
-  const child = spawn(process.execPath, childArgs, {
+  const status = await startDetachedDaemon(process.execPath, childArgs, {
     cwd: context.cwd,
-    detached: true,
-    stdio: 'ignore',
+    stderrPath: join(context.logsDir, 'daemon.stderr.log'),
+    waitUntilReady: async (signal) => {
+      const ready = await waitForDaemon(context, 5000, signal);
+      const deadline = AbortSignal.timeout(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
+      const readinessSignal = AbortSignal.any([signal, deadline]);
+      try {
+        if (simulatorUrl) {
+          await requestJson(ready.baseUrl, '/v1/runtime/wait-ready', {
+            method: 'POST',
+            body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
+            signal: readinessSignal,
+          });
+        }
+        return await requestJson(ready.baseUrl, '/v1/runtime/status', { signal: readinessSignal });
+      } catch (cause) {
+        if (deadline.aborted && !signal.aborted)
+          throw new Error('Timed out waiting for runtime readiness.', { cause });
+        throw cause;
+      }
+    },
   });
-  child.unref();
-
-  const ready = await waitForDaemon(context);
-  if (simulatorUrl) {
-    await requestJson(ready.baseUrl, '/v1/runtime/wait-ready', {
-      method: 'POST',
-      body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
-    });
-  }
-  printJson(options, await requestJson(ready.baseUrl, '/v1/runtime/status'));
+  printJson(options, status);
 }
 
 async function stopDaemon(options: CliOptions): Promise<void> {
@@ -1568,6 +1600,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           ...(error instanceof CliWaitError
             ? { data: error.data, correlationId: error.correlationId }
             : {}),
+          ...(error instanceof DaemonStartupError ? { data: error.diagnostics } : {}),
         }),
       );
     }
@@ -1577,6 +1610,11 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 }
 
 export function classifyCliError(error: unknown): { category: string; exitCode: number } {
+  if (error instanceof DaemonStartupError) {
+    if (error.diagnostics.phase !== 'readiness')
+      return { category: 'execution_failed', exitCode: 3 };
+    return classifyCliError(error.cause);
+  }
   if (
     error instanceof CliInputError ||
     error instanceof CliRequestError ||
