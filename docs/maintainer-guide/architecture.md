@@ -406,4 +406,4 @@ Memory and IndexedDB adapters own persisted binary buffers, tags, and metadata. 
 
 The Web host owns worker scheduling, automatic layout, file dialogs and offline tabs using `SnapshotPlaybackSource`. Opening recordings never opens an enclosing project's source. A cursor does not trim the retained recording. The Node agent owns atomic normal-completion file writes, catalog entries, by-ID waits, fixed-scene painters and verified evidence directories. Images and state in one frame use the same capture; live state caches are not evidence manifests.
 
-Only released file migrations and public API spellings retain compatibility behavior. Removed Web persistence/layout modules have no internal re-export aliases. Segment stores, bounded append queues, range indexes, crash recovery and trigger windows remain B4–B5/C4–C5 follow-up work.
+Compatibility is limited to released file migrations and public API spellings. Frame evidence uses normal-completion commits and does not provide segment-store or crash-tail recovery.

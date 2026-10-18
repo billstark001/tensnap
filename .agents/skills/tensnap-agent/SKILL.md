@@ -113,7 +113,7 @@ Manual recording uses `recording start --max-frames <n> --max-bytes <n> --retent
 
 A frame evidence directory contains a verified manifest, a self-contained single-frame recording, and requested images. Checkpoint policies are `none|if-supported|required`; required capture must prove an unchanged renderer revision and source identity. Historical checkpoints exist only at their original captured boundary. Never attach a current online checkpoint to historical state. Missing checkpoints allow viewing/rendering but fail exact restoration. Restore validates identity/schema, preserves history on model failure, and reports model/history status and state certainty. A complete manifest is committed only after every requested artifact succeeds; failures preserve explicit partial output. Existing evidence directories are never overwritten.
 
-Use the GUI's **File → Open recording** from an empty app; the replay dialog exports full recordings or the current frame. Cursor selection retains the whole timeline. Checkpoint-only models can replace/truncate renderer charts without projected wire time. LLM/provider future-response reproducibility remains model infrastructure. Segment stores, typed queries and trigger windows remain deferred.
+Use the GUI's **File → Open recording** from an empty app; the replay dialog exports full recordings or the current frame. Cursor selection retains the whole timeline. Checkpoint-only models can replace/truncate renderer charts without projected wire time.
 
 ## Rendering
 
