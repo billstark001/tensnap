@@ -23,6 +23,7 @@ import { RunController, type RunControllerOptions } from './RunController';
 import { applySnapshotFrame, projectedRestoreChangesTopology, SnapshotRecorder } from '../snapshot';
 import type { RecordingOptions, Snapshot, SnapshotFrame, SnapshotModelIdentity } from '../snapshot';
 import type { ChartGroup } from '../chart';
+import { snapshotFromFrame, projectSnapshotForRestore, type CapturedFrame } from '../snapshot';
 import { ActionRunMetrics, type ActionRunMetricSnapshot } from './ActionRunMetrics';
 
 export type RendererMessageOrigin =
@@ -44,6 +45,7 @@ export interface RendererSessionMessageDetail {
 }
 
 export interface RendererSessionCommitDetail {
+  revision: number;
   origin: RendererMessageOrigin;
   messages: readonly SimulatorToRendererMessage[];
 }
@@ -91,6 +93,14 @@ interface IncomingTransaction {
   truncateTime?: number;
 }
 
+export interface FrameRestoreResult {
+  modelStatus: 'restored' | 'failed' | 'unknown';
+  historyStatus: 'restored' | 'preserved' | 'unchanged';
+  stateKnown: boolean;
+  result?: SceneRestoreEndPayload;
+  error?: string;
+}
+
 export type RestoreChartPolicy = 'preserve' | 'replace' | 'truncate';
 
 export interface SceneOperationOptions {
@@ -105,6 +115,8 @@ export interface SceneRestoreOptions extends SceneOperationOptions {
   chartPolicy?: RestoreChartPolicy;
   /** Required only when replacing live charts with a local snapshot's charts. */
   replacementCharts?: ChartGroup[];
+  /** Renderer-local history boundary, independent of projected wire time. */
+  historyTime?: number;
 }
 
 type ActiveProtocolRequestKind = 'state-sync' | 'scene-restore' | 'scene-capture';
@@ -179,6 +191,10 @@ export class RendererSession extends LazyEventTarget {
   private activeRequest: ActiveProtocolRequest | null = null;
   private transaction: IncomingTransaction | null = null;
   private announcedInfo: SimulatorInfoPayload | null = null;
+  private lastCommittedActionRequestId: string | undefined;
+  private commitRevisionValue = 0;
+  private frameCaptureActive = false;
+  private captureFrozen = false;
   private committedInfo: SimulatorInfoPayload | null = null;
   private legacySession = false;
   /** Identity loaded from project storage before the first simulator handshake. */
@@ -520,7 +536,9 @@ export class RendererSession extends LazyEventTarget {
         'Replacing charts during scene restore requires a local snapshot chart state.',
       );
     }
-    if (chartPolicy === 'truncate' && payload.time === undefined) {
+    if (options.historyTime !== undefined && !Number.isFinite(options.historyTime))
+      throw new Error('historyTime must be finite.');
+    if (chartPolicy === 'truncate' && (options.historyTime ?? payload.time) === undefined) {
       throw new Error('Truncating charts during scene restore requires an explicit restore time.');
     }
     this.run.stop('stopped');
@@ -533,7 +551,7 @@ export class RendererSession extends LazyEventTarget {
         options.replacementCharts === undefined
           ? undefined
           : structuredClone(options.replacementCharts),
-      truncateTime: payload.time,
+      truncateTime: options.historyTime ?? payload.time,
     });
     try {
       this.send({
@@ -549,6 +567,190 @@ export class RendererSession extends LazyEventTarget {
       throw error;
     }
     return requestId;
+  }
+
+  get commitRevision(): number {
+    return this.commitRevisionValue;
+  }
+
+  /** Stop new run dispatch, settle its lifecycle, then pin scene and optional checkpoint. */
+  async captureFrame(
+    options: SceneOperationOptions & { checkpoint?: 'none' | 'if-supported' | 'required' } = {},
+  ): Promise<CapturedFrame> {
+    if (this.frameCaptureActive) throw new Error('Frame capture is already in progress.');
+    this.frameCaptureActive = true;
+    try {
+      const policy = options.checkpoint ?? 'none';
+      const supported =
+        this.simulatorInfo?.capabilities.includes('scene.restore.checkpoint') ?? false;
+      if (policy === 'required' && !supported)
+        throw new Error('The simulator does not support required checkpoint capture.');
+      const run = this.run.status;
+      if (run && !run.settled) {
+        this.run.stop('stopped');
+        await this.run.waitForSettled(run.id, options.timeoutMs, options.signal);
+      }
+      if (this.run.hasInFlightAction) await this.waitForActionBoundary(options);
+      this.captureFrozen = true;
+      const revision = this.commitRevision;
+      const identity = this.modelIdentity;
+      let checkpoint: CapturedFrame['checkpoint'];
+      let status: CapturedFrame['checkpointStatus'] =
+        policy === 'none' ? 'not-requested' : 'unsupported';
+      let reason: string | undefined =
+        policy !== 'none' && !supported
+          ? 'The simulator does not support checkpoint capture.'
+          : undefined;
+      if (policy !== 'none' && supported) {
+        const result = await this.captureScene(options);
+        if (
+          revision !== this.commitRevision ||
+          JSON.stringify(identity) !== JSON.stringify(this.modelIdentity) ||
+          this.run.hasInFlightAction
+        ) {
+          status = 'inconsistent';
+          reason = 'Renderer commits or source identity changed during checkpoint capture.';
+          if (policy === 'required') throw new Error(reason);
+        } else {
+          checkpoint = {
+            ...result.checkpoint,
+            model_id: result.model_id,
+            ...(result.state_schema_version === undefined
+              ? {}
+              : { state_schema_version: result.state_schema_version }),
+          };
+          status = 'captured';
+        }
+      }
+      const scene = this.scenario.dump();
+      const lastActionRequestId = this.lastCommittedActionRequestId;
+      return structuredClone({
+        id: crypto.randomUUID(),
+        capturedAt: Date.now(),
+        scene,
+        ...(checkpoint ? { checkpoint } : {}),
+        ...(identity ? { modelIdentity: identity } : {}),
+        source: {
+          kind: 'live' as const,
+          commitRevision: this.commitRevision,
+          ...(lastActionRequestId ? { actionRequestId: lastActionRequestId } : {}),
+          ...(typeof scene.metadata.time === 'number' ? { modelTime: scene.metadata.time } : {}),
+        },
+        consistency: checkpoint
+          ? ('aligned' as const)
+          : status === 'inconsistent'
+            ? ('unverified' as const)
+            : ('renderer-only' as const),
+        checkpointStatus: status,
+        ...(reason ? { checkpointReason: reason } : {}),
+      });
+    } finally {
+      this.captureFrozen = false;
+      this.frameCaptureActive = false;
+    }
+  }
+
+  private waitForActionBoundary(options: SceneOperationOptions): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        clearTimeout(timer);
+        this.removeEventListener('action:rendered', onRendered);
+        this.removeEventListener('transport:close', onClose);
+        options.signal?.removeEventListener('abort', onAbort);
+      };
+      const onRendered = () => {
+        queueMicrotask(() => {
+          if (!this.run.hasInFlightAction) {
+            cleanup();
+            resolve();
+          }
+        });
+      };
+      const onClose = () => {
+        cleanup();
+        reject(new Error('Disconnected before frame capture reached an action boundary.'));
+      };
+      const onAbort = () => {
+        cleanup();
+        reject(new Error('Frame capture wait aborted.'));
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error('Timed out waiting for frame capture action boundary.'));
+      }, options.timeoutMs ?? this.transactionTimeoutMs);
+      this.addEventListener('action:rendered', onRendered);
+      this.addEventListener('transport:close', onClose);
+      options.signal?.addEventListener('abort', onAbort, { once: true });
+      if (options.signal?.aborted) onAbort();
+      else if (!this.run.hasInFlightAction) {
+        cleanup();
+        resolve();
+      }
+    });
+  }
+
+  /** Restore a validated frame; renderer history changes only after a successful model commit. */
+  async restoreFrame(
+    frame: CapturedFrame,
+    options: SceneOperationOptions & {
+      mode: 'checkpoint' | 'projected';
+      chartPolicy?: RestoreChartPolicy;
+      historyTime?: number;
+    },
+  ): Promise<FrameRestoreResult> {
+    snapshotFromFrame(frame); // Validate ownership/association before any dispatch.
+    const identity = this.modelIdentity;
+    if (
+      !identity ||
+      !frame.modelIdentity ||
+      identity.model_id !== frame.modelIdentity.model_id ||
+      identity.state_schema_version !== frame.modelIdentity.state_schema_version
+    )
+      throw new Error(
+        'Frame model identity/schema cannot be verified against the target simulator.',
+      );
+    if (options.mode === 'checkpoint' && (!frame.checkpoint || frame.consistency !== 'aligned'))
+      throw new Error('An aligned checkpoint is required for exact frame restore.');
+    const run = this.run.status;
+    if (run && !run.settled) {
+      this.run.stop('stopped');
+      await this.run.waitForSettled(run.id, options.timeoutMs, options.signal);
+    }
+    if (this.run.hasInFlightAction) await this.waitForActionBoundary(options);
+    const projected =
+      options.mode === 'projected' ? projectSnapshotForRestore(frame.scene) : undefined;
+    const payload = options.mode === 'checkpoint' ? { checkpoint: frame.checkpoint! } : projected!;
+    const chartPolicy = options.chartPolicy ?? 'replace';
+    try {
+      const result = await this.restoreScene(
+        { ...payload, state_schema_version: identity.state_schema_version },
+        {
+          ...options,
+          chartPolicy,
+          replacementCharts: chartPolicy === 'replace' ? frame.scene.charts : undefined,
+          historyTime: options.historyTime ?? frame.source.modelTime,
+        },
+      );
+      return {
+        modelStatus: result.status === 'ok' ? 'restored' : 'failed',
+        historyStatus:
+          result.status === 'ok'
+            ? chartPolicy === 'preserve'
+              ? 'preserved'
+              : 'restored'
+            : 'unchanged',
+        stateKnown: true,
+        result,
+      };
+    } catch (error) {
+      return {
+        modelStatus:
+          this.identityStatus === 'sync-required' || !this.isConnected ? 'unknown' : 'failed',
+        historyStatus: 'unchanged',
+        stateKnown: this.identityStatus !== 'sync-required' && this.isConnected,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   /** Request an exact scene checkpoint at an action boundary. */
@@ -604,8 +806,10 @@ export class RendererSession extends LazyEventTarget {
   }
 
   setParameter(id: string, value: ProtocolData): void {
+    if (this.captureFrozen) throw new Error('Frame capture is in progress.');
     this.requireCompatibleSimulator();
     const previous = this.scenario.applyOptimisticParameterChange(id, value);
+    this.commitRevisionValue++;
     try {
       this.send(this.scenario.createParamChangeMessage(id, value));
     } catch (error) {
@@ -629,6 +833,7 @@ export class RendererSession extends LazyEventTarget {
     options: RecordingOptions,
     reason: RendererSessionRecordingDetail['reason'],
   ): Snapshot {
+    if (this.recorder.active) throw new Error('A recording is already active.');
     const snapshot = this.recorder.start({
       ...options,
       legacyCreateReplacement: this.legacySession,
@@ -847,6 +1052,7 @@ export class RendererSession extends LazyEventTarget {
       return;
     }
     this.dispatch('commit', {
+      revision: ++this.commitRevisionValue,
       origin: 'state-sync',
       messages: transaction.messages,
     } satisfies RendererSessionCommitDetail);
@@ -925,6 +1131,7 @@ export class RendererSession extends LazyEventTarget {
         this.scenario.load(transaction.scenario.dump());
         this.recorder.recordMessages(transaction.messages);
         this.dispatch('commit', {
+          revision: ++this.commitRevisionValue,
           origin: 'scene-restore',
           messages: transaction.messages,
         } satisfies RendererSessionCommitDetail);
@@ -1014,6 +1221,8 @@ export class RendererSession extends LazyEventTarget {
     origin: RendererMessageOrigin,
   ): void {
     this.scenario.apply(message);
+    if (message.type === 'action_result')
+      this.lastCommittedActionRequestId = (message.payload as ActionResultPayload).request_id;
     this.recorder.recordMessage(
       message,
       message.type === 'action_result'
@@ -1021,7 +1230,11 @@ export class RendererSession extends LazyEventTarget {
         : undefined,
     );
     this.dispatch('message', { message, origin } satisfies RendererSessionMessageDetail);
-    this.dispatch('commit', { origin, messages: [message] } satisfies RendererSessionCommitDetail);
+    this.dispatch('commit', {
+      revision: ++this.commitRevisionValue,
+      origin,
+      messages: [message],
+    } satisfies RendererSessionCommitDetail);
   }
 
   private abortCorrelatedControl(payload: ErrorPayload): void {
@@ -1254,6 +1467,11 @@ export class RendererSession extends LazyEventTarget {
   }
 
   private send(message: RendererToSimulatorMessage): void {
+    if (
+      this.captureFrozen &&
+      ['action_invoke', 'param_change', 'scene_restore', 'state_sync'].includes(message.type)
+    )
+      throw new Error('Frame capture is in progress.');
     if (!this.transport) throw new Error('Renderer session is not attached to a transport.');
     const activeKind = this.activeRequest?.kind;
     if ((message.type === 'param_change' || message.type === 'action_invoke') && activeKind) {

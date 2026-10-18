@@ -888,3 +888,134 @@ describe('RendererSession', () => {
     expect(session.identityStatus).toBe('matching');
   });
 });
+
+describe('fixed frame capture and renderer-local restore history', () => {
+  it('owns nested monitor data after capture', async () => {
+    const session = new RendererSession();
+    session.attachTransport(createTransport([]));
+    announce(session);
+    session.handleIncoming({ type: 'monitor_create', payload: { id: 'm', label: 'M' } });
+    session.handleIncoming({
+      type: 'monitor_update',
+      payload: { id: 'm', value: { nested: [1] } },
+    });
+    const frame = await session.captureFrame();
+    session.handleIncoming({
+      type: 'monitor_update',
+      payload: { id: 'm', value: { nested: [2] } },
+    });
+    expect(frame.scene.monitors[0].value).toEqual({ nested: [1] });
+    expect(frame.source.commitRevision).toBeLessThan(session.commitRevision);
+  });
+
+  it('captures an aligned checkpoint and rejects concurrent commits in required mode', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+    const capture = session.captureFrame({ checkpoint: 'required' });
+    const request = sent[sent.length - 1];
+    assert(request.type === 'scene_capture');
+    session.handleIncoming({
+      type: 'scene_capture_result',
+      payload: {
+        request_id: (request.payload as { request_id: string }).request_id,
+        model_id: 'test-model',
+        checkpoint: { encoding: 'raw', data: Uint8Array.of(1) },
+      },
+    });
+    const frame = await capture;
+    expect(frame.consistency).toBe('aligned');
+    expect(Array.from(frame.checkpoint!.data as Uint8Array)).toEqual([1]);
+    const next = session.captureFrame({ checkpoint: 'required' });
+    const rejection = expect(next).rejects.toThrow(/commits/);
+    const second = sent[sent.length - 1];
+    assert(second.type === 'scene_capture');
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 9 } });
+    session.handleIncoming({
+      type: 'scene_capture_result',
+      payload: {
+        request_id: (second.payload as { request_id: string }).request_id,
+        model_id: 'test-model',
+        checkpoint: { encoding: 'raw', data: Uint8Array.of(2) },
+      },
+    });
+    await rejection;
+  });
+
+  it('restores checkpoint-only models with independent chart time and no projected wire time', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+    const charts = [
+      {
+        id: 'history',
+        label: 'History',
+        metadataDict: {},
+        data: [
+          { time: 1, v: 2 },
+          { time: 7, v: 8 },
+        ],
+      },
+    ];
+    session.scenario.load({ ...session.scenario.dump(), charts });
+    const restore = session.restoreScene(
+      { checkpoint: { encoding: 'raw', data: 'AQ==' } },
+      { chartPolicy: 'truncate', historyTime: 1 },
+    );
+    const request = sent[sent.length - 1];
+    assert(request.type === 'scene_restore');
+    expect(request.payload).not.toHaveProperty('time');
+    expect(request.payload).not.toHaveProperty('historyTime');
+    session.handleIncoming({
+      type: 'scene_restore_begin',
+      payload: {
+        request_id: (request.payload as { request_id: string }).request_id,
+        model_id: 'test-model',
+      },
+    });
+    session.handleIncoming({
+      type: 'scene_restore_end',
+      payload: { request_id: (request.payload as { request_id: string }).request_id, status: 'ok' },
+    });
+    expect((await restore).status).toBe('ok');
+    expect(session.scenario.dump().charts[0].data).toEqual([{ time: 1, v: 2 }]);
+  });
+
+  it('does not replace history when model restore fails', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+    const frame = await session.captureFrame();
+    frame.modelIdentity = { model_id: 'test-model' };
+    frame.checkpoint = { model_id: 'test-model', encoding: 'raw', data: 'AQ==' };
+    frame.checkpointStatus = 'captured';
+    frame.consistency = 'aligned';
+    const charts = [
+      { id: 'history', label: 'History', metadataDict: {}, data: [{ time: 7, v: 8 }] },
+    ];
+    session.scenario.load({ ...session.scenario.dump(), charts });
+    const restore = session.restoreFrame(frame, { mode: 'checkpoint' });
+    const request = sent[sent.length - 1];
+    assert(request.type === 'scene_restore');
+    session.handleIncoming({
+      type: 'scene_restore_begin',
+      payload: {
+        request_id: (request.payload as { request_id: string }).request_id,
+        model_id: 'test-model',
+      },
+    });
+    session.handleIncoming({
+      type: 'scene_restore_end',
+      payload: {
+        request_id: (request.payload as { request_id: string }).request_id,
+        status: 'error',
+        error: { code: 'failed', message: 'Cannot restore' },
+      },
+    });
+    expect(await restore).toMatchObject({ modelStatus: 'failed', historyStatus: 'unchanged' });
+    expect(session.scenario.dump().charts).toEqual(charts);
+  });
+});

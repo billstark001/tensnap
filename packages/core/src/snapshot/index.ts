@@ -33,3 +33,6 @@ export type {
   SnapshotSeries,
 } from './types';
 export type { ProjectSource, SnapshotPlaybackState } from './ProjectSource';
+
+export { frameFromRecording, snapshotFromFrame } from './CapturedFrame';
+export type { CapturedFrame, CapturedFrameSource } from './CapturedFrame';
