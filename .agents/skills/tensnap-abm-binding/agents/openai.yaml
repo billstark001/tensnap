@@ -1,0 +1,4 @@
+interface:
+  display_name: "TenSnap ABM Binding"
+  short_description: "Build and debug TenSnap model bindings across languages"
+  default_prompt: "Use $tensnap-abm-binding to connect my model to TenSnap with stable identities and incremental updates."

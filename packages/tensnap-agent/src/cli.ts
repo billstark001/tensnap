@@ -3,18 +3,17 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
-  AgentRuntime,
-  HeadlessEnvironmentPainter,
-  HeadlessChartPainter,
+  isProcessAlive,
+  readRuntimeControl,
   resolveRuntimeContextPaths,
-  RuntimeControlServer,
-} from './index';
-import { isProcessAlive, readRuntimeControl, type RuntimeContextPaths } from './runtime/context';
+  type RuntimeContextPaths,
+} from './runtime/context';
 import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 import { parseIPFamily, listenerUrl } from '@tensnap/network';
 
 import { parseArgs, CliInputError, type ParsedArgs } from './cli-arguments';
+import { CLI_VERSION, manageSkills, SkillPersistenceError } from './skills';
 
 const DEFAULT_RUNTIME_READY_TIMEOUT_MS = 10000;
 
@@ -164,6 +163,9 @@ async function waitForDaemon(
 }
 
 async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
+  // Metadata, skill installs, and HTTP clients do not need native headless painters.
+  const { AgentRuntime, HeadlessEnvironmentPainter, HeadlessChartPainter, RuntimeControlServer } =
+    await import('./index');
   const context = resolveRuntimeContextPaths({
     contextName: getStringFlag(parsed, 'context'),
     rootDir: getStringFlag(parsed, 'context-dir'),
@@ -425,6 +427,16 @@ async function streamEvents(parsed: ParsedArgs): Promise<void> {
 
 async function execute(parsed: ParsedArgs): Promise<void> {
   const [group, command, ...rest] = parsed.flags.help ? [] : parsed.positional;
+
+  if (parsed.flags.version) {
+    emitText(parsed, CLI_VERSION);
+    return;
+  }
+
+  if (group === 'skills') {
+    printJson(parsed, await manageSkills(parsed));
+    return;
+  }
 
   if (!parsed.flags.help && group === 'daemon' && command === 'serve') {
     await startForegroundDaemon(parsed);
@@ -708,6 +720,11 @@ async function execute(parsed: ParsedArgs): Promise<void> {
     parsed,
     [
       'Usage:',
+      '  tensnap-agent --version',
+      '  tensnap-agent skills list [--scope project|user] [--agent codex|claude-code|universal]',
+      '  tensnap-agent skills install [<name> | --all] [--scope project|user] [--project-dir <path>] [--agent codex|claude-code|universal] [--force]',
+      '  Skills install is offline and non-interactive. Defaults: project scope, current directory, codex.',
+      '  Conflicts preserve existing content; --force replaces with a backup. Re-run after CLI upgrades.',
       '  Global: --context <name> --context-dir <path> --output-version 1',
       '  --max-steps remains a deprecated public spelling of --max-actions; do not combine them.',
       '  tensnap-agent runtime up --simulator-url ws://localhost:8765 [--ip-family auto|ipv4|ipv6] [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
@@ -812,12 +829,28 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 }
 
 export function classifyCliError(error: unknown): { category: string; exitCode: number } {
-  if (error instanceof CliInputError || error instanceof CliRequestError)
+  if (
+    error instanceof CliInputError ||
+    error instanceof CliRequestError ||
+    error instanceof SkillPersistenceError
+  )
     return { category: error.category, exitCode: error.exitCode };
   const code = (error as NodeJS.ErrnoException | null)?.code;
   if (
     code &&
-    ['EACCES', 'EPERM', 'ENOENT', 'ENOSPC', 'EISDIR', 'ENOTDIR', 'EROFS', 'EDQUOT'].includes(code)
+    [
+      'EACCES',
+      'EPERM',
+      'ENOENT',
+      'ENOSPC',
+      'EISDIR',
+      'ENOTDIR',
+      'EROFS',
+      'EDQUOT',
+      'EIO',
+      'EXDEV',
+      'ENOTEMPTY',
+    ].includes(code)
   )
     return { category: 'persistence_failed', exitCode: 6 };
   if (/timed out|disconnect/i.test(error instanceof Error ? error.message : String(error)))

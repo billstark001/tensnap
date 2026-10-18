@@ -82,13 +82,33 @@ const commands: Record<string, { min: number; max: number; flags?: Record<string
   'chart get': { min: 1, max: 1 },
   'asset list': { min: 0, max: 0 },
   'stream events': { min: 0, max: 0 },
+  'skills list': {
+    min: 0,
+    max: 0,
+    flags: {
+      scope: ['project', 'user'],
+      agent: ['codex', 'claude-code', 'universal'],
+      'project-dir': 'string',
+    },
+  },
+  'skills install': {
+    min: 0,
+    max: 1,
+    flags: {
+      scope: ['project', 'user'],
+      agent: ['codex', 'claude-code', 'universal'],
+      'project-dir': 'string',
+      all: 'boolean',
+      force: 'boolean',
+    },
+  },
 };
 
 /** Parse and validate the complete command before any runtime/file operations. */
 export function parseArgs(argv: string[]): ParsedArgs {
   const positional: string[] = [];
   const flags: Record<string, string | boolean> = Object.create(null);
-  const booleanKeys = new Set(['foreground', 'record', 'help']);
+  const booleanKeys = new Set(['foreground', 'record', 'help', 'version', 'all', 'force']);
   for (let index = 0; index < argv.length; index++) {
     const token = argv[index]!;
     if (!token.startsWith('--')) {
@@ -110,9 +130,9 @@ export function parseArgs(argv: string[]): ParsedArgs {
       flags[key] = value;
     }
   }
-  if (!positional.length && (!Object.keys(flags).length || flags.help)) {
+  if (!positional.length && (!Object.keys(flags).length || flags.help || flags.version)) {
     for (const key of Object.keys(flags))
-      if (!['help', 'output-version'].includes(key))
+      if (!['help', 'version', 'output-version'].includes(key))
         throw new CliInputError(`Unknown flag --${key}.`);
     if (flags['output-version'] !== undefined && flags['output-version'] !== '1')
       throw new CliInputError('--output-version must be 1.');
@@ -121,7 +141,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
   const key = positional.slice(0, 2).join(' ');
   const command = commands[key];
   if (!command) throw new CliInputError(`Unknown command: ${key}. Use --help.`);
-  const rules: Record<string, Rule> = { ...common, ...command.flags };
+  const rules: Record<string, Rule> = {
+    ...(key.startsWith('skills ') ? { 'output-version': ['1'] as const } : common),
+    ...command.flags,
+  };
   for (const [name, value] of Object.entries(flags)) {
     if (name === 'help') continue;
     const rule = rules[name];
@@ -172,6 +195,10 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new CliInputError(
       `${key} requires ${command.min === command.max ? command.min : `${command.min}–${command.max}`} positional arguments.`,
     );
+  if (key === 'skills install' && !flags.help && Boolean(flags.all) === Boolean(rest.length))
+    throw new CliInputError('skills install requires one skill name or --all. Use skills list.');
+  if (key.startsWith('skills ') && flags.scope === 'user' && flags['project-dir'])
+    throw new CliInputError('--project-dir cannot be combined with --scope user.');
   if (flags.env && flags.chart)
     throw new CliInputError('Flags --env and --chart are mutually exclusive.');
   if (flags['max-actions'] && flags['max-steps'])

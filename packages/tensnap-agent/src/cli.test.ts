@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CliRequestError, main } from './cli';
+import { classifyCliError, CliRequestError, main } from './cli';
 import { resolveRuntimeContextPaths, writeRuntimeControl } from './runtime/context';
 
 it.each(['Infinity', '-Infinity', 'NaN'])('rejects non-finite numeric flags: %s', async (value) => {
@@ -29,6 +29,28 @@ it.each(['-1', '65536', '1.5'])(
 );
 
 const tempDirs: string[] = [];
+
+it.each(['EIO', 'EXDEV', 'ENOTEMPTY'])(
+  'classifies filesystem commit failures as persistence errors: %s',
+  (code) => {
+    expect(classifyCliError(Object.assign(new Error('File commit failed'), { code }))).toEqual({
+      category: 'persistence_failed',
+      exitCode: 6,
+    });
+  },
+);
+
+it.each([
+  ['skills', 'install'],
+  ['skills', 'install', 'tensnap-agent', '--all'],
+  ['skills', 'install', '--all', '--scope', 'user', '--project-dir', '/tmp/model'],
+  ['skills', 'install', '--all', '--scope', 'global'],
+  ['skills', 'install', '--all', '--agent', 'unknown'],
+  ['skills', 'list', '--force'],
+  ['skills', 'install', '--all', '--context', 'demo'],
+])('rejects invalid skill selection or destination before file operations: %j', async (...argv) => {
+  await expect(main(argv)).rejects.toMatchObject({ category: 'input_error', exitCode: 2 });
+});
 
 afterEach(async () => {
   vi.restoreAllMocks();

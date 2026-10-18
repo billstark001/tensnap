@@ -1,0 +1,4 @@
+interface:
+  display_name: "TenSnap Agent"
+  short_description: "Inspect, control, and render TenSnap simulations"
+  default_prompt: "Use $tensnap-agent to inspect my simulator and run a bounded simulation with rendered evidence."

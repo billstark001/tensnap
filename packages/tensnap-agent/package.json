@@ -1,7 +1,7 @@
 {
   "name": "@tensnap/agent",
   "version": "0.3.4",
-  "description": "Scene-centric CLI runtime for TenSnap automation agents.",
+  "description": "Headless TenSnap simulator CLI with bounded runs, scene rendering, recordings, and offline agent skills.",
   "keywords": [
     "agent",
     "automation",
@@ -20,6 +20,9 @@
     "dist"
   ],
   "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "main": "./dist/index.js",
   "exports": {
     ".": "./dist/index.js",
@@ -29,6 +32,10 @@
   "scripts": {
     "dev": "tsx src/bin.ts",
     "build": "node ./scripts/build.mjs",
+    "skills:sync": "node ./scripts/sync-skills.mjs",
+    "skills:check": "node ./scripts/sync-skills.mjs --check",
+    "test:package": "pnpm run build && node ./scripts/verify-package.mjs",
+    "test:package:ecosystem": "pnpm run build && node ./scripts/verify-package.mjs --ecosystem",
     "cli": "pnpm run build && node ./dist/cli.js",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
@@ -54,6 +61,7 @@
     "esbuild": "^0.28.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.3",
+    "yaml": "^2.9.1"
   }
 }

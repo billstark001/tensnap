@@ -1,13 +1,19 @@
 # Agent runtime and reliable results
 
+Install with Node.js 22 or newer using `npm install --global @tensnap/agent`, or add it to a model project with `npm install --save-dev @tensnap/agent` and use `npx --no-install tensnap-agent`. A TenSnap source checkout is not required. Start the simulator separately; the CLI connects to its WebSocket endpoint.
+
+Install optional version-matched skills from the npm bundle with `tensnap-agent skills install tensnap-agent`, `tensnap-agent skills install tensnap-abm-binding --scope user`, or `tensnap-agent skills install --all`. These commands are offline and non-interactive. Project scope defaults to `<cwd>/.agents/skills`, user scope to `~/.agents/skills`; `--agent claude-code` uses `.claude/skills` in the selected scope. `--project-dir` selects another project. `skills list` reports available names, version, and bundle location. See the [agent package README](https://github.com/billstark001/tensnap/tree/main/packages/tensnap-agent#readme) for conflict handling and the Vercel `skills` alternative.
+
+Reinstalling an unchanged managed skill is a no-op. Re-run installation after CLI upgrades to update unmodified managed copies. Existing same-name content and local edits fail with exit 2 and remain intact; `--force` preserves a backup outside the skills directory before replacement. `--output-version 1` reports installation results and errors through the same versioned envelope as runtime commands.
+
 Start a local runtime, then use its context for later requests:
 
 ```sh
-pnpm --filter @tensnap/agent dev -- runtime up --context demo --simulator-url ws://127.0.0.1:8765
-pnpm --filter @tensnap/agent dev -- run start start --max-actions 100 --record --context demo --output-version 1
-pnpm --filter @tensnap/agent dev -- run status --context demo --output-version 1
-pnpm --filter @tensnap/agent dev -- scene render --env main --output ./main.png --context demo --output-version 1
-pnpm --filter @tensnap/agent dev -- runtime down --context demo
+tensnap-agent runtime up --context demo --simulator-url ws://127.0.0.1:8765
+tensnap-agent run start start --max-actions 100 --record --context demo --output-version 1
+tensnap-agent run status --context demo --output-version 1
+tensnap-agent scene render --env main --output ./main.png --context demo --output-version 1
+tensnap-agent runtime down --context demo
 ```
 
 Use `--context-dir <path>` to change the `.tensnap` storage root. Every command validates flags, value types, enums, mutually exclusive options and positional argument counts before runtime access or file writes. `--root-dir` is rejected with a `--context-dir` hint. `--record` and `--foreground` are switches; do not append `true` or `false`. `--max-actions` is a positive completed-action limit, including failed results. The deprecated public `--max-steps` spelling remains accepted; combining the two fails. HTTP/core still name this quota `maxSteps`.
@@ -28,7 +34,7 @@ A run status reports:
 - `stopReasons` for every observed reason, and `primaryFailure` when a failure occurred. The compatible `stopReason` prioritizes disconnected, action-timeout, validation-error, action-error, condition-error, then render-error over normal stop reasons. A failure on the quota action or its final render is preserved.
 - `stateKnown: false` after action timeout/disconnection while an owned action is in flight. Do not automatically run a recovery comparison against unknown state.
 
-Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run happens to be latest. Core's `run.getRun(id)` and `run.waitForSettled(id, timeoutMs, signal)` use the same identity. The last 100 settled summaries are retained in memory; the active run remains available. Restarting the runtime clears these summaries. Unknown or expired IDs fail immediately. Wait timeout/abort stops the wait only and does not cancel simulator work. CLI `--wait` and `run wait` are not implemented in this patch.
+Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run happens to be latest. Core's `run.getRun(id)` and `run.waitForSettled(id, timeoutMs, signal)` use the same identity. The last 100 settled summaries are retained in memory; the active run remains available. Restarting the runtime clears these summaries. Unknown or expired IDs fail immediately. Wait timeout/abort stops the wait only and does not cancel simulator work. CLI `--wait` and `run wait` are not implemented.
 
 `RendererClient.invokeAction()` waits through the matching host barrier. A barrier failure rejects with `ActionRenderError`, which preserves the simulator's correlated `result`. An action result's own `error` remains part of that result.
 
@@ -36,7 +42,7 @@ Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run 
 
 `--record` begins before first dispatch and closes after settlement. Stop-hook frames carry `source: 'lifecycle'` and retain their control request IDs. The runtime atomically saves the existing SnapshotArchive JSON under `contexts/<context>/recordings/<run-id>.snapshot.json`. Run status exposes `recording.status` (`pending`, `persisted`, `failed`), with `path` or `error`; SSE emits `recording.persistence` with `runId`. `settled` does not imply that this write succeeded. Runtime shutdown waits for pending recording writes. A runtime holds at most one pending recording snapshot: another recorded run is rejected before model dispatch until that write finishes; inspect the previous run’s recording status and retry after it is persisted or failed. Unrecorded runs can continue meanwhile. Settlement checkpoints are emitted once, and non-forced saves/shutdown join an existing write of the same scene revision.
 
-The default recording budget remains 10,000 retained frames / 64 MiB with rolling retention. `persisted` means the archive reached disk; inspect the archive's `truncated` field before claiming full history. This patch does not implement the planned standalone recording format, GUI import, offline commands or frame manifests.
+The default recording budget remains 10,000 retained frames / 64 MiB with rolling retention. `persisted` means the archive reached disk; inspect the archive's `truncated` field before claiming full history. The standalone recording format, GUI import, offline recording commands and frame manifests are not implemented.
 
 Recording closes before unrelated queued actions are dispatched, so their updates cannot enter the previous run's archive. Disconnect detaches the simulator before waiting for the final scene checkpoint. A failed checkpoint of changed scene state is reported and leaves the scene dirty; a later disconnect or shutdown can retry saving it. Pending recording writes release their admission limit after either success or failure; this permits a new recorded run without retrying the failed archive automatically.
 

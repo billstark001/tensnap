@@ -60,12 +60,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Report background status/log writes, sync-checkpoint writes and screenshot-response failures through runtime events, without unhandled promise rejections; failed sync persistence retains the committed scene for retry.
 - Capture connection options/defaults before asynchronous status writes and cancel pending connections during both status persistence and handshake. Retired connection attempts cannot attach after disconnect or overwrite a newer operation's phase.
 - Validate nested HTTP recording codec, identity and checkpoint values, and require WebSocket URLs before invoking the runtime; malformed inputs fail before model dispatch.
+- Preserve installed skill content and executable permissions through upgrades, detect local edits and changes during staging, and keep staged copies outside skill discovery. Roll back failed installs without masking secondary failures; retain original backups and a recovery lock when restoration cannot complete.
+- Load native headless painters only when starting a daemon, so CLI help, version queries and skill installation remain usable without the canvas native binary.
+- Normalize generated protocol skill references with the repository formatter so Markdown formatting does not invalidate bundle freshness checks.
 
 ### Added
 
 - Explicit `--output-version 1` JSON envelopes, structured HTTP error preservation, documented exit codes 0/2/3/4/5/6, and acceptance request IDs.
 - `--max-actions` completed-action quota; deprecated public `--max-steps` stays accepted and conflicts with the new spelling.
 - Repeatable built-CLI acceptance script using the local seeded Schelling model.
+- Offline `skills list` and `skills install` commands for the bundled `tensnap-agent` and `tensnap-abm-binding` skills, with stable names, discovery metadata and self-contained API/protocol references matched to the CLI version.
+- Explicit project/user scope and non-interactive installation for Codex, shared Agent Skills directories and Claude Code. Reinstalls leave unchanged copies intact; upgrades use receipts and file hashes, while conflicting content requires explicit replacement with a backup.
+- npm tarball acceptance outside the source checkout, covering isolated user directories, upgrades, conflicts, executable resources, offline installation, recordings and headless rendering, plus the Vercel skills local-bundle installation path.
+
+### Changed
+
+- Set the agent CLI's minimum supported Node.js version and build target to Node 22; workspace development retains its existing Node 24 requirement.
+- Replace staged npm package documentation with installation and simulator usage guidance, bundled-skill lifecycle behavior, and Vercel skills instructions for repository and local-bundle sources. Check bundled reference snapshots during builds and validate YAML metadata before packaging.
 
 ## @tensnap/web [0.3.5] - 2026-10-18
 
