@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/agent",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Headless TenSnap simulator CLI with bounded runs, scene rendering, recordings, and offline agent skills.",
   "keywords": [
     "agent",
@@ -42,7 +42,8 @@
     "test:watch": "vitest",
     "lint": "pnpm run typecheck",
     "format": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}'",
-    "clean": "rm -rf dist node_modules"
+    "clean": "rm -rf dist node_modules",
+    "test:recording-workflow": "pnpm run build && node ./scripts/verify-recording-workflow.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.3",

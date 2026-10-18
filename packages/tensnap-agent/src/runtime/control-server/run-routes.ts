@@ -7,6 +7,42 @@ import { readJsonObject } from './json-body';
 
 /** Shared bounded-run API for automation clients and the CLI. */
 export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
+  app.post('/v1/runs/:runId/wait', async (c) => {
+    const id = c.req.param('runId');
+    if (!runtime.getRun(id)) invalid('Unknown or expired run ID.');
+    const body = await readJsonObject<{ until?: 'settled' | 'persisted'; timeoutMs?: number }>(
+      c.req,
+      { optional: true },
+    );
+    validateFields(body, { until: ['settled', 'persisted'], timeoutMs: 'positive' });
+    if (body.until === 'persisted' && !runtime.getRun(id)?.spec.record)
+      invalid('This run did not request recording persistence.');
+    const run = await runtime.waitRun(id, body.until, body.timeoutMs, c.req.raw.signal);
+    const category =
+      run.recording?.status === 'failed'
+        ? 'persistence_failed'
+        : !run.stateKnown
+          ? 'result_unknown'
+          : run.primaryFailure === 'render-error'
+            ? 'render_failed'
+            : run.primaryFailure
+              ? 'execution_failed'
+              : undefined;
+    return category
+      ? c.json(
+          {
+            run,
+            category,
+            error:
+              run.recording?.error ??
+              run.renderError ??
+              run.primaryFailure ??
+              'Run state is unknown.',
+          },
+          422,
+        )
+      : c.json({ run });
+  });
   app.get('/v1/runs/:runId', (c) => {
     const run = runtime.getRun(c.req.param('runId'));
     return run

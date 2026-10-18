@@ -22,7 +22,6 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { parse } from 'yaml';
 import { stampSkill } from './skills-build.mjs';
@@ -211,6 +210,29 @@ syncBuiltinESMExports();
   const upgradeNote = join(project, '.agents/skills/tensnap-abm-binding/local.txt');
   await writeFile(upgradeNote, 'keep this during upgrade');
   await install(currentTarball);
+  await command(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+    import assert from 'node:assert/strict';
+    import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile, encodeRecordingFile, decodeRecordingFile } from '@tensnap/core/persistence';
+    import { Scenario } from '@tensnap/core/scenario';
+    import { createSingleSnapshot } from '@tensnap/core/snapshot';
+    assert.equal(typeof window, 'undefined');
+    const scene = new Scenario().dump();
+    const snapshot = createSingleSnapshot(scene, { id: 'published-import' });
+    const project = { version: 3, source: { kind: 'snapshot', snapshot_id: 'published-import' }, mainView: createDefaultRootLayout(), scenario: scene, snapshots: [snapshot] };
+    for (const format of ['json', 'msgpack']) {
+      assert.equal(decodeProjectFile(encodeProjectFile(project, format), format).snapshots[0].metadata.id, 'published-import');
+      assert.equal(decodeRecordingFile(encodeRecordingFile(snapshot, { format })).report.resourcesComplete, true);
+    }
+    console.log('PASS: published core/persistence imports and round trips in pure Node');
+  `,
+    ],
+    { cwd: app },
+  );
   assert.equal((await command(cli, ['--version'])).stdout.trim(), manifest.version);
   assert.equal((await run(['--version'])).data, manifest.version);
   await run(['skills', 'install', '--all'], 2);
@@ -484,12 +506,9 @@ syncBuiltinESMExports();
     await run(['run', 'start', 'step', '--max-actions', '2', '--record', '--context', 'package'])
   ).data;
   assert(accepted.run.id);
-  let summary;
-  for (let i = 0; i < 100; i++) {
-    summary = (await run(['run', 'status', '--context', 'package'])).data;
-    if (summary.run?.settled && summary.run?.recording?.status === 'persisted') break;
-    await delay(50);
-  }
+  const summary = (
+    await run(['run', 'wait', accepted.run.id, '--until', 'persisted', '--context', 'package'])
+  ).data;
   assert.equal(summary.run.completedActions, 2);
   assert.equal(summary.run.settled, true);
   assert.equal(summary.run.recording.status, 'persisted');

@@ -1,3 +1,4 @@
+import { decodeRecordingFile } from '@tensnap/core/persistence';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -103,8 +104,7 @@ describe('runtime control persistence', () => {
 
 it('captures persistence inputs before asynchronous filesystem preparation', async () => {
   const { Scenario } = await import('@tensnap/core/scenario');
-  const { createSingleSnapshot, decodeSnapshotArchive, materializeSnapshot } =
-    await import('@tensnap/core/snapshot');
+  const { createSingleSnapshot, materializeSnapshot } = await import('@tensnap/core/snapshot');
   const { appendRuntimeLog, writeSceneSnapshot, writeRunRecording } = await import('./context');
   const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-write-ownership-'));
   const paths = resolveRuntimeContextPaths({ rootDir });
@@ -129,8 +129,9 @@ it('captures persistence inputs before asynchronous filesystem preparation', asy
     const archivePath = await recordingWrite;
     await logWrite;
     expect(JSON.parse(await readFile(paths.snapshotFile, 'utf8')).metadata.time).toBe(1);
-    const archive = JSON.parse(await readFile(archivePath, 'utf8'));
-    expect(materializeSnapshot(decodeSnapshotArchive(archive)).metadata.time).toBe(1);
+    expect(
+      materializeSnapshot(decodeRecordingFile(await readFile(archivePath)).snapshot).metadata.time,
+    ).toBe(1);
     expect(JSON.parse(await readFile(paths.logFile, 'utf8')).data.time).toBe(1);
   } finally {
     await rm(rootDir, { recursive: true, force: true });

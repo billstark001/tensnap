@@ -25,9 +25,24 @@ tensnap-agent runtime down --context demo
 
 Use action, parameter, and environment IDs from your simulator's inspection results. `start` and `main` above are example IDs. For a project dependency, use `npm install --save-dev @tensnap/agent` and invoke `npx --no-install tensnap-agent ...` from that project. No source checkout or pnpm workspace is required.
 
-State and captures live under `.tensnap/contexts/<context>/` by default; `--context-dir <path>` changes the storage root. `action run <id>` dispatches once; `run start <id>` requires `--max-actions` and supports `--stop-when`, `--max-wall-time-ms` and `--record`. Accepted requests may still be running. Inspect settlement, classified failures, and recording persistence before claiming completion. Use `--output-version 1` for versioned JSON results and errors on stdout; diagnostics go to stderr.
+State and captures live under `.tensnap/contexts/<context>/` by default; `--context-dir <path>` changes the storage root. `action run <id>` dispatches once; `run start <id>` requires `--max-actions` and supports `--stop-when`, `--max-wall-time-ms` and `--record`. Add `--wait` for correlated completion; recorded runs can use `--until persisted`. `run wait <run-id>` and `action wait <request-id>` retain identity across later operations. Timeouts cancel only the wait. Use `--output-version 1` for versioned JSON results and errors on stdout; diagnostics go to stderr.
 
 Use `--help` on any command or command group for generated help, including commands with required arguments. Help and `--version` also support `--output-version 1`. Use `--` before positional values that begin with a dash, for example `tensnap-agent param set label -- --literal`.
+
+## Recordings and evidence
+
+```sh
+tensnap-agent run start start --max-actions 20 --record --wait --until persisted --context demo
+tensnap-agent recording list --context demo
+tensnap-agent recording export <recording-id> --output run.tensnap-recording.json --context demo
+tensnap-agent recording info run.tensnap-recording.json
+tensnap-agent recording export-frame run.tensnap-recording.json --frame 10 --env main --output evidence
+tensnap-agent frame save --checkpoint required --env main --output saved --context demo
+tensnap-agent frame restore saved --mode checkpoint --history replace --context demo
+tensnap-agent frame compare saved evidence
+```
+
+Offline commands need no simulator or daemon and select actual retained frames. Model time requires an explicit matching rule. Evidence directories own their scene, optional checkpoint and images, with a verified manifest committed after all requested artifacts succeed. Existing evidence is never overwritten. Independent recordings open directly in an empty GUI. See the [runtime guide](../../docs/user-guide/agent-runtime.md) for format, capability, retention and failure semantics.
 
 ## Install the bundled skills offline
 

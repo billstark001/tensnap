@@ -21,6 +21,16 @@ export interface CliOptions extends SkillOptions {
   foreground?: boolean;
   output?: string;
   checkpoint?: string;
+  frame?: number;
+  match?: 'first' | 'last' | 'before' | 'after';
+  snapshotId?: string;
+  mode?: 'checkpoint' | 'projected';
+  history?: 'preserve' | 'replace' | 'truncate';
+  maxFrames?: number;
+  maxBytes?: number;
+  maxDurationMs?: number;
+  retention?: 'rolling' | 'bounded';
+  label?: string;
   time?: number;
   parameters?: Record<string, unknown>;
   envs?: unknown[];
@@ -37,6 +47,11 @@ export interface CliOptions extends SkillOptions {
   stopWhen?: string;
   maxWallTimeMs?: number;
   record?: boolean;
+  wait?: boolean;
+  until?: 'settled' | 'persisted';
+  timeoutMs?: number;
+  historyTime?: number;
+  replacementCharts?: unknown[];
 }
 
 export class CliInputError extends Error {
@@ -167,5 +182,43 @@ export function startupOptions(): Option[] {
       'Positive runtime action-count policy limit.',
       'integer',
     ),
+  ];
+}
+
+export function imageOptions(targetsExclusive = true): Option[] {
+  const env = new Option('--env <id>', 'Environment to render.');
+  const chart = new Option('--chart <id>', 'Chart to render.');
+  if (targetsExclusive) {
+    env.conflicts('chart');
+    chart.conflicts('env');
+  }
+  return [
+    env,
+    chart,
+    numericOption('--width <pixels>', 'Image width.', 'integer'),
+    numericOption('--height <pixels>', 'Image height.', 'integer'),
+    jsonOption('--viewport <json>', 'Viewport bounds.', 'viewport'),
+    new Option('--format <format>', 'Image format.').choices(['png', 'jpeg']),
+    numericOption('--quality <number>', 'JPEG quality.', 'quality'),
+    new Option('--background-color <color>', 'Image background color.'),
+    new Option('--output <path>', 'Output path.'),
+  ];
+}
+
+export function selectionOptions(): Option[] {
+  return [
+    numericOption('--frame <index>', 'Retained frame index.')
+      .argParser((raw) => {
+        const value = Number(raw);
+        if (!Number.isSafeInteger(value) || value < 0)
+          throw new CliInputError('--frame must be a nonnegative safe integer.');
+        return value;
+      })
+      .conflicts(['time', 'match']),
+    numericOption('--time <number>', 'Model time to select.').conflicts('frame'),
+    new Option('--match <rule>', 'Required model-time matching rule.')
+      .choices(['first', 'last', 'before', 'after'])
+      .conflicts('frame'),
+    new Option('--snapshot-id <id>', 'Recording ID to extract from a project file.'),
   ];
 }

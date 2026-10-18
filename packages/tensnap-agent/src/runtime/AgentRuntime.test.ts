@@ -1111,3 +1111,58 @@ it.each(['status-write', 'handshake'] as const)(
     }
   },
 );
+
+it('retains action and run settlements by ID across subsequent operations', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-waits-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {},
+  });
+  await runtime.initialize();
+  attachReviewTransport(runtime);
+  try {
+    const requestId = await runtime.runAction('step');
+    expect(await runtime.waitAction(requestId)).toMatchObject({
+      requestId,
+      status: 'succeeded',
+      settled: true,
+    });
+    const first = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    await runtime.waitRun(first.id);
+    const second = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    expect((await runtime.waitRun(first.id)).id).toBe(first.id);
+    await runtime.waitRun(second.id);
+    expect((await runtime.waitAction(requestId)).requestId).toBe(requestId);
+    await expect(runtime.waitAction('unknown')).rejects.toThrow(/Unknown/);
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('a persistence wait timeout leaves the run and recording intact for a later wait', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-persist-wait-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {},
+    recordingWriter: async () => {
+      await gate;
+      return '/fixture/recording';
+    },
+  });
+  await runtime.initialize();
+  attachReviewTransport(runtime);
+  try {
+    const run = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+    await expect(runtime.waitRun(run.id, 'persisted', 5)).rejects.toThrow(/Timed out/);
+    expect(runtime.getRun(run.id)?.recording?.status).toBe('pending');
+    release();
+    expect((await runtime.waitRun(run.id, 'persisted')).recording?.status).toBe('persisted');
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});

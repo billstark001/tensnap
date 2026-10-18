@@ -6,3 +6,4 @@ export * from './HeadlessChartPainter';
 export * from './context';
 export * from './control-server';
 export * from './painter';
+export * from './frame-files';

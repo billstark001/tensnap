@@ -171,3 +171,18 @@ it.each([
     record: record === true ? {} : record,
   });
 });
+
+it('reports recording export filesystem failures as persistence errors', async () => {
+  const runtime = {
+    exportRecording: vi
+      .fn()
+      .mockRejectedValue(Object.assign(new Error('No space'), { code: 'ENOSPC' })),
+  } as unknown as AgentRuntime;
+  const app = buildControlApp(runtime, new RuntimeSseBroker(), () => {});
+  const response = await app.request('/v1/recordings/id/export', {
+    method: 'POST',
+    body: JSON.stringify({ output: '/full/recording.json' }),
+  });
+  expect(response.status).toBe(500);
+  expect(await response.json()).toMatchObject({ category: 'persistence_failed' });
+});

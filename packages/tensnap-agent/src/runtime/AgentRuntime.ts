@@ -1,3 +1,14 @@
+import { saveCapturedFrame, readCapturedFrame } from './frame-files';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import {
+  decodeRecordingFile,
+  encodeRecordingFile,
+  inspectRecording,
+  type RecordingReport,
+} from '@tensnap/core/persistence';
+import type { RecordingOptions } from '@tensnap/core/snapshot';
+import { writeFileAtomically } from './atomic-file';
 import { EventEmitter } from 'node:events';
 import type {
   Action,
@@ -15,6 +26,7 @@ import type {
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
 import { validateIPFamily, parseIPFamily, type IPFamily } from '@tensnap/network';
 import {
+  ActionRenderError,
   RendererClient,
   RendererSession,
   type BoundedRunSpec,
@@ -89,6 +101,29 @@ export interface RunRecordingPersistence {
   error?: string;
 }
 
+export interface RecordingStatus {
+  id: string;
+  runId?: string;
+  status: 'recording' | 'pending' | 'persisted' | 'failed';
+  path?: string;
+  error?: string;
+  report?: RecordingReport;
+  options?: RecordingOptions;
+}
+
+export interface ActionSettlement {
+  requestId: string;
+  actionId: string;
+  settled: boolean;
+  stateKnown: boolean;
+  status: 'accepted' | 'succeeded' | 'failed' | 'unknown';
+  timeBefore?: number;
+  timeAfter?: number;
+  result?: ActionResultPayload;
+  renderStatus: 'pending' | 'completed' | 'failed' | 'unknown';
+  error?: string;
+}
+
 interface RuntimeRenderRequest extends RenderRequest {
   sceneRevision: number;
 }
@@ -110,8 +145,17 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['enviro
 export class AgentRuntime extends EventEmitter {
   private readonly client: RendererClient;
   private readonly renderer: RendererSession;
+  private readonly recordingEntries = new Map<string, RecordingStatus>();
+  private manualRecordingId: string | null = null;
+  private readonly actionBoundaryTimes = new Map<
+    string,
+    { id: string; timeBefore?: number; timeAfter?: number }
+  >();
+  private readonly actionResults = new Map<string, ActionSettlement>();
+  private readonly actionCompletions = new Map<string, Promise<ActionSettlement>>();
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
+  private readonly recordingCompletionByRun = new Map<string, Promise<void>>();
   private readonly recordingWrites = new Set<Promise<void>>();
   private readonly recordingResults = new Map<string, RunRecordingPersistence>();
   private readonly recordingWriter: typeof writeRunRecording;
@@ -484,24 +528,219 @@ export class AgentRuntime extends EventEmitter {
     this.emitRuntimeEvent('param.change.requested', { id, value });
   }
 
-  /** Dispatch one action; completion is reported through runtime events. */
+  /** Dispatch once; the completion is retained independently of subsequent runs. */
   async runAction(id: string): Promise<string> {
     this.assertConnected();
-    const requestId = this.client.requestAction(id);
-    await this.log('info', 'action', 'Action requested.', {
-      id,
+    const { requestId, completion } = this.client.beginAction(id);
+    const timeBefore = this.actionBoundaryTimes.get(requestId)?.timeBefore;
+    this.actionResults.set(requestId, {
       requestId,
+      actionId: id,
+      settled: false,
+      stateKnown: true,
+      status: 'accepted',
+      renderStatus: 'pending',
+      ...(typeof timeBefore === 'number' ? { timeBefore } : {}),
     });
-    this.emitRuntimeEvent('action.start.requested', {
-      id,
-      requestId,
-    });
+    const finish = completion
+      .then(
+        ({ result }) => {
+          const timeAfter = this.actionBoundaryTimes.get(requestId)?.timeAfter;
+          this.actionResults.set(requestId, {
+            ...this.actionResults.get(requestId)!,
+            settled: true,
+            status: result.error ? 'failed' : 'succeeded',
+            result,
+            renderStatus: 'completed',
+            ...(typeof timeAfter === 'number' ? { timeAfter } : {}),
+          });
+        },
+        (error: unknown) => {
+          const result = error instanceof ActionRenderError ? error.result : undefined;
+          this.actionResults.set(requestId, {
+            ...this.actionResults.get(requestId)!,
+            settled: true,
+            stateKnown: error instanceof ActionRenderError && error.renderStatus === 'failed',
+            status:
+              error instanceof ActionRenderError && error.renderStatus === 'failed'
+                ? 'failed'
+                : 'unknown',
+            ...(result ? { result } : {}),
+            renderStatus: error instanceof ActionRenderError ? error.renderStatus : 'unknown',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        },
+      )
+      .then(() => {
+        this.actionCompletions.delete(requestId);
+        this.actionBoundaryTimes.delete(requestId);
+        const settled = structuredClone(this.actionResults.get(requestId)!);
+        this.emitRuntimeEvent('action.settled', settled);
+        while (this.actionResults.size > 100) {
+          const expired = [...this.actionResults].find(([, value]) => value.settled);
+          if (!expired) break;
+          this.actionResults.delete(expired[0]);
+        }
+        return settled;
+      });
+    this.actionCompletions.set(requestId, finish);
+    await this.log('info', 'action', 'Action requested.', { id, requestId });
+    this.emitRuntimeEvent('action.start.requested', { id, requestId });
     return requestId;
+  }
+
+  getAction(requestId: string): ActionSettlement | null {
+    const value = this.actionResults.get(requestId);
+    return value ? structuredClone(value) : null;
+  }
+
+  async waitAction(
+    requestId: string,
+    timeoutMs = 30_000,
+    signal?: AbortSignal,
+  ): Promise<ActionSettlement> {
+    if (!this.actionResults.has(requestId))
+      throw new Error('Unknown or expired action request ID.');
+    const pending = this.actionCompletions.get(requestId);
+    if (pending) return await waitWithoutCancelling(pending, timeoutMs, signal);
+    return this.getAction(requestId)!;
+  }
+
+  async waitRun(
+    id: string,
+    until: 'settled' | 'persisted' = 'settled',
+    timeoutMs = 30_000,
+    signal?: AbortSignal,
+  ) {
+    const startedAt = Date.now();
+    const settled = await this.renderer.run.waitForSettled(id, timeoutMs, signal);
+    if (until === 'persisted') {
+      if (!settled.spec.record) throw new Error('This run did not request recording persistence.');
+      const pending = this.recordingCompletionByRun.get(id);
+      if (pending)
+        await waitWithoutCancelling(
+          pending,
+          Math.max(1, timeoutMs - (Date.now() - startedAt)),
+          signal,
+        );
+    }
+    const recording = this.recordingResults.get(id);
+    return { ...settled, ...(recording ? { recording: structuredClone(recording) } : {}) };
+  }
+
+  async saveFrame(
+    output: string,
+    options: {
+      checkpoint?: 'none' | 'if-supported' | 'required';
+      envIds?: string[];
+      chartIds?: string[];
+      renderOptions?: SceneRenderOptions;
+      timeoutMs?: number;
+    } = {},
+  ) {
+    this.assertConnected();
+    const frame = await this.renderer.captureFrame({
+      checkpoint: options.checkpoint,
+      timeoutMs: options.timeoutMs,
+    });
+    return saveCapturedFrame(frame, output, {
+      ...options,
+      render: (request) => this.runPainters(request),
+    });
+  }
+
+  async restoreFrame(
+    directory: string,
+    options: {
+      mode: 'checkpoint' | 'projected';
+      chartPolicy?: import('@tensnap/core/runtime').RestoreChartPolicy;
+      historyTime?: number;
+      timeoutMs?: number;
+    },
+    signal?: AbortSignal,
+  ) {
+    const { frame } = await readCapturedFrame(directory);
+    return this.renderer.restoreFrame(frame, { ...options, signal });
+  }
+
+  startRecording(options: RecordingOptions = {}): RecordingStatus {
+    this.assertConnected();
+    if (
+      this.renderer.run.hasInFlightAction ||
+      (this.renderer.run.status && !this.renderer.run.status.settled)
+    )
+      throw new Error('Settle the current action/run before starting a manual recording.');
+    if ([...this.recordingEntries.values()].some((entry) => entry.status === 'pending'))
+      throw new Error('A recording write is pending.');
+    const actual = { maxSteps: 10_000, maxBytes: 64 * 1024 * 1024, ringBuffer: true, ...options };
+    if (actual.id && this.recordingEntries.has(actual.id))
+      throw new Error('Recording ID already exists.');
+    const snapshot = this.renderer.startRecording(actual);
+    this.manualRecordingId = snapshot.metadata.id;
+    const entry = this.recordingEntries.get(snapshot.metadata.id)!;
+    entry.options = structuredClone(actual);
+    return structuredClone(entry);
+  }
+
+  async stopRecording(timeoutMs = 30_000, signal?: AbortSignal): Promise<RecordingStatus> {
+    const id = this.manualRecordingId;
+    if (!id) throw new Error('No manual recording is active.');
+    if (this.renderer.run.hasInFlightAction)
+      throw new Error('Wait for the in-flight action before stopping the recording.');
+    this.renderer.stopRecording();
+    this.manualRecordingId = null;
+    const pending = this.recordingCompletionByRun.get(id);
+    if (pending) await waitWithoutCancelling(pending, timeoutMs, signal);
+    return structuredClone(this.recordingEntries.get(id)!);
+  }
+
+  async listRecordings(): Promise<RecordingStatus[]> {
+    let files: string[] = [];
+    try {
+      files = await readdir(this.context.recordingsDir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    for (const name of files.filter((file) => file.endsWith('.tensnap-recording.json'))) {
+      const path = join(this.context.recordingsDir, name);
+      const id = decodeURIComponent(name.slice(0, -'.tensnap-recording.json'.length));
+      if (this.recordingEntries.has(id)) continue;
+      try {
+        const document = decodeRecordingFile(await readFile(path));
+        this.recordingEntries.set(id, { id, status: 'persisted', path, report: document.report });
+      } catch (error) {
+        this.recordingEntries.set(id, { id, status: 'failed', path, error: String(error) });
+      }
+    }
+    const active = this.renderer.recorder.current;
+    if (active) {
+      const entry = this.recordingEntries.get(active.metadata.id);
+      if (entry) entry.report = inspectRecording(active);
+    }
+    return structuredClone([...this.recordingEntries.values()]);
+  }
+
+  async exportRecording(id: string, outputPath: string): Promise<RecordingStatus> {
+    await this.listRecordings();
+    const entry = this.recordingEntries.get(id);
+    if (!entry || entry.status !== 'persisted' || !entry.path)
+      throw new Error('Recording is not persisted or does not exist.');
+    const document = decodeRecordingFile(await readFile(entry.path));
+    await writeFileAtomically(
+      outputPath,
+      encodeRecordingFile(document.snapshot, { origin: document.origin }),
+    );
+    return { ...structuredClone(entry), path: outputPath };
   }
 
   startRun(spec: BoundedRunSpec) {
     this.assertConnected();
     if (spec.record) {
+      if (this.renderer.recorder.active) throw new Error('A recording is already active.');
+      if (spec.record.id && this.recordingEntries.has(spec.record.id))
+        throw new Error('Recording ID already exists.');
+      if (this.renderer.run.hasInFlightAction)
+        throw new Error('Settle the current action before starting a recorded run.');
       for (const result of this.recordingResults.values()) {
         if (result.status === 'pending')
           throw new Error(
@@ -671,41 +910,76 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private bindRenderer(): void {
+    this.renderer.addEventListener('outbound', (event) => {
+      const message = (
+        event as CustomEvent<{ message: import('@tensnap/protocol').RendererToSimulatorMessage }>
+      ).detail.message;
+      if (message.type !== 'action_invoke') return;
+      const payload = message.payload as import('@tensnap/protocol').ActionInvokePayload;
+      this.actionBoundaryTimes.set(payload.request_id, {
+        id: payload.id,
+        timeBefore: this.renderer.scenario.time,
+      });
+      while (this.actionBoundaryTimes.size > 100)
+        this.actionBoundaryTimes.delete(this.actionBoundaryTimes.keys().next().value!);
+    });
+    this.renderer.addEventListener('message', (event) => {
+      const message = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail
+        .message;
+      if (message.type !== 'action_result') return;
+      const payload = message.payload as ActionResultPayload;
+      const timing = this.actionBoundaryTimes.get(payload.request_id);
+      if (timing?.id === payload.id) timing.timeAfter = this.renderer.scenario.time;
+    });
+
+    this.renderer.addEventListener('recording:start', (event) => {
+      const { snapshot } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
+      this.recordingEntries.set(snapshot.metadata.id, {
+        id: snapshot.metadata.id,
+        status: 'recording',
+        report: inspectRecording(snapshot),
+      });
+    });
     this.renderer.addEventListener('recording:complete', (event) => {
       const { snapshot, runId } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
-      if (!runId) return;
-      this.recordingResults.set(runId, { status: 'pending' });
+      const id = snapshot.metadata.id;
+      const entry: RecordingStatus = {
+        ...this.recordingEntries.get(id),
+        id,
+        runId,
+        status: 'pending',
+        report: inspectRecording(snapshot),
+      };
+      this.recordingEntries.set(id, entry);
+      if (runId) this.recordingResults.set(runId, { status: 'pending' });
       while (this.recordingResults.size > 100) {
         const removable = [...this.recordingResults].find(
           ([, value]) => value.status !== 'pending',
         );
         if (!removable) break;
         this.recordingResults.delete(removable[0]);
+        this.recordingCompletionByRun.delete(removable[0]);
       }
       const write = Promise.resolve()
-        .then(() => this.recordingWriter(this.context, runId, snapshot))
+        .then(() => this.recordingWriter(this.context, id, snapshot))
         .then(
           (path) => {
-            this.recordingResults.set(runId, { status: 'persisted', path });
+            entry.status = 'persisted';
+            entry.path = path;
+            if (runId) this.recordingResults.set(runId, { status: 'persisted', path });
           },
           (error: unknown) => {
-            this.recordingResults.set(runId, {
-              status: 'failed',
-              error: error instanceof Error ? error.message : String(error),
-            });
+            entry.status = 'failed';
+            entry.error = error instanceof Error ? error.message : String(error);
+            if (runId) this.recordingResults.set(runId, { status: 'failed', error: entry.error });
           },
         )
         .then(() => {
-          this.emitRuntimeEvent('recording.persistence', {
-            runId,
-            ...this.recordingResults.get(runId),
-          });
+          this.emitRuntimeEvent('recording.persistence', { runId, ...entry });
         });
+      this.recordingCompletionByRun.set(runId ?? id, write);
       this.recordingWrites.add(write);
-      void write.then(
-        () => this.recordingWrites.delete(write),
-        () => this.recordingWrites.delete(write),
-      );
+      void write.finally(() => this.recordingWrites.delete(write));
     });
     this.renderer.addEventListener('transport:open', () => {
       this.setPhase('open');
@@ -1126,4 +1400,40 @@ export class AgentRuntime extends EventEmitter {
     this.statusWriteChain = write.catch(() => {});
     return write;
   }
+}
+
+/** A wait timeout never cancels the underlying operation or invents a result. */
+export function waitWithoutCancelling<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
+    return Promise.reject(new Error('timeoutMs must be positive.'));
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      reject(new Error('Wait aborted; operation was not cancelled.'));
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out waiting; operation was not cancelled.'));
+    }, timeoutMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) onAbort();
+    operation.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }

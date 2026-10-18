@@ -669,3 +669,72 @@ it('preserves a malformed upstream error body without replacing it with a parser
   expect(error.body).toEqual({ error: null });
   expect(error.exitCode).toBe(3);
 });
+
+it.each([
+  ['recording', 'seek', 'file'],
+  ['recording', 'inspect', 'file', '--time', '7'],
+  ['recording', 'seek', 'file', '--frame', '0', '--time', '7', '--match', 'last'],
+  ['recording', 'render', 'file', '--frame', '0'],
+  ['frame', 'save'],
+  ['frame', 'restore', 'directory'],
+])('rejects invalid evidence commands before runtime access: %j', async (...argv) => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await expect(main(argv)).rejects.toMatchObject({ category: 'input_error' });
+  expect(fetch).not.toHaveBeenCalled();
+  expect(JSON.parse(stdout.mock.calls[0][0])).toMatchObject({
+    schemaVersion: 1,
+    ok: false,
+    error: { category: 'input_error' },
+  });
+});
+
+it('inspects, exports and compares a saved recording without any runtime or network', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot } = await import('@tensnap/core/snapshot');
+  const { encodeRecordingFile } = await import('@tensnap/core/persistence');
+  const { writeFile } = await import('node:fs/promises');
+  const root = await mkdtemp(join(tmpdir(), 'tensnap-cli-offline-'));
+  tempDirs.push(root);
+  const file = join(root, 'recording.json');
+  await writeFile(
+    file,
+    encodeRecordingFile(createSingleSnapshot(new Scenario().dump(), { id: 'offline-test' })),
+  );
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await main(['recording', 'info', file]);
+  expect(JSON.parse(stdout.mock.calls[0][0])).toMatchObject({
+    schemaVersion: 1,
+    ok: true,
+    data: { id: 'offline-test', resourcesComplete: true },
+  });
+  const directory = join(root, 'frame');
+  await main(['recording', 'export-frame', file, '--frame', '0', '--output', directory]);
+  await main(['frame', 'compare', directory, directory]);
+  expect(JSON.parse(stdout.mock.calls.at(-1)![0])).toMatchObject({
+    ok: true,
+    data: { equal: true, changes: [] },
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it('classifies corrupt offline artifacts as input errors with versioned JSON', async () => {
+  const { writeFile } = await import('node:fs/promises');
+  const path = await mkdtemp(join(tmpdir(), 'tensnap-invalid-artifact-'));
+  tempDirs.push(path);
+  const file = join(path, 'broken.json');
+  await writeFile(file, '{');
+  const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+  let failure: unknown;
+  try {
+    await main(['recording', 'info', file]);
+  } catch (error) {
+    failure = error;
+  }
+  expect(classifyCliError(failure)).toEqual({ category: 'input_error', exitCode: 2 });
+  expect(JSON.parse(stdout.mock.calls[0][0])).toMatchObject({
+    ok: false,
+    error: { category: 'input_error' },
+  });
+});

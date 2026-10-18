@@ -1,10 +1,7 @@
 import { appendFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import {
-  encodeSnapshotArchive,
-  snapshotArchiveForJson,
-  type Snapshot,
-} from '@tensnap/core/snapshot';
+import { encodeRecordingFile } from '@tensnap/core/persistence';
+import type { Snapshot } from '@tensnap/core/snapshot';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { RuntimeContextOptions, RuntimeControlFile, RuntimeLogEntry } from '../types';
 import { writeFileAtomically } from './atomic-file';
@@ -17,6 +14,7 @@ export interface RuntimeContextPaths {
   contextDir: string;
   assetsDir: string;
   capturesDir: string;
+  recordingsDir: string;
   logsDir: string;
   controlFile: string;
   logFile: string;
@@ -60,6 +58,7 @@ export function resolveRuntimeContextPaths(
     contextDir,
     assetsDir: join(contextDir, 'assets'),
     capturesDir: join(contextDir, 'captures'),
+    recordingsDir: join(contextDir, 'recordings'),
     logsDir,
     controlFile: join(contextDir, 'runtime.json'),
     logFile: join(logsDir, 'runtime.log'),
@@ -133,14 +132,14 @@ export function isProcessAlive(pid: number): boolean {
   }
 }
 
-/** Atomic storage of the existing SnapshotArchive format (not a standalone recording file). */
+/** Commit a self-contained recording only after encoding and resource validation succeed. */
 export async function writeRunRecording(
   paths: RuntimeContextPaths,
   runId: string,
   snapshot: Snapshot,
 ): Promise<string> {
-  const data = `${JSON.stringify(snapshotArchiveForJson(encodeSnapshotArchive(snapshot)))}\n`;
-  const output = join(paths.contextDir, 'recordings', `${runId}.snapshot.json`);
+  const data = encodeRecordingFile(snapshot);
+  const output = join(paths.recordingsDir, `${encodeURIComponent(runId)}.tensnap-recording.json`);
   await writeFileAtomically(output, data);
   return output;
 }
