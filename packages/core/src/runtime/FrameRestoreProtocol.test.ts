@@ -2,6 +2,8 @@
 import { assert, expect, it } from 'vitest';
 import {
   ProtocolCodec,
+  RendererToSimulatorMessageSchema,
+  SimulatorToRendererMessageSchema,
   type ProtocolEncoding,
   type RendererToSimulatorMessage,
 } from '@tensnap/protocol';
@@ -62,7 +64,9 @@ it.each(['json', 'msgpack'] as const)(
         const session = new RendererSession();
         const transport = createTransport(sent);
         transport.send = (message) => {
-          const decoded = codec.decode(codec.encode(message, encoding));
+          const decoded = codec.decode(
+            codec.encode(RendererToSimulatorMessageSchema.parse(message), encoding),
+          );
           expect(decoded.type).toBe(message.type);
           sent.push(message);
         };
@@ -102,21 +106,25 @@ it.each(['json', 'msgpack'] as const)(
         expect(frame.checkpoint.model_id).toBe('test-model');
         expect(session.scenario.dump().charts).toEqual(currentCharts);
         session.handleIncoming(
-          codec.decode(
-            codec.encode(
-              { type: 'scene_restore_begin', payload: { request_id: payload.request_id } },
-              encoding,
+          SimulatorToRendererMessageSchema.parse(
+            codec.decode(
+              codec.encode(
+                { type: 'scene_restore_begin', payload: { request_id: payload.request_id } },
+                encoding,
+              ),
             ),
           ),
         );
         session.handleIncoming(
-          codec.decode(
-            codec.encode(
-              {
-                type: 'scene_restore_end',
-                payload: { request_id: payload.request_id, status: 'ok' },
-              },
-              encoding,
+          SimulatorToRendererMessageSchema.parse(
+            codec.decode(
+              codec.encode(
+                {
+                  type: 'scene_restore_end',
+                  payload: { request_id: payload.request_id, status: 'ok' },
+                },
+                encoding,
+              ),
             ),
           ),
         );
