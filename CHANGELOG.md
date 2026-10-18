@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Offline `skills list` and `skills install` commands for the bundled `tensnap-agent` and `tensnap-abm-binding` skills, with stable names, discovery metadata and self-contained API/protocol references matched to the CLI version.
 - Explicit project/user scope and non-interactive installation for Codex, shared Agent Skills directories and Claude Code. Reinstalls leave unchanged copies intact; upgrades use receipts and file hashes, while conflicting content requires explicit replacement with a backup.
 - npm tarball acceptance outside the source checkout, covering isolated user directories, upgrades, conflicts, executable resources, offline installation, recordings and headless rendering, plus the Vercel skills local-bundle installation path.
+- Run agent npm tarball acceptance on Node 22 in the npm publishing workflow before allowing the publish job to proceed.
 
 ### Changed
 

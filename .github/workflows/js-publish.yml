@@ -81,6 +81,16 @@ jobs:
             pnpm --dir "packages/$package" test
           done
 
+      - name: Set up Node.js 22 for agent package acceptance
+        if: contains(format(' {0} ', steps.selection.outputs.packages), ' tensnap-agent ')
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify agent npm tarball outside the checkout
+        if: contains(format(' {0} ', steps.selection.outputs.packages), ' tensnap-agent ')
+        run: pnpm --filter @tensnap/agent test:package
+
   publish:
     needs: test
     runs-on: ubuntu-latest
