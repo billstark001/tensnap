@@ -88,7 +88,8 @@ it('keeps the committed prefix when atomic root publication fails and reports fa
   await expect(writer.append(input(scenario, 1))).rejects.toThrow(/interruption/);
   const interrupted = await RecordingStoreReader.open(backend);
   expect(await interrupted.recover()).toMatchObject({
-    status: 'interrupted',
+    status: 'open',
+    writerActive: true,
     committedRange: { from: 0, to: 0 },
     complete: false,
   });

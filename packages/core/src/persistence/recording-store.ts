@@ -24,6 +24,7 @@ export interface RecordingStoreBackend {
   list(prefix?: string): AsyncIterable<string>;
   remove(key: string): Promise<void>;
   acquireWriter(): Promise<() => Promise<void>>;
+  isWriterActive(): Promise<boolean>;
   pin(generation: number): Promise<() => Promise<void>>;
   pinnedGenerations(): Promise<number[]>;
   putIndex(row: StoreIndexRow): Promise<void>;
@@ -1109,12 +1110,26 @@ export class RecordingStoreReader {
       errors.push({
         reason: 'Committed index is incomplete; rebuild it from immutable segment descriptors.',
       });
+    const writerActive = await this.backend.isWriterActive();
+    const latest = rootSchema.parse(decodeMessagePack(await this.backend.read('root')));
+    const superseded = latest.generation !== this.root.generation;
     let observed = this.root.observedFrame;
     for await (const key of this.backend.list('segments/'))
       observed = Math.max(observed, Number(key.slice(9)));
     return {
       generation: this.root.generation,
-      status: this.root.status === 'open' ? 'interrupted' : this.root.status,
+      status:
+        this.root.status === 'open' && !writerActive && !superseded
+          ? 'interrupted'
+          : this.root.status,
+      writerActive,
+      superseded,
+      tailObservation:
+        this.root.status === 'open' ? 'unknown' : observed > this.root.lastFrame ? 'known' : 'none',
+      tailReason:
+        this.root.status === 'open'
+          ? 'This generation has no final root; observations after its last committed boundary may not have reached storage.'
+          : undefined,
       committedRange: { from: this.root.firstFrame, to: this.root.lastFrame },
       recoverablePrefix:
         lastFrame === undefined ? undefined : { from: this.root.firstFrame, to: lastFrame },

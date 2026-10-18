@@ -237,6 +237,14 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
       await completion;
     };
   }
+  async isWriterActive(): Promise<boolean> {
+    if (!navigator.locks) throw new Error('Recording stores require Web Locks.');
+    return (
+      (await navigator.locks.query()).held?.some(
+        (lock) => lock.name === `tensnap-store-writer:${this.prefix}`,
+      ) ?? false
+    );
+  }
   acquireWriter() {
     return this.lock(`tensnap-store-writer:${this.prefix}`, 'exclusive', true);
   }

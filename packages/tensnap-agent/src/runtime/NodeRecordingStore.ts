@@ -246,6 +246,12 @@ export class NodeRecordingStore implements RecordingStoreBackend {
       if (!missing(error)) throw error;
     }
   }
+  async isWriterActive(): Promise<boolean> {
+    const row = (await this.objects())
+      .prepare("SELECT bytes FROM objects WHERE key='writer'")
+      .get();
+    return row ? alive(decodeMessagePack<{ pid: number }>(row.bytes as Uint8Array).pid) : false;
+  }
   async acquireWriter(): Promise<() => Promise<void>> {
     const db = await this.objects();
     const token = randomUUID();
