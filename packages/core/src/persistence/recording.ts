@@ -109,7 +109,15 @@ export function createRecordingFile(
 ): RecordingFileV1 {
   options = { ...options, origin: options.origin ?? snapshot.metadata.origin };
   validateRecording(snapshot);
-  if (options.origin) RecordingOriginSchema.parse(options.origin);
+  if (options.origin) {
+    const origin = RecordingOriginSchema.parse(options.origin);
+    if (
+      snapshot.metadata.origin &&
+      JSON.stringify(origin) !==
+        JSON.stringify(RecordingOriginSchema.parse(snapshot.metadata.origin))
+    )
+      throw new Error('Recording origin conflicts with retained provenance.');
+  }
   if (options.origin && snapshot.frames.length)
     throw new Error('A single-frame origin cannot describe a multi-frame recording.');
   const report = inspectRecording(snapshot);

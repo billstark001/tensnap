@@ -17,7 +17,12 @@ import {
 } from '@tensnap/core/snapshot';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from '../types';
-import { RenderBatchError, type RenderArtifact, type RenderRequest } from './painter';
+import {
+  RenderBatchError,
+  renderTargetError,
+  type RenderArtifact,
+  type RenderRequest,
+} from './painter';
 
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 export type FixedFrameRenderer = (request: RenderRequest) => Promise<RenderArtifact[]>;
@@ -124,7 +129,13 @@ export async function saveCapturedFrame(
           persist: false,
           includeData: true,
         });
-        const batch = await render(request);
+        let batch: RenderArtifact[];
+        try {
+          batch = await render(request);
+        } catch (error) {
+          if (error instanceof RenderBatchError) throw error;
+          throw new RenderBatchError([], [renderTargetError('*', id, error)]);
+        }
         if (!batch.length || batch.some((artifact) => !artifact.data?.length))
           throw new RenderBatchError(batch, [
             {

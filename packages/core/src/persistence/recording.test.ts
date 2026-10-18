@@ -232,6 +232,21 @@ describe('portable persistence', () => {
     expect(() => createRecordingFile(missing.snapshot, { allowIncomplete: true })).not.toThrow();
   });
 
+  it('rejects export origins that conflict with retained provenance before creating a file', () => {
+    const snapshot = createSingleSnapshot(new Scenario().dump());
+    snapshot.metadata.origin = { recordingId: 'source', frame: 3, modelTime: 8 };
+    expect(() =>
+      createRecordingFile(snapshot, { origin: { recordingId: 'other', frame: 4 } }),
+    ).toThrow(/conflicts.*provenance/);
+    expect(
+      parseRecordingFile(
+        createRecordingFile(snapshot, {
+          origin: { modelTime: 8, frame: 3, recordingId: 'source' },
+        }),
+      ).origin,
+    ).toEqual(snapshot.metadata.origin);
+  });
+
   it('requires an explicit legacy path and reports its provenance limitations', () => {
     const archive = encodeSnapshotArchive(fixture());
     expect(() => parseRecordingFile(archive)).toThrow(/legacy/);

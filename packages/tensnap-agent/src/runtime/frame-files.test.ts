@@ -180,34 +180,39 @@ it('all render requests consume one owned scene despite source mutations during 
   });
 });
 
-it('preserves partial output without a successful manifest after a required render fails', async () => {
-  const path = join(await root(), 'failed');
-  let error: FrameSaveError | undefined;
-  try {
-    await saveCapturedFrame(fixture(), path, {
-      envIds: ['ok', 'bad'],
-      render: async (request) => {
-        if (request.options.envId === 'bad')
-          throw new RenderBatchError(
-            [],
-            [{ painterId: 'fixture', code: 'render_missing', message: 'Missing target' }],
-          );
-        return [{ painterId: 'fixture', kind: 'environment', data: Uint8Array.of(1) }];
-      },
+it.each([false, true])(
+  'preserves partial output and classifies renderer failures (plainError=%s)',
+  async (plainError) => {
+    const path = join(await root(), 'failed');
+    let error: FrameSaveError | undefined;
+    try {
+      await saveCapturedFrame(fixture(), path, {
+        envIds: ['ok', 'bad'],
+        render: async (request) => {
+          if (request.options.envId === 'bad') {
+            if (plainError) throw new Error('Missing target');
+            throw new RenderBatchError(
+              [],
+              [{ painterId: 'fixture', code: 'render_missing', message: 'Missing target' }],
+            );
+          }
+          return [{ painterId: 'fixture', kind: 'environment', data: Uint8Array.of(1) }];
+        },
+      });
+    } catch (cause) {
+      error = cause as FrameSaveError;
+    }
+    expect(error).toBeInstanceOf(FrameSaveError);
+    expect(error?.category).toBe('render_failed');
+    expect(error?.artifacts).toHaveLength(1);
+    await expect(readFile(join(error!.partialDirectory, 'manifest.json'))).rejects.toMatchObject({
+      code: 'ENOENT',
     });
-  } catch (cause) {
-    error = cause as FrameSaveError;
-  }
-  expect(error).toBeInstanceOf(FrameSaveError);
-  expect(error?.category).toBe('render_failed');
-  expect(error?.artifacts).toHaveLength(1);
-  await expect(readFile(join(error!.partialDirectory, 'manifest.json'))).rejects.toMatchObject({
-    code: 'ENOENT',
-  });
-  expect(
-    JSON.parse(await readFile(join(error!.partialDirectory, 'failure.json'), 'utf8')).status,
-  ).toBe('failed');
-});
+    expect(
+      JSON.parse(await readFile(join(error!.partialDirectory, 'failure.json'), 'utf8')).status,
+    ).toBe('failed');
+  },
+);
 
 it('owns and deduplicates render targets and supports punctuation in public IDs', async () => {
   const envIds = ["world!'()*", "world!'()*"];

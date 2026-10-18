@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inspect an active recording without copying its scene/history/asset payload, and allow settlement-only action handles to avoid retaining protocol streams.
 - Own frame restore inputs before asynchronous settlement and recheck the target identity before dispatch. Validate checkpoint association without constructing and discarding an encoded scene snapshot.
 - Detach hydrated resource bytes from caller-owned tables once per hash, avoid repeated whole-scene copies inside owned persistence transforms, and capture frame-operation scalar options before waiting while retaining live cancellation signals.
+- Reject recording exports whose explicit origin conflicts with retained provenance.
 
 ## @tensnap/agent [0.3.5] - 2026-10-18
 
@@ -61,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Verify loaded frame checkpoint association without building and discarding another serialized scene snapshot.
 - Detach frame/offline operation options before asynchronous work and return independent action-wait results. Separate callable recording policies from serializable status before starting the recorder.
 - Preserve foreign writes during evidence-directory cleanup and retain original/cleanup errors, completed artifact values and actual partial paths when recovery writes or renames fail.
+- Classify exceptions from custom frame renderers as rendering failures while preserving explicit persistence failures.
 
 ## @tensnap/web [0.3.6] - 2026-10-18
 
