@@ -217,9 +217,11 @@ syncBuiltinESMExports();
       '-e',
       `
     import assert from 'node:assert/strict';
-    import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile, encodeRecordingFile, decodeRecordingFile } from '@tensnap/core/persistence';
+    import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile, encodeRecordingFile, decodeRecordingFile, RecordingStoreWriter, RecordingStoreReader, RecordingPlayback } from '@tensnap/core/persistence';
     import { Scenario } from '@tensnap/core/scenario';
-    import { createSingleSnapshot } from '@tensnap/core/snapshot';
+    import { createSingleSnapshot, diffCapturedFrames } from '@tensnap/core/snapshot';
+    import { RecordingCollection, validateCollectionConfig } from '@tensnap/core/runtime';
+    import { NodeRecordingStore } from '@tensnap/agent/runtime';
     assert.equal(typeof window, 'undefined');
     const scene = new Scenario().dump();
     const snapshot = createSingleSnapshot(scene, { id: 'published-import' });
@@ -228,7 +230,16 @@ syncBuiltinESMExports();
       assert.equal(decodeProjectFile(encodeProjectFile(project, format), format).snapshots[0].metadata.id, 'published-import');
       assert.equal(decodeRecordingFile(encodeRecordingFile(snapshot, { format })).report.resourcesComplete, true);
     }
-    console.log('PASS: published core/persistence imports and round trips in pure Node');
+    for (const value of [RecordingStoreWriter, RecordingStoreReader, RecordingPlayback, RecordingCollection, validateCollectionConfig, NodeRecordingStore, diffCapturedFrames]) assert.equal(typeof value, 'function');
+    const backend = new NodeRecordingStore('./published.store');
+    const writer = await RecordingStoreWriter.create(backend, { id: 'published', mode: 'full-history' });
+    await writer.append({ scene, timestamp: 0, location: { kind: 'recording', sourceId: 'published', revision: 0, frame: 0 } });
+    await writer.close();
+    const reader = await RecordingStoreReader.open(backend);
+    assert.equal((await reader.query(0, { selector: { kind: 'metadata' } })).found, true);
+    assert.equal((await reader.recover()).complete, true);
+    await reader.close(); backend.close();
+    console.log('PASS: published core/persistence imports, legacy round trips and incremental stores in pure Node');
   `,
     ],
     { cwd: app },
