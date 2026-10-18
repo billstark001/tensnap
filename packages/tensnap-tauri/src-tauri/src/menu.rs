@@ -9,6 +9,7 @@ struct MenuLabels {
     help: &'static str,
     new: &'static str,
     open_file: &'static str,
+    open_recording: &'static str,
     save: &'static str,
     save_as: &'static str,
     #[cfg(not(target_os = "macos"))]
@@ -40,6 +41,7 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             help: "Help",
             new: "New",
             open_file: "Open File",
+            open_recording: "Open recording",
             save: "Save",
             save_as: "Save As...",
             #[cfg(not(target_os = "macos"))]
@@ -68,6 +70,7 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             help: "帮助",
             new: "新建",
             open_file: "打开文件",
+            open_recording: "打开录像",
             save: "保存",
             save_as: "另存为...",
             #[cfg(not(target_os = "macos"))]
@@ -96,6 +99,7 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             help: "ヘルプ",
             new: "新規",
             open_file: "ファイルを開く",
+            open_recording: "録画を開く",
             save: "保存",
             save_as: "別名で保存...",
             #[cfg(not(target_os = "macos"))]
@@ -137,6 +141,13 @@ fn create_menu_for_locale(app: &AppHandle, locale: &str) -> Result<Menu<tauri::W
         &[
             &MenuItem::with_id(app, "new", labels.new, true, Some("CmdOrCtrl+N"))?,
             &MenuItem::with_id(app, "open", labels.open_file, true, Some("CmdOrCtrl+O"))?,
+            &MenuItem::with_id(
+                app,
+                "open_recording",
+                labels.open_recording,
+                true,
+                None::<&str>,
+            )?,
             &MenuItem::with_id(app, "save", labels.save, true, Some("CmdOrCtrl+S"))?,
             &MenuItem::with_id(
                 app,
@@ -268,6 +279,7 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             // File menu
             "new" => emit_event(&window, "menu:new"),
             "open" => emit_event(&window, "menu:open"),
+            "open_recording" => emit_event(&window, "menu:open-recording"),
             "save" => emit_event(&window, "menu:save"),
             "save_as" => emit_event(&window, "menu:save-as"),
             "exit" => {
