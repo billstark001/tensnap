@@ -231,6 +231,20 @@ syncBuiltinESMExports();
       assert.equal(decodeRecordingFile(encodeRecordingFile(snapshot, { format })).report.resourcesComplete, true);
     }
     for (const value of [RecordingStoreWriter, RecordingStoreReader, RecordingPlayback, RecordingCollection, validateCollectionConfig, NodeRecordingStore, diffCapturedFrames]) assert.equal(typeof value, 'function');
+    const beforeItems = structuredClone(scene);
+    beforeItems.environments = [{ id: 'main', type: '2d', layers: [
+      { id: 'agents', layerType: 'agent', metadata: {}, dependencyLayerIds: {}, storageSnapshot: { agents: [{ id: 1 }, { id: '1' }] } },
+      { id: 'edges', layerType: 'edge', metadata: {}, dependencyLayerIds: { agent: 'agents' }, storageSnapshot: { edges: [{ source: 1, target: '1' }, { source: '1', target: 1 }] } },
+      { id: 'trails', layerType: 'trajectory', metadata: {}, dependencyLayerIds: { agent: 'agents' }, storageSnapshot: { configs: [{ id: 1 }, { id: '1' }], trajectories: [{ id: 1, points: [{ x: 1, y: 1, time: 0 }] }, { id: '1', points: [{ x: 2, y: 2, time: 0 }] }] } },
+    ] }];
+    const afterItems = structuredClone(beforeItems);
+    for (const layer of afterItems.environments[0].layers) for (const items of Object.values(layer.storageSnapshot)) items.reverse();
+    const leftFrame = { scene: beforeItems, source: { kind: 'live' } }, rightFrame = { scene: afterItems, source: { kind: 'live' } };
+    const identityDiff = diffCapturedFrames(leftFrame, rightFrame);
+    assert.equal(identityDiff.sceneEqual, true);
+    assert.equal(identityDiff.selectedEqual, true);
+    assert.equal('exactSceneEqual' in identityDiff, false);
+    assert.equal(diffCapturedFrames(leftFrame, rightFrame, { comparison: 'exact' }).sceneEqual, false);
     const backend = new NodeRecordingStore('./published.store');
     const writer = await RecordingStoreWriter.create(backend, { id: 'published', mode: 'full-history' });
     await writer.append({ scene, timestamp: 0, location: { kind: 'recording', sourceId: 'published', revision: 0, frame: 0 } });

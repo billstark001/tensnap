@@ -1,7 +1,7 @@
 import { queryScenario, type ScenarioQuery } from '../scenario/query';
 import { materializeSnapshot, SnapshotPlayer } from './SnapshotRecorder';
 import type { Snapshot } from './types';
-import { exactValueEqual } from './diff';
+import { exactValueEqual } from './diff/equality';
 
 export function queryRecording(snapshot: Snapshot, frame: number, query: ScenarioQuery) {
   if (frame !== snapshot.initial.frame && !snapshot.frames.some((f) => f.index === frame))

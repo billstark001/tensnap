@@ -738,3 +738,55 @@ it('classifies corrupt offline artifacts as input errors with versioned JSON', a
     error: { category: 'input_error' },
   });
 });
+
+it('uses explicit edge identity policies in offline recording diffs while keeping exact comparison ordered', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot } = await import('@tensnap/core/snapshot');
+  const { encodeRecordingFile } = await import('@tensnap/core/persistence');
+  const { writeFile } = await import('node:fs/promises');
+  const root = await mkdtemp(join(tmpdir(), 'tensnap-cli-edge-diff-'));
+  tempDirs.push(root);
+  const files = [join(root, 'left.json'), join(root, 'right.json')];
+  const policy = join(root, 'policy.json');
+  await writeFile(policy, JSON.stringify({ comparison: 'exact' }));
+  for (const [index, file] of files.entries()) {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'g', type: '2d' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'g', layer_id: 'nodes', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: {
+        env_id: 'g',
+        layer_id: 'edges',
+        layer_type: 'edge',
+        dependency_layer_ids: { agent: 'nodes' },
+      },
+    });
+    const edges = [
+      { source: 1, target: 'x/y', weight: 2 },
+      { source: '1', target: 'x/y', weight: 3 },
+    ];
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'g', layer_id: 'edges', items: index ? edges.reverse() : edges },
+    });
+    await writeFile(file, encodeRecordingFile(createSingleSnapshot(scenario.dump())));
+  }
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const args = ['recording', 'diff', ...files, '--left-frame', '0', '--right-frame', '0'];
+  await main(args);
+  await main([...args, '--policy', policy]);
+  expect(JSON.parse(output.mock.calls[0][0]).data).toMatchObject({
+    sceneEqual: true,
+    selectedEqual: true,
+  });
+  expect(JSON.parse(output.mock.calls[1][0]).data).toMatchObject({
+    sceneEqual: false,
+    selectedEqual: false,
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});

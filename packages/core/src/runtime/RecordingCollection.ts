@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { decodeBinaryString } from '@tensnap/protocol';
 import type { ActionResultPayload, SimulatorToRendererMessage } from '@tensnap/protocol';
-import { exactValueEqual } from '../snapshot/diff';
+import { exactValueEqual } from '../snapshot/diff/equality';
 import type { CapturedFrame, SnapshotFrame } from '../snapshot';
 import { ScenarioQuerySchema, queryScenario, type ScenarioQuery } from '../scenario/query';
 import { RecordingStoreWriter, type RecordingStoreRoot } from '../persistence/recording-store';
