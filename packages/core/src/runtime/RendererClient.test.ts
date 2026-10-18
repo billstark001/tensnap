@@ -301,3 +301,31 @@ describe('RendererClient', () => {
     client.disconnect();
   });
 });
+
+it('returns the correlated action result when its render barrier fails', async () => {
+  const session = new RendererSession({
+    run: {
+      renderBarrier: {
+        wait: () => {
+          throw new Error('PNG write failed');
+        },
+      },
+    },
+  });
+  const client = new RendererClient({ session });
+  const transport = synchronousTransport();
+  await client.connect(transport);
+  const invoke = client.invokeAction('step');
+  const request = session.run.hasInFlightAction;
+  expect(request).toBe(true);
+  const task = (
+    session.run as unknown as { runtime: { peekActiveTaskRef(): { id: string } } }
+  ).runtime.peekActiveTaskRef();
+  transport.emitMessage({ type: 'action_result', payload: { id: 'step', request_id: task.id } });
+  await expect(invoke).rejects.toMatchObject({
+    name: 'ActionRenderError',
+    message: 'PNG write failed',
+    result: { id: 'step', request_id: task.id },
+  });
+  client.disconnect();
+});

@@ -26,7 +26,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## Unreleased
+## @tensnap/core [0.3.4] - 2026-10-18
+
+### Fixed
+
+- Count dispatched, completed, successful and failed target actions separately; preserve simultaneous stop reasons and failure priority. Duplicate or mismatched results do not count, and unchanged model time can still succeed.
+- Settle runs only after final host barriers and stop lifecycle results, retain summaries and waits by run ID, close recording at settlement, and label lifecycle frames. Keep target and lifecycle outcomes separate; mark unknown state on disconnect/timeouts without inventing completions.
+- Propagate final render-barrier failures through run outcomes and correlated client errors. Prevent cleanup dispatch after an action timeout.
+- Restore synchronous force-layout position publication, keep readonly edge projection free of storage writes/notifications, and update only the changed edge geometry for appearance deltas. Force ticks publish positions once.
+- Avoid whole-status structured cloning on ordinary run ticks while preserving ownership of timings, stop reasons and structured errors; publish settlement once and defer reentrant run starts until reset cleanup completes.
+- Close a settled run's recording before dispatching unrelated queued actions, so later action updates cannot enter the previous archive.
+- Copy run recording data and codec descriptors without cloning callable policies; detach queued action targets/arguments before changing the queue. Mutating caller inputs or returned statuses cannot rewrite retained values.
+- Isolate startup observer statuses from recording setup, so observer changes cannot disable or rewrite the requested recording.
+- Project readonly graph edges at stored typed node coordinates during initialization and updates, without force simulation or input writes; keep numeric and string IDs distinct in normal layouts too.
+
+### Deprecated
+
+- Public `RunStatus.completedSteps` remains available as the completed-action count; consumers use `completedActions`.
+
+## @tensnap/agent [0.3.4] - 2026-10-18
+
+### Added
+
+- Versioned JSON output with structured errors and documented exit codes, plus the `--max-actions` quota; deprecated `--max-steps` remains accepted.
+- Bundled, version-matched agent skills with offline project/user installation for Codex, Claude Code and shared Agent Skills directories. Preserve local edits and permissions, back up replacements, and roll back failed installs.
+
+### Changed
+
+- Use commander for command parsing and generated subcommand help. Validate CLI and HTTP inputs before side effects.
+- Require Node.js 22 or newer. Help, version queries and skill installation work without native canvas binaries.
+
+### Fixed
+
+- Persist recordings atomically after run settlement, bound pending recorded runs, and await recording writes during shutdown.
+- Preserve successful artifacts and structured per-target errors when rendering or persistence partially fails.
+- Own retained inputs and status values, preserve newer scene revisions, and cancel retired simulator connections before they can attach or overwrite current state.
+- Atomically commit scene, status, log and image files, retain previous complete files on failure, and report background persistence and screenshot failures through runtime events.
+
+## @tensnap/benchmark [0.3.4] - 2026-10-18
+
+### Changed
+
+- Share CLI option and profile parsing, normalize artifact paths once, and refresh the active JavaScript dependency fingerprint.
+
+### Fixed
+
+- Generate analysis beside the manifest when its input path ends in a trailing slash.
+
+## @tensnap/web [0.3.5] - 2026-10-18
+
+### Fixed
+
+- Show classified action outcomes and settlement status; a pending pause no longer masks an action or render failure.
 
 ## @tensnap/network [0.3.0] - 2026-10-17
 

@@ -284,7 +284,7 @@ export class EdgeLayer extends BaseLayer {
         'link',
         d3
           .forceLink<SimNode, SimLink>()
-          .id((d: SimNode) => String(d.id))
+          .id((d: SimNode) => d.id)
           .distance(linkDistance),
       )
       .force('charge', d3.forceManyBody<SimNode>().strength(chargeStrength))
@@ -352,9 +352,8 @@ export class EdgeLayer extends BaseLayer {
   private _pushSimPositions(): void {
     const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
     for (const n of this._simNodes) {
-      if (n.x != null && n.y != null) {
+      if (n.x != null && n.y != null)
         positions.set(n.id, { x: n.x, y: n.y, vx: n.vx ?? 0, vy: n.vy ?? 0 });
-      }
     }
     if (positions.size > 0) {
       this._agentStorage.mergePositions(positions);
@@ -364,35 +363,30 @@ export class EdgeLayer extends BaseLayer {
 
   private _tick(): void {
     this._ticking = true;
-
-    this._edgeShapeMap.forEach(({ line, arrowhead, link }) => {
-      const src = link.source as SimNode;
-      const tgt = link.target as SimNode;
-      if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
-
-      const dx = tgt.x - src.x;
-      const dy = tgt.y - src.y;
-      const dist = Math.hypot(dx, dy) || 1;
-      const srcRadius = resolveAgentSize(src.size) / 2;
-      const tgtRadius = resolveAgentSize(tgt.size) / 2;
-      const x1 = src.x + (dx / dist) * srcRadius;
-      const y1 = src.y + (dy / dist) * srcRadius;
-      const x2 = tgt.x - (dx / dist) * tgtRadius;
-      const y2 = tgt.y - (dy / dist) * tgtRadius;
-
-      line.set({ points: [x1, y1, x2, y2] });
-      if (arrowhead)
-        arrowhead.set({ x: x2, y: y2, rotation: (Math.atan2(dy, dx) * 180) / Math.PI });
-    });
-
-    const positions = new Map<AgentId, { x: number; y: number; vx?: number; vy?: number }>();
-    for (const n of this._simNodes) {
-      if (n.x != null && n.y != null) positions.set(n.id, { x: n.x, y: n.y, vx: n.vx, vy: n.vy });
+    try {
+      this._edgeShapeMap.forEach((entry) => this._updateEdgeGeometry(entry));
+      this._pushSimPositions();
+    } finally {
+      this._ticking = false;
     }
-    this._agentStorage.mergePositions(positions);
-    this._agentStorage.flushPositions();
+  }
 
-    this._ticking = false;
+  /** Project a shape from resolved nodes without writing or notifying storage. */
+  private _updateEdgeGeometry({ line, arrowhead, link }: EdgeShapeEntry): void {
+    const src = link.source as SimNode;
+    const tgt = link.target as SimNode;
+    if (src.x == null || src.y == null || tgt.x == null || tgt.y == null) return;
+    const dx = tgt.x - src.x;
+    const dy = tgt.y - src.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    const srcRadius = resolveAgentSize(src.size) / 2;
+    const tgtRadius = resolveAgentSize(tgt.size) / 2;
+    const x1 = src.x + (dx / dist) * srcRadius;
+    const y1 = src.y + (dy / dist) * srcRadius;
+    const x2 = tgt.x - (dx / dist) * tgtRadius;
+    const y2 = tgt.y - (dy / dist) * tgtRadius;
+    line.set({ points: [x1, y1, x2, y2] });
+    if (arrowhead) arrowhead.set({ x: x2, y: y2, rotation: (Math.atan2(dy, dx) * 180) / Math.PI });
   }
 
   // #endregion
@@ -408,7 +402,9 @@ export class EdgeLayer extends BaseLayer {
       arrowhead = createArrowhead(color);
       this.group.add(arrowhead);
     }
-    this._edgeShapeMap.set(key, { line, arrowhead, link });
+    const entry = { line, arrowhead, link };
+    this._edgeShapeMap.set(key, entry);
+    this._updateEdgeGeometry(entry);
   }
 
   private _removeEdgeShape(key: string): void {
@@ -464,7 +460,7 @@ export class EdgeLayer extends BaseLayer {
    */
   private _rebuildSimNodes(agents: ReadonlyMap<AgentId, AgentRenderState>): void {
     this._simNodes = [...agents.values()].map((agent) => {
-      const prev = this._simNodeMap.get(agent.id);
+      const prev = this._readOnlyLayout ? undefined : this._simNodeMap.get(agent.id);
       return {
         ...agent,
         x: prev?.x ?? agent.x,

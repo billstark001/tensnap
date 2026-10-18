@@ -2,7 +2,7 @@ import { access, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createCanvas, loadImage, type CanvasRenderingContext2D } from 'canvas';
-import { afterEach, assert, describe, expect, it } from 'vitest';
+import { afterEach, assert, describe, expect, it, vi } from 'vitest';
 import { collectRenderData } from '@tensnap/core/scenario';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentPainter } from './HeadlessEnvironmentPainter';
@@ -525,4 +525,130 @@ describe('HeadlessEnvironmentPainter', () => {
     expect(aggregated.width).toBe(40);
     expect(aggregated.height).toBe(40);
   });
+});
+
+it('renders stored graph coordinates through dependency layers without changing the snapshot', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const scenario = new Scenario();
+  scenario.apply({ type: 'env_create', payload: { id: 'graph', type: '2d' } });
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: { env_id: 'graph', layer_id: 'nodes', layer_type: 'agent' },
+  });
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: {
+      env_id: 'graph',
+      layer_id: 'links',
+      layer_type: 'edge',
+      dependency_layer_ids: { agent: 'nodes' },
+    },
+  });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'graph',
+      layer_id: 'nodes',
+      items: [
+        { id: 1, x: -3, y: 0, size: 0.5, color: '#ffffff' },
+        { id: '1', x: 3, y: 0, size: 0.5, color: '#ffffff' },
+      ],
+    },
+  });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'graph',
+      layer_id: 'links',
+      items: [{ source: 1, target: '1', width: 0.1, color: '#ffffff', directed: true }],
+    },
+  });
+  const snapshot = scenario.dump();
+  const before = structuredClone(snapshot);
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  for (let index = 0; index < 2; index++) {
+    const result = await painter.render({
+      at: 'test',
+      reason: 'regression',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: {
+        envId: 'graph',
+        readOnlyGraphLayout: true,
+        persist: false,
+        includeData: true,
+        width: 400,
+        height: 160,
+        viewport: { x: -5, y: -2, width: 10, height: 4 },
+      },
+    });
+    const { context } = await createContextFromArtifactBytes(result![0]!.data!);
+    expect(hasNonBlackPixelAround(context, 200, 80, 1)).toBe(true);
+    expect(snapshot).toEqual(before);
+    expect(scenario.dump()).toEqual(before);
+  }
+});
+
+it('rejects a missing environment target', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  await expect(
+    painter.render({
+      at: 'test',
+      reason: 'missing',
+      trigger: 'explicit',
+      snapshot: new Scenario().dump(),
+      assets: {},
+      options: { envId: 'missing', persist: false },
+    }),
+  ).rejects.toMatchObject({ errors: [{ targetId: 'missing', code: 'render_missing' }] });
+});
+
+it('keeps successful environments when another target fails while collecting render data', async () => {
+  const { layerRegistry, Scenario } = await import('@tensnap/core/scenario');
+  const definition = layerRegistry.get('agent')!.renderer!;
+  const collect = definition.getSnapshotAgentLayer!;
+  const projection = vi.spyOn(definition, 'getSnapshotAgentLayer').mockImplementation((layer) => {
+    if (layer.id === 'bad') throw new Error('projection failed');
+    return collect(layer);
+  });
+  const snapshot = new Scenario().dump();
+  snapshot.environments = ['good', 'bad'].map((id) => ({
+    id,
+    type: '2d',
+    layers: [
+      {
+        id,
+        layerType: 'agent',
+        metadata: {},
+        dependencyLayerIds: {},
+        storageSnapshot: { agents: [{ id: 'a', x: 1, y: 1 }] },
+      },
+    ],
+  }));
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  try {
+    await expect(
+      painter.render({
+        at: 'test',
+        reason: 'partial-preparation',
+        trigger: 'explicit',
+        snapshot,
+        assets: {},
+        options: {
+          persist: false,
+          includeData: true,
+          width: 32,
+          height: 32,
+          viewport: { x: 0, y: 0, width: 3, height: 3 },
+        },
+      }),
+    ).rejects.toMatchObject({
+      artifacts: [{ kind: 'environment', metadata: { envId: 'good' } }],
+      errors: [{ targetId: 'bad', code: 'render_failed', message: 'projection failed' }],
+    });
+  } finally {
+    projection.mockRestore();
+  }
 });

@@ -1,7 +1,6 @@
 import './leafer-runtime';
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { writeFileAtomically } from './atomic-file';
 import { resolveImageSize, resolveViewport, type Viewport } from '@tensnap/core/environment';
 import { layerRegistry, type LayerCreateContext } from '@tensnap/core/scenario';
 import { HeadlessEnvironmentView } from '@tensnap/core/environment/headless';
@@ -15,6 +14,10 @@ import {
 import type { RenderFormat } from '../types';
 import {
   normalizeRenderBackgroundColor,
+  RenderBatchError,
+  RenderPersistenceError,
+  renderTargetError,
+  type RenderTargetError,
   type RenderArtifact,
   type RenderRequest,
   type ScenePainter,
@@ -57,19 +60,36 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
         )
       : request.snapshot.environments;
 
+    if (request.options.envId && !targetEnvironments.length)
+      throw new RenderBatchError(
+        [],
+        [
+          {
+            painterId: this.id,
+            targetId: request.options.envId,
+            code: 'render_missing',
+            message: 'Unknown environment.',
+          },
+        ],
+      );
+    const errors: RenderTargetError[] = [];
     const artifacts: RenderArtifact[] = [];
     for (const environment of targetEnvironments) {
-      const renderData = collectRenderData(environment);
-      artifacts.push(
-        await this.renderEnvironment(
-          environment,
-          renderData,
-          request,
-          targetEnvironments.length > 1,
-        ),
-      );
+      try {
+        const renderData = collectRenderData(environment);
+        artifacts.push(
+          await this.renderEnvironment(
+            environment,
+            renderData,
+            request,
+            targetEnvironments.length > 1,
+          ),
+        );
+      } catch (error) {
+        errors.push(renderTargetError(this.id, environment.id, error));
+      }
     }
-
+    if (errors.length) throw new RenderBatchError(artifacts, errors);
     return artifacts;
   }
 
@@ -149,8 +169,11 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
           request.options.outputPath,
           appendEnvSuffix,
         );
-        await mkdir(dirname(outputPath), { recursive: true });
-        await writeFile(outputPath, buffer);
+        try {
+          await writeFileAtomically(outputPath, buffer);
+        } catch (error) {
+          throw new RenderPersistenceError(error);
+        }
       }
 
       return {

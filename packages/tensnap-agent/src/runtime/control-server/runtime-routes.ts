@@ -4,6 +4,7 @@ import type { Hono } from 'hono';
 import type { AgentRuntime } from '../AgentRuntime';
 import type { ConnectOptions, RenderTriggerMode, RuntimeEvent, RuntimeLogEntry } from '../../types';
 import type { RuntimeSseBroker } from './sse-broker';
+import { validateFields } from './validation';
 import { readJsonObject } from './json-body';
 
 // #endregion
@@ -49,11 +50,23 @@ export function registerRuntimeRoutes(
 
   app.post('/v1/runtime/connect', async (c) => {
     const body = await readJsonObject<ConnectOptions>(c.req);
+    validateFields(
+      body,
+      {
+        simulatorUrl: 'websocket-url',
+        ip_family: ['auto', 'ipv4', 'ipv6'],
+        encoding: ['json', 'msgpack'],
+        clientMessageValidation: ['off', 'warning', 'error'],
+        serverMessageValidation: ['off', 'warning', 'error'],
+      },
+      ['simulatorUrl'],
+    );
     return c.json(await runtime.connect(body));
   });
 
   app.post('/v1/runtime/wait-ready', async (c) => {
     const body = await readJsonObject<{ timeoutMs?: number }>(c.req, { optional: true });
+    validateFields(body, { timeoutMs: 'positive' });
     return c.json(await runtime.waitUntilReady(body.timeoutMs));
   });
 
@@ -74,6 +87,7 @@ export function registerRuntimeRoutes(
 
   app.post('/v1/runtime/render-trigger', async (c) => {
     const body = await readJsonObject<{ trigger: RenderTriggerMode }>(c.req);
+    validateFields(body, { trigger: ['manual', 'action-result'] }, ['trigger']);
     return c.json(await runtime.setRenderTrigger(body.trigger));
   });
 }

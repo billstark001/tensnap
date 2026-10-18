@@ -8,6 +8,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 
 - **[Getting Started](./user-guide/getting-started.md)** - Quick introduction and first steps
 - **[Installation Guide](./user-guide/installation.md)** - Detailed installation instructions
+- **[Agent Runtime](./user-guide/agent-runtime.md)** - Action outcomes, run settlement, recording persistence, render failures and CLI machine output
 - **[IPv4 and IPv6](./user-guide/networking.md)** - Shared IP-family configuration, browser restrictions and endpoint diagnostics
 - **[User Guide](./user-guide/user-guide.md)** - Comprehensive guide to using TenSnap
 - **[Tutorials](./tutorials/)** - Runnable tutorials for Random Walk, Flocking, Predator-Prey, and Network Dynamics, with later chapters still planned

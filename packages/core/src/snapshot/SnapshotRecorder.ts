@@ -15,6 +15,7 @@ import type {
   SnapshotLayerCodecImplementation,
 } from './types';
 import { snapshotEncodedByteLength } from './SnapshotArchive';
+import { cloneRecordingOptions } from './recording-options';
 
 const DEFAULT_KEYFRAME_EVERY = 120;
 const retainItemDelta = () => true;
@@ -424,18 +425,19 @@ export class SnapshotRecorder {
     if (options.timestamp !== undefined && !Number.isFinite(options.timestamp)) {
       throw new Error('RecordingOptions.timestamp must be finite.');
     }
+    // Only retain policy data here. Identity/checkpoint data is owned by snapshot.metadata.
+    const ownedOptions = cloneRecordingOptions({
+      maxSteps: options.maxSteps,
+      maxDurationMs: options.maxDurationMs,
+      maxBytes: options.maxBytes,
+      layerCodecs: options.layerCodecs,
+      layerCodecImplementations: options.layerCodecImplementations,
+    });
     const nextOptions = {
-      ...options,
+      ...ownedOptions,
       keyframeEvery: options.keyframeEvery ?? DEFAULT_KEYFRAME_EVERY,
       ringBuffer: options.ringBuffer === true,
-      layerCodecs: clone(options.layerCodecs ?? {}),
-      layerCodecImplementations:
-        options.layerCodecImplementations &&
-        Object.fromEntries(
-          Object.entries(options.layerCodecImplementations)
-            .filter(([, implementation]) => implementation !== undefined)
-            .map(([id, implementation]) => [id, { ...implementation }]),
-        ),
+      layerCodecs: ownedOptions.layerCodecs ?? {},
     };
     const snapshot = createSingleSnapshot(this.scenario.dump(), options);
     snapshot.metadata.endedAt = undefined;
@@ -495,11 +497,11 @@ export class SnapshotRecorder {
     return complete;
   }
 
-  recordMessage(message: SimulatorToRendererMessage): void {
+  recordMessage(message: SimulatorToRendererMessage, source?: SnapshotFrame['source']): void {
     if (!this.snapshot || this.retentionExhausted) return;
     this.pendingMessages.push(cloneRecordedMessage(message));
     if (message.type === 'action_result') {
-      this.flush('action', message.payload as ActionResultPayload);
+      this.flush('action', message.payload as ActionResultPayload, source);
       this.awaitingActionResult = false;
     } else if (message.type === 'state_sync_end') {
       this.flush('sync');
@@ -534,7 +536,11 @@ export class SnapshotRecorder {
     });
   }
 
-  private flush(kind: SnapshotFrame['kind'], action?: ActionResultPayload): void {
+  private flush(
+    kind: SnapshotFrame['kind'],
+    action?: ActionResultPayload,
+    source?: SnapshotFrame['source'],
+  ): void {
     const target = this.snapshot;
     if (!target || (!this.pendingMessages.length && !this.pendingControls.length)) return;
     const timestamp = now();
@@ -570,6 +576,7 @@ export class SnapshotRecorder {
       controls: coalesceControls(this.pendingControls),
       action: action ? clone(action) : undefined,
       kind,
+      ...(source ? { source } : {}),
     };
     target.frames.push(frame);
     const frameByteLength = byteLength(frame);

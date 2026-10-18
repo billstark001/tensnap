@@ -799,6 +799,8 @@ describe('RendererSession', () => {
     session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
     session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: tickId } });
 
+    expect(completed).toHaveLength(0);
+    session.run.markActionRendered({ id: 'step', request_id: tickId });
     expect(completed).toHaveLength(1);
     expect(completed[0].frames).toHaveLength(1);
     expect(materializeSnapshot(completed[0]).metadata.time).toBe(1);

@@ -24,6 +24,16 @@ export interface ReplaceTransportOptions {
   onActivated?: (mode: TransportHandshake['mode']) => void;
 }
 
+export class ActionRenderError extends Error {
+  constructor(
+    readonly result: ActionResultPayload,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ActionRenderError';
+  }
+}
+
 /** Owns a renderer session, its transport, and correlated waits; hosts supply the transport and render barrier. */
 export class RendererClient {
   /** The authoritative projected state and protocol transaction manager. */
@@ -186,9 +196,12 @@ export class RendererClient {
     timeoutMs = 10_000,
   ): Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }> {
     const renderedIds = new Set<string>();
+    const renderErrors = new Map<string, string>();
     let wakeRendered: (() => void) | null = null;
     const onRendered = (event: Event): void => {
-      renderedIds.add((event as CustomEvent<{ request_id: string }>).detail.request_id);
+      const detail = (event as CustomEvent<{ request_id: string; renderError?: string }>).detail;
+      renderedIds.add(detail.request_id);
+      if (detail.renderError) renderErrors.set(detail.request_id, detail.renderError);
       wakeRendered?.();
     };
     this.renderer.addEventListener('action:rendered', onRendered);
@@ -239,6 +252,8 @@ export class RendererClient {
           else wakeRendered();
         });
       }
+      const renderError = renderErrors.get(requestId);
+      if (renderError) throw new ActionRenderError(completed.value, renderError);
       return { result: completed.value, messages: completed.messages };
     } finally {
       this.renderer.removeEventListener('action:rendered', onRendered);

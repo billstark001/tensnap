@@ -47,7 +47,10 @@ describe('ButtonViewComponent', () => {
           pauseRequested: false,
           inFlight: true,
           spec: { mode: 'manual', actionId: 'start' },
-          completedSteps: 3,
+          completedActions: 3,
+          succeededActions: 3,
+          failedActions: 0,
+          settled: false,
         },
       },
     };
@@ -93,7 +96,10 @@ describe('ButtonViewComponent', () => {
     expect(container.querySelector('.lucide-play')).toBeInTheDocument();
     expect(container.querySelector('.lucide-pause')).not.toBeInTheDocument();
     expect(screen.getByText('3 · Ⅱ')).toBeVisible();
-    expect(screen.getByText('Start').parentElement).toHaveAttribute('title', '3 · paused');
+    expect(screen.getByText('Start').parentElement).toHaveAttribute(
+      'title',
+      '3 · paused · ✓3 ×0 · …',
+    );
   });
 
   it('starts a true manual run without a fake max-step profile', () => {
@@ -124,7 +130,10 @@ describe('ButtonViewComponent', () => {
         status: {
           state: 'stopped',
           spec: { mode: 'manual', actionId: 'start' },
-          completedSteps: 14,
+          completedActions: 14,
+          succeededActions: 14,
+          failedActions: 0,
+          settled: true,
           stopReason: 'simulator',
         },
       },
@@ -148,7 +157,10 @@ describe('ButtonViewComponent', () => {
 
     expect(screen.queryByText('simulator')).not.toBeInTheDocument();
     expect(screen.getByText('14 · ■')).toBeVisible();
-    expect(screen.getByText('Start').parentElement).toHaveAttribute('title', '14 · simulator');
+    expect(screen.getByText('Start').parentElement).toHaveAttribute(
+      'title',
+      '14 · simulator · ✓14 ×0',
+    );
   });
 
   it('clears and stops an active run when the button is changed to one-step mode', () => {
@@ -158,7 +170,10 @@ describe('ButtonViewComponent', () => {
         status: {
           state: 'running',
           spec: { mode: 'manual', actionId: 'start' },
-          completedSteps: 14,
+          completedActions: 14,
+          succeededActions: 14,
+          failedActions: 0,
+          settled: true,
         },
         pause,
       },
@@ -231,4 +246,41 @@ describe('ButtonViewComponent', () => {
     );
     expect(screen.getByRole('button', { name: 'Seed' })).toBeDisabled();
   });
+});
+
+it('keeps an action failure visible while pause was also requested', () => {
+  scenarioState.session = {
+    run: {
+      status: {
+        state: 'paused',
+        pauseRequested: true,
+        spec: { mode: 'manual', actionId: 'start' },
+        completedActions: 1,
+        succeededActions: 0,
+        failedActions: 1,
+        settled: true,
+        primaryFailure: 'action-error',
+        stopReason: 'action-error',
+      },
+    },
+  };
+  render(
+    <ButtonViewComponent
+      view={{
+        id: 'start',
+        type: 'button',
+        left: 0,
+        top: 0,
+        width: 120,
+        height: 40,
+        expanded: false,
+        disabled: false,
+        data: { id: 'start', text: 'Start', continuous: true },
+      }}
+    />,
+  );
+  expect(screen.getByText('Start').parentElement).toHaveAttribute(
+    'title',
+    '1 · action-error · ✓0 ×1',
+  );
 });

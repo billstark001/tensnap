@@ -28,6 +28,8 @@ export interface SnapshotFrame {
   controls: RendererToSimulatorMessage[];
   action?: ActionResultPayload;
   kind: 'action' | 'control' | 'sync';
+  /** Present for action results owned by a run, including its stop hook. */
+  source?: 'action' | 'lifecycle';
 }
 
 export interface SnapshotMetadata {

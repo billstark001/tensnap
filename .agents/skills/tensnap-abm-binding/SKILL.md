@@ -1,6 +1,11 @@
 ---
 name: tensnap-abm-binding
-description: Use when adding, reviewing, or debugging TenSnap simulator bindings or protocol-visible ABM state in Python/Mesa, Go, Julia, or JS, including layers, parameters, actions, charts, monitors, restore, and replay.
+description: Build, review, or debug TenSnap model bindings in Python/Mesa, Go, Julia, and JavaScript/TypeScript, including state projection, controls, replay, and restore.
+license: MIT
+metadata:
+  author: billstark001
+  distribution: '@tensnap/agent'
+  repository: 'https://github.com/billstark001/tensnap'
 ---
 
 # TenSnap ABM Binding
@@ -9,16 +14,15 @@ Use the binding owned by the model's language. Preserve stable identity, validat
 
 ## Find the contract
 
-Read the files relevant to the task; the protocol package is the wire source of truth, not an older maintainer-guide snapshot.
+Start with the API reference for the model’s language; consult shared contracts when the task touches them. All references linked below are included with this skill and work offline without a TenSnap checkout:
 
-- Wire rules and schemas: `packages/protocol/SPECIFICATION.md`, `packages/protocol/src/schemas.ts`, `packages/protocol/src/layers.ts`, and `packages/protocol/src/types.ts`; inspect `codec.ts` for encoding work.
-- Projection ownership and copying policy: `docs/maintainer-guide/projection-ownership.md`.
-- Binding ownership and dependency direction: `docs/maintainer-guide/binding-ownership-and-topology.md`.
-- Language APIs: `docs/api-reference/python-api.md`, `go-api.md`, `julia-api.md`, and `js-api.md` in the same directory.
-- Runtime behavior: `packages/core/src/scenario` and `packages/core/src/environment`.
-- Runnable examples: `examples/python`, `examples/python_mesa`, `examples/go`, `examples/julia`, and `examples/js`.
+- Language APIs: [Python/Mesa](references/docs/api-reference/python-api.md), [Go](references/docs/api-reference/go-api.md), [Julia](references/docs/api-reference/julia-api.md), and [JS/TS](references/docs/api-reference/js-api.md).
+- Wire rules: [protocol specification](references/packages/protocol/SPECIFICATION.md) and [generated payload schemas](references/protocol-types.md).
+- Shared contracts: [projection ownership](references/docs/maintainer-guide/projection-ownership.md), [binding ownership and topology](references/docs/maintainer-guide/binding-ownership-and-topology.md), and [networking](references/docs/user-guide/networking.md).
 
-Change protocol schemas, core, affected bindings, and generated protocol docs together only when the wire contract really changes. Regenerate the reference with `pnpm --dir packages/protocol export:protocol` for such a change.
+Use the binding package for the model’s language and check its version against the bundled API reference and advertised protocol version. The skill’s distribution version identifies the accompanying npm bundle; language bindings are separate dependencies. Implementing Python, Go, or Julia bindings does not require Node.js or the agent CLI. Optional CLI smoke tests use Node.js 22 or newer and `@tensnap/agent`.
+
+When modifying TenSnap itself, repository paths mentioned here or in the references refer to the source checkout, not the installed skill. The wire source of truth is `packages/protocol/src/{schemas,layers,types}.ts`; inspect `codec.ts` for encoding work. Runtime code is in `packages/core/src/scenario` and `packages/core/src/environment`; runnable examples are in `examples/{python,python_mesa,go,julia,js}`. Change schemas, core, affected bindings, and generated protocol docs together only when the wire contract changes. Regenerate with `pnpm --dir packages/protocol export:protocol`. Installed users should use the bundled references instead of searching for those repository paths.
 
 ## Choose the binding
 
@@ -54,11 +58,11 @@ Test later model mutation against retained initial and update payloads, nested i
 
 ## Validate behavior
 
-Start with focused binding tests, then run the relevant package and example suites. Check initial sync, a step, reset/reconnect replay, item diffing, monitor current values, and restore without partial mutation on invalid input. Verify layer keys and dependencies, parameter edits, chart values, action ordering, and model time where the task touches them.
+In an external model project, run its binding tests and smoke simulator; use the bundled API references for setup. In a TenSnap checkout, start with focused binding tests, then run the relevant package and example suites. Check initial sync, a step, reset/reconnect replay, item diffing, monitor current values, and restore without partial mutation on invalid input. Verify layer keys and dependencies, parameter edits, chart values, action ordering, and model time where the task touches them.
 
 For key/diff changes, include numeric `1` versus string `"1"`, IDs containing separators, compound keys, and identical layer IDs in different environments. Internal cache keys must preserve wire identity; string concatenation is not a safe tuple encoding. Check duplicate listener registration and cleanup when adapting transports.
 
-Run Python tests in a development environment installed from `packages/tensnap-python[dev]`; an unrelated global interpreter may resolve incompatible dependencies. The server needs `websockets>=13.0` for `websockets.asyncio`. For a focused run without the package-wide coverage report, pass `-o addopts=''` to pytest.
+For the repository commands below, run Python tests in a development environment installed from `packages/tensnap-python[dev]`; an unrelated global interpreter may resolve incompatible dependencies. The server needs `websockets>=13.0` for `websockets.asyncio`. For a focused run without the package-wide coverage report, pass `-o addopts=''` to pytest.
 
 ```bash
 # Python
@@ -73,4 +77,4 @@ pnpm --filter @tensnap/js test
 pnpm --dir examples/js run test
 ```
 
-For a running simulator, use the existing agent CLI to inspect a scene, invoke one step, and render a snapshot when visual behavior matters. Stop the smoke session afterward. Do not assume NetLogo parity unless requested.
+For a running simulator, use `tensnap-agent` (or `npx --no-install tensnap-agent` for a project dependency) to inspect a scene, invoke one step, and render a snapshot when visual behavior matters. Stop the smoke session afterward. Do not assume NetLogo parity unless requested.

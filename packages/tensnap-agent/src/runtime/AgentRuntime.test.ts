@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocketServer } from 'ws';
 import { decodeProtocolMessage, encodeProtocolMessage } from '@tensnap/protocol';
+import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
 
@@ -365,7 +366,7 @@ describe('AgentRuntime action lifecycle', () => {
       async render() {
         painterStarted();
         await painterGate;
-        return [];
+        return [{ painterId: 'slow', kind: 'environment', path: '/test-artifact.png' }];
       },
     });
     await runtime.initialize();
@@ -399,14 +400,14 @@ describe('AgentRuntime rendering', () => {
       id: 'environment',
       async render(request) {
         outputPaths.push(request.options.outputPath!);
-        return [];
+        return [{ painterId: 'test', kind: 'environment', path: request.options.outputPath }];
       },
     });
     runtime.registerPainter({
       id: 'chart',
       async render(request) {
         outputPaths.push(request.options.outputPath!);
-        return [];
+        return [{ painterId: 'test', kind: 'environment', path: request.options.outputPath }];
       },
     });
 
@@ -421,3 +422,692 @@ describe('AgentRuntime rendering', () => {
     await runtime.stop();
   });
 });
+
+it('reports empty rendering and preserves successful artifacts in a failed painter batch', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-failures-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  await expect(runtime.requestRender()).rejects.toMatchObject({
+    errors: [{ code: 'render_missing' }],
+  });
+  runtime.registerPainter({
+    id: 'good',
+    render: async () => [{ painterId: 'good', kind: 'chart', path: '/tmp/good.png' }],
+  });
+  runtime.registerPainter({
+    id: 'bad',
+    render: async () => {
+      throw new RenderPersistenceError(new Error('disk full'));
+    },
+  });
+  await expect(runtime.requestRender()).rejects.toMatchObject({
+    artifacts: [{ path: '/tmp/good.png' }],
+    errors: [{ painterId: 'bad', code: 'persistence_failed', message: 'disk full' }],
+  });
+  await runtime.stop();
+});
+
+it.each([false, true])(
+  'associates recording persistence with the settled run (failure=%s)',
+  async (failure) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-recording-'));
+    temporaryRoots.push(rootDir);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      recordingWriter: async () => {
+        await gate;
+        if (failure) throw new Error('recording disk full');
+        return '/test/recording.snapshot.json';
+      },
+    });
+    await runtime.initialize();
+    const renderer = (
+      runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
+    ).renderer;
+    renderer.attachTransport({
+      connectionId: 'test',
+      transportKind: 'inmemory',
+      encoding: 'json',
+      connectionState: 'open',
+      isConnected: true,
+      connect: async () => {},
+      disconnect() {},
+      destroy() {},
+      on() {},
+      off() {},
+      send(message) {
+        if (message.type === 'action_invoke') {
+          const payload = message.payload as { id: string; request_id: string };
+          renderer.handleIncoming({ type: 'action_result', payload });
+        }
+      },
+    });
+    renderer.handleIncoming({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test', version: '1' },
+        model: { id: 'test' },
+        instance_id: 'test',
+        capabilities: [],
+      },
+    });
+    const run = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} });
+    await renderer.run.waitForSettled(run.id);
+    expect(runtime.getRun(run.id)).toMatchObject({
+      settled: true,
+      recording: { status: 'pending' },
+    });
+    release();
+    await vi.waitFor(() =>
+      expect(runtime.getRun(run.id)).toMatchObject({
+        recording: failure
+          ? { status: 'failed', error: 'recording disk full' }
+          : { status: 'persisted', path: '/test/recording.snapshot.json' },
+      }),
+    );
+    await runtime.stop();
+  },
+);
+
+it('preserves rendered artifacts when the required scene checkpoint cannot be written', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-scene-write-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      throw new Error('checkpoint write failed');
+    },
+  });
+  await runtime.initialize();
+  runtime.registerPainter({
+    id: 'good',
+    render: async () => [{ painterId: 'good', kind: 'chart', path: '/tmp/chart.png' }],
+  });
+  await expect(runtime.requestRender()).rejects.toMatchObject({
+    artifacts: [{ path: '/tmp/chart.png' }],
+    errors: [
+      {
+        painterId: 'scene-checkpoint',
+        code: 'persistence_failed',
+        message: 'checkpoint write failed',
+      },
+    ],
+  });
+  await runtime.stop();
+});
+
+function attachReviewTransport(runtime: AgentRuntime) {
+  const renderer = (
+    runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
+  ).renderer;
+  let dispatched = 0;
+  const client = (runtime as unknown as { client: import('@tensnap/core/runtime').RendererClient })
+    .client;
+  client.attachTransport({
+    connectionId: 'review',
+    transportKind: 'inmemory',
+    encoding: 'json',
+    connectionState: 'open',
+    isConnected: true,
+    connect: async () => {},
+    disconnect() {},
+    destroy() {},
+    on() {},
+    off() {},
+    send(message) {
+      if (message.type === 'action_invoke') {
+        dispatched++;
+        const payload = message.payload as { id: string; request_id: string };
+        renderer.handleIncoming({ type: 'metadata_update', payload: { time: dispatched } });
+        renderer.handleIncoming({ type: 'action_result', payload });
+      }
+    },
+  });
+  renderer.handleIncoming({
+    type: 'simulator_info',
+    payload: {
+      protocol_version: '0.3',
+      binding: { name: 'test', version: '1' },
+      model: { id: 'test' },
+      instance_id: 'test',
+      capabilities: [],
+    },
+  });
+  return {
+    renderer,
+    get dispatched() {
+      return dispatched;
+    },
+  };
+}
+
+it('captures and checkpoints a settled scene only once while its writer is slow', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-settled-once-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writes: unknown[] = [];
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async (_context, snapshot) => {
+      writes.push(snapshot);
+      await gate;
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  const dump = vi.spyOn(renderer.scenario, 'dump');
+  try {
+    const run = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    await renderer.run.waitForSettled(run.id);
+    expect(dump).toHaveBeenCalledTimes(1);
+    release();
+    await runtime.stop();
+    expect(writes).toHaveLength(1);
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});
+
+it.each([false, true])(
+  'bounds pending recordings and permits retry after write completion (failure=%s)',
+  async (failure) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-recording-backpressure-'));
+    temporaryRoots.push(rootDir);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let writes = 0;
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      recordingWriter: async () => {
+        await gate;
+        if (++writes === 1 && failure) throw new Error('recording write failed');
+        return '/test/archive.json';
+      },
+      checkpointWriter: async () => {},
+    });
+    await runtime.initialize();
+    const transport = attachReviewTransport(runtime);
+    const spec = { mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} } as const;
+    try {
+      const first = runtime.startRun(spec);
+      await transport.renderer.run.waitForSettled(first.id);
+      expect(runtime.getRun(first.id)?.recording?.status).toBe('pending');
+      expect(() => runtime.startRun(spec)).toThrow(/recording.*persist|pending recording/i);
+      expect(transport.dispatched).toBe(1);
+      const unrecorded = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+      await transport.renderer.run.waitForSettled(unrecorded.id);
+      let next: ReturnType<AgentRuntime['startRun']> | undefined;
+      let callbackError: unknown;
+      runtime.on('event', (event) => {
+        if (event.type === 'recording.persistence' && event.data.runId === first.id) {
+          try {
+            next = runtime.startRun(spec);
+          } catch (error) {
+            callbackError = error;
+          }
+        }
+      });
+      release();
+      await vi.waitFor(() => {
+        expect(callbackError).toBeUndefined();
+        expect(next).toBeDefined();
+      });
+      await transport.renderer.run.waitForSettled(next!.id);
+      expect(transport.dispatched).toBe(3);
+    } finally {
+      release();
+      await runtime.stop();
+    }
+  },
+);
+
+it.each([false, true])(
+  'does not checkpoint a late render snapshot as newer scene state (newer render=%s)',
+  async (newerRender) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-render-revision-'));
+    temporaryRoots.push(rootDir);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const savedTimes: unknown[] = [];
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+      checkpointWriter: async (_context, snapshot) => {
+        savedTimes.push(snapshot.metadata.time);
+      },
+    });
+    await runtime.initialize();
+    const { renderer } = attachReviewTransport(runtime);
+    const renderedTimes: unknown[] = [];
+    runtime.registerPainter({
+      id: 'delayed',
+      render: async (request) => {
+        renderedTimes.push(request.snapshot.metadata.time);
+        if (request.reason === 'older') await gate;
+        return [
+          {
+            painterId: 'delayed',
+            kind: 'chart',
+            path: '/test.png',
+            metadata: { time: request.snapshot.metadata.time },
+          },
+        ];
+      },
+    });
+    try {
+      renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+      const older = runtime.requestRender({}, 'older');
+      renderer.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+      if (newerRender) await runtime.requestRender({}, 'newer');
+      release();
+      expect((await older)[0]?.metadata?.time).toBe(1);
+      expect(renderedTimes[0]).toBe(1);
+      expect(savedTimes.at(-1)).toBe(2);
+      expect(runtime.getStatus().sceneDirty).toBe(false);
+    } finally {
+      release();
+      await runtime.stop();
+    }
+  },
+);
+
+it('disconnects the simulator before awaiting slow final scene persistence', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-disconnect-first-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      await gate;
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+  const disconnecting = runtime.disconnect();
+  try {
+    expect(renderer.isConnected).toBe(false);
+  } finally {
+    release();
+    await disconnecting;
+    await runtime.stop();
+  }
+});
+
+it('propagates a joined checkpoint failure and allows a clean shutdown retry', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-checkpoint-retry-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  let started!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const writing = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let attempts = 0;
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      attempts++;
+      if (attempts === 1) {
+        started();
+        await gate;
+        throw new Error('disk full');
+      }
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  runtime.registerPainter({
+    id: 'test',
+    render: async () => [{ painterId: 'test', kind: 'chart', path: '/test.png' }],
+  });
+  renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+  const rendering = expect(runtime.requestRender()).rejects.toMatchObject({
+    artifacts: [{ path: '/test.png' }],
+    errors: [{ code: 'persistence_failed' }],
+  });
+  await writing;
+  const disconnected = expect(runtime.disconnect()).rejects.toThrow('disk full');
+  try {
+    expect(renderer.isConnected).toBe(false);
+    release();
+    await Promise.all([rendering, disconnected]);
+    expect(runtime.getStatus().sceneDirty).toBe(true);
+    await runtime.stop();
+    expect(attempts).toBe(2);
+    expect(runtime.getStatus().sceneDirty).toBe(false);
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});
+
+it('returns runtime status with independently owned mutable fields', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-status-ownership-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  runtime.registerPainter({ id: 'test', render: async () => [] });
+  try {
+    const status = runtime.getStatus();
+    status.render.trigger = 'action-result';
+    status.render.backgroundColor = '#ffffff';
+    status.painters.push('injected');
+    expect(runtime.getStatus()).toMatchObject({
+      render: { trigger: 'manual', backgroundColor: '#000000' },
+      painters: ['test'],
+    });
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('captures viewport values before a render awaits a painter', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-render-ownership-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {},
+  });
+  await runtime.initialize();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let renderedViewport: unknown;
+  const events: unknown[] = [];
+  runtime.on('event', (event) => {
+    if (event.type === 'render.requested') events.push(event.data);
+  });
+  runtime.registerPainter({
+    id: 'delayed',
+    render: async (request) => {
+      await gate;
+      renderedViewport = { ...request.options.viewport };
+      return [{ painterId: 'delayed', kind: 'environment' }];
+    },
+  });
+  const viewport = { x: 1, y: 2, width: 3, height: 4 };
+  const options = { viewport, envId: 'main', outputPath: '/original.png' };
+  const rendering = runtime.requestRender(options);
+  viewport.x = 99;
+  options.envId = 'changed';
+  options.outputPath = '/changed.png';
+  try {
+    release();
+    await rendering;
+    expect(renderedViewport).toEqual({ x: 1, y: 2, width: 3, height: 4 });
+    expect(events).toContainEqual(
+      expect.objectContaining({ envId: 'main', outputPath: '/original.png' }),
+    );
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});
+
+it('owns inspection render input without dumping the unrelated live scene', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-inspection-ownership-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+  renderer.handleIncoming({ type: 'env_create', payload: { id: 'main', type: '2d' } });
+  renderer.handleIncoming({
+    type: 'env_layer_create',
+    payload: { env_id: 'main', layer_id: 'agents', layer_type: 'agent' },
+  });
+  renderer.handleIncoming({
+    type: 'item_create',
+    payload: { env_id: 'main', layer_id: 'agents', items: [{ id: 'a', x: 1, y: 2 }] },
+  });
+  const inspection = runtime.inspectAgent({
+    environmentId: 'main',
+    layerId: 'agents',
+    agentId: 'a',
+  });
+  if (!inspection || inspection.kind === 'none' || !inspection.renderSnapshot)
+    throw new Error('Expected a renderable inspection.');
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let captured: unknown;
+  runtime.registerPainter({
+    id: 'test',
+    render: async (request) => {
+      await gate;
+      captured = request.snapshot.metadata.time;
+      return [{ painterId: 'test', kind: 'environment' }];
+    },
+  });
+  const dump = vi.spyOn(renderer.scenario, 'dump');
+  try {
+    const rendering = runtime.renderAgentInspection(inspection);
+    inspection.renderSnapshot.metadata.time = 99;
+    release();
+    await rendering;
+    expect(captured).toBe(1);
+    expect(dump).not.toHaveBeenCalled();
+  } finally {
+    release();
+    dump.mockRestore();
+    await runtime.stop();
+  }
+});
+
+it('reports background status and log write failures without rejecting unobserved promises', async () => {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-background-writes-'));
+  temporaryRoots.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  const runtime = new AgentRuntime(context, { checkpointWriter: async () => {} });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  const events: string[] = [];
+  runtime.on('event', (event) => events.push(event.type));
+  await rm(context.logsDir, { recursive: true });
+  await writeFile(context.logsDir, 'blocker');
+  try {
+    runtime.registerPainter({ id: 'test', render: async () => [] });
+    const run = runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1 });
+    await renderer.run.waitForSettled(run.id);
+    await vi.waitFor(() => {
+      expect(events).toContain('runtime.status-write-failed');
+      expect(events).toContain('runtime.log-write-failed');
+    });
+    expect(runtime.getRun(run.id)?.settled).toBe(true);
+  } finally {
+    await rm(context.logsDir, { force: true });
+    await mkdir(context.logsDir);
+    await runtime.stop();
+  }
+});
+
+it('reports background state-sync checkpoint failure and retains the committed scene for retry', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-sync-checkpoint-failure-'));
+  temporaryRoots.push(rootDir);
+  let attempts = 0;
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      if (++attempts === 1) throw new Error('checkpoint disk full');
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  const failures: unknown[] = [];
+  runtime.on('event', (event) => {
+    if (event.type === 'scene.persistence-failed') failures.push(event.data);
+  });
+  try {
+    const requestId = renderer.requestStateSync();
+    renderer.handleIncoming({
+      type: 'state_sync_begin',
+      payload: { request_id: requestId, model_id: 'test', instance_id: 'test', mode: 'replace' },
+    });
+    renderer.handleIncoming({ type: 'metadata_update', payload: { time: 42 } });
+    renderer.handleIncoming({
+      type: 'state_sync_end',
+      payload: { request_id: requestId, state_revision: '42' },
+    });
+    await vi.waitFor(() =>
+      expect(failures).toContainEqual(
+        expect.objectContaining({ error: expect.stringContaining('checkpoint disk full') }),
+      ),
+    );
+    expect(runtime.inspectScene().time).toBe(42);
+    expect(runtime.getStatus().sceneDirty).toBe(true);
+    await runtime.stop();
+    expect(runtime.getStatus().sceneDirty).toBe(false);
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('reports a background screenshot response failure after its transport becomes unavailable', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-screenshot-response-failure-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {},
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  const failures: unknown[] = [];
+  runtime.on('event', (event) => {
+    if (event.type === 'render.screenshot-failed') failures.push(event.data);
+  });
+  runtime.registerPainter({
+    id: 'test',
+    render: async () => [{ painterId: 'test', kind: 'environment', data: new Uint8Array([1, 2]) }],
+  });
+  renderer.attachedTransport!.send = () => {
+    throw new Error('transport closed');
+  };
+  try {
+    renderer.handleIncoming({
+      type: 'screenshot_request',
+      payload: { request_id: 'screenshot-1' },
+    });
+    await vi.waitFor(() =>
+      expect(failures).toContainEqual({ requestId: 'screenshot-1', error: 'transport closed' }),
+    );
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('captures connection options before awaiting status persistence', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-connect-ownership-'));
+  temporaryRoots.push(rootDir);
+  const server = new WebSocketServer({ port: 0 });
+  await new Promise<void>((resolve) => server.once('listening', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Expected TCP server.');
+  server.on('connection', (socket) =>
+    socket.send(
+      JSON.stringify({
+        type: 'simulator_info',
+        payload: {
+          protocol_version: '0.3',
+          binding: { name: 'test', version: '1' },
+          model: { id: 'test' },
+          instance_id: 'test',
+          capabilities: [],
+        },
+      }),
+    ),
+  );
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  const simulatorUrl = `ws://127.0.0.1:${address.port}`;
+  const options = { simulatorUrl, encoding: 'json' as const };
+  const connecting = runtime.connect(options);
+  options.simulatorUrl = 'invalid-url-after-call';
+  try {
+    await expect(connecting).resolves.toMatchObject({ simulatorUrl, isConnected: true });
+  } finally {
+    await runtime.stop();
+    for (const socket of server.clients) socket.terminate();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
+  }
+});
+
+it.each(['status-write', 'handshake'] as const)(
+  'cancels a connection during %s without attaching it after disconnect returns',
+  async (stage) => {
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-connect-cancel-'));
+    temporaryRoots.push(rootDir);
+    const server = new WebSocketServer({ port: 0 });
+    await new Promise<void>((resolve) => server.once('listening', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Expected TCP server.');
+    const handshake = JSON.stringify({
+      type: 'simulator_info',
+      payload: {
+        protocol_version: '0.3',
+        binding: { name: 'test', version: '1' },
+        model: { id: 'test' },
+        instance_id: 'test',
+        capabilities: [],
+      },
+    });
+    let connectedSocket: import('ws').WebSocket | undefined;
+    let accepted!: () => void;
+    const acceptedConnection = new Promise<void>((resolve) => {
+      accepted = resolve;
+    });
+    server.on('connection', (socket) => {
+      connectedSocket = socket;
+      accepted();
+      if (stage === 'status-write') socket.send(handshake);
+    });
+    const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+    await runtime.initialize();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const status = runtime as unknown as { persistStatus(): Promise<void> };
+    const writer =
+      stage === 'status-write'
+        ? vi.spyOn(status, 'persistStatus').mockReturnValue(gate)
+        : undefined;
+    const result = runtime
+      .connect({ simulatorUrl: `ws://127.0.0.1:${address.port}`, encoding: 'json' })
+      .then(
+        () => 'connected',
+        (error: unknown) => (error instanceof Error ? error.message : String(error)),
+      );
+    try {
+      if (stage === 'handshake') await acceptedConnection;
+      await runtime.disconnect();
+      release();
+      if (connectedSocket?.readyState === 1 && stage === 'handshake')
+        connectedSocket.send(handshake);
+      expect(await result).toMatch(/cancel/i);
+      expect(runtime.getStatus()).toMatchObject({ isConnected: false, phase: 'idle' });
+      if (stage === 'status-write') expect(connectedSocket).toBeUndefined();
+    } finally {
+      release();
+      writer?.mockRestore();
+      await runtime.stop();
+      for (const socket of server.clients) socket.terminate();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+  },
+);

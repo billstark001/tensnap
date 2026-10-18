@@ -3,6 +3,8 @@ import type { Hono } from 'hono';
 import { encodeBytesAsBase64, ProtocolValueSchema } from '@tensnap/protocol';
 import type { RestoreChartPolicy } from '@tensnap/core/runtime';
 import type { AgentRuntime } from '../AgentRuntime';
+import { validateFields, invalid } from './validation';
+import { RenderBatchError } from '../painter';
 import { readJsonObject } from './json-body';
 import type { RenderArtifact } from '../painter';
 // #endregion
@@ -10,7 +12,7 @@ import type { RenderArtifact } from '../painter';
 // #region Serialization
 
 /** JSON has no byte-array primitive; use the same representation for every render route. */
-function serializeRenderArtifact(artifact: RenderArtifact) {
+export function serializeRenderArtifact(artifact: RenderArtifact) {
   const { data, ...metadata } = artifact;
   return {
     ...metadata,
@@ -58,6 +60,15 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
 
   app.post('/v1/scene/restore', async (c) => {
     const body = await readJsonObject<Record<string, unknown>>(c.req);
+    validateFields(body, {
+      chartPolicy: ['preserve', 'replace', 'truncate'],
+      checkpoint: 'object',
+      time: 'number',
+      parameters: 'object',
+      envs: 'array',
+      expected_instance_id: 'string',
+      state_schema_version: 'string',
+    });
     const chartPolicy = body.chartPolicy;
     if (
       chartPolicy !== undefined &&
@@ -134,28 +145,67 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       includeData?: boolean;
     }>(c.req);
 
+    validateFields(body, {
+      reason: 'string',
+      envId: 'string',
+      chartId: 'string',
+      width: 'integer',
+      height: 'integer',
+      viewport: 'object',
+      format: ['png', 'jpeg'],
+      quality: 'number',
+      backgroundColor: 'string',
+      outputPath: 'string',
+      persist: 'boolean',
+      includeData: 'boolean',
+    });
+    if (body.quality !== undefined && (body.quality < 0 || body.quality > 1))
+      invalid('quality must be between 0 and 1.');
+    if (body.viewport)
+      validateFields(
+        body.viewport,
+        { x: 'number', y: 'number', width: 'positive', height: 'positive' },
+        ['x', 'y', 'width', 'height'],
+      );
     if (body.envId && body.chartId) {
       return c.json({ error: 'envId and chartId are mutually exclusive.' }, 400);
     }
 
-    const artifacts = await runtime.requestRender(
-      {
-        envId: body.envId,
-        chartId: body.chartId,
-        width: body.width,
-        height: body.height,
-        viewport: body.viewport,
-        format: body.format,
-        quality: body.quality,
-        backgroundColor: body.backgroundColor,
-        outputPath: body.outputPath,
-        persist: body.persist,
-        includeData: body.includeData,
-      },
-      body.reason ?? 'manual',
-    );
+    try {
+      const artifacts = await runtime.requestRender(
+        {
+          envId: body.envId,
+          chartId: body.chartId,
+          width: body.width,
+          height: body.height,
+          viewport: body.viewport,
+          format: body.format,
+          quality: body.quality,
+          backgroundColor: body.backgroundColor,
+          outputPath: body.outputPath,
+          persist: body.persist,
+          includeData: body.includeData,
+        },
+        body.reason ?? 'manual',
+      );
 
-    return c.json({ artifacts: artifacts.map(serializeRenderArtifact) });
+      return c.json({ artifacts: artifacts.map(serializeRenderArtifact) });
+    } catch (error) {
+      if (!(error instanceof RenderBatchError)) throw error;
+      const category = error.errors.some((failure) => failure.code === 'persistence_failed')
+        ? 'persistence_failed'
+        : 'render_failed';
+      return c.json(
+        {
+          error: error.message,
+          category,
+          artifacts: error.artifacts.map(serializeRenderArtifact),
+          errors: error.errors,
+          partial: error.artifacts.length > 0,
+        },
+        422,
+      );
+    }
   });
 
   app.get('/v1/charts', (c) => {
@@ -185,6 +235,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     }
 
     const body = await readJsonObject<{ value: unknown }>(c.req);
+    if (Object.keys(body).some((key) => key !== 'value')) invalid('Unknown parameter field.');
     const parsed = ProtocolValueSchema.safeParse(body.value);
     if (!parsed.success) {
       return c.json({ error: 'Parameter value is not a protocol value.' }, 400);
@@ -203,8 +254,9 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       return c.json({ error: 'Missing action ID.' }, 404);
     }
 
-    await runtime.runAction(actionId);
-    return c.json({ actionId, accepted: true }, 202);
+    validateFields(await readJsonObject(c.req, { optional: true }), {});
+    const requestId = await runtime.runAction(actionId);
+    return c.json({ actionId, requestId, accepted: true }, 202);
   });
 }
 

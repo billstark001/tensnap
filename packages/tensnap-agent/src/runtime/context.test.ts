@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -68,7 +68,15 @@ describe('runtime control persistence', () => {
       sceneDirty: false,
     };
     try {
-      await writeRuntimeControl(paths, control);
+      const firstWrite = writeRuntimeControl(paths, control);
+      control.pid = null;
+      control.render.trigger = 'action-result';
+      await firstWrite;
+      expect(await readRuntimeControl(paths)).toMatchObject({
+        pid: process.pid,
+        render: { trigger: 'manual' },
+      });
+      expect(await readFile(paths.pidFile, 'utf8')).toBe(`${process.pid}\n`);
       await Promise.all([
         (async () => {
           for (let index = 1; index <= 100; index += 1) {
@@ -91,4 +99,40 @@ describe('runtime control persistence', () => {
       await rm(rootDir, { recursive: true, force: true });
     }
   });
+});
+
+it('captures persistence inputs before asynchronous filesystem preparation', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot, decodeSnapshotArchive, materializeSnapshot } =
+    await import('@tensnap/core/snapshot');
+  const { appendRuntimeLog, writeSceneSnapshot, writeRunRecording } = await import('./context');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-agent-write-ownership-'));
+  const paths = resolveRuntimeContextPaths({ rootDir });
+  const scene = new Scenario().dump();
+  scene.metadata.time = 1;
+  const recording = createSingleSnapshot(scene);
+  const logEntry = {
+    at: 'test',
+    level: 'info' as const,
+    source: 'test',
+    message: 'test',
+    data: { time: 1 },
+  };
+  try {
+    const sceneWrite = writeSceneSnapshot(paths, scene);
+    const recordingWrite = writeRunRecording(paths, 'run', recording);
+    const logWrite = appendRuntimeLog(paths, logEntry);
+    scene.metadata.time = 99;
+    recording.initial.scenario.metadata.time = 99;
+    logEntry.data.time = 99;
+    await sceneWrite;
+    const archivePath = await recordingWrite;
+    await logWrite;
+    expect(JSON.parse(await readFile(paths.snapshotFile, 'utf8')).metadata.time).toBe(1);
+    const archive = JSON.parse(await readFile(archivePath, 'utf8'));
+    expect(materializeSnapshot(decodeSnapshotArchive(archive)).metadata.time).toBe(1);
+    expect(JSON.parse(await readFile(paths.logFile, 'utf8')).data.time).toBe(1);
+  } finally {
+    await rm(rootDir, { recursive: true, force: true });
+  }
 });

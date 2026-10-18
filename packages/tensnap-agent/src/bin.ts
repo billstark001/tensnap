@@ -1,6 +1,6 @@
-import { main } from './cli';
+import { classifyCliError, main } from './cli';
 
 void main().catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
+  process.exitCode = classifyCliError(error).exitCode;
 });

@@ -40,3 +40,108 @@ describe('EdgeLayer incremental updates', () => {
     layer.destroy();
   });
 });
+
+it.each([true, false])(
+  'projects typed graph endpoints from fixed coordinates (readonly=%s)',
+  (readOnlyLayout) => {
+    const agents = new AgentStorage();
+    const input = [
+      { id: 1, x: -4, y: 2, size: 2 },
+      { id: '1', x: 4, y: 2, size: 2 },
+    ];
+    agents.setAgents(structuredClone(input));
+    const edges = new EdgeStorage([{ source: 1, target: '1', directed: true }]);
+    const layer = new EdgeLayer(edges, agents, { readOnlyLayout });
+    const internals = layer as unknown as {
+      _simulation: { stop(): void } | null;
+      _edgeShapeMap: Map<string, { line: { points: number[] } }>;
+    };
+    internals._simulation?.stop();
+    const key = EdgeStorage.edgeKey(1, '1');
+    expect(internals._edgeShapeMap.get(key)?.line.points).toEqual([-3, 2, 3, 2]);
+    if (readOnlyLayout) {
+      expect(internals._simulation).toBeNull();
+      expect([...agents.getData().agents.values()]).toMatchObject(input);
+      edges.updateEdge(1, '1', { color: '#123456' });
+      expect(internals._edgeShapeMap.get(key)?.line.points).toEqual([-3, 2, 3, 2]);
+      agents.setAgents([
+        { ...input[0]!, y: 5 },
+        { ...input[1]!, y: 5 },
+      ]);
+      expect(internals._edgeShapeMap.get(key)?.line.points).toEqual([-3, 5, 3, 5]);
+    }
+    layer.destroy();
+  },
+);
+
+describe('graph geometry ownership and work bounds', () => {
+  it('never writes or notifies agent storage while rendering readonly edges', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([
+      { id: 'a', x: 0, y: 0 },
+      { id: 'b', x: 4, y: 0 },
+    ]);
+    const before = agents.dump();
+    const revision = agents.revision;
+    const notifications = vi.fn();
+    agents.subscribe(notifications);
+    const edges = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    const layer = new EdgeLayer(edges, agents, { readOnlyLayout: true });
+    try {
+      edges.updateEdge('a', 'b', { color: '#abcdef' });
+      expect(agents.dump()).toEqual(before);
+      expect(agents.revision).toBe(revision);
+      expect(notifications).not.toHaveBeenCalled();
+    } finally {
+      layer.destroy();
+    }
+  });
+
+  it('publishes one position update per force tick and synchronizes newly laid out nodes immediately', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([{ id: 'a' }, { id: 'b' }]);
+    const edges = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    const layer = new EdgeLayer(edges, agents);
+    const internals = layer as unknown as {
+      _simulation: { stop(): void };
+      _tick(): void;
+      _simNodes: Array<{ id: string; x: number; y: number }>;
+    };
+    internals._simulation.stop();
+    const notifications = vi.fn();
+    agents.subscribe(notifications);
+    try {
+      for (const node of internals._simNodes)
+        expect(agents.getData().agents.get(node.id)).toMatchObject({ x: node.x, y: node.y });
+      internals._tick();
+      expect(notifications).toHaveBeenCalledTimes(1);
+      agents.addAgent({ id: 'c' });
+      internals._simulation.stop();
+      const node = internals._simNodes.find((entry) => entry.id === 'c')!;
+      expect(agents.getData().agents.get('c')).toMatchObject({ x: node.x, y: node.y });
+    } finally {
+      layer.destroy();
+    }
+  });
+
+  it('updates one edge appearance without rewriting unrelated edge geometry', () => {
+    const agents = new AgentStorage();
+    agents.setAgents(Array.from({ length: 102 }, (_, id) => ({ id, x: id * 2, y: 0 })));
+    const edges = new EdgeStorage(
+      Array.from({ length: 100 }, (_, source) => ({ source, target: source + 1 })),
+    );
+    const layer = new EdgeLayer(edges, agents, { readOnlyLayout: true });
+    const shapes = (
+      layer as unknown as {
+        _edgeShapeMap: Map<string, { line: { set(...args: unknown[]): void } }>;
+      }
+    )._edgeShapeMap;
+    const unrelated = vi.spyOn(shapes.get(EdgeStorage.edgeKey(98, 99))!.line, 'set');
+    try {
+      edges.updateEdge(0, 1, { color: '#abcdef' });
+      expect(unrelated).not.toHaveBeenCalled();
+    } finally {
+      layer.destroy();
+    }
+  });
+});

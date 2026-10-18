@@ -115,3 +115,63 @@ describe('HeadlessChartPainter', () => {
     },
   );
 });
+
+it('reports missing charts and filesystem write failures', async () => {
+  const { mkdtemp, writeFile } = await import('node:fs/promises');
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const capturesDir = await mkdtemp(join(tmpdir(), 'tensnap-chart-write-failure-'));
+  paths.push(capturesDir);
+  const blocker = join(capturesDir, 'blocker');
+  await writeFile(blocker, 'file');
+  const painter = new HeadlessChartPainter({ capturesDir });
+  const snapshot = new Scenario().dump();
+  snapshot.charts = [{ id: 'test', label: 'Test', metadataDict: {}, data: [] }];
+  await expect(
+    painter.render({
+      at: 'test',
+      reason: 'write-failure',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: { outputPath: join(blocker, 'chart.png') },
+    }),
+  ).rejects.toMatchObject({
+    artifacts: [],
+    errors: [{ code: 'persistence_failed', targetId: 'test' }],
+  });
+  await expect(
+    painter.render({
+      at: 'test',
+      reason: 'missing',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: { chartId: 'missing' },
+    }),
+  ).rejects.toMatchObject({ errors: [{ code: 'render_missing', targetId: 'missing' }] });
+});
+
+it('retains a successful chart when another target cannot be written', async () => {
+  const { mkdtemp, mkdir } = await import('node:fs/promises');
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const capturesDir = await mkdtemp(join(tmpdir(), 'tensnap-chart-partial-'));
+  paths.push(capturesDir);
+  await mkdir(join(capturesDir, 'charts-bad.png'));
+  const painter = new HeadlessChartPainter({ capturesDir });
+  const snapshot = new Scenario().dump();
+  snapshot.charts = ['good', 'bad'].map((id) => ({ id, label: id, metadataDict: {}, data: [] }));
+  await expect(
+    painter.render({
+      at: 'test',
+      reason: 'partial',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: { outputPath: join(capturesDir, 'charts.png') },
+    }),
+  ).rejects.toMatchObject({
+    artifacts: [{ path: join(capturesDir, 'charts-good.png') }],
+    errors: [{ code: 'persistence_failed', targetId: 'bad' }],
+  });
+  expect((await stat(join(capturesDir, 'charts-good.png'))).size).toBeGreaterThan(0);
+});

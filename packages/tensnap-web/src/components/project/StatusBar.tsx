@@ -84,9 +84,10 @@ export function StatusBar({
         runStatus.spec.actionId,
         runStatus.spec.mode,
         runStatus.spec.mode === 'bounded'
-          ? `${runStatus.completedSteps}/${runStatus.spec.maxSteps}`
-          : `${runStatus.completedSteps}/∞`,
-        runStatus.inFlight ? 'waiting for tick' : runStatus.state,
+          ? `${runStatus.completedActions}/${runStatus.spec.maxSteps}`
+          : `${runStatus.completedActions}/∞`,
+        `✓${runStatus.succeededActions} ×${runStatus.failedActions}`,
+        !runStatus.settled ? 'waiting for settlement' : runStatus.state,
         runStatus.stopReason,
         runStatus.spec.maxWallTimeMs ? `deadline ${runStatus.spec.maxWallTimeMs}ms` : undefined,
         runStatus.conditionValue === undefined

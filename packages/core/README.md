@@ -27,7 +27,13 @@ Workspace imports use TypeScript source. `pnpm build` produces ESM and declarati
 
 `RunController` drives one renderer-dispatched action at a time. Bounded runs require an explicit `mode: 'bounded'` and finite `maxSteps` (default policy limit: 1,000,000); manual runs use `mode: 'manual'` and continue until paused. An optional `stopWhen` expression is evaluated before the first bounded action and after each `action_result`. The scope is read-only and incremental (`steps`, `time`, metadata, parameters, charts, `agent()`, and `agentCount()`), so it never needs to call `Scenario.dump()` in the tick path.
 
-A host render barrier is part of the run contract. If it rejects, the controller reports the host error, marks that run with `render-error`, and releases the pipeline rather than leaving an unhandled rejection or a stalled continuous action.
+Run status separates `dispatchedActions`, `completedActions`, `succeededActions`, and `failedActions`. Completion counts matching results even when model time stays unchanged; `completedActions = succeededActions + failedActions`. The public `completedSteps` field remains as a deprecated synonym for completion count, and the public `maxSteps` quota still limits completed actions. `lastAction` records the target action’s request ID, result, and observed model times; `lastLifecycleAction` separately records cleanup so a successful stop hook cannot overwrite the failed target result.
+
+`state: 'stopped' | 'paused'` stops dispatch; `settled` additionally waits for the final host barrier and any declared stop hook. `onRunStop` retains its dispatch-stop meaning; use `onRunSettled`, the session's `run:settled` event, or `run.waitForSettled(runId, timeoutMs, signal)` for cleanup completion. A wait timeout/abort cancels only the wait. `getRun(runId)` retains the last 100 settled summaries in memory, while the active run is always queryable. Unknown/expired IDs reject immediately. Disconnects/action timeouts preserve `stateKnown: false` and never fabricate a completed action. In manual render mode settlement does not imply that images were generated.
+
+`stopReasons` keeps every observed reason. `primaryFailure` and the compatible `stopReason` prioritize disconnected, action-timeout, validation-error, action-error, condition-error, then render-error over normal quota/condition/pause reasons. Run recording closes at settlement, includes the stop hook's visible updates, and labels its action frame with `source: 'lifecycle'`.
+
+A host render barrier is part of the run contract. If it rejects, the controller reports the host error, marks that run with `render-error`, and releases the pipeline rather than leaving an unhandled rejection or a stalled continuous action. A failure on the final quota action is still reported. `RendererClient.invokeAction()` rejects with `ActionRenderError` on a failed host barrier, preserving the correlated simulator `result` on the error.
 
 ## Recordings and project archives
 
@@ -148,5 +154,11 @@ These diagnostic suites are distinct from the locked paper evaluation; use [the 
 ## Recording and storage ownership
 
 `SnapshotRecorder.start(options)` validates the new options and baseline byte budget before replacing an active recording. `maxSteps` and `keyframeEvery` must be positive safe integers; `maxBytes` and `maxDurationMs` must be positive finite numbers. Omit a limit to disable it rather than passing zero or infinity. Invalid replacement options leave the active recording intact. Layer codec maps and implementation descriptors are copied at start; callbacks remain callable policies. Queued control flushes belong to their recording and wait for an in-flight action result.
+
+`RunController` owns the values in its run specification and queued action targets/arguments. Returned run statuses own their nested value data. Recording options follow the recorder's policy: copy value data (including checkpoint bytes) and codec descriptors, but retain callable policy functions. Functions and their closed-over application state are not cloned; keep that state stable while the recording uses it. Invocation copying happens before queue mutation, so a copy failure leaves the current run intact. The recorder retains only the policy fields it uses; identity and checkpoint data belong to snapshot metadata.
+
+Startup observers receive their own status copy, separate from the recording configuration used by `RendererSession`. Editing that copy cannot disable or rewrite the requested recording.
+
+`RendererSession` recording events share a read-only snapshot among listeners, including asynchronous persistence hosts. Consumers that need to edit it must copy it first. This event lifetime differs from an independently owned run status.
 
 Storage loaders publish complete replacements. A failed trajectory load preserves its previous data and configurations; a successful load replaces stale configuration and emits one change notification. Removed edges release empty adjacency buckets so repeated topology churn does not retain old IDs.

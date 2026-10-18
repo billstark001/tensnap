@@ -60,6 +60,25 @@ Installing Node.js dependencies for frontend development (for advanced users):
 pnpm install
 ```
 
+Installing the headless agent CLI (Node.js 22 or newer, no source checkout required):
+
+```bash
+npm install --global @tensnap/agent
+tensnap-agent skills list
+tensnap-agent skills install tensnap-agent
+tensnap-agent skills install tensnap-abm-binding --scope user
+```
+
+Both skills include offline references. See the [agent package guide](./packages/tensnap-agent/README.md) for simulator commands, project/user scope, safe upgrades, and installation through Vercel `skills`.
+
+To install the skills through [Vercel skills](https://github.com/vercel-labs/skills) instead, run this in your model project once the corresponding repository changes are available:
+
+```bash
+npx --yes skills add billstark001/tensnap --skill tensnap-agent --skill tensnap-abm-binding --agent codex --copy --yes
+```
+
+Select just one `--skill` when needed, or add `--global` for user scope. This installs skill instructions and references; install the agent CLI or language bindings separately for their respective workflows.
+
 ### Run Your First Example
 
 ```bash

@@ -65,3 +65,109 @@ describe('control API JSON envelopes', () => {
     expect(waitUntilReady).toHaveBeenCalledExactlyOnceWith(undefined);
   });
 });
+
+it.each([
+  ['/v1/scene/render', { typo: true }],
+  ['/v1/scene/render', { width: -1 }],
+  ['/v1/scene/render', { includeData: 'yes' }],
+  ['/v1/scene/render', { viewport: { x: 0, y: 0, width: 1, height: 0 } }],
+  ['/v1/runs', { mode: 'bounded', actionId: 'step', maxSteps: 1, typo: true }],
+  ['/v1/runs', { mode: 'bounded', actionId: 'step', maxSteps: 1, record: { ringBuffer: 'yes' } }],
+  ['/v1/actions/step', { wait: true }],
+  ['/v1/runtime/render-trigger', { trigger: 'action-end' }],
+  ['/v1/runtime/wait-ready', { timeoutMs: -1 }],
+  ['/v1/runtime/connect', { simulatorUrl: 'ws://localhost', encoding: 'invalid' }],
+  ['/v1/runtime/connect', { simulatorUrl: 'invalid-url' }],
+  ['/v1/runtime/connect', { simulatorUrl: 'https://example.com' }],
+])('validates HTTP input before runtime work: %s %j', async (route, body) => {
+  const app = buildControlApp({} as AgentRuntime, new RuntimeSseBroker(), () => {});
+  const response = await app.request(route as string, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toMatchObject({ category: 'input_error' });
+});
+
+it('returns partial render artifacts as a failed HTTP operation', async () => {
+  const { RenderBatchError } = await import('../painter');
+  const app = buildControlApp(
+    {
+      requestRender: async () => {
+        throw new RenderBatchError(
+          [{ painterId: 'good', kind: 'chart', data: new Uint8Array([1]) }],
+          [
+            {
+              painterId: 'bad',
+              targetId: 'missing',
+              code: 'render_missing',
+              message: 'Missing target',
+            },
+          ],
+        );
+      },
+    } as unknown as AgentRuntime,
+    new RuntimeSseBroker(),
+    () => {},
+  );
+  const response = await app.request('/v1/scene/render', { method: 'POST', body: '{}' });
+  expect(response.status).toBe(422);
+  expect(await response.json()).toMatchObject({
+    category: 'render_failed',
+    partial: true,
+    artifacts: [{ data: 'AQ==', dataEncoding: 'base64' }],
+    errors: [{ targetId: 'missing' }],
+  });
+});
+
+it.each([
+  { layerCodecs: { agent: 'typo' } },
+  { layerCodecs: { agent: { codec: 'delta' } } },
+  { modelIdentity: {} },
+  { modelIdentity: { model_id: 'test', extra: true } },
+  { checkpoint: { model_id: 'test', encoding: 'opaque', data: { bytes: [1] } } },
+  { checkpoint: { encoding: 'opaque', data: 'AQ==' } },
+  { checkpoint: { model_id: 'test', encoding: 'opaque', data: 'not base64' } },
+])('rejects malformed nested recording options before runtime dispatch: %j', async (record) => {
+  const startRun = vi.fn().mockReturnValue({ id: 'unexpected' });
+  const app = buildControlApp(
+    { startRun } as unknown as AgentRuntime,
+    new RuntimeSseBroker(),
+    () => {},
+  );
+  const response = await app.request('/v1/runs', {
+    method: 'POST',
+    body: JSON.stringify({ mode: 'bounded', actionId: 'step', maxSteps: 1, record }),
+  });
+  expect(response.status).toBe(400);
+  expect(await response.json()).toMatchObject({ category: 'input_error' });
+  expect(startRun).not.toHaveBeenCalled();
+});
+
+it.each([
+  true,
+  false,
+  {
+    layerCodecs: { agent: 'delta', edge: 'keyframe', trajectory: 'adaptive', grid: 'derived' },
+    modelIdentity: { model_id: 'test', state_schema_version: '1', instance_id: 'test-instance' },
+    checkpoint: { model_id: 'test', state_schema_version: '1', encoding: 'opaque', data: 'AQID' },
+  },
+])('accepts supported recording options: %j', async (record) => {
+  const startRun = vi.fn().mockReturnValue({ id: 'accepted' });
+  const app = buildControlApp(
+    { startRun } as unknown as AgentRuntime,
+    new RuntimeSseBroker(),
+    () => {},
+  );
+  const response = await app.request('/v1/runs', {
+    method: 'POST',
+    body: JSON.stringify({ mode: 'bounded', actionId: 'step', maxSteps: 1, record }),
+  });
+  expect(response.status).toBe(202);
+  expect(startRun).toHaveBeenCalledExactlyOnceWith({
+    mode: 'bounded',
+    actionId: 'step',
+    maxSteps: 1,
+    record: record === true ? {} : record,
+  });
+});

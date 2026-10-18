@@ -18,6 +18,8 @@ import {
   RendererClient,
   RendererSession,
   type BoundedRunSpec,
+  type RunStatus,
+  type RendererSessionRecordingDetail,
   type SceneRestoreOptions,
 } from '@tensnap/core/runtime';
 import { ScenarioInspector } from '@tensnap/core/scenario';
@@ -50,9 +52,13 @@ import {
   type RuntimeContextPaths,
   writeRuntimeControl,
   writeSceneSnapshot,
+  writeRunRecording,
 } from './context';
 import {
   normalizeRenderBackgroundColor,
+  RenderBatchError,
+  renderTargetError,
+  type RenderTargetError,
   type RenderArtifact,
   type RenderAssetSource,
   type RenderRequest,
@@ -71,8 +77,20 @@ export interface AgentRuntimeOptions {
   render?: Partial<RenderSettings>;
   /** Delay between dirty scene updates and disk checkpoints. */
   checkpointIntervalMs?: number;
+  /** Injectable recording store; failures remain queryable on the run. */
+  recordingWriter?: typeof writeRunRecording;
   /** Injectable for checkpoint regression tests and alternative durable stores. */
   checkpointWriter?: (context: RuntimeContextPaths, snapshot: ScenarioSnapshot) => Promise<void>;
+}
+
+export interface RunRecordingPersistence {
+  status: 'pending' | 'persisted' | 'failed';
+  path?: string;
+  error?: string;
+}
+
+interface RuntimeRenderRequest extends RenderRequest {
+  sceneRevision: number;
 }
 
 const DEFAULT_CHECKPOINT_INTERVAL_MS = 2_000;
@@ -94,10 +112,15 @@ export class AgentRuntime extends EventEmitter {
   private readonly renderer: RendererSession;
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
+  private readonly recordingWrites = new Set<Promise<void>>();
+  private readonly recordingResults = new Map<string, RunRecordingPersistence>();
+  private readonly recordingWriter: typeof writeRunRecording;
   private completedStateSyncCount = 0;
+  private connectionGeneration = 0;
   private readonly checkpointIntervalMs: number;
   private checkpointTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpointChain: Promise<void> = Promise.resolve();
+  private pendingCheckpoint: { revision: number; promise: Promise<void> } | null = null;
   private statusWriteChain: Promise<void> = Promise.resolve();
   private readonly checkpointWriter: (
     context: RuntimeContextPaths,
@@ -149,6 +172,7 @@ export class AgentRuntime extends EventEmitter {
       sceneDirty: false,
     };
 
+    this.recordingWriter = options.recordingWriter ?? writeRunRecording;
     this.bindRenderer();
   }
 
@@ -162,38 +186,55 @@ export class AgentRuntime extends EventEmitter {
 
   /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
   async connect(options: ConnectOptions): Promise<RuntimeStatus> {
-    const ipFamily = parseIPFamily(options.ip_family ?? this.control.ip_family);
-    validateIPFamily(new URL(options.simulatorUrl).hostname, ipFamily);
+    // Own scalar options and resolved defaults before status persistence suspends.
+    const connection = {
+      ...options,
+      ip_family: parseIPFamily(options.ip_family ?? this.control.ip_family),
+      encoding: options.encoding ?? this.control.encoding,
+      clientMessageValidation:
+        options.clientMessageValidation ?? this.control.clientMessageValidation,
+      serverMessageValidation:
+        options.serverMessageValidation ?? this.control.serverMessageValidation,
+    };
+    validateIPFamily(new URL(connection.simulatorUrl).hostname, connection.ip_family);
+    const generation = ++this.connectionGeneration;
+    const assertCurrent = () => {
+      if (generation !== this.connectionGeneration)
+        throw new Error('Connection attempt was cancelled.');
+    };
     this.setPhase('connecting');
-    this.control.simulatorUrl = options.simulatorUrl;
-    this.control.ip_family = ipFamily;
-    this.control.encoding = options.encoding ?? this.control.encoding;
-    this.control.clientMessageValidation =
-      options.clientMessageValidation ?? this.control.clientMessageValidation;
-    this.control.serverMessageValidation =
-      options.serverMessageValidation ?? this.control.serverMessageValidation;
+    this.control.simulatorUrl = connection.simulatorUrl;
+    this.control.ip_family = connection.ip_family;
+    this.control.encoding = connection.encoding;
+    this.control.clientMessageValidation = connection.clientMessageValidation;
+    this.control.serverMessageValidation = connection.serverMessageValidation;
     this.completedStateSyncCount = 0;
     await this.persistStatus();
 
     try {
+      assertCurrent();
       this.client.disconnect();
       this.renderer.scenario.reset();
       this.renderer.run.reset();
       await this.client.connect(
-        new NodeWebSocketTransport(options.simulatorUrl, this.control.encoding, {
-          ip_family: this.control.ip_family,
-          clientMessages: this.control.clientMessageValidation,
-          serverMessages: this.control.serverMessageValidation,
+        new NodeWebSocketTransport(connection.simulatorUrl, connection.encoding, {
+          ip_family: connection.ip_family,
+          clientMessages: connection.clientMessageValidation,
+          serverMessages: connection.serverMessageValidation,
         }),
       );
+      assertCurrent();
       await this.log('info', 'runtime', 'Connected to simulator.', {
-        simulatorUrl: options.simulatorUrl,
-        encoding: this.control.encoding,
-        clientMessageValidation: this.control.clientMessageValidation,
-        serverMessageValidation: this.control.serverMessageValidation,
+        simulatorUrl: connection.simulatorUrl,
+        encoding: connection.encoding,
+        clientMessageValidation: connection.clientMessageValidation,
+        serverMessageValidation: connection.serverMessageValidation,
       });
+      assertCurrent();
       return this.getStatus();
     } catch (error) {
+      // A retired operation must not overwrite the current connection's phase/error.
+      assertCurrent();
       this.control.lastError = error instanceof Error ? error.message : String(error);
       this.setPhase('error');
       await this.log('error', 'runtime', 'Failed to connect to simulator.', {
@@ -204,23 +245,22 @@ export class AgentRuntime extends EventEmitter {
   }
 
   async disconnect(): Promise<void> {
-    if (!this.renderer.isConnected) {
-      await this.checkpointScene();
-      this.setPhase('idle');
-      return;
-    }
-
-    this.setPhase('stopping');
-    await this.checkpointScene();
+    const generation = ++this.connectionGeneration;
+    const wasConnected = this.renderer.isConnected;
+    if (wasConnected) this.setPhase('stopping');
+    // Cancel pending handshakes even before the renderer has an installed transport.
     this.client.disconnect();
+    await this.checkpointScene();
+    if (generation !== this.connectionGeneration) return;
     this.setPhase('idle');
-    await this.log('info', 'runtime', 'Disconnected from simulator.');
+    if (wasConnected) await this.log('info', 'runtime', 'Disconnected from simulator.');
   }
 
   async stop(): Promise<void> {
     this.setPhase('stopping');
     await this.disconnect();
     await this.checkpointScene();
+    await Promise.all(this.recordingWrites);
     this.control.pid = null;
     this.control.controlPort = null;
     this.setPhase('stopped');
@@ -230,6 +270,8 @@ export class AgentRuntime extends EventEmitter {
   getStatus(): RuntimeStatus {
     return {
       ...this.control,
+      render: { ...this.control.render },
+      painters: [...this.control.painters],
       isConnected: this.renderer.isConnected,
       simulatorCapabilities: this.renderer.simulatorInfo?.capabilities,
     };
@@ -250,7 +292,7 @@ export class AgentRuntime extends EventEmitter {
   registerPainter(painter: ScenePainter): void {
     this.painters.set(painter.id, painter);
     this.control.painters = [...this.painters.keys()];
-    void this.persistStatus();
+    this.persistStatusInBackground();
     this.emitRuntimeEvent('render.painter.registered', { painterId: painter.id });
   }
 
@@ -260,7 +302,7 @@ export class AgentRuntime extends EventEmitter {
     }
 
     this.control.painters = [...this.painters.keys()];
-    void this.persistStatus();
+    this.persistStatusInBackground();
     this.emitRuntimeEvent('render.painter.unregistered', { painterId: id });
   }
 
@@ -335,8 +377,8 @@ export class AgentRuntime extends EventEmitter {
       },
       `agent-inspection:${inspection.environmentId}/${inspection.layerId}/${inspection.ref.agentId}`,
       'explicit',
+      structuredClone(inspection.renderSnapshot),
     );
-    request.snapshot = inspection.renderSnapshot;
     return this.runPainters(request);
   }
 
@@ -443,22 +485,33 @@ export class AgentRuntime extends EventEmitter {
   }
 
   /** Dispatch one action; completion is reported through runtime events. */
-  async runAction(id: string): Promise<void> {
+  async runAction(id: string): Promise<string> {
     this.assertConnected();
-    this.client.requestAction(id);
+    const requestId = this.client.requestAction(id);
     await this.log('info', 'action', 'Action requested.', {
       id,
+      requestId,
     });
     this.emitRuntimeEvent('action.start.requested', {
       id,
+      requestId,
     });
+    return requestId;
   }
 
   startRun(spec: BoundedRunSpec) {
     this.assertConnected();
+    if (spec.record) {
+      for (const result of this.recordingResults.values()) {
+        if (result.status === 'pending')
+          throw new Error(
+            'Wait for the pending recording to persist before starting another recorded run.',
+          );
+      }
+    }
     const status = this.renderer.run.start(spec);
     const boundedSpec = status.spec.mode === 'bounded' ? status.spec : null;
-    void this.log('info', 'run', 'Bounded run started.', {
+    this.logInBackground('info', 'run', 'Bounded run started.', {
       runId: status.id,
       actionId: status.spec.actionId,
       maxSteps: boundedSpec?.maxSteps,
@@ -469,16 +522,19 @@ export class AgentRuntime extends EventEmitter {
     return status;
   }
 
-  getRun() {
-    return this.renderer.run.status;
+  getRun(id?: string): (RunStatus & { recording?: RunRecordingPersistence }) | null {
+    const status = id ? this.renderer.run.getRun(id) : this.renderer.run.status;
+    if (!status) return null;
+    const recording = this.recordingResults.get(status.id);
+    return { ...status, ...(recording ? { recording: structuredClone(recording) } : {}) };
   }
 
   stopRun() {
     const status = this.renderer.run.stop();
     if (status) {
-      void this.log('info', 'run', 'Bounded run stopped.', {
+      this.logInBackground('info', 'run', 'Bounded run stopped.', {
         runId: status.id,
-        completedSteps: status.completedSteps,
+        completedActions: status.completedActions,
         stopReason: status.stopReason,
       });
       this.emitRuntimeEvent('run.stopped', status);
@@ -495,30 +551,41 @@ export class AgentRuntime extends EventEmitter {
     }
     const request = this.createRenderRequest(options, reason, 'explicit');
     const artifacts = await this.runPainters(request);
-    await this.checkpointScene(request.snapshot, true);
+    try {
+      await this.checkpointRenderedScene(request);
+    } catch (error) {
+      throw new RenderBatchError(artifacts, [
+        {
+          painterId: 'scene-checkpoint',
+          code: 'persistence_failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    }
     await this.log('info', 'render', 'Render requested.', {
       reason,
       trigger: 'explicit',
       painterCount: this.painters.size,
       artifactCount: artifacts.length,
-      envId: options.envId,
-      chartId: options.chartId,
-      outputPath: options.outputPath,
+      envId: request.options.envId,
+      chartId: request.options.chartId,
+      outputPath: request.options.outputPath,
     });
     this.emitRuntimeEvent('render.requested', {
       reason,
       trigger: 'explicit',
       painterCount: this.painters.size,
       artifactCount: artifacts.length,
-      envId: options.envId,
-      chartId: options.chartId,
-      outputPath: options.outputPath,
+      envId: request.options.envId,
+      chartId: request.options.chartId,
+      outputPath: request.options.outputPath,
     });
     return artifacts;
   }
 
   private async runPainters(request: RenderRequest): Promise<RenderArtifact[]> {
     const artifacts: RenderArtifact[] = [];
+    const errors: RenderTargetError[] = [];
     const disambiguateOutput = Boolean(
       request.options.outputPath &&
       !request.options.envId &&
@@ -545,15 +612,30 @@ export class AgentRuntime extends EventEmitter {
           artifacts.push(...result);
         }
       } catch (error) {
+        if (error instanceof RenderBatchError) {
+          artifacts.push(...error.artifacts);
+          errors.push(...error.errors);
+        } else
+          errors.push(
+            renderTargetError(painter.id, request.options.envId ?? request.options.chartId, error),
+          );
         const message = error instanceof Error ? error.message : String(error);
         await this.log('error', 'render', 'Painter render failed.', {
           painterId: painter.id,
           error: message,
-        });
+        }).catch(() => {});
         this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
       }
     }
 
+    if (!artifacts.length && !errors.length)
+      errors.push({
+        painterId: '*',
+        targetId: request.options.envId ?? request.options.chartId,
+        code: 'render_missing',
+        message: 'No render artifacts were produced.',
+      });
+    if (errors.length) throw new RenderBatchError(artifacts, errors);
     return artifacts;
   }
 
@@ -561,7 +643,8 @@ export class AgentRuntime extends EventEmitter {
     options: SceneRenderOptions,
     reason: string,
     trigger: RenderTriggerMode | 'explicit',
-  ): RenderRequest {
+    snapshot?: ScenarioSnapshot,
+  ): RuntimeRenderRequest {
     const backgroundColor = normalizeRenderBackgroundColor(
       options.backgroundColor,
       this.control.render.backgroundColor,
@@ -570,9 +653,11 @@ export class AgentRuntime extends EventEmitter {
       at: new Date().toISOString(),
       reason,
       trigger,
-      snapshot: this.renderer.scenario.dump(),
+      sceneRevision: this.control.sceneRevision,
+      snapshot: snapshot ?? this.renderer.scenario.dump(),
       options: {
         ...options,
+        ...(options.viewport ? { viewport: { ...options.viewport } } : {}),
         backgroundColor,
       },
       assets: this.getAssetSources(),
@@ -586,6 +671,42 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private bindRenderer(): void {
+    this.renderer.addEventListener('recording:complete', (event) => {
+      const { snapshot, runId } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
+      if (!runId) return;
+      this.recordingResults.set(runId, { status: 'pending' });
+      while (this.recordingResults.size > 100) {
+        const removable = [...this.recordingResults].find(
+          ([, value]) => value.status !== 'pending',
+        );
+        if (!removable) break;
+        this.recordingResults.delete(removable[0]);
+      }
+      const write = Promise.resolve()
+        .then(() => this.recordingWriter(this.context, runId, snapshot))
+        .then(
+          (path) => {
+            this.recordingResults.set(runId, { status: 'persisted', path });
+          },
+          (error: unknown) => {
+            this.recordingResults.set(runId, {
+              status: 'failed',
+              error: error instanceof Error ? error.message : String(error),
+            });
+          },
+        )
+        .then(() => {
+          this.emitRuntimeEvent('recording.persistence', {
+            runId,
+            ...this.recordingResults.get(runId),
+          });
+        });
+      this.recordingWrites.add(write);
+      void write.then(
+        () => this.recordingWrites.delete(write),
+        () => this.recordingWrites.delete(write),
+      );
+    });
     this.renderer.addEventListener('transport:open', () => {
       this.setPhase('open');
       this.emitRuntimeEvent('transport.open', { simulatorUrl: this.control.simulatorUrl });
@@ -602,19 +723,22 @@ export class AgentRuntime extends EventEmitter {
       const message = error instanceof Error ? error.message : String(error);
       this.control.lastError = message;
       this.setPhase('error');
-      void this.log('error', 'transport', 'Transport error.', { error: message });
+      this.logInBackground('error', 'transport', 'Transport error.', { error: message });
       this.emitRuntimeEvent('transport.error', { error: message });
     });
     this.renderer.addEventListener('transport:validation-warning', (event) => {
       const warning = (event as CustomEvent<{ message: string; direction: string }>).detail;
-      void this.log('warn', 'transport', 'Protocol validation warning.', warning);
+      this.logInBackground('warn', 'transport', 'Protocol validation warning.', warning);
       this.emitRuntimeEvent('transport.validation-warning', warning);
     });
-    this.renderer.addEventListener('run:status', (event) => {
-      const status = (event as CustomEvent<{ state?: string }>).detail;
-      if (status?.state === 'stopped') {
-        void this.checkpointScene();
-      }
+    this.renderer.addEventListener('run:settled', (event) => {
+      const status = (event as CustomEvent<RunStatus>).detail;
+      void this.checkpointScene().catch((error) =>
+        this.emitRuntimeEvent('scene.persistence-failed', {
+          runId: status.id,
+          error: String(error),
+        }),
+      );
     });
     this.renderer.addEventListener('message', (event) => {
       const { message, origin } = (
@@ -626,11 +750,17 @@ export class AgentRuntime extends EventEmitter {
       void this.handleProtocolMessage(message, origin);
       if (message.type === 'action_result') {
         const payload = message.payload as ActionResultPayload;
-        void this.log('info', 'action', 'Action completed.', payload);
+        this.logInBackground('info', 'action', 'Action completed.', payload);
         this.emitRuntimeEvent('action.result', payload);
       }
       if (message.type === 'screenshot_request') {
-        void this.handleScreenshotRequest(message.payload as ScreenshotRequestPayload);
+        const payload = message.payload as ScreenshotRequestPayload;
+        void this.handleScreenshotRequest(payload).catch((error) =>
+          this.emitRuntimeEvent('render.screenshot-failed', {
+            requestId: payload.request_id,
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
       }
     });
   }
@@ -651,7 +781,9 @@ export class AgentRuntime extends EventEmitter {
       this.completedStateSyncCount += 1;
       this.setPhase('ready');
       this.markSceneDirty();
-      await this.checkpointScene();
+      await this.checkpointScene().catch((error) =>
+        this.emitRuntimeEvent('scene.persistence-failed', { error: String(error) }),
+      );
       this.emitRuntimeEvent('scene.sync.end', {
         completedCount: this.completedStateSyncCount,
         payload: message.payload,
@@ -680,10 +812,32 @@ export class AgentRuntime extends EventEmitter {
   private async renderActionResult(payload: ActionResultPayload): Promise<void> {
     if (this.control.render.trigger !== 'action-result') return;
     const request = this.createRenderRequest({}, `action-result:${payload.id}`, 'action-result');
-    const artifacts = await this.runPainters(request);
-    await this.checkpointScene(request.snapshot, true);
+    let artifacts: RenderArtifact[];
+    try {
+      artifacts = await this.runPainters(request);
+    } catch (error) {
+      this.emitRuntimeEvent('render.action-failed', {
+        actionId: payload.id,
+        requestId: payload.request_id,
+        ...(error instanceof RenderBatchError
+          ? { artifacts: error.artifacts, errors: error.errors }
+          : { error: String(error) }),
+      });
+      throw error;
+    }
+    try {
+      await this.checkpointRenderedScene(request);
+    } catch (error) {
+      throw new RenderBatchError(artifacts, [
+        {
+          painterId: 'scene-checkpoint',
+          code: 'persistence_failed',
+          message: error instanceof Error ? error.message : String(error),
+        },
+      ]);
+    }
 
-    void this.log('info', 'render', 'Auto render executed after action_result.', {
+    this.logInBackground('info', 'render', 'Auto render executed after action_result.', {
       actionId: payload.id,
       artifactCount: artifacts.length,
     });
@@ -864,6 +1018,10 @@ export class AgentRuntime extends EventEmitter {
 
   private setPhase(phase: RuntimePhase): void {
     this.control.phase = phase;
+    this.persistStatusInBackground();
+  }
+
+  private persistStatusInBackground(): void {
     void this.persistStatus().catch((error) =>
       this.emitRuntimeEvent('runtime.status-write-failed', {
         error: error instanceof Error ? error.message : String(error),
@@ -877,8 +1035,17 @@ export class AgentRuntime extends EventEmitter {
     if (this.checkpointTimer) return;
     this.checkpointTimer = setTimeout(() => {
       this.checkpointTimer = null;
-      void this.checkpointScene();
+      void this.checkpointScene().catch((error) =>
+        this.emitRuntimeEvent('scene.persistence-failed', { error: String(error) }),
+      );
     }, this.checkpointIntervalMs);
+  }
+
+  /** Images retain their captured input; the runtime scene cache must retain the latest revision. */
+  private checkpointRenderedScene(request: RuntimeRenderRequest): Promise<void> {
+    return request.sceneRevision === this.control.sceneRevision
+      ? this.checkpointScene(request.snapshot, true)
+      : this.checkpointScene();
   }
 
   /** Serialize checkpoints so an older async write can never overwrite a newer one. */
@@ -890,6 +1057,8 @@ export class AgentRuntime extends EventEmitter {
     if (!force && !this.control.sceneDirty) return this.checkpointChain;
 
     const revision = this.control.sceneRevision;
+    if (!force && this.pendingCheckpoint?.revision === revision)
+      return this.pendingCheckpoint.promise;
     const checkpoint = snapshot ?? this.renderer.scenario.dump();
     const write = async () => {
       await this.checkpointWriter(this.context, checkpoint);
@@ -898,6 +1067,12 @@ export class AgentRuntime extends EventEmitter {
       }
     };
     const queued = this.checkpointChain.then(write, write);
+    const pending = { revision, promise: queued };
+    this.pendingCheckpoint = pending;
+    const clearPending = () => {
+      if (this.pendingCheckpoint === pending) this.pendingCheckpoint = null;
+    };
+    void queued.then(clearPending, clearPending);
     this.checkpointChain = queued.catch((error) => {
       this.control.lastError = error instanceof Error ? error.message : String(error);
     });
@@ -911,6 +1086,20 @@ export class AgentRuntime extends EventEmitter {
       data,
     };
     this.emit('event', event);
+  }
+
+  private logInBackground(
+    level: RuntimeLogEntry['level'],
+    source: string,
+    message: string,
+    data?: unknown,
+  ): void {
+    void this.log(level, source, message, data).catch((error) =>
+      this.emitRuntimeEvent('runtime.log-write-failed', {
+        source,
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
   }
 
   private async log(
