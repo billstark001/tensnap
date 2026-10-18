@@ -81,7 +81,7 @@ msgstr "アクションラベル"
 msgid "Action Timeout"
 msgstr "アクションタイムアウト"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:256
+#: src/dialogs/SnapshotDetailDialog.tsx:255
 msgid "Action:"
 msgstr "アクション："
 
@@ -166,11 +166,11 @@ msgstr "ボタンテキスト"
 msgid "Cancel"
 msgstr "キャンセル"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:84
+#: src/dialogs/SnapshotDetailDialog.tsx:83
 msgid "Canvas copied to clipboard!"
 msgstr "キャンバスをクリップボードにコピーしました！"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:80
+#: src/dialogs/SnapshotDetailDialog.tsx:79
 msgid "Canvas not found."
 msgstr "キャンバスが見つかりません。"
 
@@ -313,7 +313,7 @@ msgstr "連続実行…"
 #: src/components/project/ViewContextMenuRenderer.tsx:142
 #: src/components/project/ViewContextMenuRenderer.tsx:149
 #: src/components/toolbar/MenuBar.tsx:161
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/dialogs/SnapshotDetailDialog.tsx:109
 msgid "Copy"
 msgstr "コピー"
 
@@ -348,7 +348,7 @@ msgstr "現在の値"
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
-#: src/hooks/useButtonControls.ts:242
+#: src/hooks/useButtonControls.ts:303
 msgid "Custom simulator actions are unavailable for a snapshot source."
 msgstr "スナップショットソースではカスタムシミュレーターアクションは利用できません。"
 
@@ -372,7 +372,7 @@ msgstr "デフォルト"
 msgid "Delete"
 msgstr "削除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:382
+#: src/dialogs/SnapshotDetailDialog.tsx:381
 msgid "Delete recording"
 msgstr "録画を削除"
 
@@ -515,13 +515,13 @@ msgstr "展開済み"
 #~ msgid "Export Current Directory"
 #~ msgstr "現在のディレクトリをエクスポート"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:157
-#: src/dialogs/SnapshotDetailDialog.tsx:379
+#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:378
 msgid "Export current frame"
 msgstr "現在のフレームを書き出す"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:157
-#: src/dialogs/SnapshotDetailDialog.tsx:376
+#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:375
 msgid "Export full recording"
 msgstr "録画全体を書き出す"
 
@@ -533,8 +533,8 @@ msgstr "録画全体を書き出す"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "エクスポート中、お待ちください..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:85
-#: src/dialogs/SnapshotDetailDialog.tsx:87
+#: src/dialogs/SnapshotDetailDialog.tsx:84
+#: src/dialogs/SnapshotDetailDialog.tsx:86
 msgid "Failed to copy canvas to clipboard."
 msgstr "キャンバスをクリップボードにコピーできませんでした。"
 
@@ -542,7 +542,7 @@ msgstr "キャンバスをクリップボードにコピーできませんでし
 msgid "Failed to copy monitor data to clipboard."
 msgstr "モニターデータをクリップボードにコピーできませんでした。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:165
+#: src/dialogs/SnapshotDetailDialog.tsx:164
 msgid "Failed to export recording"
 msgstr "録画を書き出せませんでした"
 
@@ -550,11 +550,11 @@ msgstr "録画を書き出せませんでした"
 #~ msgid "Failed to load: {error}"
 #~ msgstr "読み込み失敗: {error}"
 
-#: src/components/toolbar/useFileOperations.ts:70
+#: src/components/toolbar/useFileOperations.ts:71
 msgid "Failed to open files"
 msgstr "ファイルを開けませんでした"
 
-#: src/components/toolbar/useFileOperations.ts:85
+#: src/components/toolbar/useFileOperations.ts:92
 msgid "Failed to open recording"
 msgstr "録画を開けませんでした"
 
@@ -562,8 +562,8 @@ msgstr "録画を開けませんでした"
 msgid "Failed to reconnect"
 msgstr "再接続に失敗しました"
 
-#: src/components/toolbar/useFileOperations.ts:53
-#: src/components/toolbar/useFileOperations.ts:107
+#: src/components/toolbar/useFileOperations.ts:54
+#: src/components/toolbar/useFileOperations.ts:114
 msgid "Failed to save file"
 msgstr "ファイルを保存できませんでした"
 
@@ -596,13 +596,13 @@ msgstr "ファイル"
 #~ msgid "File Manager"
 #~ msgstr "ファイルマネージャー"
 
-#: src/components/toolbar/useFileOperations.ts:51
-#: src/components/toolbar/useFileOperations.ts:104
+#: src/components/toolbar/useFileOperations.ts:52
+#: src/components/toolbar/useFileOperations.ts:111
 msgid "File saved"
 msgstr "ファイルを保存しました"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:268
 #: src/dialogs/SnapshotDetailDialog.tsx:269
-#: src/dialogs/SnapshotDetailDialog.tsx:270
 msgid "First frame"
 msgstr "最初のフレーム"
 
@@ -626,11 +626,11 @@ msgstr "サーバーに強制再接続"
 #~ msgid "Force visible"
 #~ msgstr "強制的に表示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:250
+#: src/dialogs/SnapshotDetailDialog.tsx:249
 msgid "Frame updates:"
 msgstr "フレーム更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:236
+#: src/dialogs/SnapshotDetailDialog.tsx:235
 msgid "Frame:"
 msgstr "フレーム："
 
@@ -689,7 +689,7 @@ msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
 #: src/dialogs/AgentDetailsDialog.tsx:285
-#: src/dialogs/SnapshotDetailDialog.tsx:224
+#: src/dialogs/SnapshotDetailDialog.tsx:223
 msgid "ID:"
 msgstr "ID："
 
@@ -697,7 +697,7 @@ msgstr "ID："
 msgid "Info"
 msgstr "情報"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:202
+#: src/dialogs/SnapshotDetailDialog.tsx:201
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "この録画をオフラインで確認します。開くと接続されていないコピーが作成されます。"
 
@@ -831,7 +831,7 @@ msgstr "モニターデータをクリップボードにコピーしました。
 msgid "Monitor not found."
 msgstr "モニターが見つかりません。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:317
+#: src/dialogs/SnapshotDetailDialog.tsx:316
 msgid "Monitors"
 msgstr "モニター"
 
@@ -910,7 +910,7 @@ msgstr "メインビューはありません。"
 msgid "No metadata on this layer."
 msgstr "このレイヤーにメタデータがありません。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:322
+#: src/dialogs/SnapshotDetailDialog.tsx:321
 msgid "No monitor data was recorded."
 msgstr "モニターデータは記録されていません。"
 
@@ -971,21 +971,21 @@ msgstr "オブジェクトID"
 msgid "Off"
 msgstr "オフ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:300
+#: src/dialogs/SnapshotDetailDialog.tsx:299
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "録画の容量制限に収めるため、古いフレームは削除されました。"
 
-#: src/hooks/useButtonControls.ts:116
+#: src/hooks/useButtonControls.ts:177
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "スナップショットソースでは開始、ステップ、停止、リセットのみ使用できます。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:391
+#: src/dialogs/SnapshotDetailDialog.tsx:390
 msgid "Open as offline copy"
 msgstr "オフラインコピーとして開く"
 
 #: src/components/toolbar/MenuBar.tsx:97
 #: src/components/toolbar/ToolGroups.tsx:61
-#: src/components/toolbar/useFileOperations.ts:59
+#: src/components/toolbar/useFileOperations.ts:60
 msgid "Open File"
 msgstr "ファイルを開く"
 
@@ -994,13 +994,13 @@ msgstr "ファイルを開く"
 #~ msgstr "フォルダーを開く"
 
 #: src/components/toolbar/MenuBar.tsx:100
-#: src/components/toolbar/useFileOperations.ts:76
+#: src/components/toolbar/useFileOperations.ts:77
 #: src/dialogs/SelectRecordingDialog.tsx:54
 msgid "Open recording"
 msgstr "録画を開く"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:129
-#: src/dialogs/SnapshotDetailDialog.tsx:100
+#: src/dialogs/SnapshotDetailDialog.tsx:99
 msgid "Options"
 msgstr "オプション"
 
@@ -1036,7 +1036,7 @@ msgstr "パラメータラベル"
 msgid "Parameter Type"
 msgstr "パラメータタイプ"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:305
+#: src/dialogs/SnapshotDetailDialog.tsx:304
 msgid "Parameters"
 msgstr "パラメータ"
 
@@ -1048,8 +1048,8 @@ msgstr "パラメータ："
 msgid "Paste"
 msgstr "貼り付け"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:277
 #: src/dialogs/SnapshotDetailDialog.tsx:278
-#: src/dialogs/SnapshotDetailDialog.tsx:279
 msgid "Pause"
 msgstr "一時停止"
 
@@ -1057,8 +1057,8 @@ msgstr "一時停止"
 msgid "Pending"
 msgstr "保留中"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:277
 #: src/dialogs/SnapshotDetailDialog.tsx:278
-#: src/dialogs/SnapshotDetailDialog.tsx:279
 msgid "Play"
 msgstr "再生"
 
@@ -1082,11 +1082,11 @@ msgstr "前の値行"
 msgid "Project File"
 msgstr "プロジェクトファイル"
 
-#: src/components/toolbar/useFileOperations.ts:64
+#: src/components/toolbar/useFileOperations.ts:65
 msgid "Project recovered with warnings"
 msgstr "プロジェクトは警告付きで復元されました"
 
-#: src/components/toolbar/useFileOperations.ts:51
+#: src/components/toolbar/useFileOperations.ts:52
 msgid "Project saved successfully."
 msgstr "プロジェクトを保存しました。"
 
@@ -1139,11 +1139,11 @@ msgstr "再接続に成功しました"
 msgid "Record this run"
 msgstr "この実行を記録する"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:230
+#: src/dialogs/SnapshotDetailDialog.tsx:229
 msgid "Recorded:"
 msgstr "録画日時："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:163
+#: src/dialogs/SnapshotDetailDialog.tsx:162
 msgid "Recording exported"
 msgstr "録画を書き出しました"
 
@@ -1216,7 +1216,7 @@ msgstr "スナップショットを復元"
 msgid "Restore snapshot to simulator"
 msgstr "スナップショットをシミュレーターへ復元"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:388
+#: src/dialogs/SnapshotDetailDialog.tsx:387
 msgid "Restore to live simulator"
 msgstr "ライブシミュレーターへ復元"
 
@@ -1250,12 +1250,12 @@ msgstr "実行："
 msgid "Save"
 msgstr "保存"
 
-#: src/components/toolbar/useFileOperations.ts:93
+#: src/components/toolbar/useFileOperations.ts:100
 msgid "Save As"
 msgstr "名前を付けて保存"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:135
-#: src/dialogs/SnapshotDetailDialog.tsx:105
+#: src/dialogs/SnapshotDetailDialog.tsx:104
 msgid "Save As CSV"
 msgstr "CSV形式で保存"
 
@@ -1332,7 +1332,7 @@ msgstr "右側パネルを表示"
 #~ msgid "Sim:"
 #~ msgstr "シミュレーション："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:244
+#: src/dialogs/SnapshotDetailDialog.tsx:243
 msgid "Simulation time:"
 msgstr "シミュレーション時刻："
 
@@ -1360,13 +1360,15 @@ msgstr "スナップショット"
 #~ msgid "Snapshot Details"
 #~ msgstr "スナップショットの詳細"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:208
+#: src/dialogs/SnapshotDetailDialog.tsx:207
 msgid "Snapshot name"
 msgstr "スナップショット名"
 
 #: src/dialogs/SettingsDialog.tsx:438
-#: src/hooks/useButtonControls.ts:115
-#: src/hooks/useButtonControls.ts:241
+#: src/hooks/useButtonControls.ts:64
+#: src/hooks/useButtonControls.ts:118
+#: src/hooks/useButtonControls.ts:176
+#: src/hooks/useButtonControls.ts:302
 msgid "Snapshot playback"
 msgstr "スナップショット再生"
 
@@ -1374,7 +1376,7 @@ msgstr "スナップショット再生"
 msgid "Snapshot playback FPS"
 msgstr "スナップショット再生 FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:199
+#: src/dialogs/SnapshotDetailDialog.tsx:198
 msgid "Snapshot replay"
 msgstr "スナップショット再生"
 
@@ -1394,7 +1396,7 @@ msgstr "スナップショットソースは接続されず、再生コントロ
 msgid "Snapshots"
 msgstr "スナップショット"
 
-#: src/components/toolbar/useFileOperations.ts:65
+#: src/components/toolbar/useFileOperations.ts:66
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "一部のデータが無効でした。有効なデータを読み込みました。プロジェクトを確認し、新しいコピーとして保存してください。"
 
@@ -1500,7 +1502,7 @@ msgstr "この編集を保存すると、現在のオブジェクトの名前が
 msgid "The environment ID could not be changed."
 msgstr "環境 ID を変更できませんでした。"
 
-#: src/components/toolbar/useFileOperations.ts:79
+#: src/components/toolbar/useFileOperations.ts:86
 msgid "The file contains no recordings."
 msgstr "このファイルには録画がありません。"
 
@@ -1646,7 +1648,7 @@ msgstr "タイプ"
 msgid "Unable to capture snapshot"
 msgstr "スナップショットをキャプチャできません"
 
-#: src/hooks/useButtonControls.ts:229
+#: src/hooks/useButtonControls.ts:290
 msgid "Unable to reset"
 msgstr "リセットできません"
 
@@ -1654,17 +1656,17 @@ msgstr "リセットできません"
 #~ msgid "Unable to restore snapshot"
 #~ msgstr "スナップショットを復元できません"
 
-#: src/hooks/useButtonControls.ts:149
-#: src/hooks/useButtonControls.ts:169
-#: src/hooks/useButtonControls.ts:189
+#: src/hooks/useButtonControls.ts:210
+#: src/hooks/useButtonControls.ts:230
+#: src/hooks/useButtonControls.ts:250
 msgid "Unable to run action"
 msgstr "アクションを実行できません"
 
-#: src/hooks/useButtonControls.ts:252
+#: src/hooks/useButtonControls.ts:313
 msgid "Unable to run model action"
 msgstr "モデルアクションを実行できません"
 
-#: src/hooks/useButtonControls.ts:212
+#: src/hooks/useButtonControls.ts:273
 msgid "Unable to step"
 msgstr "ステップ実行できません"
 

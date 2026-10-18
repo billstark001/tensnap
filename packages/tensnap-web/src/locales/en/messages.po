@@ -81,7 +81,7 @@ msgstr "Action Label"
 msgid "Action Timeout"
 msgstr "Action Timeout"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:256
+#: src/dialogs/SnapshotDetailDialog.tsx:255
 msgid "Action:"
 msgstr "Action:"
 
@@ -166,11 +166,11 @@ msgstr "Button Text"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:84
+#: src/dialogs/SnapshotDetailDialog.tsx:83
 msgid "Canvas copied to clipboard!"
 msgstr "Canvas copied to clipboard!"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:80
+#: src/dialogs/SnapshotDetailDialog.tsx:79
 msgid "Canvas not found."
 msgstr "Canvas not found."
 
@@ -313,7 +313,7 @@ msgstr "Continuous run…"
 #: src/components/project/ViewContextMenuRenderer.tsx:142
 #: src/components/project/ViewContextMenuRenderer.tsx:149
 #: src/components/toolbar/MenuBar.tsx:161
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/dialogs/SnapshotDetailDialog.tsx:109
 msgid "Copy"
 msgstr "Copy"
 
@@ -348,7 +348,7 @@ msgstr "Current Value"
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
-#: src/hooks/useButtonControls.ts:242
+#: src/hooks/useButtonControls.ts:303
 msgid "Custom simulator actions are unavailable for a snapshot source."
 msgstr "Custom simulator actions are unavailable for a snapshot source."
 
@@ -372,7 +372,7 @@ msgstr "default"
 msgid "Delete"
 msgstr "Delete"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:382
+#: src/dialogs/SnapshotDetailDialog.tsx:381
 msgid "Delete recording"
 msgstr "Delete recording"
 
@@ -515,13 +515,13 @@ msgstr "Expanded"
 #~ msgid "Export Current Directory"
 #~ msgstr "Export Current Directory"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:157
-#: src/dialogs/SnapshotDetailDialog.tsx:379
+#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:378
 msgid "Export current frame"
 msgstr "Export current frame"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:157
-#: src/dialogs/SnapshotDetailDialog.tsx:376
+#: src/dialogs/SnapshotDetailDialog.tsx:156
+#: src/dialogs/SnapshotDetailDialog.tsx:375
 msgid "Export full recording"
 msgstr "Export full recording"
 
@@ -533,8 +533,8 @@ msgstr "Export full recording"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "Exporting, please wait..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:85
-#: src/dialogs/SnapshotDetailDialog.tsx:87
+#: src/dialogs/SnapshotDetailDialog.tsx:84
+#: src/dialogs/SnapshotDetailDialog.tsx:86
 msgid "Failed to copy canvas to clipboard."
 msgstr "Failed to copy canvas to clipboard."
 
@@ -542,7 +542,7 @@ msgstr "Failed to copy canvas to clipboard."
 msgid "Failed to copy monitor data to clipboard."
 msgstr "Failed to copy monitor data to clipboard."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:165
+#: src/dialogs/SnapshotDetailDialog.tsx:164
 msgid "Failed to export recording"
 msgstr "Failed to export recording"
 
@@ -550,11 +550,11 @@ msgstr "Failed to export recording"
 #~ msgid "Failed to load: {error}"
 #~ msgstr "Failed to load: {error}"
 
-#: src/components/toolbar/useFileOperations.ts:70
+#: src/components/toolbar/useFileOperations.ts:71
 msgid "Failed to open files"
 msgstr "Failed to open files"
 
-#: src/components/toolbar/useFileOperations.ts:85
+#: src/components/toolbar/useFileOperations.ts:92
 msgid "Failed to open recording"
 msgstr "Failed to open recording"
 
@@ -562,8 +562,8 @@ msgstr "Failed to open recording"
 msgid "Failed to reconnect"
 msgstr "Failed to reconnect"
 
-#: src/components/toolbar/useFileOperations.ts:53
-#: src/components/toolbar/useFileOperations.ts:107
+#: src/components/toolbar/useFileOperations.ts:54
+#: src/components/toolbar/useFileOperations.ts:114
 msgid "Failed to save file"
 msgstr "Failed to save file"
 
@@ -596,13 +596,13 @@ msgstr "File"
 #~ msgid "File Manager"
 #~ msgstr "File Manager"
 
-#: src/components/toolbar/useFileOperations.ts:51
-#: src/components/toolbar/useFileOperations.ts:104
+#: src/components/toolbar/useFileOperations.ts:52
+#: src/components/toolbar/useFileOperations.ts:111
 msgid "File saved"
 msgstr "File saved"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:268
 #: src/dialogs/SnapshotDetailDialog.tsx:269
-#: src/dialogs/SnapshotDetailDialog.tsx:270
 msgid "First frame"
 msgstr "First frame"
 
@@ -626,11 +626,11 @@ msgstr "Force reconnect to server"
 #~ msgid "Force visible"
 #~ msgstr "Force visible"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:250
+#: src/dialogs/SnapshotDetailDialog.tsx:249
 msgid "Frame updates:"
 msgstr "Frame updates:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:236
+#: src/dialogs/SnapshotDetailDialog.tsx:235
 msgid "Frame:"
 msgstr "Frame:"
 
@@ -689,7 +689,7 @@ msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
 #: src/dialogs/AgentDetailsDialog.tsx:285
-#: src/dialogs/SnapshotDetailDialog.tsx:224
+#: src/dialogs/SnapshotDetailDialog.tsx:223
 msgid "ID:"
 msgstr "ID:"
 
@@ -697,7 +697,7 @@ msgstr "ID:"
 msgid "Info"
 msgstr "Info"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:202
+#: src/dialogs/SnapshotDetailDialog.tsx:201
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "Inspect this recording offline. Opening it creates a disconnected copy."
 
@@ -831,7 +831,7 @@ msgstr "Monitor data copied to clipboard."
 msgid "Monitor not found."
 msgstr "Monitor not found."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:317
+#: src/dialogs/SnapshotDetailDialog.tsx:316
 msgid "Monitors"
 msgstr "Monitors"
 
@@ -910,7 +910,7 @@ msgstr "No main view available."
 msgid "No metadata on this layer."
 msgstr "No metadata on this layer."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:322
+#: src/dialogs/SnapshotDetailDialog.tsx:321
 msgid "No monitor data was recorded."
 msgstr "No monitor data was recorded."
 
@@ -971,21 +971,21 @@ msgstr "Object ID"
 msgid "Off"
 msgstr "Off"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:300
+#: src/dialogs/SnapshotDetailDialog.tsx:299
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "Older frames were removed to stay within the recording budget."
 
-#: src/hooks/useButtonControls.ts:116
+#: src/hooks/useButtonControls.ts:177
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "Only start, step, stop, and reset are available for a snapshot source."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:391
+#: src/dialogs/SnapshotDetailDialog.tsx:390
 msgid "Open as offline copy"
 msgstr "Open as offline copy"
 
 #: src/components/toolbar/MenuBar.tsx:97
 #: src/components/toolbar/ToolGroups.tsx:61
-#: src/components/toolbar/useFileOperations.ts:59
+#: src/components/toolbar/useFileOperations.ts:60
 msgid "Open File"
 msgstr "Open File"
 
@@ -994,13 +994,13 @@ msgstr "Open File"
 #~ msgstr "Open Folder"
 
 #: src/components/toolbar/MenuBar.tsx:100
-#: src/components/toolbar/useFileOperations.ts:76
+#: src/components/toolbar/useFileOperations.ts:77
 #: src/dialogs/SelectRecordingDialog.tsx:54
 msgid "Open recording"
 msgstr "Open recording"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:129
-#: src/dialogs/SnapshotDetailDialog.tsx:100
+#: src/dialogs/SnapshotDetailDialog.tsx:99
 msgid "Options"
 msgstr "Options"
 
@@ -1036,7 +1036,7 @@ msgstr "Parameter Label"
 msgid "Parameter Type"
 msgstr "Parameter Type"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:305
+#: src/dialogs/SnapshotDetailDialog.tsx:304
 msgid "Parameters"
 msgstr "Parameters"
 
@@ -1048,8 +1048,8 @@ msgstr "Parameters:"
 msgid "Paste"
 msgstr "Paste"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:277
 #: src/dialogs/SnapshotDetailDialog.tsx:278
-#: src/dialogs/SnapshotDetailDialog.tsx:279
 msgid "Pause"
 msgstr "Pause"
 
@@ -1057,8 +1057,8 @@ msgstr "Pause"
 msgid "Pending"
 msgstr "Pending"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:277
 #: src/dialogs/SnapshotDetailDialog.tsx:278
-#: src/dialogs/SnapshotDetailDialog.tsx:279
 msgid "Play"
 msgstr "Play"
 
@@ -1082,11 +1082,11 @@ msgstr "Previous value rows"
 msgid "Project File"
 msgstr "Project File"
 
-#: src/components/toolbar/useFileOperations.ts:64
+#: src/components/toolbar/useFileOperations.ts:65
 msgid "Project recovered with warnings"
 msgstr "Project recovered with warnings"
 
-#: src/components/toolbar/useFileOperations.ts:51
+#: src/components/toolbar/useFileOperations.ts:52
 msgid "Project saved successfully."
 msgstr "Project saved successfully."
 
@@ -1139,11 +1139,11 @@ msgstr "Reconnected successfully"
 msgid "Record this run"
 msgstr "Record this run"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:230
+#: src/dialogs/SnapshotDetailDialog.tsx:229
 msgid "Recorded:"
 msgstr "Recorded:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:163
+#: src/dialogs/SnapshotDetailDialog.tsx:162
 msgid "Recording exported"
 msgstr "Recording exported"
 
@@ -1216,7 +1216,7 @@ msgstr "Restore snapshot"
 msgid "Restore snapshot to simulator"
 msgstr "Restore snapshot to simulator"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:388
+#: src/dialogs/SnapshotDetailDialog.tsx:387
 msgid "Restore to live simulator"
 msgstr "Restore to live simulator"
 
@@ -1250,12 +1250,12 @@ msgstr "Run:"
 msgid "Save"
 msgstr "Save"
 
-#: src/components/toolbar/useFileOperations.ts:93
+#: src/components/toolbar/useFileOperations.ts:100
 msgid "Save As"
 msgstr "Save As"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:135
-#: src/dialogs/SnapshotDetailDialog.tsx:105
+#: src/dialogs/SnapshotDetailDialog.tsx:104
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
@@ -1332,7 +1332,7 @@ msgstr "Show Right Panel"
 #~ msgid "Sim:"
 #~ msgstr "Sim:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:244
+#: src/dialogs/SnapshotDetailDialog.tsx:243
 msgid "Simulation time:"
 msgstr "Simulation time:"
 
@@ -1360,13 +1360,15 @@ msgstr "Snapshot"
 #~ msgid "Snapshot Details"
 #~ msgstr "Snapshot Details"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:208
+#: src/dialogs/SnapshotDetailDialog.tsx:207
 msgid "Snapshot name"
 msgstr "Snapshot name"
 
 #: src/dialogs/SettingsDialog.tsx:438
-#: src/hooks/useButtonControls.ts:115
-#: src/hooks/useButtonControls.ts:241
+#: src/hooks/useButtonControls.ts:64
+#: src/hooks/useButtonControls.ts:118
+#: src/hooks/useButtonControls.ts:176
+#: src/hooks/useButtonControls.ts:302
 msgid "Snapshot playback"
 msgstr "Snapshot playback"
 
@@ -1374,7 +1376,7 @@ msgstr "Snapshot playback"
 msgid "Snapshot playback FPS"
 msgstr "Snapshot playback FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:199
+#: src/dialogs/SnapshotDetailDialog.tsx:198
 msgid "Snapshot replay"
 msgstr "Snapshot replay"
 
@@ -1394,7 +1396,7 @@ msgstr "Snapshot sources are disconnected and permit playback controls only."
 msgid "Snapshots"
 msgstr "Snapshots"
 
-#: src/components/toolbar/useFileOperations.ts:65
+#: src/components/toolbar/useFileOperations.ts:66
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 
@@ -1500,7 +1502,7 @@ msgstr "The current object will be renamed when this edit is saved."
 msgid "The environment ID could not be changed."
 msgstr "The environment ID could not be changed."
 
-#: src/components/toolbar/useFileOperations.ts:79
+#: src/components/toolbar/useFileOperations.ts:86
 msgid "The file contains no recordings."
 msgstr "The file contains no recordings."
 
@@ -1646,7 +1648,7 @@ msgstr "Type"
 msgid "Unable to capture snapshot"
 msgstr "Unable to capture snapshot"
 
-#: src/hooks/useButtonControls.ts:229
+#: src/hooks/useButtonControls.ts:290
 msgid "Unable to reset"
 msgstr "Unable to reset"
 
@@ -1654,17 +1656,17 @@ msgstr "Unable to reset"
 #~ msgid "Unable to restore snapshot"
 #~ msgstr "Unable to restore snapshot"
 
-#: src/hooks/useButtonControls.ts:149
-#: src/hooks/useButtonControls.ts:169
-#: src/hooks/useButtonControls.ts:189
+#: src/hooks/useButtonControls.ts:210
+#: src/hooks/useButtonControls.ts:230
+#: src/hooks/useButtonControls.ts:250
 msgid "Unable to run action"
 msgstr "Unable to run action"
 
-#: src/hooks/useButtonControls.ts:252
+#: src/hooks/useButtonControls.ts:313
 msgid "Unable to run model action"
 msgstr "Unable to run model action"
 
-#: src/hooks/useButtonControls.ts:212
+#: src/hooks/useButtonControls.ts:273
 msgid "Unable to step"
 msgstr "Unable to step"
 

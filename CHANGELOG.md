@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/benchmark [0.3.5] - 2026-10-18
+
+### Changed
+
+- Use explicit type imports for Playwright page annotations and refresh maintained profile fingerprints after dependency lock changes. Historical measurement exports retain their original hashes.
+
 ## @tensnap/core [0.3.5] - 2026-10-18
 
 ### Added
@@ -33,6 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Portable `core/persistence` project/recording codecs, released project migrations, resource closure, strict format/range validation and explicit model-time selection.
 - Owned frame capture, checkpoint/revision association, durable original-frame provenance, frame manifest schemas and independent model/history restoration with local `historyTime`.
 - Correlated action handles and persisted retention-policy reporting; discard initial checkpoints when rolling retention moves the initial boundary.
+- Bounded typed live/historical queries, current monitor conditions, monitor boundary/change history, and structured diffs with explicit object/field selection, ignored paths and numeric tolerances.
+- Incremental recording stores with independent scene/stream baselines, content-addressed assets, atomic committed roots, bounded queues/caches, indexed selection, pinned generations, recovery/index rebuild, streamed range export and asynchronous playback.
+- Action-boundary collection holds, action-error/expression/value-change triggers, cooldown/deduplication budgets, honest pre/post windows and scheduled checkpoint capture for full-history/rolling collection.
 
 ### Changed
 
@@ -45,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Own frame restore inputs before asynchronous settlement and recheck the target identity before dispatch. Validate checkpoint association without constructing and discarding an encoded scene snapshot.
 - Detach hydrated resource bytes from caller-owned tables once per hash, avoid repeated whole-scene copies inside owned persistence transforms, and capture frame-operation scalar options before waiting while retaining live cancellation signals.
 - Reject recording exports whose explicit origin conflicts with retained provenance.
+- Send only checkpoint encoding/data through strict restore codecs while retaining archive provenance; roll back frames/keyframes/accounting when bounded retention exceeds its transition-frame limit.
+- Index actual chart/log changes and verify their stream chain; skip unchanged prefixes and repeated chart/log scans during batch reads, preserve normalized log timestamps and exported source origins, validate cached baselines once, cap encoded storage before writes and batch rolling garbage collection without reclaiming pinned generations.
+- Reject overlapping capture/restore/sync controls before mutating run state; cancelled boundary captures never resume automatic dispatch. Release retained checkpoint count/byte budgets when rolling boundaries are evicted.
+- Compare finite numeric tolerances without overflow, including opposite values near the largest representable number.
 
 ## @tensnap/agent [0.3.5] - 2026-10-18
 
@@ -54,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Manual/context recording catalog/export, independent recording files, and daemon-free info/seek/inspect/render/frame export.
 - Fixed-scene evidence directories with verified manifests, checkpoint restore, chart history policies and exact public-scene/opaque-checkpoint comparison. Preserve partial failures and never overwrite existing evidence.
 - Seeded real-model workflow acceptance and published portable-persistence import checks; update bundled offline guidance.
+- Public typed agent/monitor commands, bounded scene/recording queries, monitor history, explicit frame/recording diff policies, collection configuration and offline store recovery/range export/batch rendering.
+- Node recording storage with separate immutable object and rebuildable index databases, exclusive writer leases and generation pins; process-interruption acceptance covers immutable-write and root-publication boundaries.
 
 ### Fixed
 
@@ -63,6 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Detach frame/offline operation options before asynchronous work and return independent action-wait results. Separate callable recording policies from serializable status before starting the recorder.
 - Preserve foreign writes during evidence-directory cleanup and retain original/cleanup errors, completed artifact values and actual partial paths when recovery writes or renames fail.
 - Classify exceptions from custom frame renderers as rendering failures while preserving explicit persistence failures.
+- Include collection persistence in by-ID waits; own startup inputs and reject concurrent mutation/recording during collection admission or collection. Preserve model outcomes alongside evidence failures and partial windows.
+- Close offline store backends on failed opens and preserve original recording provenance through frame export. Reclaim dead writer leases atomically; distinguish live writers, superseded generations and unknown interrupted tails during recovery.
 
 ## @tensnap/web [0.3.6] - 2026-10-18
 
@@ -74,6 +91,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Recognize uploaded JSON carried as bytes by file adapters, preserve chart prefixes and avoid reusing checkpoints after timeline rebasing.
+- Open owner-scoped IndexedDB store links with asynchronous per-tab playback and bounded active history; abort superseded/paused reads, release reader pins on close/source replacement, and clear stale store save links.
+
+## @tensnap/web-adapter [0.3.3] - 2026-10-18
+
+### Added
+
+- IndexedDB recording storage with transactional roots and index replacement, bounded keyset pages, owner isolation, Web Locks writer leases and generation pins.
 
 ## @tensnap/tauri [0.3.5] - 2026-10-18
 
@@ -122,7 +146,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Share CLI option and profile parsing, normalize artifact paths once, and refresh the active JavaScript dependency fingerprint.
+- Share CLI option and profile parsing, normalize artifact paths once, and refresh maintained benchmark profile fingerprints for current package manifests and the workspace lockfile. Historical measurement exports retain their original hashes.
 
 ### Fixed
 

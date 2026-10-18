@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/web-adapter",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "description": "Web utilities for TenSnap including filesystem UI and development tools",

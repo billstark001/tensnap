@@ -57,7 +57,7 @@
         "timeoutMs": 120000,
         "environmentLocks": {
           "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b",
-          "pnpm-lock.yaml": "de05a4a42ed0edebc1c7897d68a7661b5314418e0e4efde9d799c12489246740"
+          "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf"
         },
         "seed": 20260718,
         "expected": {
@@ -128,7 +128,7 @@
         "timeoutMs": 120000,
         "environmentLocks": {
           "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b",
-          "pnpm-lock.yaml": "de05a4a42ed0edebc1c7897d68a7661b5314418e0e4efde9d799c12489246740"
+          "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf"
         },
         "seed": 20260718
       }
@@ -171,7 +171,7 @@
         "timeoutMs": 120000,
         "environmentLocks": {
           "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b",
-          "pnpm-lock.yaml": "de05a4a42ed0edebc1c7897d68a7661b5314418e0e4efde9d799c12489246740"
+          "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf"
         },
         "seed": 20260718
       }
