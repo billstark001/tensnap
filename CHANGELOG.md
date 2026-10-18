@@ -43,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Select model-time boundaries in one pass without reconstructing every scene or spreading large match arrays; validate keyframe membership with an ordered scan.
 - Inspect an active recording without copying its scene/history/asset payload, and allow settlement-only action handles to avoid retaining protocol streams.
 - Own frame restore inputs before asynchronous settlement and recheck the target identity before dispatch. Validate checkpoint association without constructing and discarding an encoded scene snapshot.
+- Detach hydrated resource bytes from caller-owned tables once per hash, avoid repeated whole-scene copies inside owned persistence transforms, and capture frame-operation scalar options before waiting while retaining live cancellation signals.
 
 ## @tensnap/agent [0.3.5] - 2026-10-18
 
@@ -58,6 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Avoid full recording copies during live catalog inspection and unused protocol-message retention during daemon action waits; release completed recording-write wait handles.
 - Ignore malformed external recording filenames without failing the catalog. Own/deduplicate evidence render targets and renderer callbacks before asynchronous work, and encode punctuation in target IDs into valid manifest paths.
 - Verify loaded frame checkpoint association without building and discarding another serialized scene snapshot.
+- Detach frame/offline operation options before asynchronous work and return independent action-wait results. Separate callable recording policies from serializable status before starting the recorder.
+- Preserve foreign writes during evidence-directory cleanup and retain original/cleanup errors, completed artifact values and actual partial paths when recovery writes or renames fail.
 
 ## @tensnap/web [0.3.6] - 2026-10-18
 

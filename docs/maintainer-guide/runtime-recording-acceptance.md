@@ -24,8 +24,8 @@ The final release/documentation commit includes this record, the dated version t
 
 | Checks | Outcome |
 | --- | --- |
-| Core full Vitest suite | 583 passed after the performance/stability review, including rolling checkpoint, large recording selection and restore-wait regressions |
-| Agent full Vitest suite | 361 passed |
+| Core full Vitest suite | 585 passed after the ownership/atomicity review, including rolling checkpoint, large recording selection, byte-table ownership and capture/restore-wait regressions |
+| Agent full Vitest suite | 368 passed |
 | Web full Vitest suite | 214 passed |
 | Core, agent, Web, Tauri TypeScript | Passed |
 | Core, agent and Web production builds | Passed |
@@ -48,6 +48,16 @@ Restore inputs are detached before asynchronous action/render settlement and the
 A local synthetic probe under `.tensnap/runtime-regression-review/` compared the previous reconstruction-based selector against the new selector and verified identical results. Its 4,000-frame sample took approximately 6.59 s with the previous algorithm and 0.17 ms with the new scan; 150,000 matching boundaries completed in approximately 5.59 ms. These single-process diagnostic samples use minimal scenes and are not a statistical benchmark or a production latency claim.
 
 The final core/agent/Web suites pass 1,158 tests. Type checks, core/agent/Web builds, repository lint, version consistency and release tests pass. The seeded real-model workflow again verifies restore/re-run scene and checkpoint equality and offline PNG equality. One installed-tarball attempt timed out at the existing five-second daemon startup probe; two consecutive complete repeats passed, including installed CLI sync, recorded-run persistence, native PNG output, shutdown and portable-persistence imports. The startup timeout did not recur; its cause was not established. No release versions or Unreleased section were added for this follow-up; existing core/agent 0.3.5 entries are amended.
+
+### Ownership, atomicity and format follow-up
+
+The format audit runs repository Oxfmt over the files changed on this branch, repository Oxlint, all four affected TypeScript projects and Tauri Rust formatting. One agent `package.json` ordering issue was corrected. No formatter aliases, compatibility wrappers or additional versions were introduced.
+
+Ownership checks follow `projection-ownership.md` and the runtime library/file-commit contract. Persistence transforms clone the input recording once and then mutate only its private scene copies. Hydrated byte payloads are detached from the caller’s asset table once per referenced hash and shared read-only within the returned recording. Scalar frame options use a shallow copy; nested target/render options are detached before capture or file-read waits. Cancellation signals remain live handles, and codec callbacks remain callable policies; neither is blindly deep-copied. Serializable recording status is prepared before starting the recorder and excludes callable policy implementations. Concurrent action waiters and event observers cannot rewrite one another’s settlement results. Painter request/output values are published read-only, including binary output buffers.
+
+Failure-injection tests fill the reserved evidence directory before its final rename, fail partial-image writes and fail partial-directory relocation. Cleanup removes only an empty reservation, preserves foreign data and reports both the original failure and cleanup failures. Completed artifact values remain available, missing image files are not advertised, and errors name the actual retained directory. This preserves the existing normal-completion/manifest contract without adding crash recovery.
+
+The current core/agent/Web suites pass 1,167 tests. Mutation regressions exercise input byte tables, simultaneous waiters, observers, callable policies, asynchronous frame API options and offline selectors/options. Type checks, format/lint checks and version/release checks pass. Core/agent/Web production builds, installed npm tarball acceptance and the seeded real-model workflow also pass, including exact restored/re-run scene and checkpoint equality, offline PNG equality and verified recording/frame round trips. The installed-package startup probe did not time out during this follow-up.
 
 ### Plan test matrix
 
