@@ -567,16 +567,43 @@ function storeAsset(
   table[hash] = { mime, data: typeof data === 'string' ? data : data.slice() };
 }
 
+/** Mutate only a scene already detached from its source at the entry boundary. */
+function extractOwnedScenarioAssets(snapshot: ScenarioSnapshot, table: ProjectAssetTable): void {
+  for (const asset of snapshot.assets) {
+    if (asset.data !== undefined) storeAsset(table, asset.meta.hash, asset.meta.mime, asset.data);
+    delete asset.data;
+  }
+}
+
 function extractScenarioAssets(
   snapshot: ScenarioSnapshot,
   table: ProjectAssetTable,
 ): ScenarioSnapshot {
   const next = structuredClone(snapshot);
-  next.assets = next.assets.map((asset) => {
-    if (asset.data !== undefined) storeAsset(table, asset.meta.hash, asset.meta.mime, asset.data);
-    return { ...asset, data: undefined };
-  });
+  extractOwnedScenarioAssets(next, table);
   return next;
+}
+
+/** Copy each referenced byte payload once; repeated references share read-only owned bytes. */
+function assetResolver(table: ProjectAssetTable) {
+  const owned = new Map<string, string | Uint8Array>();
+  return (hash: string): string | Uint8Array | undefined => {
+    const existing = owned.get(hash);
+    if (existing !== undefined) return existing;
+    const data = table[hash]?.data;
+    if (data === undefined) return undefined;
+    // Uint8Array construction also copies Node Buffer views; Buffer.slice() would borrow.
+    const copy = typeof data === 'string' ? data : new Uint8Array(data);
+    owned.set(hash, copy);
+    return copy;
+  };
+}
+
+function hydrateOwnedScenarioAssets(
+  snapshot: ScenarioSnapshot,
+  resolveAsset: ReturnType<typeof assetResolver>,
+): void {
+  for (const asset of snapshot.assets) asset.data ??= resolveAsset(asset.meta.hash);
 }
 
 function hydrateScenarioAssets(
@@ -584,18 +611,14 @@ function hydrateScenarioAssets(
   table: ProjectAssetTable,
 ): ScenarioSnapshot {
   const next = structuredClone(snapshot);
-  next.assets = next.assets.map((asset) => ({
-    ...asset,
-    data: asset.data ?? table[asset.meta.hash]?.data,
-  }));
+  hydrateOwnedScenarioAssets(next, assetResolver(table));
   return next;
 }
 
 export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
-  next.initial.scenario = extractScenarioAssets(next.initial.scenario, table);
-  for (const keyframe of next.keyframes)
-    keyframe.scenario = extractScenarioAssets(keyframe.scenario, table);
+  extractOwnedScenarioAssets(next.initial.scenario, table);
+  for (const keyframe of next.keyframes) extractOwnedScenarioAssets(keyframe.scenario, table);
   for (const frame of next.frames) {
     for (const message of frame.messages) {
       if (message.type !== 'asset_data') continue;
@@ -610,14 +633,15 @@ export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTab
 
 export function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
-  next.initial.scenario = hydrateScenarioAssets(next.initial.scenario, table);
+  const resolveAsset = assetResolver(table);
+  hydrateOwnedScenarioAssets(next.initial.scenario, resolveAsset);
   for (const keyframe of next.keyframes)
-    keyframe.scenario = hydrateScenarioAssets(keyframe.scenario, table);
+    hydrateOwnedScenarioAssets(keyframe.scenario, resolveAsset);
   for (const frame of next.frames) {
     for (const message of frame.messages) {
       if (message.type !== 'asset_data') continue;
       const payload = message.payload as { hash: string; data?: string | Uint8Array };
-      payload.data ??= table[payload.hash]?.data;
+      payload.data ??= resolveAsset(payload.hash);
     }
   }
   return next;

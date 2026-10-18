@@ -6,7 +6,13 @@ import {
   encodeSnapshotArchive,
   materializeSnapshot,
 } from '../snapshot';
-import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile } from './index';
+import {
+  createDefaultRootLayout,
+  encodeProjectFile,
+  decodeProjectFile,
+  extractSnapshotAssets,
+  hydrateSnapshotAssets,
+} from './index';
 import {
   createRecordingFile,
   decodeRecordingFile,
@@ -38,6 +44,30 @@ function fixture() {
 }
 
 describe('portable persistence', () => {
+  it('detaches hydrated resource bytes from the input table without recopying every reference', () => {
+    const original = fixture();
+    original.initial.scenario.assets.push({
+      meta: { id: 'image', hash: 'hash', mime: 'image/png', size: 2 },
+      data: Uint8Array.of(1, 2),
+    });
+    original.frames[0].messages.push({
+      type: 'asset_data',
+      payload: { id: 'image', hash: 'hash', mime: 'image/png', data: Uint8Array.of(1, 2) },
+    });
+    const table: Record<string, { mime: string; data: string | Uint8Array }> = {};
+    const stripped = extractSnapshotAssets(original, table);
+    expect(original.initial.scenario.assets[0].data).toBeDefined();
+    expect(stripped.initial.scenario.assets[0].data).toBeUndefined();
+    const hydrated = hydrateSnapshotAssets(stripped, table);
+    const bytes = hydrated.initial.scenario.assets[0].data as Uint8Array;
+    (table.hash.data as Uint8Array)[0] = 99;
+    expect(Array.from(bytes)).toEqual([1, 2]);
+    const message = hydrated.frames[0].messages.find((message) => message.type === 'asset_data')!;
+    expect((message.payload as { data: Uint8Array }).data).toBe(bytes);
+    bytes[1] = 3;
+    expect(Array.from(original.initial.scenario.assets[0].data as Uint8Array)).toEqual([1, 2]);
+  });
+
   it('round trips existing projects as JSON and MessagePack', () => {
     for (const format of ['json', 'msgpack'] as const) {
       const snapshot = fixture();

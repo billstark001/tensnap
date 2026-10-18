@@ -578,6 +578,7 @@ export class RendererSession extends LazyEventTarget {
   async captureFrame(
     options: SceneOperationOptions & { checkpoint?: 'none' | 'if-supported' | 'required' } = {},
   ): Promise<CapturedFrame> {
+    options = { ...options }; // Scalars are copied; AbortSignal intentionally remains live.
     if (this.frameCaptureActive) throw new Error('Frame capture is already in progress.');
     this.frameCaptureActive = true;
     try {

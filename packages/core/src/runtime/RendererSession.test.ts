@@ -890,6 +890,37 @@ describe('RendererSession', () => {
 });
 
 describe('fixed frame capture and renderer-local restore history', () => {
+  it('copies capture option scalars while retaining the original live cancellation signal', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession({ run: { renderBarrier: { wait: () => {} } } });
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+    session.scenario.apply({ type: 'action_create', payload: { id: 'step', label: 'Step' } });
+    const requestId = session.run.requestAction('step');
+    const controller = new AbortController();
+    const options = { checkpoint: 'required' as const, signal: controller.signal };
+    const capturing = session.captureFrame(options);
+    options.signal = AbortSignal.abort();
+    session.handleIncoming({
+      type: 'action_result',
+      payload: { id: 'step', request_id: requestId },
+    });
+    await vi.waitFor(() =>
+      expect(sent.some((message) => message.type === 'scene_capture')).toBe(true),
+    );
+    const request = sent.find((message) => message.type === 'scene_capture')!;
+    session.handleIncoming({
+      type: 'scene_capture_result',
+      payload: {
+        request_id: (request.payload as { request_id: string }).request_id,
+        model_id: 'test-model',
+        checkpoint: { encoding: 'raw', data: Uint8Array.of(1) },
+      },
+    });
+    expect((await capturing).checkpointStatus).toBe('captured');
+    session.destroy();
+  });
+
   it.each([false, true])(
     'owns restore inputs and rechecks the target after an in-flight action (sourceChanged=%s)',
     async (sourceChanged) => {
