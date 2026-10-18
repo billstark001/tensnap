@@ -36,3 +36,7 @@ export type { ProjectSource, SnapshotPlaybackState } from './ProjectSource';
 
 export { assertFrameCheckpoint, frameFromRecording, snapshotFromFrame } from './CapturedFrame';
 export type { CapturedFrame, CapturedFrameSource } from './CapturedFrame';
+
+export * from './diff';
+
+export * from './query';

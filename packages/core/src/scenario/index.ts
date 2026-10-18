@@ -9,3 +9,5 @@ export {
 export type { StateSyncInventory } from './state-sync-inventory';
 export * from './types';
 export { createRenderPlanFromSnapshot } from './utils/plan';
+
+export * from './query';
