@@ -441,6 +441,12 @@ export class SnapshotRecorder {
     };
     const snapshot = createSingleSnapshot(this.scenario.dump(), options);
     snapshot.metadata.endedAt = undefined;
+    snapshot.metadata.retention = {
+      ...(options.maxSteps !== undefined ? { maxFrames: options.maxSteps } : {}),
+      ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
+      ...(options.maxDurationMs !== undefined ? { maxDurationMs: options.maxDurationMs } : {}),
+      ringBuffer: options.ringBuffer === true,
+    };
     snapshot.layerCodecs = nextOptions.layerCodecs;
     const initialByteLength = byteLength(snapshot.initial);
     const initialScenarioByteLength = byteLength(snapshot.initial.scenario);

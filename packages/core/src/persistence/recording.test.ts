@@ -66,6 +66,23 @@ describe('portable persistence', () => {
     }
   });
 
+  it('hydrates frame asset messages and preserves control/sync frames, chart state and checkpoints', () => {
+    const snapshot = fixture();
+    snapshot.initial.scenario.charts = [{ id: 'series', label: 'Series', metadataDict: {}, data: [{ time: 8, value: 2 }] }];
+    snapshot.metadata.model_identity = { model_id: 'fixture', state_schema_version: '1' };
+    snapshot.metadata.checkpoint = { model_id: 'fixture', state_schema_version: '1', encoding: 'raw', data: Uint8Array.of(1, 2) };
+    snapshot.frames.push({ index: 4, timestamp: 4, kind: 'control', controls: [{ type: 'param_change', payload: { id: 'value', value: 2 } }], messages: [{ type: 'asset_metadata', payload: { assets: [{ id: 'image', hash: 'image-hash', mime: 'image/png', size: 3 }] } }, { type: 'asset_data', payload: { id: 'image', hash: 'image-hash', mime: 'image/png', data: Uint8Array.of(1, 2, 3) } }] });
+    snapshot.frames.push({ index: 5, timestamp: 5, kind: 'sync', controls: [{ type: 'state_sync', payload: { request_id: 'sync', model_id: 'fixture', parameters: [], actions: [], envs: [], charts: [], monitors: [] } }], messages: [{ type: 'state_sync_begin', payload: { request_id: 'sync', model_id: 'fixture', instance_id: 'fixture', mode: 'replace' } }, { type: 'state_sync_end', payload: { request_id: 'sync', state_revision: '1' } }] });
+    for (const format of ['json', 'msgpack'] as const) {
+      const document = decodeRecordingFile(encodeRecordingFile(snapshot, { format }));
+      expect(document.snapshot.frames[3].controls).toEqual(snapshot.frames[3].controls);
+      expect(document.snapshot.frames[4].kind).toBe('sync');
+      expect(document.snapshot.initial.scenario.charts).toEqual(snapshot.initial.scenario.charts);
+      expect(document.snapshot.metadata.checkpoint?.encoding).toBe('raw');
+      expect(document.report.resourcesComplete).toBe(true);
+    }
+  });
+
   it('rejects future formats, corrupt segments, invalid frame order and missing resources', () => {
     const snapshot = fixture();
     const file = createRecordingFile(snapshot);

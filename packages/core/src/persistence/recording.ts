@@ -1,3 +1,4 @@
+import { omitUndefinedObjectProperties } from './serialization';
 import { z } from 'zod';
 import type { AssetMetadataPayload, AssetDataPayload } from '@tensnap/protocol';
 import { decodeMessagePack, encodeMessagePack, encodeBytesAsDataUrl } from '@tensnap/protocol';
@@ -12,6 +13,7 @@ import {
 } from '../snapshot';
 import {
   SnapshotSchema,
+  SnapshotMetadataSchema,
   SnapshotArchiveSchema,
   ProjectAssetBlobSchema,
   extractSnapshotAssets,
@@ -56,6 +58,7 @@ export interface RecordingReport {
   externalUrls: string[];
   resourcesComplete: boolean;
   legacy: boolean;
+  retention?: Snapshot['metadata']['retention'];
 }
 export interface RecordingDocument {
   snapshot: Snapshot;
@@ -65,7 +68,18 @@ export interface RecordingDocument {
 
 /** Validate canonical decoded data, including ordering that a structural schema cannot prove. */
 export function validateRecording(snapshot: Snapshot): void {
-  SnapshotSchema.parse(snapshot);
+  SnapshotSchema.parse({
+    ...snapshot,
+    frames: snapshot.frames.map((frame) => ({
+      ...frame,
+      messages: frame.messages.map((message) =>
+        message.type === 'asset_data' &&
+        (message.payload as Partial<AssetDataPayload>).data === undefined
+          ? { ...message, payload: { ...message.payload, data: new Uint8Array() } }
+          : message,
+      ),
+    })),
+  });
   let previous = snapshot.initial.frame;
   for (const frame of snapshot.frames) {
     if (frame.index <= previous)
@@ -82,6 +96,8 @@ export function validateRecording(snapshot: Snapshot): void {
       throw new Error('Recording keyframes must be ordered and belong to retained frames.');
     keyframeIndex = keyframe.frame;
   }
+  if (snapshot.metadata.origin && snapshot.frames.length)
+    throw new Error('Derived frame origin requires a single-frame recording.');
   const checkpoint = snapshot.metadata.checkpoint;
   const identity = snapshot.metadata.model_identity;
   if (
@@ -117,6 +133,7 @@ function resourceReport(
       if (message.type === 'asset_metadata')
         for (const meta of (message.payload as AssetMetadataPayload).assets)
           referenced.add(meta.hash);
+      if (message.type === 'asset_data') referenced.add((message.payload as AssetDataPayload).hash);
       if (message.type === 'asset_data' && (message.payload as AssetDataPayload).data !== undefined)
         available.add((message.payload as AssetDataPayload).hash);
       visit(message);
@@ -138,6 +155,9 @@ export function inspectRecording(snapshot: Snapshot, legacy = false): RecordingR
     byteLength: snapshot.byteLength,
     truncated: snapshot.truncated,
     legacy,
+    ...(snapshot.metadata.retention
+      ? { retention: structuredClone(snapshot.metadata.retention) }
+      : {}),
     ...resourceReport(snapshot),
   };
 }
@@ -146,6 +166,7 @@ export function createRecordingFile(
   snapshot: Snapshot,
   options: { origin?: RecordingOrigin; allowIncomplete?: boolean } = {},
 ): RecordingFileV1 {
+  options = { ...options, origin: options.origin ?? snapshot.metadata.origin };
   validateRecording(snapshot);
   if (options.origin) RecordingOriginSchema.parse(options.origin);
   if (options.origin && snapshot.frames.length)
@@ -156,7 +177,11 @@ export function createRecordingFile(
       `Recording resources are incomplete: ${report.missingAssets.join(', ')}${report.externalUrls.length ? '; external URLs: ' + report.externalUrls.join(', ') : ''}`,
     );
   const assetTable: AssetTable = {};
-  const recording = encodeSnapshotArchive(extractSnapshotAssets(snapshot, assetTable));
+  const stripped = extractSnapshotAssets(snapshot, assetTable);
+  stripped.metadata = omitUndefinedObjectProperties(
+    SnapshotMetadataSchema.parse(stripped.metadata),
+  ) as Snapshot['metadata'];
+  const recording = encodeSnapshotArchive(stripped);
   return {
     kind: 'tensnap-recording',
     version: 1,
@@ -177,10 +202,17 @@ export function parseRecordingFile(
   if (!legacy) {
     const file = RecordingFileSchema.parse(value) as RecordingFileV1;
     const archive = file.recording;
-    if (archive.byteLength < archive.segments.reduce((sum, segment) => sum + segment.byteLength, 0))
+    if (archive.byteLength !== recordingArchiveByteLength(archive))
       throw new Error('Invalid recording archive byteLength.');
     snapshot = hydrateSnapshotAssets(decodeSnapshotArchive(archive), file.assetTable);
     origin = file.origin;
+    if (
+      origin &&
+      snapshot.metadata.origin &&
+      JSON.stringify(origin) !== JSON.stringify(snapshot.metadata.origin)
+    )
+      throw new Error('Recording origin does not match archive provenance.');
+    if (origin) snapshot.metadata.origin = structuredClone(origin);
     if (origin && snapshot.frames.length)
       throw new Error('Recording origin requires a single-frame recording.');
   } else {
@@ -205,8 +237,9 @@ export function encodeRecordingFile(
   } = {},
 ): Uint8Array {
   const file = createRecordingFile(snapshot, options);
-  if (options.format === 'msgpack') return encodeMessagePack(file);
+  if (options.format === 'msgpack') return encodeMessagePack(omitUndefinedObjectProperties(file));
   file.recording = snapshotArchiveForJson(file.recording);
+  file.recording.byteLength = recordingArchiveByteLength(file.recording);
   file.assetTable = Object.fromEntries(
     Object.entries(file.assetTable).map(([hash, blob]) => [
       hash,
@@ -271,4 +304,15 @@ export function selectRecordingFrame(
       : matches[matches.length - 1];
   if (!result) throw new Error('No retained frame matches the requested model time.');
   return result;
+}
+
+function recordingArchiveByteLength(archive: SnapshotArchive): number {
+  return (
+    encodeMessagePack({
+      version: archive.version,
+      metadata: archive.metadata,
+      layerCodecs: archive.layerCodecs,
+      truncated: archive.truncated,
+    }).byteLength + archive.segments.reduce((total, segment) => total + segment.byteLength, 0)
+  );
 }

@@ -45,6 +45,15 @@ export interface SnapshotMetadata {
   model_identity?: SnapshotModelIdentity;
   /** Optional exact model-state capture for checkpoint-capable simulators. */
   checkpoint?: SnapshotCheckpoint;
+  /** Retention policy used by the recorder; action quotas are independent. */
+  retention?: {
+    maxFrames?: number;
+    maxBytes?: number;
+    maxDurationMs?: number;
+    ringBuffer: boolean;
+  };
+  /** Provenance of a derived single-frame snapshot. */
+  origin?: { recordingId: string; frame: number; actionRequestId?: string; modelTime?: number };
 }
 
 /** The compatibility fields required to safely reuse persisted scenario data. */

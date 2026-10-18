@@ -1,3 +1,4 @@
+import { omitUndefinedObjectProperties } from './serialization';
 import type { ScenarioSnapshot } from '../scenario/types';
 import {
   createSingleSnapshot,
@@ -114,7 +115,7 @@ const SnapshotCheckpointSchema = z.object({
   state_schema_version: z.string().optional(),
 });
 
-const SnapshotMetadataSchema = z.object({
+export const SnapshotMetadataSchema = z.object({
   id: z.string(),
   createdAt: z.number(),
   // MessagePack serializes explicit `undefined` object properties as null.
@@ -133,6 +134,22 @@ const SnapshotMetadataSchema = z.object({
   legacy_create_replacement: z.boolean().optional(),
   model_identity: SnapshotModelIdentitySchema.optional(),
   checkpoint: SnapshotCheckpointSchema.optional(),
+  retention: z
+    .object({
+      maxFrames: z.number().int().positive().optional(),
+      maxBytes: z.number().positive().optional(),
+      maxDurationMs: z.number().positive().optional(),
+      ringBuffer: z.boolean(),
+    })
+    .optional(),
+  origin: z
+    .object({
+      recordingId: z.string(),
+      frame: z.number().int().nonnegative(),
+      actionRequestId: z.string().optional(),
+      modelTime: z.number().optional(),
+    })
+    .optional(),
 });
 
 export const SnapshotSchema = z.object({
@@ -389,6 +406,12 @@ function migrateRecordingSnapshot(value: unknown): Snapshot {
   if (!Array.isArray(source.frames) || !Array.isArray(source.keyframes)) {
     throw new Error('Recording snapshot frames or keyframes are malformed.');
   }
+  const sourceMetadata = asRecord(source.metadata);
+  if (
+    sourceMetadata?.protocol_version === PROTOCOL_VERSION &&
+    !sourceMetadata.legacy_create_replacement
+  )
+    return SnapshotSchema.parse(source) as Snapshot;
   const codec = new ProtocolCodec({ mode: 'legacy' });
   const frames = source.frames.map((frame) => {
     const record = asRecord(frame);
@@ -594,91 +617,66 @@ export function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTab
   return next;
 }
 
-/**
- * Build the project persistence shape. Snapshot segments and every resolved
- * asset are written once, with snapshots referencing the shared hash table.
- */
+/** Prepare owned data before a host encoder can suspend. */
+function prepareProjectArchive(content: ProjectFileContent, jsonSafe: boolean) {
+  const assetTable: ProjectAssetTable = {};
+  const snapshots = content.snapshots.map((snapshot) =>
+    extractSnapshotAssets(snapshot, assetTable),
+  );
+  const scenario = extractScenarioAssets(content.scenario, assetTable);
+  const header: Omit<ProjectFileArchive, 'snapshots'> = {
+    version: PROJECT_FILE_VERSION,
+    source: structuredClone(content.source),
+    ...(content.model_identity === undefined
+      ? {}
+      : { model_identity: structuredClone(content.model_identity) }),
+    mainView: structuredClone(content.mainView),
+    scenario,
+    assetTable: jsonSafe
+      ? Object.fromEntries(
+          Object.entries(assetTable).map(([hash, blob]) => [
+            hash,
+            {
+              ...blob,
+              data:
+                typeof blob.data === 'string'
+                  ? blob.data
+                  : encodeBytesAsDataUrl(blob.data, blob.mime),
+            },
+          ]),
+        )
+      : assetTable,
+  };
+  return { header, snapshots };
+}
+
+function encodeArchives(snapshots: Snapshot[], jsonSafe: boolean): SnapshotArchive[] {
+  return snapshots.map((snapshot) => {
+    const archive = encodeSnapshotArchive(snapshot);
+    return jsonSafe ? snapshotArchiveForJson(archive) : archive;
+  });
+}
+
+/** Project persistence uses one asset table shared by the scene and all recordings. */
 export function archiveProjectFileContent(
   content: ProjectFileContent,
   jsonSafe = false,
 ): ProjectFileArchive {
-  const assetTable: ProjectAssetTable = {};
-  const snapshots = content.snapshots.map((snapshot) => {
-    const archive = encodeSnapshotArchive(extractSnapshotAssets(snapshot, assetTable));
-    return jsonSafe ? snapshotArchiveForJson(archive) : archive;
-  });
-  const scenario = extractScenarioAssets(content.scenario, assetTable);
-  const normalizedAssetTable = jsonSafe
-    ? Object.fromEntries(
-        Object.entries(assetTable).map(([hash, blob]) => [
-          hash,
-          {
-            ...blob,
-            data:
-              typeof blob.data === 'string'
-                ? blob.data
-                : encodeBytesAsDataUrl(blob.data, blob.mime),
-          },
-        ]),
-      )
-    : assetTable;
-  return {
-    version: PROJECT_FILE_VERSION,
-    source: structuredClone(content.source),
-    ...(content.model_identity === undefined
-      ? {}
-      : { model_identity: structuredClone(content.model_identity) }),
-    mainView: structuredClone(content.mainView),
-    scenario,
-    snapshots,
-    assetTable: normalizedAssetTable,
-  };
+  const { header, snapshots } = prepareProjectArchive(content, jsonSafe);
+  return { ...header, snapshots: encodeArchives(snapshots, jsonSafe) };
 }
 
-/** Same archive layout as `archiveProjectFileContent`, with segment encoding in a Worker. */
+/** A host can supply worker encoding without introducing platform dependencies here. */
 export async function archiveProjectFileContentAsync(
   content: ProjectFileContent,
   jsonSafe = false,
-  encodeArchives: (snapshots: Snapshot[], jsonSafe: boolean) => Promise<SnapshotArchive[]> = async (
+  encoder: (snapshots: Snapshot[], jsonSafe: boolean) => Promise<SnapshotArchive[]> = async (
     snapshots,
     jsonSafe,
-  ) =>
-    snapshots.map((snapshot) => {
-      const archive = encodeSnapshotArchive(snapshot);
-      return jsonSafe ? snapshotArchiveForJson(archive) : archive;
-    }),
+  ) => encodeArchives(snapshots, jsonSafe),
 ): Promise<ProjectFileArchive> {
-  const assetTable: ProjectAssetTable = {};
-  const snapshots = await encodeArchives(
-    content.snapshots.map((snapshot) => extractSnapshotAssets(snapshot, assetTable)),
-    jsonSafe,
-  );
-  const scenario = extractScenarioAssets(content.scenario, assetTable);
-  const normalizedAssetTable = jsonSafe
-    ? Object.fromEntries(
-        Object.entries(assetTable).map(([hash, blob]) => [
-          hash,
-          {
-            ...blob,
-            data:
-              typeof blob.data === 'string'
-                ? blob.data
-                : encodeBytesAsDataUrl(blob.data, blob.mime),
-          },
-        ]),
-      )
-    : assetTable;
-  return {
-    version: PROJECT_FILE_VERSION,
-    source: structuredClone(content.source),
-    ...(content.model_identity === undefined
-      ? {}
-      : { model_identity: structuredClone(content.model_identity) }),
-    mainView: structuredClone(content.mainView),
-    scenario,
-    snapshots,
-    assetTable: normalizedAssetTable,
-  };
+  const { header, snapshots } = prepareProjectArchive(content, jsonSafe);
+  return { ...header, snapshots: await encoder(snapshots, jsonSafe) };
 }
 
 function decodeProjectArchive(archive: ProjectFileArchive): ProjectFileContent {
@@ -687,7 +685,7 @@ function decodeProjectArchive(archive: ProjectFileArchive): ProjectFileContent {
       const decoded = isSnapshotArchive(snapshot)
         ? decodeSnapshotArchive(snapshot)
         : migrateRecordingSnapshot(snapshot);
-      return hydrateSnapshotAssets(migrateRecordingSnapshot(decoded), archive.assetTable);
+      return migrateRecordingSnapshot(hydrateSnapshotAssets(decoded, archive.assetTable));
     } catch (error) {
       throw Object.assign(
         new Error(
@@ -863,7 +861,7 @@ export function encodeProjectFile(
   const archive = archiveProjectFileContent(content, format === 'json');
   return format === 'json'
     ? new TextEncoder().encode(JSON.stringify(archive))
-    : encodeMessagePack(archive);
+    : encodeMessagePack(omitUndefinedObjectProperties(archive));
 }
 
 export function decodeProjectFile(

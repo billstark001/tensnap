@@ -191,9 +191,43 @@ export class RendererClient {
   }
 
   /** Send one action and wait for its result and the host's render barrier. */
-  async invokeAction(
+  invokeAction(
     id: string,
     timeoutMs = 10_000,
+  ): Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }> {
+    return this.beginAction(id, timeoutMs).completion;
+  }
+
+  /** Subscribe before dispatch and return both the correlation ID and its settlement. */
+  beginAction(
+    id: string,
+    timeoutMs = 30_000,
+  ): {
+    requestId: string;
+    completion: Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }>;
+  } {
+    let requestId: string | undefined;
+    let dispatchError: unknown;
+    const completion = this.performAction(id, timeoutMs, () => {
+      try {
+        requestId = this.requestAction(id);
+        return requestId;
+      } catch (error) {
+        dispatchError = error;
+        throw error;
+      }
+    });
+    if (!requestId) {
+      void completion.catch(() => {});
+      throw dispatchError ?? new Error(`Unable to dispatch action ${id}.`);
+    }
+    return { requestId, completion };
+  }
+
+  private async performAction(
+    id: string,
+    timeoutMs: number,
+    dispatch: () => string,
   ): Promise<{ result: ActionResultPayload; messages: SimulatorToRendererMessage[] }> {
     const renderedIds = new Set<string>();
     const renderErrors = new Map<string, string>();
@@ -207,7 +241,7 @@ export class RendererClient {
     this.renderer.addEventListener('action:rendered', onRendered);
     try {
       const completed = await this.collectRequest(
-        () => this.requestAction(id),
+        dispatch,
         (message, requestId) =>
           message.type === 'action_result' &&
           (message.payload as ActionResultPayload).request_id === requestId &&

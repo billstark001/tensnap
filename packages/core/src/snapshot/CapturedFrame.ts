@@ -43,9 +43,13 @@ export function frameFromRecording(snapshot: Snapshot, frameIndex: number): Capt
       : {}),
     source: {
       kind: 'recording' as const,
-      recordingId: snapshot.metadata.id,
-      frame: frameIndex,
-      ...(frame?.action ? { actionRequestId: frame.action.request_id } : {}),
+      recordingId: snapshot.metadata.origin?.recordingId ?? snapshot.metadata.id,
+      frame: snapshot.metadata.origin?.frame ?? frameIndex,
+      ...(snapshot.metadata.origin?.actionRequestId
+        ? { actionRequestId: snapshot.metadata.origin.actionRequestId }
+        : frame?.action
+          ? { actionRequestId: frame.action.request_id }
+          : {}),
       ...(typeof scene.metadata.time === 'number' ? { modelTime: scene.metadata.time } : {}),
     },
     consistency: checkpoint ? ('aligned' as const) : ('renderer-only' as const),
@@ -69,10 +73,18 @@ export function snapshotFromFrame(frame: CapturedFrame): Snapshot {
       frame.modelIdentity.state_schema_version !== frame.checkpoint.state_schema_version)
   )
     throw new Error('Frame checkpoint identity does not match its source.');
-  return createSingleSnapshot(frame.scene, {
+  const snapshot = createSingleSnapshot(frame.scene, {
     id: frame.id,
     timestamp: frame.capturedAt,
     modelIdentity: frame.modelIdentity,
     checkpoint: frame.checkpoint,
   });
+  if (frame.source.kind === 'recording')
+    snapshot.metadata.origin = {
+      recordingId: frame.source.recordingId!,
+      frame: frame.source.frame!,
+      ...(frame.source.actionRequestId ? { actionRequestId: frame.source.actionRequestId } : {}),
+      ...(frame.source.modelTime !== undefined ? { modelTime: frame.source.modelTime } : {}),
+    };
+  return snapshot;
 }
