@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RendererToSimulatorMessage, SimulatorToRendererMessage } from '@tensnap/protocol';
+import type { ActionResultPayload, RendererToSimulatorMessage, SimulatorToRendererMessage } from '@tensnap/protocol';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import { RendererClient } from './RendererClient';
 import { RendererSession } from './RendererSession';
@@ -372,7 +372,7 @@ it('preserves the received action result if the render wait times out', async ()
     if (message.type === 'action_invoke')
       transport.emitMessage({
         type: 'action_result',
-        payload: message.payload as import('@tensnap/protocol').ActionResultPayload,
+        payload: message.payload as ActionResultPayload,
       });
     else send(message);
   };

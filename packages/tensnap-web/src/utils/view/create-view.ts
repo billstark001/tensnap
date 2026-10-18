@@ -1,3 +1,4 @@
+import { generateUniqueId } from '@/utils/common';
 import { ContainerView, AnchoredView, ButtonView } from '@tensnap/core/persistence';
 import { Parameter, Action, BooleanParameter } from '@/types/model';
 import {
@@ -17,7 +18,6 @@ import {
   WINDOW_X_DELTA,
   WINDOW_Y_DELTA,
 } from '@/components/view/constants';
-import { generateUniqueId } from '@/utils/common';
 
 /**
  * Creates a generic container with vertically packed views

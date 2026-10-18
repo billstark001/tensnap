@@ -1,7 +1,9 @@
+import { NodeRecordingStore } from './NodeRecordingStore';
 import { saveCapturedFrame, readCapturedFrame } from './frame-files';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
+  RecordingStoreWriter,
   decodeRecordingFile,
   encodeRecordingFile,
   inspectRecording,
@@ -22,19 +24,27 @@ import type {
   SceneRestorePayload,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
+  RendererToSimulatorMessage,
+  ActionInvokePayload,
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
 import { validateIPFamily, parseIPFamily, type IPFamily } from '@tensnap/network';
 import {
   ActionRenderError,
+  RecordingCollection,
+  validateCollectionConfig,
+  validateRunSpec,
+  compileRunCondition,
+  type CollectionConfig,
   RendererClient,
   RendererSession,
   type BoundedRunSpec,
   type RunStatus,
   type RendererSessionRecordingDetail,
   type SceneRestoreOptions,
+  RestoreChartPolicy,
 } from '@tensnap/core/runtime';
-import { ScenarioInspector } from '@tensnap/core/scenario';
+import { ScenarioInspector, type ScenarioQuery } from '@tensnap/core/scenario';
 import type {
   AgentInspection,
   AgentInspectionOptions,
@@ -144,6 +154,11 @@ export class AgentRuntime extends EventEmitter {
   private readonly client: RendererClient;
   private readonly renderer: RendererSession;
   private readonly recordingEntries = new Map<string, RecordingStatus>();
+  private activeCollection?: RecordingCollection;
+  private readonly collections = new Map<
+    string,
+    { collection?: RecordingCollection; status?: RecordingCollection['status']; path: string }
+  >();
   private manualRecordingId: string | null = null;
   private readonly actionBoundaryTimes = new Map<
     string,
@@ -350,6 +365,16 @@ export class AgentRuntime extends EventEmitter {
 
   getPainterIds(): string[] {
     return [...this.painters.keys()];
+  }
+
+  queryScene(query: ScenarioQuery) {
+    return new ScenarioInspector(this.renderer.scenario).query(query, {
+      kind: 'live',
+      sourceId: this.context.contextName,
+      revision: this.renderer.commitRevision,
+      generation: this.connectionGeneration,
+      modelTime: this.renderer.scenario.time,
+    });
   }
 
   inspectScene(): SceneSummary {
@@ -615,7 +640,8 @@ export class AgentRuntime extends EventEmitter {
     const startedAt = Date.now();
     const settled = await this.renderer.run.waitForSettled(id, timeoutMs, signal);
     if (until === 'persisted') {
-      if (!settled.spec.record) throw new Error('This run did not request recording persistence.');
+      if (!settled.spec.record && !this.collections.has(id))
+        throw new Error('This run did not request recording persistence.');
       const pending = this.recordingCompletionByRun.get(id);
       if (pending)
         await waitWithoutCancelling(
@@ -654,7 +680,7 @@ export class AgentRuntime extends EventEmitter {
     directory: string,
     options: {
       mode: 'checkpoint' | 'projected';
-      chartPolicy?: import('@tensnap/core/runtime').RestoreChartPolicy;
+      chartPolicy?: RestoreChartPolicy;
       historyTime?: number;
       timeoutMs?: number;
     },
@@ -745,6 +771,100 @@ export class AgentRuntime extends EventEmitter {
     return { ...structuredClone(entry), path: outputPath };
   }
 
+  async startCollectedRun(spec: BoundedRunSpec, input: CollectionConfig, output: string) {
+    this.assertConnected();
+    const config = validateCollectionConfig(input);
+    validateRunSpec(spec, this.control.maxRunStepsPolicy);
+    if (spec.stopWhen) compileRunCondition(spec.stopWhen);
+    if (spec.record || this.renderer.recorder.active || this.activeCollection)
+      throw new Error('Collection cannot share a recording session.');
+    if (
+      this.renderer.run.hasInFlightAction ||
+      (this.renderer.run.status && !this.renderer.run.status.settled)
+    )
+      throw new Error('Settle the current action before collection.');
+    if (!output) throw new Error('A new store output directory is required.');
+    const backend = new NodeRecordingStore(output);
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: crypto.randomUUID(),
+      ...config,
+      modelIdentity: this.renderer.modelIdentity ?? undefined,
+    });
+    let collection: RecordingCollection;
+    try {
+      collection = await RecordingCollection.start(this.renderer, writer, config);
+    } catch (error) {
+      backend.close();
+      throw error;
+    }
+    this.activeCollection = collection;
+    let run: RunStatus;
+    try {
+      run = this.startRun(spec);
+    } catch (error) {
+      writer.abort(error);
+      await collection.close().catch(() => {});
+      this.activeCollection = undefined;
+      backend.close();
+      throw error;
+    }
+    const entry = { collection, path: output } as {
+      collection?: RecordingCollection;
+      status?: RecordingCollection['status'];
+      path: string;
+    };
+    this.collections.set(run.id, entry);
+    this.recordingResults.set(run.id, { status: 'pending', path: output });
+    collection.addEventListener('status', () =>
+      this.emitRuntimeEvent('collection.status', { runId: run.id, ...collection.status }),
+    );
+    const settlement = run.settled
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          const onSettled = (event: Event) => {
+            if ((event as CustomEvent<RunStatus>).detail.id !== run.id) return;
+            this.renderer.removeEventListener('run:settled', onSettled);
+            resolve();
+          };
+          this.renderer.addEventListener('run:settled', onSettled);
+        });
+    const completion = settlement.then(async () => {
+      try {
+        await collection.close();
+        this.recordingResults.set(run.id, { status: 'persisted', path: output });
+      } catch (error) {
+        this.recordingResults.set(run.id, { status: 'failed', path: output, error: String(error) });
+      } finally {
+        entry.status = collection.status;
+        entry.collection = undefined;
+        if (this.activeCollection === collection) this.activeCollection = undefined;
+        backend.close();
+        this.emitRuntimeEvent('collection.persistence', {
+          runId: run.id,
+          ...this.recordingResults.get(run.id),
+          collection: entry.status,
+        });
+      }
+    });
+    this.recordingCompletionByRun.set(run.id, completion);
+    this.recordingWrites.add(completion);
+    void completion.finally(() => {
+      this.recordingWrites.delete(completion);
+      this.recordingCompletionByRun.delete(run.id);
+    });
+    while (this.collections.size > 100) {
+      const previous = [...this.collections].find(([, value]) => !value.collection);
+      if (!previous) break;
+      this.collections.delete(previous[0]);
+    }
+    return { ...run, recording: this.recordingResults.get(run.id), collection: collection.status };
+  }
+
+  getCollection(runId: string) {
+    const entry = this.collections.get(runId);
+    return entry ? { path: entry.path, ...(entry.collection?.status ?? entry.status) } : undefined;
+  }
+
   startRun(spec: BoundedRunSpec) {
     this.assertConnected();
     if (spec.record) {
@@ -777,7 +897,11 @@ export class AgentRuntime extends EventEmitter {
     const status = id ? this.renderer.run.getRun(id) : this.renderer.run.status;
     if (!status) return null;
     const recording = this.recordingResults.get(status.id);
-    return { ...status, ...(recording ? { recording: structuredClone(recording) } : {}) };
+    return {
+      ...status,
+      ...(recording ? { recording: structuredClone(recording) } : {}),
+      ...(this.collections.has(status.id) ? { collection: this.getCollection(status.id) } : {}),
+    };
   }
 
   stopRun() {
@@ -879,10 +1003,10 @@ export class AgentRuntime extends EventEmitter {
   private bindRenderer(): void {
     this.renderer.addEventListener('outbound', (event) => {
       const message = (
-        event as CustomEvent<{ message: import('@tensnap/protocol').RendererToSimulatorMessage }>
+        event as CustomEvent<{ message: RendererToSimulatorMessage }>
       ).detail.message;
       if (message.type !== 'action_invoke') return;
-      const payload = message.payload as import('@tensnap/protocol').ActionInvokePayload;
+      const payload = message.payload as ActionInvokePayload;
       this.actionBoundaryTimes.set(payload.request_id, {
         id: payload.id,
         timeBefore: this.renderer.scenario.time,

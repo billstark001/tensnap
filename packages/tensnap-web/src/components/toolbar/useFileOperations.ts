@@ -29,6 +29,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
 
   const createNewProject = useProjectStore((store) => store.new);
   const open = useProjectStore((store) => store.open);
+  const openRecordingStore = useProjectStore((store) => store.openRecordingStore);
   const openOfflineSnapshot = useProjectStore((store) => store.openOfflineSnapshot);
   const selectRecording = useSelectRecordingStore((store) => store.invoke);
   const save = useProjectStore((store) => store.save);
@@ -75,7 +76,13 @@ export const useFileOperations = (): FileOperationsContextValue => {
     try {
       const file = await openFile(t`Open recording`);
       if (!file) return;
-      const { snapshots, layout } = await withLoading(() => readRecordingSources(file.path));
+      const { snapshots, layout, storeLink } = await withLoading(() =>
+        readRecordingSources(file.path),
+      );
+      if (storeLink) {
+        await withLoading(() => openRecordingStore(storeLink.owner, storeLink.recordingId));
+        return;
+      }
       if (!snapshots.length) throw new Error(t`The file contains no recordings.`);
       const id =
         snapshots.length === 1 ? snapshots[0].metadata.id : await selectRecording({ snapshots });
@@ -84,7 +91,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
     } catch (error) {
       toast.error(t`Failed to open recording`, String(error));
     }
-  }, [openFile, withLoading, selectRecording, openOfflineSnapshot, toast]);
+  }, [openFile, withLoading, selectRecording, openOfflineSnapshot, openRecordingStore, toast]);
 
   const onFileSaveAs = useCallback(async () => {
     try {

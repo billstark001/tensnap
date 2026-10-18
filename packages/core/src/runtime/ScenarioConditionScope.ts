@@ -13,6 +13,7 @@ export interface RunConditionScope {
   readonly time: number | undefined;
   readonly metadata: Readonly<Record<string, unknown>>;
   readonly parameters: Readonly<Record<string, unknown>>;
+  readonly monitors: Readonly<Record<string, unknown>>;
   readonly charts: Readonly<Record<string, unknown>>;
   agent(
     environmentId: string,
@@ -34,6 +35,8 @@ type CachedConditionViews = {
   metadata: Readonly<Record<string, unknown>>;
   parameterRevision: number;
   parameters: Readonly<Record<string, unknown>>;
+  monitorRevision: number;
+  monitors: Readonly<Record<string, unknown>>;
   chartRevision: number;
   charts: Readonly<Record<string, unknown>>;
 };
@@ -131,6 +134,7 @@ export function compileRunCondition(source: string): CompiledRunCondition {
           metadata: scope.metadata,
           parameters: scope.parameters,
           charts: scope.charts,
+          monitors: scope.monitors,
           agent: scope.agent,
           agentCount: scope.agentCount,
         });
@@ -158,15 +162,23 @@ function createChartView(scenario: Scenario): Readonly<Record<string, unknown>> 
   return Object.freeze(values);
 }
 
+function createMonitorView(scenario: Scenario): Readonly<Record<string, unknown>> {
+  const values = Object.create(null) as Record<string, unknown>;
+  for (const [id, monitor] of scenario.monitors.all) values[id] = cloneReadonly(monitor.value);
+  return Object.freeze(values);
+}
+
 function getCachedConditionViews(scenario: Scenario): CachedConditionViews {
   const cached = conditionViews.get(scenario);
   const metadataRevision = scenario.metadataRevision;
   const parameterRevision = scenario.parameterRevision;
   const chartRevision = scenario.charts.revision;
+  const monitorRevision = scenario.monitors.revision;
   if (
     cached &&
     cached.metadataRevision === metadataRevision &&
     cached.parameterRevision === parameterRevision &&
+    cached.monitorRevision === monitorRevision &&
     cached.chartRevision === chartRevision
   ) {
     return cached;
@@ -183,6 +195,9 @@ function getCachedConditionViews(scenario: Scenario): CachedConditionViews {
       cached?.parameterRevision === parameterRevision
         ? cached.parameters
         : createParameterView(scenario),
+    monitorRevision,
+    monitors:
+      cached?.monitorRevision === monitorRevision ? cached.monitors : createMonitorView(scenario),
     chartRevision,
     charts: cached?.chartRevision === chartRevision ? cached.charts : createChartView(scenario),
   };
@@ -220,6 +235,7 @@ export function createRunConditionScope(scenario: Scenario, steps: number): RunC
     metadata: views.metadata,
     parameters: views.parameters,
     charts: views.charts,
+    monitors: views.monitors,
     agent,
     agentCount,
   });

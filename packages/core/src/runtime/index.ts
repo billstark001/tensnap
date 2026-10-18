@@ -14,3 +14,5 @@ export type {
 } from './TaskQueue';
 export { SyncBoundary } from './SyncBoundary';
 export type { RuntimeSyncPhase, RuntimeSyncSnapshot } from './SyncBoundary';
+
+export * from './RecordingCollection';

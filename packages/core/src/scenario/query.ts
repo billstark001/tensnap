@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { EdgeStorage } from '../environment/storages/EdgeStorage';
 import { AgentStorage } from '../environment/storages/AgentStorage';
 import type { Scenario } from './Scenario';
-import type { ScenarioSnapshot } from './types';
+import type { ScenarioLayerSnapshot, ScenarioSnapshot } from './types';
 import type { AgentRef } from './ScenarioInspector';
 
 const id = z.string().min(1);
@@ -207,7 +207,7 @@ export function queryScenario(
             'storage' in dependency && dependency.storage instanceof EdgeStorage
               ? dependency.storage.getEdgesForAgent(ref.agentId)
               : (
-                  (dependency as import('./types').ScenarioLayerSnapshot).storageSnapshot as {
+                  (dependency as ScenarioLayerSnapshot).storageSnapshot as {
                     edges: Array<{ source: unknown; target: unknown }>;
                   }
                 ).edges;

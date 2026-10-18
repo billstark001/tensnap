@@ -578,9 +578,24 @@ export class RendererSession extends LazyEventTarget {
   async captureFrame(
     options: SceneOperationOptions & { checkpoint?: 'none' | 'if-supported' | 'required' } = {},
   ): Promise<CapturedFrame> {
+    return this.captureFixedFrame(options, true);
+  }
+
+  /** Sample a settled action/render boundary while preserving the run and its stop lifecycle. */
+  async captureBoundaryFrame(
+    options: SceneOperationOptions & { checkpoint?: 'none' | 'if-supported' | 'required' } = {},
+  ): Promise<CapturedFrame> {
+    return this.captureFixedFrame(options, false);
+  }
+
+  private async captureFixedFrame(
+    options: SceneOperationOptions & { checkpoint?: 'none' | 'if-supported' | 'required' },
+    settleRun: boolean,
+  ): Promise<CapturedFrame> {
     options = { ...options }; // Scalars are copied; AbortSignal intentionally remains live.
     if (this.frameCaptureActive) throw new Error('Frame capture is already in progress.');
     this.frameCaptureActive = true;
+    const release = settleRun ? undefined : this.run.holdActionBoundary();
     try {
       const policy = options.checkpoint ?? 'none';
       const supported =
@@ -588,11 +603,12 @@ export class RendererSession extends LazyEventTarget {
       if (policy === 'required' && !supported)
         throw new Error('The simulator does not support required checkpoint capture.');
       const run = this.run.status;
-      if (run && !run.settled) {
+      if (settleRun && run && !run.settled) {
         this.run.stop('stopped');
         await this.run.waitForSettled(run.id, options.timeoutMs, options.signal);
       }
       if (this.run.hasInFlightAction) await this.waitForActionBoundary(options);
+      if (options.signal?.aborted) throw new Error('Frame capture was cancelled.');
       this.captureFrozen = true;
       const revision = this.commitRevision;
       const identity = this.modelIdentity;
@@ -604,7 +620,17 @@ export class RendererSession extends LazyEventTarget {
           ? 'The simulator does not support checkpoint capture.'
           : undefined;
       if (policy !== 'none' && supported) {
-        const result = await this.captureScene(options);
+        const result = await new Promise<SceneCaptureResultPayload>((resolve, reject) => {
+          this.issueSceneCapture(
+            createRequestId('capture'),
+            options,
+            {
+              resolve: (result) => resolve(result as SceneCaptureResultPayload),
+              reject,
+            },
+            settleRun,
+          );
+        });
         if (
           revision !== this.commitRevision ||
           JSON.stringify(identity) !== JSON.stringify(this.modelIdentity) ||
@@ -646,9 +672,14 @@ export class RendererSession extends LazyEventTarget {
         checkpointStatus: status,
         ...(reason ? { checkpointReason: reason } : {}),
       });
+    } catch (error) {
+      // A failed boundary sample must not resume automated dispatch into an unverified state.
+      if (!settleRun) this.run.stop('stopped');
+      throw error;
     } finally {
       this.captureFrozen = false;
       this.frameCaptureActive = false;
+      release?.();
     }
   }
 
@@ -792,6 +823,7 @@ export class RendererSession extends LazyEventTarget {
     requestId: string,
     options: SceneOperationOptions,
     completion?: Pick<ActiveProtocolRequest, 'resolve' | 'reject'>,
+    settleRun = true,
   ): string {
     const info = this.requireCompatibleSimulator();
     this.assertNoActiveRequest();
@@ -801,7 +833,7 @@ export class RendererSession extends LazyEventTarget {
     if (!info.capabilities.includes('scene.restore.checkpoint')) {
       throw new Error('The connected simulator does not support checkpoint scene capture.');
     }
-    this.run.stop('stopped');
+    if (settleRun) this.run.stop('stopped');
     if (this.run.hasInFlightAction) {
       throw new Error('Wait for the in-flight action before scene capture.');
     }
@@ -820,7 +852,7 @@ export class RendererSession extends LazyEventTarget {
   }
 
   setParameter(id: string, value: ProtocolData): void {
-    if (this.captureFrozen) throw new Error('Frame capture is in progress.');
+    if (this.frameCaptureActive) throw new Error('Frame capture is in progress.');
     this.requireCompatibleSimulator();
     const previous = this.scenario.applyOptimisticParameterChange(id, value);
     this.commitRevisionValue++;

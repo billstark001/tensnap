@@ -99,6 +99,58 @@ describe('RunController', () => {
     expect(session.run.observeActionResult({ id: 'step', request_id: requestId })).toBe(true);
   });
 
+  it('holds the next action at a rendered boundary without stop lifecycle or settlement', async () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
+    session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 2 });
+    const capture = session.captureBoundaryFrame();
+    const first = tickId(sent[0]);
+    session.handleIncoming({ type: 'action_result', payload: { id: 'step', request_id: first } });
+    expect(sent).toHaveLength(1);
+    session.run.markActionRendered({ id: 'step', request_id: first });
+    expect(sent).toHaveLength(1);
+    const frame = await capture;
+    expect(frame.source.actionRequestId).toBe(first);
+    expect(sent.map((m) => (m.payload as { id: string }).id)).toEqual(['step', 'step']);
+    expect(session.run.status).toMatchObject({
+      state: 'running',
+      settled: false,
+      completedActions: 1,
+    });
+    session.run.reset();
+  });
+
+  it('uses revision-cached monitor values in stop conditions without dispatch for an initial match', () => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session);
+    session.scenario.apply({ type: 'monitor_create', payload: { id: 'health', label: 'Health' } });
+    session.scenario.apply({
+      type: 'monitor_update',
+      payload: { id: 'health', value: { count: 2 } },
+    });
+    const first = createRunConditionScope(session.scenario, 0);
+    expect(createRunConditionScope(session.scenario, 1).monitors).toBe(first.monitors);
+    session.scenario.apply({
+      type: 'monitor_update',
+      payload: { id: 'health', value: { count: 3 } },
+    });
+    expect(createRunConditionScope(session.scenario, 1).monitors).not.toBe(first.monitors);
+    const run = session.run.start({
+      mode: 'bounded',
+      actionId: 'step',
+      maxSteps: 10,
+      stopWhen: 'monitors.health.count >= 3',
+    });
+    expect(sent).toHaveLength(0);
+    expect(run.stopReason).toBe('condition');
+    expect(first.monitors.health).toEqual({ count: 2 });
+  });
+
   it('runs at most maxSteps and waits for the host render barrier between steps', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();

@@ -69,6 +69,7 @@ import {
   type SamplesReference,
 } from './sample-files';
 import { sourcePathspecs } from './source';
+import { Page } from 'playwright';
 
 const EMPTY_BYTES: BenchmarkWireBytes = { rendererToSimulator: 0, simulatorToRenderer: 0 };
 const benchmarkRequire = createRequire(import.meta.url);
@@ -1658,7 +1659,7 @@ async function waitForWebSocketEndpoint(
 }
 
 async function gotoWhenReady(
-  page: import('playwright').Page,
+  page: Page,
   url: string,
   selector: string,
   timeoutMs: number,
@@ -1686,7 +1687,7 @@ async function gotoWhenReady(
 }
 
 async function readExternalBrowserSignal(
-  page: import('playwright').Page,
+  page: Page,
   signal: { selector: string; attribute?: string },
 ): Promise<string> {
   return page.locator(signal.selector).evaluate((element, attribute) => {
@@ -1717,7 +1718,7 @@ function parseExternalState(value: string): unknown {
 }
 
 async function measureExternalBrowserAction(
-  page: import('playwright').Page,
+  page: Page,
   spec: ExternalBrowserSpec,
   expectedRevision: number,
 ): Promise<number> {

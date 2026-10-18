@@ -1,3 +1,4 @@
+import { ScenarioQuerySchema, AgentInspectionRequestSchema } from '@tensnap/core/scenario';
 import { ScenarioSnapshotSchema } from '@tensnap/core/persistence';
 // #region Imports
 import type { Hono } from 'hono';
@@ -35,6 +36,16 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       painters: runtime.getPainterIds(),
       scene: runtime.inspectScene(),
     });
+  });
+
+  app.post('/v1/scene/query', async (c) => {
+    const parsed = ScenarioQuerySchema.safeParse(await readJsonObject(c.req));
+    if (!parsed.success) invalid(parsed.error.message);
+    try {
+      return c.json(runtime.queryScene(parsed.data));
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : String(error));
+    }
   });
 
   app.get('/v1/scene/snapshot', (c) => {
@@ -99,6 +110,21 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : String(error) }, 400);
     }
+  });
+
+  app.post('/v1/agents/inspect', async (c) => {
+    const parsed = AgentInspectionRequestSchema.safeParse(await readJsonObject(c.req));
+    if (!parsed.success) invalid(parsed.error.message);
+    const { ref, radius, render } = parsed.data;
+    const inspection = runtime.inspectAgent(ref, { radius });
+    if (!inspection) return c.json({ found: false, ref });
+    if (!render || inspection.kind === 'none') return c.json({ found: true, inspection });
+    const artifacts = await runtime.renderAgentInspection(inspection, {
+      format: 'png',
+      includeData: true,
+      persist: false,
+    });
+    return c.json({ found: true, inspection, artifacts: artifacts.map(serializeRenderArtifact) });
   });
 
   app.get('/v1/agents/:environmentId/:layerId/:agentId', async (c) => {

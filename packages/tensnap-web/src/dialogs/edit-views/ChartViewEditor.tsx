@@ -1,3 +1,4 @@
+import { generateUniqueId } from '@/utils/common';
 import React, { useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -8,7 +9,6 @@ import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import { ChartGroup, ChartMetadata } from '@/types/model';
 import * as styles from './EditViews.css';
 import { Plus, Trash2, Edit2 } from 'lucide-react';
-import { generateUniqueId } from '@/utils/common';
 import { ObjectIdentityField } from './ObjectIdentityField';
 import { useToast } from '@/store/toast';
 

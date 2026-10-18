@@ -4,10 +4,11 @@ import type {
   TransportEventHandler,
   TransportEventMap,
 } from '../transport';
-import type { ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
+import type { ActionResultPayload, ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
 import { assert, describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
 import { materializeSnapshot, type Snapshot } from '../snapshot';
+import { AgentStorage, TrajectoryStorage } from '../environment';
 
 function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTransport {
   return {
@@ -202,7 +203,7 @@ describe('RendererSession', () => {
     });
 
     const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!
-      .storage as import('../environment').TrajectoryStorage;
+      .storage as TrajectoryStorage;
     expect(storage.dump().trajectories[0]?.points).toEqual([
       expect.objectContaining({ x: 0, y: 0 }),
       expect.objectContaining({ x: 1, y: 1 }),
@@ -259,9 +260,9 @@ describe('RendererSession', () => {
     });
 
     const clearStorage = session.scenario.getEnvironment('main')!.layers.get('clear-trails')!
-      .storage as import('../environment').TrajectoryStorage;
+      .storage as TrajectoryStorage;
     const keptStorage = session.scenario.getEnvironment('main')!.layers.get('kept-trails')!
-      .storage as import('../environment').TrajectoryStorage;
+      .storage as TrajectoryStorage;
     expect(clearStorage.dump().trajectories[0]?.points).toEqual([
       expect.objectContaining({ x: 5, y: 5 }),
     ]);
@@ -306,7 +307,7 @@ describe('RendererSession', () => {
       apply({ type: 'item_delete', payload: { env_id: 'main', layer_id: 'agents', items: ['a'] } });
 
       const storage = session.scenario.getEnvironment('main')!.layers.get('trails')!
-        .storage as import('../environment').TrajectoryStorage;
+        .storage as TrajectoryStorage;
       expect(storage.dump().trajectories).toEqual([]);
     } finally {
       vi.useRealTimers();
@@ -546,7 +547,7 @@ describe('RendererSession', () => {
 
     expect(session.scenario.getEnvironment('legacy-world')).toBeDefined();
     const agents = session.scenario.getEnvironment('legacy-world')!.layers.get('agents')!
-      .storage as import('../environment').AgentStorage;
+      .storage as AgentStorage;
     expect(agents.getAgent('a')?.x).toBe(2);
     session.handleIncoming({
       type: 'item_create',
@@ -1036,7 +1037,7 @@ describe('fixed frame capture and renderer-local restore history', () => {
     const start = sent.find((message) => message.type === 'action_invoke')!;
     session.handleIncoming({
       type: 'action_result',
-      payload: start.payload as import('@tensnap/protocol').ActionResultPayload,
+      payload: start.payload as ActionResultPayload,
     });
     await Promise.resolve();
     expect(captured).toBe(false);
@@ -1056,7 +1057,7 @@ describe('fixed frame capture and renderer-local restore history', () => {
     session.handleIncoming({ type: 'metadata_update', payload: { time: 100 } });
     session.handleIncoming({
       type: 'action_result',
-      payload: stop.payload as import('@tensnap/protocol').ActionResultPayload,
+      payload: stop.payload as ActionResultPayload,
     });
     expect((await capture).scene.metadata.time).toBe(100);
     expect(session.run.status?.settled).toBe(true);

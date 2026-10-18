@@ -89,6 +89,19 @@ export class ChartStorage {
     return copy;
   }
 
+  /** Explicit bounded live history; complete recorded streams are read through the asynchronous store. */
+  retainHistory(maxPoints: number): void {
+    if (!Number.isSafeInteger(maxPoints) || maxPoints < 1)
+      throw new Error('Invalid chart history budget.');
+    let changed = false;
+    for (const group of this.groups.values())
+      if (group.data.length > maxPoints) {
+        group.data.splice(0, group.data.length - maxPoints);
+        changed = true;
+      }
+    if (changed) this.touch();
+  }
+
   dump(): ChartGroup[] {
     return this.getGroupList().map((group) => ({
       id: group.id,

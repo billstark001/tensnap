@@ -3,8 +3,24 @@ import type { IPFamily } from '@tensnap/network';
 import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 import type { SkillOptions } from './skills';
+import type { ScenarioQuery, FieldPath } from '@tensnap/core/scenario';
 
 export interface CliOptions extends SkillOptions {
+  collection?: string;
+  store?: string;
+  query?: ScenarioQuery;
+  idType?: 'string' | 'number';
+  layer?: string;
+  radius?: number;
+  fields?: FieldPath[];
+  policy?: string;
+  from?: number;
+  to?: number;
+  sampling?: 'boundaries' | 'changes';
+  limit?: number;
+  after?: number;
+  leftFrame?: number;
+  rightFrame?: number;
   context?: string;
   contextDir?: string;
   outputVersion?: '1';

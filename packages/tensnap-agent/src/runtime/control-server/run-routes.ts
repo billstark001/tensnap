@@ -1,5 +1,5 @@
 import type { Hono } from 'hono';
-import type { BoundedRunSpec } from '@tensnap/core/runtime';
+import type { BoundedRunSpec, CollectionConfig } from '@tensnap/core/runtime';
 import { isEncodedBinaryString } from '@tensnap/protocol';
 import type { AgentRuntime } from '../AgentRuntime';
 import { validateFields, invalid } from './validation';
@@ -7,6 +7,41 @@ import { readJsonObject } from './json-body';
 
 /** Shared bounded-run API for automation clients and the CLI. */
 export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
+  app.get('/v1/collections/:runId', (c) => {
+    const collection = runtime.getCollection(c.req.param('runId'));
+    return collection ? c.json({ collection }) : c.json({ error: 'Unknown collection.' }, 404);
+  });
+  app.post('/v1/collections', async (c) => {
+    const body = await readJsonObject<{
+      spec: BoundedRunSpec;
+      config: CollectionConfig;
+      output: string;
+    }>(c.req);
+    validateFields(body, { spec: 'object', config: 'object', output: 'string' }, [
+      'spec',
+      'config',
+      'output',
+    ]);
+    validateFields(
+      body.spec,
+      {
+        mode: ['bounded'],
+        actionId: 'string',
+        maxSteps: 'integer',
+        stopWhen: 'string',
+        maxWallTimeMs: 'positive',
+      },
+      ['mode', 'actionId', 'maxSteps'],
+    );
+    try {
+      return c.json(
+        { run: await runtime.startCollectedRun(body.spec, body.config, body.output) },
+        202,
+      );
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : String(error));
+    }
+  });
   app.post('/v1/runs/:runId/wait', async (c) => {
     const id = c.req.param('runId');
     if (!runtime.getRun(id)) invalid('Unknown or expired run ID.');

@@ -41,6 +41,7 @@ export function exactValueEqual(a: unknown, b: unknown): boolean {
     Array.isArray(a) !== Array.isArray(b)
   )
     return false;
+  if (Array.isArray(a) && Array.isArray(b) && a.length !== b.length) return false;
   const keys = Object.keys(a);
   return (
     keys.length === Object.keys(b).length &&
@@ -93,6 +94,8 @@ export function diffCapturedFrames(
       !(b instanceof Uint8Array) &&
       Array.isArray(a) === Array.isArray(b)
     ) {
+      if (Array.isArray(a) && Array.isArray(b) && a.length !== b.length)
+        visit(a.length, b.length, [...path, 'length'], ref);
       for (const key of new Set([...Object.keys(a), ...Object.keys(b)]))
         visit(
           (a as Record<string, unknown>)[key],
@@ -151,6 +154,17 @@ export function diffCapturedFrames(
       right.scene[kind] as Array<{ id: string }>,
       [kind],
       (v) => v.id,
+      (v) => ({
+        kind:
+          kind === 'monitors'
+            ? 'monitor'
+            : kind === 'parameters'
+              ? 'parameter'
+              : kind === 'charts'
+                ? 'chart'
+                : 'action',
+        id: v.id,
+      }),
     );
   // Environment/layer collections and agent identity are typed sets. Arrays inside an entity stay ordered.
   const envs = new Map(left.scene.environments.map((e) => [e.id, e]));
@@ -212,7 +226,11 @@ export function diffCapturedFrames(
     left: structuredClone(left.source),
     right: structuredClone(right.source),
     exactSceneEqual: exactValueEqual(left.scene, right.scene),
-    selectedEqual: identityCompatible && selectedChangeCount === 0,
+    selectedEqual:
+      identityCompatible &&
+      checkpointEqual !== false &&
+      !!left.checkpoint === !!right.checkpoint &&
+      selectedChangeCount === 0,
     identityCompatible,
     checkpointEqual,
     policy,

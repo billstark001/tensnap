@@ -243,8 +243,20 @@ export class TaskQueue {
    * Advance the next queued task to 'dispatched' and push a dispatch command.
    * Called by PipelineRuntime when sync is idle and no active task exists.
    */
+  private dispatchHolds = 0;
+
+  holdDispatch(): () => void {
+    this.dispatchHolds++;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.dispatchHolds--;
+    };
+  }
+
   maybeDispatchNext(): void {
-    if (this.activeTask !== null || this.queue.length === 0) {
+    if (this.dispatchHolds > 0 || this.activeTask !== null || this.queue.length === 0) {
       return;
     }
 

@@ -21,7 +21,6 @@ import * as styles from './SnapshotDetailDialog.css';
 import { Environment2DView } from '../components/scenario/Environment2DView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
 import { ChartView } from '../components/scenario/ChartView';
-import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
 import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
 import { ValueInspector } from '../components/value-inspector';
 import { formatTimestamp } from '@/utils/date';
@@ -37,7 +36,7 @@ const OfflineEnvironment = (props: {
   updateTrigger: number;
 }) => {
   const { environment, assets, scenario, updateTrigger } = props;
-  const displayType = getEnvironmentDisplayType(environment);
+  const displayType = environment.type;
   if (displayType === '2d') {
     return (
       <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>

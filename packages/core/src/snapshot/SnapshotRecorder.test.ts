@@ -13,6 +13,7 @@ import {
   snapshotArchiveForJson,
 } from './SnapshotArchive';
 import type { RecordingOptions, SnapshotLayerCodecImplementation } from './types';
+import { AgentStorage } from '../environment';
 
 describe('SnapshotRecorder', () => {
   it.each([
@@ -115,7 +116,7 @@ describe('SnapshotRecorder', () => {
     const player = new SnapshotPlayer(snapshot);
     player.seek(2);
     const agents = player.scenario.getEnvironment('main')!.layers.get('agents')!
-      .storage as import('../environment').AgentStorage;
+      .storage as AgentStorage;
     expect(agents.getAgent('a')?.x).toBe(2);
     expect(materializeSnapshot(snapshot).environments[0]?.layers[0]?.storageSnapshot).toMatchObject(
       {
