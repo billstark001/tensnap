@@ -63,6 +63,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Own retained inputs and status values, preserve newer scene revisions, and cancel retired simulator connections before they can attach or overwrite current state.
 - Atomically commit scene, status, log and image files, retain previous complete files on failure, and report background persistence and screenshot failures through runtime events.
 
+## @tensnap/benchmark [0.3.4] - 2026-10-18
+
+### Changed
+
+- Share CLI option and profile parsing, normalize artifact paths once, and refresh the active JavaScript dependency fingerprint.
+
+### Fixed
+
+- Generate analysis beside the manifest when its input path ends in a trailing slash.
+
 ## @tensnap/web [0.3.5] - 2026-10-18
 
 ### Fixed
