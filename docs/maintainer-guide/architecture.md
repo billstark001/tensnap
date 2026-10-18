@@ -399,3 +399,11 @@ Tutorials 1-4 are backed by runnable examples, while tutorials 5-6 are still pla
 ## Filesystem ownership and export boundaries
 
 Memory and IndexedDB adapters own persisted binary buffers, tags, and metadata. Mutating a write result, a read result, or a listed entry must not mutate persisted data. A path cannot simultaneously be a file and a directory, and a file cannot be used as a parent directory. Path validation rejects `.` and `..` segments while allowing ordinary filenames containing two dots. Text exports encode UTF-8 before base64 conversion and retain their media type and byte checksum.
+
+## Shared recording persistence and frame evidence
+
+`core/persistence` owns project DTOs and migration, layout data/schema, resource extraction/hydration, independent recording files and selection, and the frame manifest schema. `core/snapshot` owns retained protocol frames, materialization and fixed-frame ownership/provenance. `RendererSession` coordinates action boundaries, commit revision, checkpoint capture and model/history restore. These are renderer-local facilities; wire protocol stays at 0.3.
+
+The Web host owns worker scheduling, automatic layout, file dialogs and offline tabs using `SnapshotPlaybackSource`. Opening recordings never opens an enclosing project's source. A cursor does not trim the retained recording. The Node agent owns atomic normal-completion file writes, catalog entries, by-ID waits, fixed-scene painters and verified evidence directories. Images and state in one frame use the same capture; live state caches are not evidence manifests.
+
+Only released file migrations and public API spellings retain compatibility behavior. Removed Web persistence/layout modules have no internal re-export aliases. Segment stores, bounded append queues, range indexes, crash recovery and trigger windows remain B4–B5/C4–C5 follow-up work.

@@ -26,6 +26,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/core [0.3.5] - 2026-10-18
+
+### Added
+
+- Portable `core/persistence` project/recording codecs, released project migrations, resource closure, strict format/range validation and explicit model-time selection.
+- Owned frame capture, checkpoint/revision association, durable original-frame provenance, frame manifest schemas and independent model/history restoration with local `historyTime`.
+- Correlated action handles and persisted retention-policy reporting; discard initial checkpoints when rolling retention moves the initial boundary.
+
+### Changed
+
+- Move layout DTOs and project serialization out of Web; remove migrated internal modules without aliases. Preserve released file/API compatibility only.
+
+## @tensnap/agent [0.3.5] - 2026-10-18
+
+### Added
+
+- By-ID action/run waits through host settlement and requested recording persistence, with retained outcomes and classified failures.
+- Manual/context recording catalog/export, independent recording files, and daemon-free info/seek/inspect/render/frame export.
+- Fixed-scene evidence directories with verified manifests, checkpoint restore, chart history policies and exact public-scene/opaque-checkpoint comparison. Preserve partial failures and never overwrite existing evidence.
+- Seeded real-model workflow acceptance and published portable-persistence import checks; update bundled offline guidance.
+
+## @tensnap/web [0.3.6] - 2026-10-18
+
+### Added
+
+- Open self-contained recordings from an empty app or select one from an external project without connecting its source; generate playback layout and retain the full timeline.
+- Separate full-recording/current-frame exports, durable frame provenance and English/Chinese/Japanese messages.
+
+### Fixed
+
+- Recognize uploaded JSON carried as bytes by file adapters, preserve chart prefixes and avoid reusing checkpoints after timeline rebasing.
+
+## @tensnap/tauri [0.3.5] - 2026-10-18
+
+### Added
+
+- Native localized Open recording menu wired to the shared browser/desktop recording workflow, using existing file permissions.
+
 ## @tensnap/core [0.3.4] - 2026-10-18
 
 ### Fixed

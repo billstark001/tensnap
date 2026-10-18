@@ -16,6 +16,7 @@ Workspace imports use TypeScript source. `pnpm build` produces ESM and declarati
 | `@tensnap/core/environment/browser` | browser `EnvironmentView` host |
 | `@tensnap/core/parameter` | parameter normalization and numeric range utilities |
 | `@tensnap/core/runtime` | `RendererClient`, `RendererSession`, `RunController`, pipeline helpers, bounded condition scope |
+| `@tensnap/core/persistence` | Portable project/recording codecs, resource tables, migration, frame manifests and explicit selection |
 | `@tensnap/core/snapshot` | recording, keyframes, compressed archive segments, and seekable replay helpers |
 | `@tensnap/core/utils` | Format detection, msgpack, NumPy (`.npy`) parser/renderer |
 
@@ -162,3 +163,15 @@ Startup observers receive their own status copy, separate from the recording con
 `RendererSession` recording events share a read-only snapshot among listeners, including asynchronous persistence hosts. Consumers that need to edit it must copy it first. This event lifetime differs from an independently owned run status.
 
 Storage loaders publish complete replacements. A failed trajectory load preserves its previous data and configurations; a successful load replaces stale configuration and emits one change notification. Removed edges release empty adjacency buckets so repeated topology churn does not retain old IDs.
+
+## Persistence and owned frames
+
+`@tensnap/core/persistence` imports in plain Node without DOM, React, filesystem or browser initialization. `encodeProjectFile`/`decodeProjectFile` retain the released v0/v1/v2 → v3 migrations. `archiveProjectFileContentAsync` accepts a host encoder for worker dispatch; the owned input and resources are prepared before suspension. Layout DTOs and an empty default layout live here; automatic layout belongs to the GUI host.
+
+`encodeRecordingFile`/`decodeRecordingFile` implement `kind: 'tensnap-recording', version: 1`, with an existing SnapshotArchive and an independent asset table. JSON encodes bytes safely; MessagePack retains byte arrays. Parsing validates outer/archive/protocol versions, segment lengths, ordering, retained boundaries and checkpoint/source association. Import reports truncation, budgets, missing assets, external dependencies and whether a legacy path was used. Complete export rejects unresolved resources; explicit `allowIncomplete` permits diagnostic export. Bare Snapshot/Archive imports require `allowLegacy: true`.
+
+`selectRecordingFrame` accepts an exact retained frame or model time plus `first|last|before|after`; results identify actual boundaries. `frameFromRecording` reconstructs chart prefixes and attaches a checkpoint only at its recorded boundary. `snapshotFromFrame` produces an independent single-frame recording with durable original provenance.
+
+`RendererSession.captureFrame({ checkpoint: 'none'|'if-supported'|'required' })` stops run dispatch, awaits lifecycle settlement, copies the scene and verifies revision/source identity across checkpoint capture. Returned nested values and bytes are owned. Required capture rejects unsupported or inconsistent boundaries. `RendererSession.restoreFrame(frame, { mode, chartPolicy, historyTime })` verifies identity/schema and returns independent model/history status and certainty. Local `historyTime` is never sent on the wire; checkpoint mode sends no projected state. Saved charts are installed only after successful restore. The released low-level payload-time truncate fallback remains supported.
+
+`RendererClient.beginAction` returns a request ID and a completion promise registered before dispatch. `invokeAction` also waits for the host barrier. Hosts own image rendering, evidence directory commits, file checksums and persistence waits; core does not provide filesystem shims or renderer-specific aliases.
