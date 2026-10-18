@@ -8,6 +8,7 @@ import { registerSceneRoutes } from './scene-routes';
 import { registerArtifactRoutes } from './artifact-routes';
 import { registerRunRoutes } from './run-routes';
 import type { RuntimeSseBroker } from './sse-broker';
+import { routePath } from 'hono/route';
 
 // #endregion
 
@@ -35,9 +36,14 @@ export function buildControlApp(
         : error instanceof ArtifactInputError
           ? 400
           : 500;
+    const payload = {} as Record<string, unknown>;
+    if (routePath(c) === '/v1/runs/:runId/wait') payload.runId = c.req.param('runId');
+    else if (routePath(c) === '/v1/action-results/:requestId/wait')
+      payload.requestId = c.req.param('requestId');
     return c.json(
       {
         error: message,
+        ...payload,
         category:
           status === 400
             ? 'input_error'

@@ -186,3 +186,31 @@ it('reports recording export filesystem failures as persistence errors', async (
   expect(response.status).toBe(500);
   expect(await response.json()).toMatchObject({ category: 'persistence_failed' });
 });
+
+it.each(['action', 'run'] as const)(
+  'includes the %s ID in HTTP wait timeout errors',
+  async (kind) => {
+    const wait = vi
+      .fn()
+      .mockRejectedValue(new Error('Timed out waiting; operation was not cancelled.'));
+    const app = buildControlApp(
+      {
+        getAction: () => ({}),
+        getRun: () => ({}),
+        waitAction: wait,
+        waitRun: wait,
+      } as unknown as AgentRuntime,
+      new RuntimeSseBroker(),
+      () => {},
+    );
+    const response = await app.request(
+      `/v1/${kind === 'action' ? 'action-results' : 'runs'}/known%2Fid/wait`,
+      { method: 'POST', body: '{}' },
+    );
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      category: 'result_unknown',
+      [kind === 'action' ? 'requestId' : 'runId']: 'known/id',
+    });
+  },
+);

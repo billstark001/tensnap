@@ -109,6 +109,22 @@ async function requestJson(baseUrl: string, path: string, init?: RequestInit): P
   return response.json();
 }
 
+async function requestWait(
+  baseUrl: string,
+  identity: { requestId: string } | { runId: string },
+  body: { timeoutMs?: number; until?: 'settled' | 'persisted' },
+): Promise<unknown> {
+  const path =
+    'requestId' in identity
+      ? `/v1/action-results/${encodeURIComponent(identity.requestId)}/wait`
+      : `/v1/runs/${encodeURIComponent(identity.runId)}/wait`;
+  try {
+    return await requestJson(baseUrl, path, { method: 'POST', body: JSON.stringify(body) });
+  } catch (cause) {
+    throw new CliWaitError(cause, identity);
+  }
+}
+
 async function waitForDaemon(
   context: RuntimeContextPaths,
   timeoutMs = 5000,
@@ -751,10 +767,10 @@ export function createProgram(
     printJson(
       options,
       options.wait
-        ? await requestJson(
+        ? await requestWait(
             baseUrl,
-            `/v1/action-results/${encodeURIComponent(accepted.requestId)}/wait`,
-            { method: 'POST', body: JSON.stringify({ timeoutMs: options.timeoutMs }) },
+            { requestId: accepted.requestId },
+            { timeoutMs: options.timeoutMs },
           )
         : accepted,
     );
@@ -837,10 +853,14 @@ export function createProgram(
     printJson(
       options,
       options.wait
-        ? await requestJson(baseUrl, `/v1/runs/${encodeURIComponent(accepted.run.id)}/wait`, {
-            method: 'POST',
-            body: JSON.stringify({ until: options.until, timeoutMs: options.timeoutMs }),
-          })
+        ? await requestWait(
+            baseUrl,
+            { runId: accepted.run.id },
+            {
+              until: options.until,
+              timeoutMs: options.timeoutMs,
+            },
+          )
         : accepted,
     );
   });
@@ -853,10 +873,11 @@ export function createProgram(
     const { baseUrl } = await requireRuntime(options);
     printJson(
       { ...options, outputVersion: '1' },
-      await requestJson(baseUrl, `/v1/runs/${encodeURIComponent(id)}/wait`, {
-        method: 'POST',
-        body: JSON.stringify({ until: options.until, timeoutMs: options.timeoutMs }),
-      }),
+      await requestWait(
+        baseUrl,
+        { runId: id },
+        { until: options.until, timeoutMs: options.timeoutMs },
+      ),
     );
   });
   const actionWait = action
@@ -869,10 +890,7 @@ export function createProgram(
     const { baseUrl } = await requireRuntime(options);
     printJson(
       { ...options, outputVersion: '1' },
-      await requestJson(baseUrl, `/v1/action-results/${encodeURIComponent(id)}/wait`, {
-        method: 'POST',
-        body: JSON.stringify({ timeoutMs: options.timeoutMs }),
-      }),
+      await requestWait(baseUrl, { requestId: id }, { timeoutMs: options.timeoutMs }),
     );
   });
   handle(
@@ -1448,18 +1466,51 @@ export class CliRequestError extends Error {
   }
 }
 
+class CliWaitError extends Error {
+  readonly category: string;
+  readonly exitCode: number;
+  readonly data: Record<string, unknown>;
+  readonly correlationId: string;
+
+  constructor(cause: unknown, identity: { requestId: string } | { runId: string }) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const [kind, id] = Object.entries(identity)[0];
+    super(`${message} (${kind}: ${id})`, { cause });
+    this.correlationId = id;
+    // The dispatch already succeeded. A transport failure during the wait cannot
+    // determine its outcome; the same ID can still be waited on without dispatch.
+    const classification =
+      cause instanceof CliRequestError
+        ? classifyCliError(cause)
+        : { category: 'result_unknown', exitCode: 4 };
+    this.category = classification.category;
+    this.exitCode = classification.exitCode;
+    const body = cause instanceof CliRequestError ? cause.body : undefined;
+    this.data = {
+      ...(body && typeof body === 'object' && !Array.isArray(body) ? body : {}),
+      ...identity,
+    };
+  }
+}
+
 function printJson(options: Pick<CliOptions, 'outputVersion'>, data: unknown): void {
   if (options.outputVersion !== '1') {
     console.log(JSON.stringify(data, null, 2));
     return;
   }
-  const record = data as { requestId?: string; request_id?: string; run?: { id?: string } } | null;
+  const record = data as {
+    requestId?: string;
+    request_id?: string;
+    action?: { requestId?: string };
+    run?: { id?: string };
+  } | null;
   console.log(
     JSON.stringify({
       schemaVersion: 1,
       ok: true,
       data,
-      correlationId: record?.requestId ?? record?.request_id ?? record?.run?.id,
+      correlationId:
+        record?.requestId ?? record?.request_id ?? record?.action?.requestId ?? record?.run?.id,
     }),
   );
 }
@@ -1514,6 +1565,9 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           ok: false,
           error: { category, message: error instanceof Error ? error.message : String(error) },
           ...(error instanceof CliRequestError ? { data: error.body } : {}),
+          ...(error instanceof CliWaitError
+            ? { data: error.data, correlationId: error.correlationId }
+            : {}),
         }),
       );
     }
@@ -1526,6 +1580,7 @@ export function classifyCliError(error: unknown): { category: string; exitCode: 
   if (
     error instanceof CliInputError ||
     error instanceof CliRequestError ||
+    error instanceof CliWaitError ||
     error instanceof SkillPersistenceError ||
     error instanceof FrameSaveError ||
     error instanceof ArtifactInputError

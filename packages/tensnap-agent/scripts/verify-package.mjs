@@ -480,6 +480,7 @@ syncBuiltinESMExports();
   server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
   await once(server, 'listening');
   let tick = 0;
+  let slowInvocations = 0;
   server.on('connection', (socket) => {
     const send = (type, payload) => socket.send(JSON.stringify({ type, payload }));
     send('simulator_info', {
@@ -507,12 +508,19 @@ syncBuiltinESMExports();
           items: [{ id: 'one', x: 5, y: 5, color: '#00aa88', size: 1 }],
         });
         send('action_create', { id: 'step', label: 'Step', continuous: true });
+        send('action_create', { id: 'slow', label: 'Slow', continuous: true });
         send('metadata_update', { time: tick });
         send('state_sync_end', { request_id, state_revision: '1' });
       } else if (message.type === 'action_invoke') {
-        tick += 1;
-        send('metadata_update', { time: tick });
-        send('action_result', { id: message.payload.id, request_id, should_continue: true });
+        const complete = () => {
+          tick += 1;
+          send('metadata_update', { time: tick });
+          send('action_result', { id: message.payload.id, request_id, should_continue: true });
+        };
+        if (message.payload.id === 'slow') {
+          slowInvocations++;
+          setTimeout(complete, 200);
+        } else complete();
       }
     });
   });
@@ -537,6 +545,44 @@ syncBuiltinESMExports();
   assert.equal(summary.run.completedActions, 2);
   assert.equal(summary.run.settled, true);
   assert.equal(summary.run.recording.status, 'persisted');
+  const actionDeadline = await run(
+    ['action', 'run', 'slow', '--wait', '--timeout-ms', '1', '--context', 'package'],
+    4,
+  );
+  assert.equal(actionDeadline.error.category, 'result_unknown');
+  assert.equal(actionDeadline.correlationId, actionDeadline.data.requestId);
+  assert(actionDeadline.data.requestId);
+  const resumedAction = await run([
+    'action',
+    'wait',
+    actionDeadline.data.requestId,
+    '--context',
+    'package',
+  ]);
+  assert.equal(resumedAction.data.action.status, 'succeeded');
+  assert.equal(slowInvocations, 1);
+  const runDeadline = await run(
+    [
+      'run',
+      'start',
+      'slow',
+      '--max-actions',
+      '1',
+      '--wait',
+      '--timeout-ms',
+      '1',
+      '--context',
+      'package',
+    ],
+    4,
+  );
+  assert.equal(runDeadline.error.category, 'result_unknown');
+  assert.equal(runDeadline.correlationId, runDeadline.data.runId);
+  assert(runDeadline.data.runId);
+  const resumedRun = await run(['run', 'wait', runDeadline.data.runId, '--context', 'package']);
+  assert.equal(resumedRun.data.run.settled, true);
+  assert.equal(resumedRun.data.run.completedActions, 1);
+  assert.equal(slowInvocations, 2);
   const output = join(project, 'evidence.png');
   await run([
     'scene',
