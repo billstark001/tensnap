@@ -4,7 +4,7 @@ import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
 import * as Select from '@tensnap/web-common/components/ui/Select';
-import { AnchoredView } from '@/types/ui';
+import { AnchoredView } from '@tensnap/core/persistence';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import * as styles from './EditViews.css';
 import type { EditableEnvironmentData } from './environment-editor-model';

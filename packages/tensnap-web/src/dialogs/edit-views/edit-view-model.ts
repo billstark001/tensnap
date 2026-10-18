@@ -1,5 +1,5 @@
 import type { Action, ChartGroup, Parameter, ParameterType } from '@/types/model';
-import type { AnchoredView, AnyView, ButtonView } from '@/types/ui';
+import type { AnchoredView, AnyView, ButtonView } from '@tensnap/core/persistence';
 import type { EditableEnvironmentData } from './environment-editor-model';
 import { getEditableEnvironmentData } from './environment-editor-model';
 

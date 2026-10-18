@@ -1,7 +1,7 @@
 import React from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { ButtonView } from '@/types/ui';
+import { ButtonView } from '@tensnap/core/persistence';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import { Action } from '@/types/model';
 import { ObjectIdentityField } from './ObjectIdentityField';

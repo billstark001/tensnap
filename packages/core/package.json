@@ -44,7 +44,8 @@
     "./scenario": "./src/scenario/index.ts",
     "./scenario/browser": "./src/scenario/browser.ts",
     "./transport": "./src/transport/index.ts",
-    "./utils": "./src/utils/index.ts"
+    "./utils": "./src/utils/index.ts",
+    "./persistence": "./src/persistence/index.ts"
   },
   "publishConfig": {
     "main": "./dist/index.js",
@@ -141,6 +142,10 @@
       "./utils": {
         "types": "./dist/utils/index.d.ts",
         "import": "./dist/utils/index.js"
+      },
+      "./persistence": {
+        "types": "./dist/persistence/index.d.ts",
+        "import": "./dist/persistence/index.js"
       }
     },
     "access": "public"

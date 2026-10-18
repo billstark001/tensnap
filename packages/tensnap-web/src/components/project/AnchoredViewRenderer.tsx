@@ -7,7 +7,7 @@ import type { ScenarioStore } from '../../store/scenario/types';
 import { getEnvironmentDisplayType } from '../scenario/environment-adapter';
 import { useToast } from '@/store/toast';
 import { AnchoredViewRendererType } from '../view/types';
-import { AnchoredView } from '@/types/ui';
+import { AnchoredView } from '@tensnap/core/persistence';
 import { ViewErrorBoundary } from '../view/ViewErrorBoundary';
 import { ValueInspector } from '../value-inspector';
 import { useCallback, useSyncExternalStore } from 'react';

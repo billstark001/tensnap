@@ -1,4 +1,4 @@
-import type { ScenarioSnapshot } from '@tensnap/core';
+import type { ScenarioSnapshot } from '../scenario/types';
 import {
   createSingleSnapshot,
   decodeSnapshotArchive,
@@ -8,14 +8,14 @@ import {
   type Snapshot,
   type SnapshotArchive,
   type SnapshotModelIdentity,
-} from '@tensnap/core/snapshot';
+} from '../snapshot';
 import {
   encodeBytesAsDataUrl,
   encodeMessagePack,
+  decodeMessagePack,
   PROTOCOL_VERSION,
   ProtocolCodec,
 } from '@tensnap/protocol';
-import { encodeSnapshotArchivesInWorker } from '@/workers/snapshot-archive';
 import {
   ActionResultPayloadSchema,
   ActionSchema,
@@ -29,9 +29,9 @@ import {
   SimulatorToRendererMessageSchema,
 } from '@tensnap/protocol';
 import { z } from 'zod';
-import type { ContainerView } from './ui';
-import { createDefaultRootLayout } from '@/utils/view/create-view';
-import type { ProjectSource } from '@tensnap/core/snapshot';
+import type { ContainerView } from './layout';
+import { createDefaultRootLayout } from './layout';
+import type { ProjectSource } from '../snapshot';
 
 export const PROJECT_FILE_VERSION = 3;
 /**
@@ -635,12 +635,20 @@ export function archiveProjectFileContent(
 }
 
 /** Same archive layout as `archiveProjectFileContent`, with segment encoding in a Worker. */
-export async function archiveProjectFileContentInWorker(
+export async function archiveProjectFileContentAsync(
   content: ProjectFileContent,
   jsonSafe = false,
+  encodeArchives: (snapshots: Snapshot[], jsonSafe: boolean) => Promise<SnapshotArchive[]> = async (
+    snapshots,
+    jsonSafe,
+  ) =>
+    snapshots.map((snapshot) => {
+      const archive = encodeSnapshotArchive(snapshot);
+      return jsonSafe ? snapshotArchiveForJson(archive) : archive;
+    }),
 ): Promise<ProjectFileArchive> {
   const assetTable: ProjectAssetTable = {};
-  const snapshots = await encodeSnapshotArchivesInWorker(
+  const snapshots = await encodeArchives(
     content.snapshots.map((snapshot) => extractSnapshotAssets(snapshot, assetTable)),
     jsonSafe,
   );
@@ -680,8 +688,10 @@ function decodeProjectArchive(archive: ProjectFileArchive): ProjectFileContent {
         : migrateRecordingSnapshot(snapshot);
       return hydrateSnapshotAssets(migrateRecordingSnapshot(decoded), archive.assetTable);
     } catch (error) {
-      throw new Error(
-        `Invalid snapshot archive ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+      throw Object.assign(
+        new Error(
+          `Invalid snapshot archive ${index + 1}: ${error instanceof Error ? error.message : String(error)}`,
+        ),
         { cause: error },
       );
     }
@@ -842,4 +852,24 @@ export function parseProjectFileContent(value: unknown): ProjectFileContent {
     scenario: migrateScenarioSnapshot(legacy.scenario),
     snapshots: (legacy.snapshots ?? []).map(migrateRecordingSnapshot),
   };
+}
+
+/** Encode a project without depending on a host file system or worker. */
+export function encodeProjectFile(
+  content: ProjectFileContent,
+  format: 'json' | 'msgpack' = 'json',
+): Uint8Array {
+  const archive = archiveProjectFileContent(content, format === 'json');
+  return format === 'json'
+    ? new TextEncoder().encode(JSON.stringify(archive))
+    : encodeMessagePack(archive);
+}
+
+export function decodeProjectFile(
+  data: Uint8Array,
+  format: 'json' | 'msgpack' = 'json',
+): ProjectFileContent {
+  return parseProjectFileContent(
+    format === 'json' ? JSON.parse(new TextDecoder().decode(data)) : decodeMessagePack(data),
+  );
 }

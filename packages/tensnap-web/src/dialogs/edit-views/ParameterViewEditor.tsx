@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { AnchoredView } from '@/types/ui';
+import { AnchoredView } from '@tensnap/core/persistence';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 import {
   BooleanParameter,

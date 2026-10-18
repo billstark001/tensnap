@@ -1,7 +1,7 @@
 import React from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { AnyView } from '@/types/ui';
+import { AnyView } from '@tensnap/core/persistence';
 import * as styles from './EditViews.css';
 import { parseFiniteNumberInput } from './form-values';
 

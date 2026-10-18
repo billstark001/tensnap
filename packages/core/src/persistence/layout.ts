@@ -1,4 +1,10 @@
-import { JsonSerializable } from './utils';
+type JsonSerializable =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonSerializable[]
+  | { [key: string]: JsonSerializable };
 
 export type BaseView<TType extends string, TData extends JsonSerializable> = {
   id: string;
@@ -41,3 +47,24 @@ export type ContainerView = BaseView<
 };
 
 export type AnyView = ButtonView | AnchoredView | ContainerView;
+
+/**
+ * Creates the default root layout container
+ */
+export function createDefaultRootLayout(views?: AnyView[]): ContainerView {
+  views ??= [];
+  return {
+    id: 'main-container',
+    type: 'container',
+    left: 0,
+    top: 0,
+    width: 1200,
+    height: 800,
+    expanded: true,
+    disabled: false,
+    data: {
+      title: 'TenSnap Visualization',
+    },
+    views,
+  };
+}

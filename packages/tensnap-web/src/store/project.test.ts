@@ -9,7 +9,7 @@ import {
   parseProjectFileContent,
   PROJECT_FILE_VERSION,
   recoverProjectFileContent,
-} from '@/types/project';
+} from '@tensnap/core/persistence';
 
 const mockedSettings = vi.hoisted(() => ({
   saveFormat: 'json' as 'json' | 'msgpack',

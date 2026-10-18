@@ -1,4 +1,4 @@
-import type { AnyView, ContainerView } from '@/types/ui';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { adjustForMainViewPadding } from './pack';
 import {
   assertValidViewTree,

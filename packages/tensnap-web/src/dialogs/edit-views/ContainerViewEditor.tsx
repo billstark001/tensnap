@@ -1,7 +1,7 @@
 import React from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { ContainerView } from '@/types/ui';
+import { ContainerView } from '@tensnap/core/persistence';
 import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
 
 interface ContainerViewEditorProps extends BaseViewEditorProps {

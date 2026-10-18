@@ -4,7 +4,7 @@ import { ViewContextMenuRendererType } from '../view/types';
 import { ClipboardCopy, Edit, Pause, Play, Sheet, StepForward, Trash2 } from 'lucide-react';
 import { EditViewDialog } from '@/dialogs/edit-views/EditViewDialog';
 import { useCallback, useState } from 'react';
-import { AnyView, ButtonView } from '@/types/ui';
+import { AnyView, ButtonView } from '@tensnap/core/persistence';
 import { useViewContext } from '../view/useViewContext';
 import { useToast } from '@/store/toast';
 import { useScenarioStore } from '@/store/scenario/store';

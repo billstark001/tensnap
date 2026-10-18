@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Action, BooleanParameter } from '@/types/model';
-import type { AnyView, ContainerView } from '@/types/ui';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import type {
   ObjectWithChartMetadata,
   ObjectWithEnvironmentMetadata,
 } from '@/components/view/types';
 import type { MonitorMetadata } from '@tensnap/protocol';
-import { createDefaultRootLayout } from './create-view';
+import { createDefaultRootLayout } from '@tensnap/core/persistence';
+
 import { adjustForMainViewPadding, createAutoLayout } from './pack';
 import { MAIN_VIEW_PADDING, preservedViewIds, viewConstants } from '@/components/view/constants';
 import { getEffectiveViewBox } from './geometry';

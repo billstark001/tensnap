@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { AnyView, ContainerView } from '@/types/ui';
+import { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { useScenarioStore } from '@/store/scenario/store';
 import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import type { MonitorState } from '@tensnap/core/monitor';

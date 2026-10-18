@@ -1,14 +1,14 @@
+import { archiveProjectFileContentInWorker } from '@/workers/project-archive';
 import { create, StoreApi, UseBoundStore } from 'zustand';
 import { createTransportStore, TransportStore } from './transport';
 import { generateUniqueId } from '@/utils/common';
 import {
-  archiveProjectFileContentInWorker,
   parseProjectFileContent,
   PROJECT_FILE_VERSION,
   ProjectSourceSchema,
   recoverProjectFileContent,
   type ProjectFileContent,
-} from '@/types/project';
+} from '@tensnap/core/persistence';
 import { decode, encode } from '@msgpack/msgpack';
 import { createHistoryStore } from './undo-redo';
 import type { HistoryState } from './history-model';

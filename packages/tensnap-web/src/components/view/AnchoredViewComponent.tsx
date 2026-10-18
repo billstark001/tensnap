@@ -1,4 +1,4 @@
-import { AnchoredView, ContainerView } from '@/types/ui';
+import { AnchoredView, ContainerView } from '@tensnap/core/persistence';
 import * as styles from './styles.css';
 import { useViewContext } from './useViewContext';
 import clsx from 'clsx';
