@@ -8,7 +8,10 @@ export class RecordingPlayback {
   private controller?: AbortController;
   private frameValue: number;
   private closed = false;
-  constructor(readonly reader: RecordingStoreReader) {
+  constructor(
+    readonly reader: RecordingStoreReader,
+    private readonly dispose?: () => void | Promise<void>,
+  ) {
     this.frameValue = reader.root.firstFrame;
   }
   get frame() {
@@ -52,7 +55,11 @@ export class RecordingPlayback {
       this.closed = true;
       this.selection++;
       this.controller?.abort();
-      await this.reader.close();
+      try {
+        await this.reader.close();
+      } finally {
+        await this.dispose?.();
+      }
     }
   }
 }

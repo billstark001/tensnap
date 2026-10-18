@@ -70,13 +70,13 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     await tx.store.put(bytes, this.key('root'));
     await tx.done;
   }
-  async *list(): AsyncGenerator<string> {
+  async *list(prefix = ''): AsyncGenerator<string> {
     const db = await this.open();
-    let after = this.key('');
+    let after = this.key(prefix);
     for (;;) {
       const keys = await db.getAllKeys(
         'objects',
-        IDBKeyRange.bound(after, `${this.prefix}/\uffff`, true, false),
+        IDBKeyRange.bound(after, `${this.key(prefix)}\uffff`, true, false),
         64,
       );
       if (!keys.length) break;
@@ -152,6 +152,7 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
     }
   }
   async pruneIndex(firstFrame: number) {
+    if (firstFrame <= 0) return;
     await (
       await this.open()
     ).delete(
@@ -159,13 +160,33 @@ export class IndexedDBRecordingStore implements RecordingStoreBackend {
       IDBKeyRange.bound([this.prefix, 0], [this.prefix, firstFrame], false, true),
     );
   }
-  async clearIndex() {
-    await (
-      await this.open()
-    ).delete(
-      'boundaries',
-      IDBKeyRange.bound([this.prefix, 0], [this.prefix, Number.MAX_SAFE_INTEGER]),
-    );
+  async rebuildIndex(rows: AsyncIterable<StoreIndexRow>) {
+    const db = await this.open();
+    const staging = `${this.prefix}:repair:${crypto.randomUUID()}`;
+    const stagingRange = IDBKeyRange.bound([staging, 0], [staging, Number.MAX_SAFE_INTEGER]);
+    try {
+      for await (const row of rows)
+        await db.put('boundaries', { ...row, prefix: staging }, [staging, row.frame]);
+      const tx = db.transaction('boundaries', 'readwrite');
+      await tx.store.delete(
+        IDBKeyRange.bound([this.prefix, 0], [this.prefix, Number.MAX_SAFE_INTEGER]),
+      );
+      let cursor = await tx.store.openCursor(stagingRange);
+      while (cursor) {
+        await tx.store.put({ ...cursor.value, prefix: this.prefix }, [
+          this.prefix,
+          cursor.value.frame,
+        ]);
+        cursor = await cursor.continue();
+      }
+      await tx.done;
+    } finally {
+      await db.delete('boundaries', stagingRange);
+    }
+  }
+  async close() {
+    (await this.database)?.close();
+    this.database = undefined;
   }
   private async lock(
     name: string,

@@ -395,7 +395,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   async openRecordingStore(owner, recordingId, indexHint) {
     const backend = new IndexedDBRecordingStore(owner, recordingId);
     const reader = await RecordingStoreReader.open(backend);
-    const playback = new RecordingPlayback(reader);
+    const playback = new RecordingPlayback(reader, () => backend.close());
     try {
       await playback.seek(reader.root.firstFrame);
       const { projects, setActive } = get();

@@ -14,7 +14,7 @@ export interface RecordingStoreBackend {
   read(key: string): Promise<Uint8Array>;
   put(key: string, bytes: Uint8Array): Promise<boolean>;
   publishRoot(expectedGeneration: number, bytes: Uint8Array): Promise<void>;
-  list(): AsyncIterable<string>;
+  list(prefix?: string): AsyncIterable<string>;
   remove(key: string): Promise<void>;
   acquireWriter(): Promise<() => Promise<void>>;
   pin(generation: number): Promise<() => Promise<void>>;
@@ -23,7 +23,7 @@ export interface RecordingStoreBackend {
   findIndex(query: StoreIndexQuery): Promise<StoreIndexRow | undefined>;
   frameIndex(firstFrame: number, lastFrame: number): AsyncIterable<StoreIndexRow>;
   pruneIndex(firstFrame: number): Promise<void>;
-  clearIndex(): Promise<void>;
+  rebuildIndex(rows: AsyncIterable<StoreIndexRow>): Promise<void>;
 }
 
 const hashSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -162,6 +162,7 @@ class Objects {
     this.cache = new LRUCache({ maxSize: maxCacheBytes, sizeCalculation: (value) => value.bytes });
   }
   async get<T>(ref: StoreReference): Promise<T> {
+    ref = referenceSchema.parse(ref);
     const cached = this.cache.get(ref.hash);
     if (cached) {
       return cached.value as T;
@@ -171,6 +172,15 @@ class Objects {
     this.stats.objectsRead++;
     if (bytes.length !== ref.bytes || (await storeHash(bytes)) !== ref.hash)
       throw new Error(`Corrupt store object ${ref.hash}.`);
+    // Gzip's trailer declares the uncompressed size. Validate it before allocating a decode buffer.
+    if (
+      bytes.length < 18 ||
+      new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
+        bytes.length - 4,
+        true,
+      ) !== ref.decodedBytes
+    )
+      throw new Error('Invalid decoded object length.');
     const raw = gunzipSync(bytes, { out: new Uint8Array(ref.decodedBytes) });
     if (raw.length !== ref.decodedBytes) throw new Error('Invalid decoded object length.');
     const value = decodeMessagePack<T>(raw);
@@ -252,10 +262,11 @@ export class RecordingStoreWriter {
     ] as const)
       if (options[key] !== undefined && (!Number.isSafeInteger(options[key]) || options[key]! < 1))
         throw new Error(`Invalid store ${key}.`);
+    options = structuredClone(options);
     const release = await backend.acquireWriter();
     try {
       let exists = false;
-      for await (const key of backend.list())
+      for await (const key of backend.list('root'))
         if (key === 'root') {
           exists = true;
           break;
@@ -290,8 +301,12 @@ export class RecordingStoreWriter {
   }): Promise<void> {
     if (this.closed || this.failure)
       return Promise.reject(this.failure ?? new Error('Store writer is closed.'));
-    if (!Number.isSafeInteger(input.location.frame) || input.location.frame! <= this.observedFrame)
-      return Promise.reject(new Error('Store boundaries must increase strictly.'));
+    if (
+      !Number.isSafeInteger(input.location.frame) ||
+      input.location.frame! < 0 ||
+      (this.observedFrame >= 0 && input.location.frame !== this.observedFrame + 1)
+    )
+      return Promise.reject(new Error('Store boundaries must be contiguous nonnegative integers.'));
     // Encoding transfers ownership now. A caller may mutate/reuse the input after this method returns.
     const first = this.observedFrame < 0;
     const bytes = encode({
@@ -460,9 +475,17 @@ export class RecordingStoreWriter {
   }
   private async publish(root: RecordingStoreRoot) {
     const bytes = encode(rootSchema.parse(root));
+    const previous = this.rootValue;
     await this.backend.put(`roots/${root.generation}`, bytes);
-    await this.backend.publishRoot(this.rootValue?.generation ?? 0, bytes);
+    await this.backend.publishRoot(previous?.generation ?? 0, bytes);
     this.rootValue = root;
+    // Retain only a bounded batch of obsolete roots; readers pin generations explicitly.
+    if (root.generation % 64 === 0) {
+      const pinned = new Set(await this.backend.pinnedGenerations());
+      for await (const key of this.backend.list('roots/'))
+        if (Number(key.slice(6)) !== root.generation && !pinned.has(Number(key.slice(6))))
+          await this.backend.remove(key);
+    }
   }
   async collect(): Promise<{ removedBytes: number }> {
     await this.chain;
@@ -473,6 +496,11 @@ export class RecordingStoreWriter {
       this.rootValue.generation,
       ...(await this.backend.pinnedGenerations()),
     ]);
+    if (this.rootValue.mode === 'full-history') {
+      for await (const key of this.backend.list('roots/'))
+        if (!keepGenerations.has(Number(key.slice(6)))) await this.backend.remove(key);
+      return { removedBytes: 0 };
+    }
     const reachable = new Set<string>();
     let minimumFrame = this.rootValue.firstFrame;
     const visitBoundary = async (ref: StoreReference): Promise<void> => {
@@ -553,12 +581,16 @@ export class RecordingStoreReader {
   ): Promise<RecordingStoreReader> {
     const root = rootSchema.parse(decodeMessagePack(await backend.read('root')));
     const release = await backend.pin(root.generation);
-    const latest = rootSchema.parse(decodeMessagePack(await backend.read('root')));
-    if (latest.generation !== root.generation) {
+    try {
+      const latest = rootSchema.parse(decodeMessagePack(await backend.read('root')));
+      if (latest.generation === root.generation)
+        return new RecordingStoreReader(backend, root, release, options.cacheBytes ?? 1024 * 1024);
+    } catch (error) {
       await release();
-      return this.open(backend, options);
+      throw error;
     }
-    return new RecordingStoreReader(backend, root, release, options.cacheBytes ?? 1024 * 1024);
+    await release();
+    return this.open(backend, options);
   }
   get root() {
     return structuredClone(this.rootValue);
@@ -638,8 +670,10 @@ export class RecordingStoreReader {
     if ((options.history ?? 'full') === 'full') {
       const scenario = new Scenario();
       scenario.load({ ...scene, charts: [], logs: [] });
-      const first = this.root.mode === 'rolling' ? this.root.firstFrame : 0;
+      const first = this.root.firstFrame;
+      let expected = first;
       for await (const entry of this.backend.frameIndex(first, frame)) {
+        if (entry.frame !== expected++) throw new Error('Committed stream index has a gap.');
         if (options.signal?.aborted) throw new Error('Store read cancelled.');
         const state = await this.boundary(entry.ref);
         const chunk = await this.objects.get<{
@@ -659,6 +693,7 @@ export class RecordingStoreReader {
           else for (const message of chunk.messages ?? []) scenario.apply(message);
         }
       }
+      if (expected !== frame + 1) throw new Error('Committed stream index is incomplete.');
       scene = {
         ...scene,
         charts: scenario.charts.dump(),
@@ -676,19 +711,20 @@ export class RecordingStoreReader {
       capturedAt: boundary.timestamp,
       scene,
       modelIdentity: structuredClone(this.root.modelIdentity),
-      source: boundary.provenance
-        ? structuredClone(boundary.provenance)
-        : {
-            kind: 'recording',
-            recordingId: this.root.id,
-            frame,
-            actionRequestId: boundary.location.actionRequestId,
-            modelTime: boundary.location.modelTime,
-            commitRevision:
-              typeof boundary.location.revision === 'number'
-                ? boundary.location.revision
-                : undefined,
-          },
+      source:
+        boundary.provenance?.kind === 'recording'
+          ? structuredClone(boundary.provenance)
+          : {
+              kind: 'recording',
+              recordingId: this.root.id,
+              frame,
+              actionRequestId: boundary.location.actionRequestId,
+              modelTime: boundary.location.modelTime,
+              commitRevision:
+                typeof boundary.location.revision === 'number'
+                  ? boundary.location.revision
+                  : undefined,
+            },
       checkpoint: structuredClone(boundary.checkpoint),
       consistency: boundary.checkpoint ? 'aligned' : 'renderer-only',
       checkpointStatus: boundary.checkpoint ? 'captured' : 'unavailable',
@@ -704,10 +740,29 @@ export class RecordingStoreReader {
       to > this.root.lastFrame
     )
       throw new Error('Invalid store range.');
+    options = { ...options };
+    const streams = new Scenario();
+    let expected = from;
     for await (const entry of this.backend.frameIndex(from, to)) {
       if (options.signal?.aborted) throw new Error('Store range cancelled.');
-      yield await this.readFrame(entry.frame, options);
+      if (entry.frame !== expected++) throw new Error('Committed range has a gap.');
+      const captured = await this.readFrame(entry.frame, {
+        history: entry.frame === from ? 'full' : 'active',
+        signal: options.signal,
+      });
+      if (entry.frame === from) streams.load({ ...captured.scene, environments: [], assets: [] });
+      else {
+        const boundary = await this.boundary(entry.ref);
+        const chunk = await this.objects.get<{ messages?: SnapshotFrame['messages'] }>(
+          boundary.stream,
+        );
+        for (const message of chunk.messages ?? []) streams.apply(message);
+        captured.scene.charts = streams.charts.dump();
+        captured.scene.logs = structuredClone([...streams.logs]);
+      }
+      yield captured;
     }
+    if (expected !== to + 1) throw new Error('Committed range is incomplete.');
   }
   async nextLocation(frame: number): Promise<QueryLocation | undefined> {
     this.assertOpen();
@@ -736,7 +791,13 @@ export class RecordingStoreReader {
 
   /** Range copy streams one independent scene and its stream delta at a time. */
   async exportRange(writer: RecordingStoreWriter, from: number, to: number, signal?: AbortSignal) {
-    if (from > to || from < this.root.firstFrame || to > this.root.lastFrame)
+    if (
+      !Number.isSafeInteger(from) ||
+      !Number.isSafeInteger(to) ||
+      from > to ||
+      from < this.root.firstFrame ||
+      to > this.root.lastFrame
+    )
       throw new Error('Invalid export range.');
     let first = true;
     for await (const location of this.locations(from, to, signal)) {
@@ -784,6 +845,7 @@ export class RecordingStoreReader {
     let previous: StoreReference | undefined;
     let count = 0;
     try {
+      let expected = this.root.firstFrame;
       for await (const entry of this.backend.frameIndex(
         this.root.firstFrame,
         this.root.lastFrame,
@@ -791,6 +853,7 @@ export class RecordingStoreReader {
         try {
           const state = await this.boundary(entry.ref);
           if (
+            entry.frame !== expected++ ||
             state.location.frame !== entry.frame ||
             (previous && state.previous?.hash !== previous.hash)
           )
@@ -817,6 +880,9 @@ export class RecordingStoreReader {
       errors.push({
         reason: 'Committed index is incomplete; rebuild it from immutable segment descriptors.',
       });
+    let observed = this.root.observedFrame;
+    for await (const key of this.backend.list('segments/'))
+      observed = Math.max(observed, Number(key.slice(9)));
     return {
       generation: this.root.generation,
       status: this.root.status === 'open' ? 'interrupted' : this.root.status,
@@ -824,8 +890,8 @@ export class RecordingStoreReader {
       recoverablePrefix:
         lastFrame === undefined ? undefined : { from: this.root.firstFrame, to: lastFrame },
       uncommittedRange:
-        this.root.observedFrame > this.root.lastFrame
-          ? { from: this.root.lastFrame + 1, to: this.root.observedFrame }
+        observed > this.root.lastFrame
+          ? { from: this.root.lastFrame + 1, to: observed }
           : undefined,
       complete: this.root.status === 'complete' && errors.length === 0,
       errors,
@@ -836,5 +902,49 @@ export class RecordingStoreReader {
       this.closed = true;
       await this.release();
     }
+  }
+}
+
+/** Rebuild only the derived index. Immutable history is verified and never rewritten. */
+export async function rebuildRecordingStoreIndex(backend: RecordingStoreBackend): Promise<void> {
+  const release = await backend.acquireWriter();
+  try {
+    const root = rootSchema.parse(decodeMessagePack(await backend.read('root')));
+    const objects = new Objects(backend, 1024 * 1024);
+    async function* rows(): AsyncGenerator<StoreIndexRow> {
+      let expected = root.firstFrame;
+      let previous: StoreReference | undefined;
+      for await (const key of backend.list('segments/')) {
+        const frame = Number(key.slice(9));
+        if (frame < root.firstFrame || frame > root.lastFrame) continue;
+        if (frame !== expected++) throw new Error('Committed segment descriptors have a gap.');
+        const row = decodeMessagePack<StoreIndexRow>(await backend.read(key));
+        const state = boundarySchema.parse(await objects.get(row.ref)) as StoredBoundary;
+        if (
+          row.frame !== frame ||
+          state.location.frame !== frame ||
+          (previous && state.previous?.hash !== previous.hash)
+        )
+          throw new Error('Committed segment chain is corrupt.');
+        await objects.get(state.stream);
+        for (const asset of state.assets) await objects.get(asset.ref);
+        previous = row.ref;
+        yield {
+          frame,
+          time: state.location.modelTime,
+          requestId: state.location.actionRequestId,
+          ref: row.ref,
+        };
+      }
+      if (
+        expected !== root.lastFrame + 1 ||
+        previous?.hash !== root.lastSegment.hash ||
+        expected - root.firstFrame !== root.count
+      )
+        throw new Error('Committed segment descriptors are incomplete.');
+    }
+    await backend.rebuildIndex(rows());
+  } finally {
+    await release();
   }
 }

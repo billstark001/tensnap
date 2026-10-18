@@ -23,11 +23,14 @@ export async function withRecordingStore<T>(
   callback: (reader: RecordingStoreReader) => Promise<T>,
 ): Promise<T> {
   const backend = new NodeRecordingStore(path);
-  const reader = await RecordingStoreReader.open(backend);
   try {
-    return await callback(reader);
+    const reader = await RecordingStoreReader.open(backend);
+    try {
+      return await callback(reader);
+    } finally {
+      await reader.close();
+    }
   } finally {
-    await reader.close();
     backend.close();
   }
 }
@@ -49,7 +52,9 @@ export async function readRecordingBoundary(
   }
   const document = await readRecording(path, snapshotId);
   const position = selectRecordingFrame(document.snapshot, selection);
-  return { position, frame: frameFromRecording(document.snapshot, position.frame) };
+  const frame = frameFromRecording(document.snapshot, position.frame);
+  if (document.origin) frame.source = { kind: 'recording', ...document.origin };
+  return { position, frame };
 }
 export async function inspectRecordingBoundary(
   path: string,

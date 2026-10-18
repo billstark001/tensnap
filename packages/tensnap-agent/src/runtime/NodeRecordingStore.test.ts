@@ -145,7 +145,7 @@ it('detects committed object corruption without jumping across the damaged bound
   const reader = await RecordingStoreReader.open(backend);
   const root = reader.root;
   await reader.close();
-  const db = new DatabaseSync(join(path, 'index.sqlite'));
+  const db = new DatabaseSync(join(path, 'objects.sqlite'));
   const row = db
     .prepare('SELECT bytes FROM objects WHERE key=?')
     .get(`objects/${root.streamStart.hash}`)!;
@@ -161,3 +161,93 @@ it('detects committed object corruption without jumping across the damaged bound
   expect((await damaged.recover()).errors.length).toBeGreaterThan(0);
   await damaged.close();
 });
+
+it('rebuilds a missing derived index from immutable descriptors without changing history', async () => {
+  const path = await directory(),
+    backend = new NodeRecordingStore(path);
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'rebuild',
+    mode: 'full-history',
+  });
+  const scenario = new Scenario();
+  for (let i = 0; i < 4; i++) await writer.append(input(scenario, i, [3, 1, 3, -1][i]));
+  await writer.close();
+  const db = new DatabaseSync(join(path, 'index.sqlite'));
+  db.exec('DELETE FROM boundaries WHERE frame = 0');
+  db.close();
+  const damaged = await RecordingStoreReader.open(backend);
+  expect(await damaged.recover()).toMatchObject({ complete: false, recoverablePrefix: undefined });
+  await damaged.close();
+  const { rebuildRecordingStoreIndex } = await import('@tensnap/core/persistence');
+  await rebuildRecordingStoreIndex(backend);
+  const reader = await RecordingStoreReader.open(backend);
+  expect(await reader.recover()).toMatchObject({
+    complete: true,
+    committedRange: { from: 0, to: 3 },
+  });
+  expect(await reader.select({ time: 3, match: 'last' })).toMatchObject({ frame: 2 });
+  await reader.close();
+  backend.close();
+});
+
+it('exports a nonzero origin with full chart history and reads ranges without rescanning each prefix', async () => {
+  const backend = new NodeRecordingStore(await directory());
+  const writer = await RecordingStoreWriter.create(backend, { id: 'source', mode: 'full-history' });
+  const scenario = new Scenario();
+  scenario.apply({ type: 'chart_create', payload: { id: 'c', label: 'C' } });
+  for (let i = 0; i < 12; i++) {
+    const update = {
+      type: 'chart_update' as const,
+      payload: { updates: [{ id: 'c', time: i, value: i }] },
+    };
+    scenario.apply(update);
+    const boundary = input(scenario, i);
+    boundary.frame.messages.push(update as never);
+    await writer.append(boundary);
+  }
+  await writer.close();
+  const reader = await RecordingStoreReader.open(backend, { cacheBytes: 128 });
+  const target = new NodeRecordingStore(await directory());
+  const output = await RecordingStoreWriter.create(target, { id: 'range', mode: 'full-history' });
+  await reader.exportRange(output, 5, 11);
+  await output.close();
+  const copy = await RecordingStoreReader.open(target, { cacheBytes: 128 });
+  expect((await copy.readFrame(11)).scene.charts[0].data).toHaveLength(12);
+  const before = copy.metrics.objectsRead;
+  for await (const frame of copy.range(5, 11))
+    expect(frame.scene.charts[0].data.length).toBe(frame.source.frame! + 1);
+  expect(copy.metrics.objectsRead - before).toBeLessThan(40);
+  await copy.close();
+  await reader.close();
+  backend.close();
+  target.close();
+});
+
+it.each(['objects/', 'segments/', 'index', 'root'])(
+  'keeps a readable committed prefix on a %s write failure',
+  async (stage) => {
+    let fail = false;
+    const backend = new NodeRecordingStore(await directory(), (_stage, key) => {
+      if (fail && key.startsWith(stage)) {
+        fail = false;
+        throw new Error('write fault');
+      }
+    });
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'fault',
+      mode: 'full-history',
+    });
+    const scenario = new Scenario();
+    await writer.append(input(scenario, 0));
+    fail = true;
+    await expect(writer.append(input(scenario, 1))).rejects.toThrow('write fault');
+    const reader = await RecordingStoreReader.open(backend);
+    expect(await reader.recover()).toMatchObject({
+      complete: false,
+      recoverablePrefix: { from: 0, to: 0 },
+    });
+    await reader.close();
+    await writer.close().catch(() => {});
+    backend.close();
+  },
+);

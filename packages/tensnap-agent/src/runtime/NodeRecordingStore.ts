@@ -27,14 +27,26 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     readonly directory: string,
     private readonly fault?: (stage: 'object' | 'root', key: string) => void | Promise<void>,
   ) {}
+  private objectDatabase?: SQLiteDatabase;
+  private async objects() {
+    if (!this.objectDatabase) {
+      const { DatabaseSync } = await import('node:sqlite');
+      await mkdir(this.directory, { recursive: true });
+      const db = new DatabaseSync(join(this.directory, 'objects.sqlite'));
+      db.exec(
+        'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-1024; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS objects(key TEXT PRIMARY KEY, bytes BLOB NOT NULL);',
+      );
+      this.objectDatabase = db;
+    }
+    return this.objectDatabase;
+  }
   private indexDatabase?: SQLiteDatabase;
   private async index() {
     if (!this.indexDatabase) {
       const { DatabaseSync } = await import('node:sqlite');
       await mkdir(this.directory, { recursive: true });
       const db = new DatabaseSync(join(this.directory, 'index.sqlite'));
-      db.exec(`PRAGMA journal_mode=WAL; PRAGMA cache_size=-1024; PRAGMA busy_timeout=5000;
-        CREATE TABLE IF NOT EXISTS objects(key TEXT PRIMARY KEY, bytes BLOB NOT NULL);
+      db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-1024; PRAGMA busy_timeout=5000;
         CREATE TABLE IF NOT EXISTS boundaries(frame INTEGER PRIMARY KEY, time REAL, request TEXT, ref BLOB NOT NULL);
         CREATE INDEX IF NOT EXISTS by_time ON boundaries(time, frame);
         CREATE INDEX IF NOT EXISTS by_request ON boundaries(request, frame);`);
@@ -91,12 +103,22 @@ export class NodeRecordingStore implements RecordingStoreBackend {
   async pruneIndex(firstFrame: number) {
     (await this.index()).prepare('DELETE FROM boundaries WHERE frame < ?').run(firstFrame);
   }
-  async clearIndex() {
-    (await this.index()).exec('DELETE FROM boundaries;');
+  async rebuildIndex(rows: AsyncIterable<StoreIndexRow>) {
+    const db = await this.index();
+    db.exec('BEGIN IMMEDIATE; DELETE FROM boundaries;');
+    try {
+      for await (const row of rows) await this.putIndex(row);
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
   }
   close() {
     this.indexDatabase?.close();
     this.indexDatabase = undefined;
+    this.objectDatabase?.close();
+    this.objectDatabase = undefined;
   }
 
   private path(key: string) {
@@ -114,7 +136,9 @@ export class NodeRecordingStore implements RecordingStoreBackend {
   async read(key: string): Promise<Uint8Array> {
     this.path(key);
     if (this.isDatabaseKey(key)) {
-      const row = (await this.index()).prepare('SELECT bytes FROM objects WHERE key = ?').get(key);
+      const row = (await this.objects())
+        .prepare('SELECT bytes FROM objects WHERE key = ?')
+        .get(key);
       if (!row) throw Object.assign(new Error(`Missing store object: ${key}`), { code: 'ENOENT' });
       return Uint8Array.from(row.bytes as Uint8Array);
     }
@@ -124,7 +148,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     const path = this.path(key);
     if (this.isDatabaseKey(key)) {
       await this.fault?.('object', key);
-      const db = await this.index();
+      const db = await this.objects();
       const result = db
         .prepare('INSERT OR IGNORE INTO objects(key,bytes) VALUES(?,?)')
         .run(key, bytes);
@@ -150,8 +174,8 @@ export class NodeRecordingStore implements RecordingStoreBackend {
     await this.fault?.('root', 'root');
     await writeFileAtomically(this.path('root'), bytes);
   }
-  async *list(): AsyncGenerator<string> {
-    async function* visit(directory: string, prefix: string): AsyncGenerator<string> {
+  async *list(prefix = ''): AsyncGenerator<string> {
+    async function* visit(directory: string, relative: string): AsyncGenerator<string> {
       let entries;
       try {
         entries = await opendir(directory);
@@ -160,17 +184,24 @@ export class NodeRecordingStore implements RecordingStoreBackend {
         throw error;
       }
       for await (const entry of entries) {
-        const key = `${prefix}${entry.name}`;
-        if (entry.isDirectory()) yield* visit(join(directory, entry.name), `${key}/`);
-        else if (!key.startsWith('index.sqlite')) yield key;
+        const key = `${relative}${entry.name}`;
+        if (entry.isDirectory()) {
+          if (prefix.startsWith(`${key}/`) || key.startsWith(prefix))
+            yield* visit(join(directory, entry.name), `${key}/`);
+        } else if (
+          !key.startsWith('index.sqlite') &&
+          !key.startsWith('objects.sqlite') &&
+          key.startsWith(prefix)
+        )
+          yield key;
       }
     }
-    const db = await this.index();
-    let after = '';
+    const db = await this.objects();
+    let after = prefix;
     for (;;) {
       const rows = db
-        .prepare('SELECT key FROM objects WHERE key > ? ORDER BY key LIMIT 64')
-        .all(after);
+        .prepare('SELECT key FROM objects WHERE key > ? AND key < ? ORDER BY key LIMIT 64')
+        .all(after, `${prefix}\uffff`);
       if (!rows.length) break;
       for (const row of rows) yield String(row.key);
       after = String(rows[rows.length - 1].key);
@@ -180,7 +211,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
   async remove(key: string) {
     this.path(key);
     if (this.isDatabaseKey(key)) {
-      (await this.index()).prepare('DELETE FROM objects WHERE key = ?').run(key);
+      (await this.objects()).prepare('DELETE FROM objects WHERE key = ?').run(key);
       return;
     }
     const { unlink } = await import('node:fs/promises');
@@ -217,7 +248,7 @@ export class NodeRecordingStore implements RecordingStoreBackend {
   }
   async pinnedGenerations() {
     const generations = new Set<number>();
-    for await (const key of this.list())
+    for await (const key of this.list('pins/'))
       if (key.startsWith('pins/')) {
         const { pid } = decodeMessagePack<{ pid: number }>(await this.read(key));
         if (alive(pid)) generations.add(Number(key.slice(5).split('.')[0]));
