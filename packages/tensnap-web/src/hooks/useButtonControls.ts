@@ -44,10 +44,11 @@ export function useButtonControls() {
   useEffect(() => {
     if (!recordingPlaying || !recordingPlayback || !activeProject) return;
     let cancelled = false;
+    const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const next = async () => {
       try {
-        const scene = await recordingPlayback.step();
+        const scene = await recordingPlayback.step(controller.signal);
         if (cancelled) return;
         if (!scene) {
           setPlayingRecording(undefined);
@@ -67,6 +68,7 @@ export function useButtonControls() {
     void next();
     return () => {
       cancelled = true;
+      controller.abort();
       if (timer) clearTimeout(timer);
     };
   }, [recordingPlaying, recordingPlayback, activeProject, snapshotPlaybackFps, toast, _]);
@@ -110,7 +112,8 @@ export function useButtonControls() {
           if (action === 'step' || action === 'reset') {
             void (action === 'step' ? recordingPlayback.step() : recordingPlayback.reset())
               .then((scene) => {
-                if (scene) activeProject.useScenarioStore.getState().load(scene.dump());
+                if (scene && activeProject.recordingPlayback === recordingPlayback)
+                  activeProject.useScenarioStore.getState().load(scene.dump());
               })
               .catch((error) => toast.error(_(msg`Snapshot playback`), String(error)));
           }

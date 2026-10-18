@@ -394,7 +394,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   async openRecordingStore(owner, recordingId, indexHint) {
     const backend = new IndexedDBRecordingStore(owner, recordingId);
-    const reader = await RecordingStoreReader.open(backend);
+    const reader = await RecordingStoreReader.open(backend).catch(async (error) => {
+      await backend.close();
+      throw error;
+    });
     const playback = new RecordingPlayback(reader, () => backend.close());
     try {
       await playback.seek(reader.root.firstFrame);
@@ -557,7 +560,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // From here on every operation consumes a validated in-memory snapshot.
       const playback = new SnapshotPlaybackSource(snapshot);
       const nextScenario = playback.scenario.dump();
-      void project.recordingPlayback?.close();
+      await project.recordingPlayback?.close();
+      project.recordingPlayback = undefined;
+      project.recordingStoreLink = undefined;
       project.useTransportStore.getState().destroy();
       scenarioStore.session.resetSimulatorIdentity();
       scenarioStore.load(nextScenario);
@@ -570,6 +575,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await project.useTransportStore
         .getState()
         .changeTransport(connectionId, undefined, { resetSimulatorIdentity: true });
+      await project.recordingPlayback?.close();
+      project.recordingPlayback = undefined;
+      project.recordingStoreLink = undefined;
       project.snapshotPlayback = undefined;
     }
 
@@ -588,7 +596,9 @@ function closeProject(
   const project = projects[index];
   if (!project) return;
 
-  void project.recordingPlayback?.close();
+  void project.recordingPlayback
+    ?.close()
+    .catch((error) => console.error('Recording playback cleanup failed.', error));
   project.useTransportStore.getState().destroy();
   project.useScenarioStore.getState().clearAll();
   const nextProjects = [...projects];

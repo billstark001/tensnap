@@ -883,3 +883,26 @@ describe('ProjectStore', () => {
     expect(project.source).toEqual({ kind: 'websocket', url: 'ws://stable.example' });
   });
 });
+
+it('releases store playback and its save link when selecting a different project source', async () => {
+  useProjectStore.setState({ projects: [], activeIndex: null, activeProject: null });
+  const initial = createSingleSnapshot(emptyScenario(), { id: 'initial' });
+  const next = createSingleSnapshot(emptyScenario(), { id: 'next' });
+  useProjectStore.getState().openOfflineSnapshot(initial);
+  const project = useProjectStore.getState().activeProject!;
+  const close = vi.fn(async () => {});
+  project.recordingPlayback = { close } as unknown as NonNullable<typeof project.recordingPlayback>;
+  project.recordingStoreLink = {
+    kind: 'tensnap-recording-store-link',
+    version: 1,
+    owner: 'o',
+    recordingId: 'initial',
+  };
+  project.useScenarioStore.setState({ snapshots: [initial, next] });
+  await useProjectStore.getState().changeSource(0, { kind: 'snapshot', snapshot_id: 'next' });
+  expect(close).toHaveBeenCalledOnce();
+  expect(project.recordingPlayback).toBeUndefined();
+  expect(project.recordingStoreLink).toBeUndefined();
+  expect(project.snapshotPlayback?.snapshot.metadata.id).toBe('next');
+  useProjectStore.getState().close(0);
+});
