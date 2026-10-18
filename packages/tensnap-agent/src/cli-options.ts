@@ -6,6 +6,9 @@ import type { SkillOptions } from './skills';
 import type { ScenarioQuery, FieldPath } from '@tensnap/core/scenario';
 
 export interface CliOptions extends SkillOptions {
+  cursor?: string;
+  offset?: number;
+  rebuildIndex?: boolean;
   collection?: string;
   store?: string;
   query?: ScenarioQuery;

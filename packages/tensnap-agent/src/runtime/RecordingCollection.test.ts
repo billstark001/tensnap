@@ -175,3 +175,98 @@ it('preserves action failure and partial post-windows without dispatching replac
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it.each(['truncate', 'stop', 'fail'] as const)(
+  'honors %s checkpoint overflow at the actual sampling boundary',
+  async (overflow) => {
+    const directory = await mkdtemp(join(tmpdir(), 'tensnap-checkpoint-budget-'));
+    const backend = new NodeRecordingStore(directory);
+    const { session, sent } = harness();
+    const limited: CollectionConfig = {
+      ...config,
+      rules: [],
+      checkpoints: { ...config.checkpoints, every: 1, maxBytes: 0, overflow },
+    };
+    try {
+      const writer = await RecordingStoreWriter.create(backend, { id: 'budget', ...limited });
+      if (overflow === 'fail' || overflow === 'stop') {
+        await expect(RecordingCollection.start(session, writer, limited)).rejects.toThrow(/budget/);
+        expect(sent.filter((m) => m.type === 'action_invoke')).toHaveLength(0);
+      } else {
+        const collection = await RecordingCollection.start(session, writer, limited);
+        const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 3 });
+        await session.run.waitForSettled(run.id);
+        await collection.close();
+        expect(collection.status.checkpointTruncated).toBe(true);
+        expect(sent.filter((m) => m.type === 'action_invoke')).toHaveLength(3);
+      }
+    } finally {
+      backend.close();
+      session.run.reset();
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+it('samples checkpoints without repeated stop hooks and labels the one real lifecycle boundary', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tensnap-lifecycle-'));
+  const backend = new NodeRecordingStore(directory);
+  const { session, sent } = harness();
+  session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
+  try {
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'lifecycle',
+      ...config,
+      modelIdentity: { model_id: 'm' },
+    });
+    const collection = await RecordingCollection.start(session, writer, config);
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 3 });
+    await session.run.waitForSettled(run.id);
+    await collection.close();
+    expect(
+      sent.filter(
+        (m) => m.type === 'action_invoke' && (m.payload as ActionInvokePayload).id === 'step',
+      ),
+    ).toHaveLength(3);
+    expect(
+      sent.filter(
+        (m) => m.type === 'action_invoke' && (m.payload as ActionInvokePayload).id === 'stop',
+      ),
+    ).toHaveLength(1);
+    expect(collection.status.error).toBeUndefined();
+    const reader = await RecordingStoreReader.open(backend);
+    expect((await reader.readFrame(4)).source.actionRequestId).toBeDefined();
+    expect(reader.root.lastFrame).toBe(4);
+    await reader.close();
+  } finally {
+    backend.close();
+    session.run.reset();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it('fails explicitly on autonomous updates while a collection boundary is held', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tensnap-autonomous-'));
+  const backend = new NodeRecordingStore(directory);
+  const { session } = harness();
+  try {
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'autonomous',
+      ...config,
+      modelIdentity: { model_id: 'm' },
+    });
+    const collection = await RecordingCollection.start(session, writer, config);
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+    await expect(collection.close()).rejects.toThrow(/Autonomous/);
+    expect(collection.status).toMatchObject({
+      state: 'failed',
+      committedFrame: 0,
+      observedFrame: 1,
+    });
+  } finally {
+    backend.close();
+    session.run.reset();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

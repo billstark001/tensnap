@@ -12,7 +12,11 @@ import {
   exportRecordingFrame,
 } from './runtime/recording-files';
 import { readCapturedFrame, compareCapturedFrames, FrameSaveError } from './runtime/frame-files';
-import { RecordingStoreWriter, type RecordingSelection } from '@tensnap/core/persistence';
+import {
+  RecordingStoreWriter,
+  rebuildRecordingStoreIndex,
+  type RecordingSelection,
+} from '@tensnap/core/persistence';
 import { monitorHistory, diffCapturedFrames, ComparisonPolicySchema } from '@tensnap/core/snapshot';
 import { ScenarioQuerySchema, type ScenarioQuery } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from './types';
@@ -506,12 +510,14 @@ export function createProgram(
     addOptions(command, [
       jsonOption('--fields <json>', 'Selected field paths.', 'array'),
       numericOption('--limit <n>', 'Page size.', 'integer'),
+      new Option('--cursor <json>', 'Continue a query at the same revision.'),
     ]);
     handle(command, async (options, [id]) => {
       const query = parseQuery({
         selector: { kind: 'monitor', ...(id ? { id } : {}) },
         fields: options.fields,
         limit: options.limit,
+        cursor: options.cursor,
       });
       const { baseUrl } = await requireRuntime(options);
       printJson(
@@ -1051,9 +1057,23 @@ export function createProgram(
   const recover = recording
     .command('recover <directory>')
     .description('Verify the committed prefix without dispatching simulator actions.');
-  handle(recover, async (_options, [path]) =>
-    printJson({ outputVersion: '1' }, await withRecordingStore(path, (reader) => reader.recover())),
-  );
+  addOptions(recover, [
+    new Option(
+      '--rebuild-index',
+      'Verify immutable segments and atomically rebuild the derived index.',
+    ),
+  ]);
+  handle(recover, async (options, [path]) => {
+    if (options.rebuildIndex) {
+      const backend = new NodeRecordingStore(path);
+      try {
+        await rebuildRecordingStoreIndex(backend);
+      } finally {
+        backend.close();
+      }
+    }
+    printJson({ outputVersion: '1' }, await withRecordingStore(path, (reader) => reader.recover()));
+  });
   const exportRange = recording
     .command('export-range <directory>')
     .description('Stream a retained range into a new independent store.');
@@ -1071,6 +1091,13 @@ export function createProgram(
     )
       throw new CliInputError('Specify a valid --from/--to frame range.');
     await withRecordingStore(path, async (reader) => {
+      if (
+        !Number.isSafeInteger(options.from) ||
+        !Number.isSafeInteger(options.to) ||
+        options.from! < reader.root.firstFrame ||
+        options.to! > reader.root.lastFrame
+      )
+        throw new CliInputError('Export range is outside retained boundaries.');
       const backend = new NodeRecordingStore(options.output!);
       const writer = await RecordingStoreWriter.create(backend, {
         id: crypto.randomUUID(),
@@ -1189,6 +1216,7 @@ export function createProgram(
     addOptions(command, [
       new Option('--policy <file>', 'Comparison policy JSON file.'),
       numericOption('--limit <n>', 'Maximum reported differences.', 'integer'),
+      numericOption('--offset <n>', 'Continue at a difference offset.'),
     ]);
     if (recordingFiles)
       addOptions(command, [
@@ -1196,6 +1224,16 @@ export function createProgram(
         numericOption('--right-frame <index>', 'Right retained frame.').makeOptionMandatory(),
       ]);
     handle(command, async (options, [left, right]) => {
+      if (
+        (options.limit !== undefined && options.limit > 10000) ||
+        (options.offset !== undefined &&
+          (!Number.isSafeInteger(options.offset) || options.offset < 0)) ||
+        (recordingFiles &&
+          ![options.leftFrame, options.rightFrame].every(
+            (frame) => Number.isSafeInteger(frame) && frame! >= 0,
+          ))
+      )
+        throw new CliInputError('Invalid diff page/frame selector.');
       let policy;
       try {
         policy = ComparisonPolicySchema.parse(
@@ -1205,12 +1243,22 @@ export function createProgram(
         throw new ArtifactInputError(error);
       }
       const a = recordingFiles
-        ? (await readRecordingBoundary(left, { frame: options.leftFrame! })).frame
-        : (await readCapturedFrame(left)).frame;
+        ? await readRecordingBoundary(left, { frame: options.leftFrame! })
+        : await readCapturedFrame(left);
       const b = recordingFiles
-        ? (await readRecordingBoundary(right, { frame: options.rightFrame! })).frame
-        : (await readCapturedFrame(right)).frame;
-      printJson({ outputVersion: '1' }, diffCapturedFrames(a, b, policy, { limit: options.limit }));
+        ? await readRecordingBoundary(right, { frame: options.rightFrame! })
+        : await readCapturedFrame(right);
+      printJson(
+        { outputVersion: '1' },
+        {
+          ...diffCapturedFrames(a.frame, b.frame, policy, {
+            limit: options.limit,
+            offset: options.offset,
+          }),
+          ...('position' in a ? { leftPosition: a.position } : {}),
+          ...('position' in b ? { rightPosition: b.position } : {}),
+        },
+      );
     });
   }
   const frameSave = frame

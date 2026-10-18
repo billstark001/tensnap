@@ -6,6 +6,7 @@ import type {
 } from '../transport';
 import type {
   ActionResultPayload,
+  ActionInvokePayload,
   ProtocolEncoding,
   RendererToSimulatorMessage,
 } from '@tensnap/protocol';
@@ -1177,4 +1178,29 @@ describe('fixed frame capture and renderer-local restore history', () => {
     expect(await restore).toMatchObject({ modelStatus: 'failed', historyStatus: 'unchanged' });
     expect(session.scenario.dump().charts).toEqual(charts);
   });
+});
+
+it('cancels a held boundary capture without resuming automatic actions or accepting overlapping controls', async () => {
+  const sent: RendererToSimulatorMessage[] = [];
+  const session = new RendererSession();
+  session.attachTransport(createTransport(sent));
+  announce(session);
+  const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 3 });
+  const controller = new AbortController();
+  const capture = session.captureBoundaryFrame({ signal: controller.signal });
+  expect(() => session.setParameter('p', 1)).toThrow(/capture/);
+  expect(() => session.requestStateSync()).toThrow(/capture/);
+  await expect(session.captureScene()).rejects.toThrow(/capture/);
+  controller.abort();
+  await expect(capture).rejects.toThrow(/aborted/);
+  const request = sent.find((m) => m.type === 'action_invoke')!;
+  const payload = request.payload as ActionInvokePayload;
+  session.handleIncoming({
+    type: 'action_result',
+    payload: { id: payload.id, request_id: payload.request_id },
+  });
+  session.run.markActionRendered(payload);
+  expect((await session.run.waitForSettled(run.id)).dispatchedActions).toBe(1);
+  expect(sent.filter((m) => m.type === 'action_invoke')).toHaveLength(1);
+  session.destroy();
 });

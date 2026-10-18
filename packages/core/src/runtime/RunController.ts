@@ -290,7 +290,6 @@ export class RunController {
     return this.activeRun?.state === 'paused';
   }
 
-  /** True while any simulator action, including the lifecycle stop hook, is active. */
   /** Gate future dispatch without stopping or settling the run. Release is idempotent. */
   holdActionBoundary(): () => void {
     const release = this.runtime.holdDispatch();
@@ -303,6 +302,7 @@ export class RunController {
     };
   }
 
+  /** True while any simulator action, including the lifecycle stop hook, is active. */
   get hasInFlightAction(): boolean {
     return this.runtime.peekActiveTaskRef() !== null;
   }

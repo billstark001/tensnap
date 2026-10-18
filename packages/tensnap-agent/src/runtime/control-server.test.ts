@@ -423,3 +423,63 @@ it('serves the same control runtime on both localhost families at port zero', as
     await server.close();
   }
 });
+
+it('waits for collection persistence by run ID and rejects concurrent collection-start mutations', async () => {
+  const { runtime, renderer, server, baseUrl } = await createRuntimeServer();
+  attachConnectedTransport(renderer, (message) => {
+    if (message.type === 'action_invoke')
+      queueMicrotask(() => {
+        renderer.handleIncoming({ type: 'metadata_update', payload: { time: 1 } });
+        renderer.handleIncoming({
+          type: 'action_result',
+          payload: { id: message.payload.id, request_id: message.payload.request_id },
+        });
+      });
+  });
+  const config = {
+    version: 1 as const,
+    mode: 'full-history' as const,
+    maxStoredBytes: 1024 * 1024,
+    liveHistory: { chartPoints: 2, logs: 2 },
+    rules: [],
+    window: { before: 0, after: 0 },
+    maxTriggers: 1,
+    checkpoints: {
+      policy: 'none' as const,
+      onTrigger: false,
+      maxCount: 0,
+      maxBytes: 0,
+      overflow: 'fail' as const,
+    },
+  };
+  try {
+    const output = join(tempDirs[tempDirs.length - 1], 'collected.store');
+    const starting = runtime.startCollectedRun(
+      { mode: 'bounded', actionId: 'step', maxSteps: 1 },
+      config,
+      output,
+    );
+    config.liveHistory.chartPoints = 999;
+    await expect(runtime.runAction('other')).rejects.toThrow(/collection/);
+    expect(() => runtime.startRun({ mode: 'bounded', actionId: 'other', maxSteps: 1 })).toThrow(
+      /collection/,
+    );
+    const accepted = await starting;
+    const response = await fetch(`${baseUrl}/v1/runs/${accepted.id}/wait`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ until: 'persisted', timeoutMs: 3000 }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      run: {
+        completedActions: 1,
+        recording: { status: 'persisted' },
+        collection: { committedFrame: 1, state: 'complete' },
+      },
+    });
+  } finally {
+    await server.close();
+    await runtime.stop();
+  }
+});

@@ -60,3 +60,22 @@ it('matches typed entities while preserving ordinary array order and reports inc
   });
   expect(diffCapturedFrames(a, b, {}, { offset: 1 }).changes).toHaveLength(1);
 });
+
+it('selects explicit typed objects without hiding the remaining exact changes', () => {
+  const a = frame(),
+    b = frame();
+  a.scene.metadata.time = 1;
+  b.scene.metadata.time = 2;
+  expect(
+    diffCapturedFrames(a, b, { objects: [{ kind: 'monitor', id: 'diagnostic' }] }),
+  ).toMatchObject({
+    exactSceneEqual: false,
+    selectedEqual: true,
+    changeCount: 1,
+    selectedChangeCount: 0,
+  });
+  b.checkpoint!.data = Uint8Array.of(2);
+  expect(
+    diffCapturedFrames(a, b, { objects: [{ kind: 'monitor', id: 'diagnostic' }] }).selectedEqual,
+  ).toBe(false);
+});

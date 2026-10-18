@@ -3,7 +3,7 @@ import { decodeBinaryString } from '@tensnap/protocol';
 import type { ActionResultPayload, SimulatorToRendererMessage } from '@tensnap/protocol';
 import { exactValueEqual } from '../snapshot/diff';
 import type { CapturedFrame, SnapshotFrame } from '../snapshot';
-import { ScenarioQuerySchema, queryScenario } from '../scenario/query';
+import { ScenarioQuerySchema, queryScenario, type ScenarioQuery } from '../scenario/query';
 import { RecordingStoreWriter, type RecordingStoreRoot } from '../persistence/recording-store';
 import {
   compileRunCondition,
@@ -32,6 +32,12 @@ export const CollectionConfigSchema = z
       .positive()
       .default(8 * 1024 * 1024),
     maxStoredBytes: z.number().int().positive(),
+    maxPendingSegments: z.number().int().positive().default(2),
+    cacheBytes: z
+      .number()
+      .int()
+      .positive()
+      .default(1024 * 1024),
     liveHistory: z
       .object({ chartPoints: z.number().int().positive(), logs: z.number().int().nonnegative() })
       .strict(),
@@ -79,6 +85,8 @@ export const CollectionConfigSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    if (value.mode === 'full-history' && value.maxFrames !== undefined)
+      ctx.addIssue({ code: 'custom', message: 'maxFrames applies only to rolling collection.' });
     if (value.mode === 'rolling' && value.maxFrames === undefined)
       ctx.addIssue({ code: 'custom', message: 'rolling requires maxFrames.' });
     if (new Set(value.rules.map((rule) => rule.id)).size !== value.rules.length)
@@ -116,7 +124,7 @@ export interface TriggerWindow {
 
 /** Coordinates evidence at action/render boundaries. It never dispatches an action to fill a window. */
 export class RecordingCollection extends EventTarget {
-  readonly config: z.output<typeof CollectionConfigSchema>;
+  private readonly config: z.output<typeof CollectionConfigSchema>;
   private readonly compiled = new Map<string, CompiledRunCondition>();
   private readonly previous = new Map<string, unknown>();
   private readonly lastTrigger = new Map<string, number>();
@@ -125,6 +133,7 @@ export class RecordingCollection extends EventTarget {
   private checkpointCount = 0;
   private checkpointBytes = 0;
   private checkpointTruncated = false;
+  private readonly deduplication = { ignoredActionResults: 0, cooldown: 0, budget: 0 };
   private frame = 0;
   private messages: SimulatorToRendererMessage[] = [];
   private chain: Promise<void> = Promise.resolve();
@@ -157,10 +166,11 @@ export class RecordingCollection extends EventTarget {
       throw new Error('Start collection at an idle action boundary.');
     try {
       const initial = await session.captureBoundaryFrame({
-        checkpoint: collection.config.checkpoints.every
+        checkpoint: collection.shouldCheckpoint(false)
           ? collection.config.checkpoints.policy
           : 'none',
       });
+      collection.retainCheckpoint(initial);
       await collection.append(initial, [], undefined, []);
       collection.initializeChanges();
       session.addEventListener('commit', collection.onCommit);
@@ -187,6 +197,7 @@ export class RecordingCollection extends EventTarget {
         : undefined,
       truncated: this.writer.status.root?.truncated,
       checkpointTruncated: this.checkpointTruncated,
+      deduplication: this.deduplication,
       windows: this.windows,
       error: this.error,
       state: this.ended
@@ -207,13 +218,15 @@ export class RecordingCollection extends EventTarget {
       modelTime: this.session.scenario.time,
     };
   }
+  private changeValues(query: ScenarioQuery) {
+    const result = queryScenario(this.session.scenario, query, this.location());
+    if (result.truncated)
+      throw new Error('Change trigger query is truncated; select fields/objects within its limit.');
+    return result.items;
+  }
   private initializeChanges() {
     for (const rule of this.config.rules) {
-      if (rule.kind === 'change')
-        this.previous.set(
-          rule.id,
-          queryScenario(this.session.scenario, rule.query, this.location()).items,
-        );
+      if (rule.kind === 'change') this.previous.set(rule.id, this.changeValues(rule.query));
       if (rule.kind === 'expression')
         this.previous.set(
           rule.id,
@@ -227,12 +240,15 @@ export class RecordingCollection extends EventTarget {
     if (this.ended || this.error) return;
     const actionMessage = detail.messages.find((message) => message.type === 'action_result');
     const action = actionMessage?.payload as ActionResultPayload | undefined;
-    if (action && !this.session.run.matchesActiveAction(action)) return;
+    if (action && !this.session.run.matchesActiveAction(action)) {
+      this.deduplication.ignoredActionResults++;
+      return;
+    }
     if (this.pending) {
       this.fail(new Error('Autonomous scene updates exceeded the held collection boundary.'));
       return;
     }
-    this.messages.push(...structuredClone(detail.messages));
+    for (const message of structuredClone(detail.messages)) this.messages.push(message);
     // Preserve an action's atomic span. Standalone control/sync commits are visible boundaries too.
     if (!action && this.session.run.hasInFlightAction) return;
     const release = this.session.run.holdActionBoundary();
@@ -261,10 +277,17 @@ export class RecordingCollection extends EventTarget {
             matched = current && (rule.edge === 'level' || this.previous.get(rule.id) !== true);
             this.previous.set(rule.id, current);
           } else {
-            const current = queryScenario(this.session.scenario, rule.query, this.location()).items;
+            const current = this.changeValues(rule.query);
             matched = !exactValueEqual(this.previous.get(rule.id), current);
             this.previous.set(rule.id, current);
           }
+          if (matched && this.windows.length + candidates.length >= this.config.maxTriggers)
+            this.deduplication.budget++;
+          else if (
+            matched &&
+            this.frame - (this.lastTrigger.get(rule.id) ?? -Infinity) <= rule.cooldownFrames
+          )
+            this.deduplication.cooldown++;
           if (
             matched &&
             this.windows.length + candidates.length < this.config.maxTriggers &&
@@ -287,6 +310,9 @@ export class RecordingCollection extends EventTarget {
           ? this.config.checkpoints.policy
           : 'none';
         const captured = await this.session.captureBoundaryFrame({ checkpoint });
+        this.retainCheckpoint(captured);
+        if (captured.checkpointStatus === 'inconsistent')
+          throw new Error('Collection checkpoint boundary changed during capture.');
         if (this.error) throw new Error(this.error);
         const firstFrame =
           this.config.mode === 'rolling' ? Math.max(0, this.frame - this.config.maxFrames!) : 0;
@@ -312,6 +338,11 @@ export class RecordingCollection extends EventTarget {
           };
           if (requested.from < firstFrame)
             window.gaps.push({ from: requested.from, to: firstFrame - 1, reason: 'not-retained' });
+          if (!this.config.window.after && window.gaps.length) window.state = 'partial';
+          if (this.config.checkpoints.requirePreWindow && window.gaps.length)
+            throw new Error(
+              'Required pre-window checkpoint unavailable outside the retained range.',
+            );
           if (this.config.checkpoints.requirePreWindow)
             for (let index = window.actual.from; index < this.frame; index++) {
               if (!this.checkpointFrames.has(index))
@@ -319,12 +350,23 @@ export class RecordingCollection extends EventTarget {
             }
           this.windows.push(window);
         }
-        for (const window of this.windows)
+        for (const window of this.windows) {
+          if (window.actual.from < firstFrame) {
+            const to = Math.min(firstFrame - 1, window.actual.to);
+            if (to >= window.actual.from) {
+              const gap = window.gaps.find((gap) => gap.reason === 'not-retained');
+              if (gap) gap.to = Math.max(gap.to, to);
+              else window.gaps.push({ from: window.actual.from, to, reason: 'not-retained' });
+              window.actual.from = Math.min(firstFrame, window.actual.to + 1);
+              if (window.state === 'complete') window.state = 'partial';
+            }
+          }
           if (window.state === 'pending') {
             window.actual.to = Math.min(this.frame, window.requested.to);
             if (this.frame >= window.requested.to)
               window.state = window.gaps.length ? 'partial' : 'complete';
           }
+        }
         await this.append(
           captured,
           messages,
@@ -332,7 +374,11 @@ export class RecordingCollection extends EventTarget {
           this.windows.filter((window) => window.actual.to === this.frame),
           actionSource,
         );
-        if (this.config.mode === 'rolling') await this.writer.collect();
+        if (
+          this.config.mode === 'rolling' &&
+          this.frame % Math.max(1, Math.min(64, this.config.maxFrames!)) === 0
+        )
+          await this.writer.collect();
         this.dispatchEvent(new Event('status'));
       })
       .catch((error) => this.fail(error))
@@ -350,10 +396,42 @@ export class RecordingCollection extends EventTarget {
     if (this.checkpointCount >= config.maxCount || this.checkpointBytes >= config.maxBytes) {
       this.checkpointTruncated = true;
       if (config.overflow === 'fail') throw new Error('Checkpoint budget exhausted.');
-      if (config.overflow === 'stop') this.session.run.stop('stopped');
+      if (config.overflow === 'stop') {
+        if (this.frame === 0)
+          throw new Error('Checkpoint budget exhausted before collection dispatch.');
+        this.session.run.stop('stopped');
+      }
       return false;
     }
     return true;
+  }
+  private retainCheckpoint(captured: CapturedFrame) {
+    if (!captured.checkpoint) return;
+    const bytes =
+      typeof captured.checkpoint.data === 'string'
+        ? decodeBinaryString(captured.checkpoint.data).bytes.length
+        : captured.checkpoint.data.length;
+    if (
+      this.checkpointCount >= this.config.checkpoints.maxCount ||
+      this.checkpointBytes + bytes > this.config.checkpoints.maxBytes
+    ) {
+      this.checkpointTruncated = true;
+      if (this.config.checkpoints.overflow === 'fail')
+        throw new Error('Atomic checkpoint exceeds retention budget.');
+      if (this.config.checkpoints.overflow === 'stop') {
+        if (this.frame === 0)
+          throw new Error('Checkpoint budget exhausted before collection dispatch.');
+        this.session.run.stop('stopped');
+      }
+      delete captured.checkpoint;
+      captured.checkpointStatus = 'unavailable';
+      captured.checkpointReason = 'Checkpoint retention budget exhausted.';
+      captured.consistency = 'renderer-only';
+      return;
+    }
+    this.checkpointCount++;
+    this.checkpointBytes += bytes;
+    this.checkpointFrames.add(this.frame);
   }
   private async append(
     captured: CapturedFrame,
@@ -362,19 +440,6 @@ export class RecordingCollection extends EventTarget {
     annotations: TriggerWindow[],
     source?: SnapshotFrame['source'],
   ) {
-    if (captured.checkpoint) {
-      const bytes =
-        typeof captured.checkpoint.data === 'string'
-          ? decodeBinaryString(captured.checkpoint.data).bytes.length
-          : captured.checkpoint.data.length;
-      if (
-        ++this.checkpointCount > this.config.checkpoints.maxCount ||
-        this.checkpointBytes + bytes > this.config.checkpoints.maxBytes
-      )
-        throw new Error('Atomic checkpoint exceeds retention budget.');
-      this.checkpointBytes += bytes;
-      this.checkpointFrames.add(this.frame);
-    }
     await this.writer.append({
       location: {
         kind: 'recording',
@@ -387,6 +452,7 @@ export class RecordingCollection extends EventTarget {
       timestamp: captured.capturedAt,
       scene: captured.scene,
       checkpoint: captured.checkpoint,
+      provenance: captured.source,
       frame: {
         index: this.frame,
         timestamp: captured.capturedAt,
@@ -431,6 +497,7 @@ export class RecordingCollection extends EventTarget {
         windows: this.windows,
         error: this.error,
         checkpointTruncated: this.checkpointTruncated,
+        deduplication: this.deduplication,
       });
       if (this.error) throw new Error(this.error);
       return root;

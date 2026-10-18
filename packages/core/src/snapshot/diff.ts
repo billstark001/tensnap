@@ -1,14 +1,34 @@
 import { z } from 'zod';
 import { decodeBinaryString } from '@tensnap/protocol';
-import { FieldPathSchema, compileFieldPath, type QueryItem } from '../scenario/query';
+import {
+  AgentRefSchema,
+  FieldPathSchema,
+  compileFieldPath,
+  type QueryItem,
+} from '../scenario/query';
 import type { CapturedFrame } from './CapturedFrame';
 
 export const ComparisonPolicySchema = z
   .object({
+    objects: z
+      .array(
+        z.discriminatedUnion('kind', [
+          AgentRefSchema.extend({ kind: z.literal('agent') }).strict(),
+          z
+            .object({ kind: z.literal('layer'), environmentId: z.string(), layerId: z.string() })
+            .strict(),
+          z
+            .object({ kind: z.enum(['monitor', 'parameter', 'chart', 'action']), id: z.string() })
+            .strict(),
+          z.object({ kind: z.literal('metadata') }).strict(),
+        ]),
+      )
+      .max(256)
+      .optional(),
     fields: z.array(FieldPathSchema).max(64).optional(),
     ignore: z.array(FieldPathSchema).max(64).default([]),
-    absoluteTolerance: z.number().finite().nonnegative().default(0),
-    relativeTolerance: z.number().finite().nonnegative().default(0),
+    absoluteTolerance: z.number().nonnegative().default(0),
+    relativeTolerance: z.number().nonnegative().default(0),
   })
   .strict();
 export type ComparisonPolicy = z.input<typeof ComparisonPolicySchema>;
@@ -107,7 +127,19 @@ export function diffCapturedFrames(
         );
       return;
     }
-    const selected = fields === undefined || fields.some((p) => prefix(p, path) || prefix(path, p));
+    const objectSelected =
+      policy.objects === undefined ||
+      policy.objects.some((object) =>
+        object.kind === 'metadata'
+          ? path[0] === 'metadata'
+          : ref &&
+            Object.entries(object).every(
+              ([key, value]) => (ref as Record<string, unknown>)[key] === value,
+            ),
+      );
+    const selected =
+      objectSelected &&
+      (fields === undefined || fields.some((p) => prefix(p, path) || prefix(path, p)));
     const ignore = ignored.some((p) => prefix(p, path));
     const tolerance =
       hasA &&

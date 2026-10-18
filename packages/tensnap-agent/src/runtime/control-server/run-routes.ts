@@ -1,3 +1,4 @@
+import { isFileSystemFailure } from '../artifact-errors';
 import type { Hono } from 'hono';
 import type { BoundedRunSpec, CollectionConfig } from '@tensnap/core/runtime';
 import { isEncodedBinaryString } from '@tensnap/protocol';
@@ -39,6 +40,7 @@ export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
         202,
       );
     } catch (error) {
+      if (isFileSystemFailure(error)) throw error;
       invalid(error instanceof Error ? error.message : String(error));
     }
   });
@@ -50,7 +52,11 @@ export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
       { optional: true },
     );
     validateFields(body, { until: ['settled', 'persisted'], timeoutMs: 'positive' });
-    if (body.until === 'persisted' && !runtime.getRun(id)?.spec.record)
+    if (
+      body.until === 'persisted' &&
+      !runtime.getRun(id)?.spec.record &&
+      !runtime.getCollection(id)
+    )
       invalid('This run did not request recording persistence.');
     const run = await runtime.waitRun(id, body.until, body.timeoutMs, c.req.raw.signal);
     const category =

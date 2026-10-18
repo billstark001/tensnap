@@ -6,7 +6,7 @@ import type { ScenarioLayerSnapshot, ScenarioSnapshot } from './types';
 import type { AgentRef } from './ScenarioInspector';
 
 const id = z.string().min(1);
-const agentId = z.union([id, z.number().finite()]);
+const agentId = z.union([id, z.number()]);
 export const AgentRefSchema = z.object({ environmentId: id, layerId: id, agentId }).strict();
 export const AgentInspectionRequestSchema = z
   .object({
@@ -76,6 +76,15 @@ const selector = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('chart'), id: id.optional() }).strict(),
   z.object({ kind: z.literal('layer'), environmentId: id, layerId: id.optional() }).strict(),
   z.object({ kind: z.literal('metadata') }).strict(),
+  z
+    .object({
+      kind: z.literal('cell'),
+      environmentId: id,
+      layerId: id,
+      x: z.number(),
+      y: z.number(),
+    })
+    .strict(),
 ]);
 export const ScenarioQuerySchema = z
   .object({
@@ -166,7 +175,38 @@ export function queryScenario(
     return true;
   };
   const selected = spec.selector;
-  if (selected.kind === 'agent' || selected.kind === 'neighbors') {
+  if (selected.kind === 'cell') {
+    const layer = live
+      ? scenario.getEnvironment(selected.environmentId)?.layers.get(selected.layerId)
+      : snapshot.environments
+          .find((e) => e.id === selected.environmentId)
+          ?.layers.find((l) => l.id === selected.layerId);
+    // Cells are projected agent items with public x/y coordinates. Never decode an item's private ID.
+    if (layer?.layerType === 'agent') {
+      const agents =
+        'storage' in layer && layer.storage instanceof AgentStorage
+          ? layer.storage.agents.values()
+          : (
+              (layer as ScenarioLayerSnapshot).storageSnapshot as {
+                agents: Array<{ id: string | number; x?: number; y?: number }>;
+              }
+            ).agents;
+      for (const agent of agents)
+        if (agent.x === selected.x && agent.y === selected.y)
+          if (
+            !add(
+              {
+                kind: 'agent',
+                environmentId: selected.environmentId,
+                layerId: selected.layerId,
+                agentId: agent.id,
+              },
+              agent,
+            )
+          )
+            break;
+    }
+  } else if (selected.kind === 'agent' || selected.kind === 'neighbors') {
     const { ref } = selected;
     const layer = live
       ? scenario.getEnvironment(ref.environmentId)?.layers.get(ref.layerId)
@@ -231,9 +271,7 @@ export function queryScenario(
       } else {
         const positioned = target as { x?: number; y?: number };
         if (typeof positioned.x === 'number' && typeof positioned.y === 'number') {
-          const candidates = storage
-            ? storage.getAgentsWithinRadius(positioned.x, positioned.y, selected.radius)
-            : agents;
+          const candidates = storage ? storage.agents.values() : agents;
           for (const agent of candidates) {
             if (
               agent.id === ref.agentId ||

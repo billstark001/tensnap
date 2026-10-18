@@ -3,6 +3,7 @@ import { Scenario } from './Scenario';
 import { queryScenario, ScenarioQuerySchema } from './query';
 import { queryRecording, monitorHistory } from '../snapshot/query';
 import { SnapshotRecorder, createSingleSnapshot } from '../snapshot';
+import type { SimulatorToRendererMessage } from '@tensnap/protocol';
 const location = { kind: 'live' as const, sourceId: 'test', revision: 1 };
 function scene() {
   const scenario = new Scenario();
@@ -75,7 +76,7 @@ describe('bounded scene queries', () => {
     const recorder = new SnapshotRecorder(scenario);
     recorder.start();
     for (const [i, time] of [4, 4, 1].entries()) {
-      const updates: import('@tensnap/protocol').SimulatorToRendererMessage[] = [
+      const updates: SimulatorToRendererMessage[] = [
         { type: 'metadata_update' as const, payload: { time } },
         { type: 'monitor_update' as const, payload: { id: 'm', value: i < 2 ? 1 : 2 } },
       ];
@@ -108,4 +109,15 @@ describe('bounded scene queries', () => {
         .count,
     ).toBe(0);
   });
+});
+
+it('selects projected cell coordinates without interpreting string item IDs', () => {
+  const scenario = scene();
+  const spec = {
+    selector: { kind: 'cell' as const, environmentId: 'e/:', layerId: 'a/:', x: 1, y: 0 },
+    fields: ['/data/score'],
+  };
+  const result = queryScenario(scenario, spec, location);
+  expect(result).toEqual(queryScenario(scenario.dump(), spec, location));
+  expect(result.items[0]).toMatchObject({ ref: { agentId: '1' }, fields: [{ value: 9 }] });
 });

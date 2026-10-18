@@ -154,6 +154,7 @@ export class AgentRuntime extends EventEmitter {
   private readonly client: RendererClient;
   private readonly renderer: RendererSession;
   private readonly recordingEntries = new Map<string, RecordingStatus>();
+  private collectionStarting = false;
   private activeCollection?: RecordingCollection;
   private readonly collections = new Map<
     string,
@@ -482,6 +483,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Refresh the projected scene and wait until the transaction commits. */
   async syncScene(): Promise<void> {
+    this.assertCollectionAvailable();
     const targetSyncCount = this.completedStateSyncCount + 1;
     this.assertConnected();
     this.setPhase('syncing');
@@ -495,6 +497,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Capture an exact simulator checkpoint; the protocol result is preserved verbatim. */
   async captureScene(): Promise<SceneCaptureResultPayload> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     const result = await this.renderer.captureScene();
     await this.log('info', 'scene', 'Scene checkpoint captured.', {
@@ -510,6 +513,7 @@ export class AgentRuntime extends EventEmitter {
     input: unknown,
     options: SceneRestoreOptions = {},
   ): Promise<SceneRestoreEndPayload> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     if (typeof input !== 'object' || input === null || Array.isArray(input)) {
       throw new Error('scene restore payload must be an object.');
@@ -545,6 +549,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Request a parameter change; the simulator may later normalize it with param_sync. */
   async setParameter(id: string, value: ProtocolData): Promise<void> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     this.renderer.setParameter(id, value);
     await this.log('info', 'param', 'Parameter change requested.', { id, value });
@@ -553,6 +558,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Dispatch once; the completion is retained independently of subsequent runs. */
   async runAction(id: string): Promise<string> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     const { requestId, completion } = this.client.beginAction(id, 30_000, {
       retainMessages: false,
@@ -651,7 +657,11 @@ export class AgentRuntime extends EventEmitter {
         );
     }
     const recording = this.recordingResults.get(id);
-    return { ...settled, ...(recording ? { recording: structuredClone(recording) } : {}) };
+    return {
+      ...settled,
+      ...(recording ? { recording: structuredClone(recording) } : {}),
+      ...(this.collections.has(id) ? { collection: this.getCollection(id) } : {}),
+    };
   }
 
   async saveFrame(
@@ -666,6 +676,7 @@ export class AgentRuntime extends EventEmitter {
   ) {
     this.assertConnected();
     options = structuredClone(options);
+    this.assertCollectionAvailable();
     const frame = await this.renderer.captureFrame({
       checkpoint: options.checkpoint,
       timeoutMs: options.timeoutMs,
@@ -686,12 +697,15 @@ export class AgentRuntime extends EventEmitter {
     },
     signal?: AbortSignal,
   ) {
+    this.assertCollectionAvailable();
     options = { ...options };
     const { frame } = await readCapturedFrame(directory);
+    this.assertCollectionAvailable();
     return this.renderer.restoreFrame(frame, { ...options, signal });
   }
 
   startRecording(options: RecordingOptions = {}): RecordingStatus {
+    this.assertCollectionAvailable();
     this.assertConnected();
     if (
       this.renderer.run.hasInFlightAction ||
@@ -771,7 +785,26 @@ export class AgentRuntime extends EventEmitter {
     return { ...structuredClone(entry), path: outputPath };
   }
 
+  private assertCollectionAvailable() {
+    if (this.collectionStarting || this.activeCollection)
+      throw new Error(
+        'A collection owns the simulator boundary; stop it and await persistence before other mutations.',
+      );
+  }
+
   async startCollectedRun(spec: BoundedRunSpec, input: CollectionConfig, output: string) {
+    this.assertCollectionAvailable();
+    spec = structuredClone(spec);
+    input = validateCollectionConfig(input);
+    this.collectionStarting = true;
+    try {
+      return await this.beginCollectedRun(spec, input, output);
+    } finally {
+      this.collectionStarting = false;
+    }
+  }
+
+  private async beginCollectedRun(spec: BoundedRunSpec, input: CollectionConfig, output: string) {
     this.assertConnected();
     const config = validateCollectionConfig(input);
     validateRunSpec(spec, this.control.maxRunStepsPolicy);
@@ -789,6 +822,9 @@ export class AgentRuntime extends EventEmitter {
       id: crypto.randomUUID(),
       ...config,
       modelIdentity: this.renderer.modelIdentity ?? undefined,
+    }).catch((error) => {
+      backend.close();
+      throw error;
     });
     let collection: RecordingCollection;
     try {
@@ -800,7 +836,7 @@ export class AgentRuntime extends EventEmitter {
     this.activeCollection = collection;
     let run: RunStatus;
     try {
-      run = this.startRun(spec);
+      run = this.startRunInternal(spec);
     } catch (error) {
       writer.abort(error);
       await collection.close().catch(() => {});
@@ -856,6 +892,7 @@ export class AgentRuntime extends EventEmitter {
       const previous = [...this.collections].find(([, value]) => !value.collection);
       if (!previous) break;
       this.collections.delete(previous[0]);
+      this.recordingResults.delete(previous[0]);
     }
     return { ...run, recording: this.recordingResults.get(run.id), collection: collection.status };
   }
@@ -866,6 +903,11 @@ export class AgentRuntime extends EventEmitter {
   }
 
   startRun(spec: BoundedRunSpec) {
+    this.assertCollectionAvailable();
+    return this.startRunInternal(spec);
+  }
+
+  private startRunInternal(spec: BoundedRunSpec) {
     this.assertConnected();
     if (spec.record) {
       if (this.renderer.recorder.active) throw new Error('A recording is already active.');

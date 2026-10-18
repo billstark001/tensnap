@@ -466,6 +466,7 @@ export class RendererSession extends LazyEventTarget {
 
   /** Start a state sync using this connection's identity. Omit inventory to advertise the live Scenario. */
   requestStateSync(requestId = createRequestId('sync'), inventory?: StateSyncInventory): string {
+    if (this.frameCaptureActive) throw new Error('Frame capture is in progress.');
     const info = this.requireCompatibleSimulator(true);
     this.assertNoActiveRequest();
     const payload =
@@ -526,6 +527,7 @@ export class RendererSession extends LazyEventTarget {
     options: SceneRestoreOptions,
     completion?: Pick<ActiveProtocolRequest, 'resolve' | 'reject'>,
   ): string {
+    if (this.frameCaptureActive) throw new Error('Frame capture is in progress.');
     const info = this.requireCompatibleSimulator();
     this.assertNoActiveRequest();
     const status = this.run.status;
@@ -731,6 +733,7 @@ export class RendererSession extends LazyEventTarget {
       historyTime?: number;
     },
   ): Promise<FrameRestoreResult> {
+    if (this.frameCaptureActive) throw new Error('Frame capture is in progress.');
     // Detach inputs before waiting for lifecycle/render settlement.
     const frame = structuredClone(frameInput);
     options = { ...options };
@@ -803,10 +806,12 @@ export class RendererSession extends LazyEventTarget {
     requestId = createRequestId('capture'),
     options: SceneOperationOptions = {},
   ): string {
+    if (this.frameCaptureActive) throw new Error('Frame capture is in progress.');
     return this.issueSceneCapture(requestId, options);
   }
 
   captureScene(options: SceneOperationOptions = {}): Promise<SceneCaptureResultPayload> {
+    if (this.frameCaptureActive) return Promise.reject(new Error('Frame capture is in progress.'));
     return new Promise((resolve, reject) => {
       try {
         this.issueSceneCapture(createRequestId('capture'), options, {
