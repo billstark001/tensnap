@@ -8,6 +8,7 @@ import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
 import type { RendererSession } from '@tensnap/core/runtime';
+import { readCapturedFrame } from './frame-files';
 
 const temporaryRoots: string[] = [];
 
@@ -1181,6 +1182,124 @@ it('retains action and run settlements by ID across subsequent operations', asyn
     expect((await runtime.waitAction(requestId)).requestId).toBe(requestId);
     await expect(runtime.waitAction('unknown')).rejects.toThrow(/Unknown/);
   } finally {
+    await runtime.stop();
+  }
+});
+
+it('returns independent settlements to concurrent waiters and event observers', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-action-ownership-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    render: { trigger: 'action-result' },
+    checkpointWriter: async () => {},
+  });
+  await runtime.initialize();
+  attachReviewTransport(runtime);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  runtime.registerPainter({
+    id: 'gate',
+    render: async () => {
+      await gate;
+      return [{ painterId: 'gate', kind: 'environment' }];
+    },
+  });
+  runtime.on('event', (event) => {
+    if (event.type === 'action.settled') event.data.result.id = 'observer-mutation';
+  });
+  try {
+    const requestId = await runtime.runAction('step');
+    const first = runtime.waitAction(requestId);
+    const second = runtime.waitAction(requestId);
+    release();
+    const [left, right] = await Promise.all([first, second]);
+    expect(left.result?.id).toBe('step');
+    left.result!.id = 'caller-mutation';
+    expect(right.result?.id).toBe('step');
+    expect(runtime.getAction(requestId)?.result?.id).toBe('step');
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});
+
+it('keeps callable recording policies out of serializable owned status', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-options-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  try {
+    const options = {
+      id: 'custom-policy',
+      layerCodecs: { agents: 'delta' as const },
+      layerCodecImplementations: { delta: { id: 'delta' as const, retainItemDelta: () => true } },
+    };
+    const status = runtime.startRecording(options);
+    expect(status.options).not.toHaveProperty('layerCodecImplementations');
+    expect(renderer.recorder.active).toBe(true);
+    status.options!.layerCodecs!.agents = 'keyframe';
+    expect((await runtime.listRecordings())[0].options?.layerCodecs?.agents).toBe('delta');
+    expect(options.layerCodecs.agents).toBe('delta');
+    expect((await runtime.stopRecording()).status).toBe('persisted');
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('owns frame API options before capture and file reads suspend', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-frame-options-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {},
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const capture = renderer.captureFrame.bind(renderer);
+  vi.spyOn(renderer, 'captureFrame').mockImplementation(async (...args) => {
+    const frame = await capture(...args);
+    await gate;
+    return frame;
+  });
+  runtime.registerPainter({
+    id: 'fixed',
+    render: async () => [{ painterId: 'fixed', kind: 'environment', data: Uint8Array.of(1) }],
+  });
+  try {
+    const options = {
+      envIds: ['world'],
+      renderOptions: { viewport: { x: 1, y: 2, width: 640, height: 480 } },
+    };
+    const directory = join(rootDir, 'saved');
+    const saving = runtime.saveFrame(directory, options);
+    options.envIds[0] = 'changed';
+    options.renderOptions.viewport.x = 99;
+    release();
+    await saving;
+    const manifest = (await readCapturedFrame(directory)).manifest;
+    expect(manifest.artifacts[0].path).toBe('environment-world.png');
+    expect(manifest.renderOptions.viewport).toMatchObject({ x: 1 });
+    const restore = vi
+      .spyOn(renderer, 'restoreFrame')
+      .mockResolvedValue({ modelStatus: 'restored', historyStatus: 'restored', stateKnown: true });
+    const settings = { mode: 'projected' as 'projected' | 'checkpoint', historyTime: 8 };
+    const restoring = runtime.restoreFrame(directory, settings);
+    settings.mode = 'checkpoint';
+    settings.historyTime = 99;
+    await restoring;
+    expect(restore).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ mode: 'projected', historyTime: 8 }),
+    );
+  } finally {
+    release();
+    vi.restoreAllMocks();
     await runtime.stop();
   }
 });

@@ -106,7 +106,7 @@ export interface RecordingStatus {
   path?: string;
   error?: string;
   report?: RecordingReport;
-  options?: RecordingOptions;
+  options?: Omit<RecordingOptions, 'layerCodecImplementations'>;
 }
 
 export interface ActionSettlement {
@@ -575,7 +575,7 @@ export class AgentRuntime extends EventEmitter {
         this.actionCompletions.delete(requestId);
         this.actionBoundaryTimes.delete(requestId);
         const settled = structuredClone(this.actionResults.get(requestId)!);
-        this.emitRuntimeEvent('action.settled', settled);
+        this.emitRuntimeEvent('action.settled', structuredClone(settled));
         while (this.actionResults.size > 100) {
           const expired = [...this.actionResults].find(([, value]) => value.settled);
           if (!expired) break;
@@ -602,7 +602,7 @@ export class AgentRuntime extends EventEmitter {
     if (!this.actionResults.has(requestId))
       throw new Error('Unknown or expired action request ID.');
     const pending = this.actionCompletions.get(requestId);
-    if (pending) return await waitWithoutCancelling(pending, timeoutMs, signal);
+    if (pending) return structuredClone(await waitWithoutCancelling(pending, timeoutMs, signal));
     return this.getAction(requestId)!;
   }
 
@@ -639,6 +639,7 @@ export class AgentRuntime extends EventEmitter {
     } = {},
   ) {
     this.assertConnected();
+    options = structuredClone(options);
     const frame = await this.renderer.captureFrame({
       checkpoint: options.checkpoint,
       timeoutMs: options.timeoutMs,
@@ -659,6 +660,7 @@ export class AgentRuntime extends EventEmitter {
     },
     signal?: AbortSignal,
   ) {
+    options = { ...options };
     const { frame } = await readCapturedFrame(directory);
     return this.renderer.restoreFrame(frame, { ...options, signal });
   }
@@ -675,10 +677,13 @@ export class AgentRuntime extends EventEmitter {
     const actual = { maxSteps: 10_000, maxBytes: 64 * 1024 * 1024, ringBuffer: true, ...options };
     if (actual.id && this.recordingEntries.has(actual.id))
       throw new Error('Recording ID already exists.');
+    // Status is serializable data; callable codec policies belong to the recorder.
+    const { layerCodecImplementations: _policies, ...values } = actual;
+    const statusOptions = structuredClone(values);
     const snapshot = this.renderer.startRecording(actual);
     this.manualRecordingId = snapshot.metadata.id;
     const entry = this.recordingEntries.get(snapshot.metadata.id)!;
-    entry.options = structuredClone(actual);
+    entry.options = statusOptions;
     return structuredClone(entry);
   }
 

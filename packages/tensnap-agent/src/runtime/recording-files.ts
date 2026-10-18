@@ -60,6 +60,8 @@ export async function exportRecordingFrame(
     renderOptions?: SceneRenderOptions;
   } = {},
 ) {
+  selection = { ...selection };
+  options = structuredClone(options);
   const document = await readRecording(path, options.snapshotId);
   const position = selectRecordingFrame(document.snapshot, selection);
   const frame = frameFromRecording(document.snapshot, position.frame);
@@ -73,6 +75,8 @@ export async function renderRecordingFrame(
   options: SceneRenderOptions,
   snapshotId?: string,
 ) {
+  selection = { ...selection };
+  options = structuredClone(options);
   const document = await readRecording(path, snapshotId);
   const position = selectRecordingFrame(document.snapshot, selection);
   const frame = frameFromRecording(document.snapshot, position.frame);

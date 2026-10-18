@@ -27,6 +27,7 @@ export interface RenderRequest {
   assets: Record<string, RenderAssetSource>;
 }
 
+/** Published read-only output; detach reusable buffers/metadata before returning it. */
 export interface RenderArtifact {
   painterId: string;
   kind: 'environment' | 'chart' | 'composite';

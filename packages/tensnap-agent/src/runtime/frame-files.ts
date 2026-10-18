@@ -1,7 +1,7 @@
 import { ArtifactInputError, isFileSystemFailure } from './artifact-errors';
 import { decodeBinaryString } from '@tensnap/protocol';
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rename, rm, writeFile, realpath } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rename, rm, rmdir, writeFile, realpath } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import {
   encodeRecordingFile,
@@ -22,7 +22,7 @@ import { RenderBatchError, type RenderArtifact, type RenderRequest } from './pai
 const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 export type FixedFrameRenderer = (request: RenderRequest) => Promise<RenderArtifact[]>;
 
-/** Build assets solely from the fixed scene; never consult a live cache during evidence rendering. */
+/** Borrow an owned fixed scene/options, shared read-only across painters; never consult live caches. */
 export function fixedRenderRequest(
   scene: ScenarioSnapshot,
   options: SceneRenderOptions,
@@ -170,32 +170,54 @@ export async function saveCapturedFrame(
     await rename(temporary, target);
     return { directory: target, manifest };
   } catch (error) {
-    const partialDirectory = temporary ? `${target}.failed-${randomUUID()}` : target;
-    if (temporary) {
-      if (error instanceof RenderBatchError)
-        for (const artifact of error.artifacts) {
-          const path = `partial-${artifacts.length}.png`;
-          if (artifact.data?.length)
-            await writeFile(join(temporary, path), artifact.data).catch(() => {});
-          artifacts.push({ ...artifact, path: artifact.data?.length ? path : artifact.path });
-        }
-      await rm(join(temporary, 'manifest.json'), { force: true });
-      await writeFile(
-        join(temporary, 'failure.json'),
-        JSON.stringify(
-          {
-            status: 'failed',
-            error: String(error),
-            artifacts: artifacts.map(({ data: _data, ...artifact }) => artifact),
-          },
-          null,
-          2,
-        ),
-      ).catch(() => {});
-      await rename(temporary, partialDirectory);
+    let partialDirectory = temporary ?? target;
+    const failures: unknown[] = [error];
+    try {
+      if (temporary) {
+        if (error instanceof RenderBatchError)
+          for (const artifact of error.artifacts) {
+            const path = `partial-${artifacts.length}.png`;
+            const partial = { ...artifact };
+            artifacts.push(partial);
+            if (artifact.data?.length) {
+              try {
+                await writeFile(join(temporary, path), artifact.data);
+                partial.path = path;
+              } catch (writeError) {
+                partial.path = undefined;
+                failures.push(writeError);
+              }
+            }
+          }
+        await rm(join(temporary, 'manifest.json'), { force: true });
+        await writeFile(
+          join(temporary, 'failure.json'),
+          JSON.stringify(
+            {
+              status: 'failed',
+              error: String(error),
+              artifacts: artifacts.map(({ data: _data, ...artifact }) => artifact),
+            },
+            null,
+            2,
+          ),
+        );
+        const failedTarget = `${target}.failed-${randomUUID()}`;
+        await rename(temporary, failedTarget);
+        partialDirectory = failedTarget;
+      }
+    } catch (cleanupError) {
+      failures.push(cleanupError);
     }
-    await rm(target, { recursive: true, force: true });
-    throw new FrameSaveError(partialDirectory, artifacts, error);
+    try {
+      // Only remove our empty reservation. Never recursively delete foreign writes.
+      await rmdir(target);
+    } catch (cleanupError) {
+      if ((cleanupError as NodeJS.ErrnoException).code !== 'ENOENT') failures.push(cleanupError);
+    }
+    const failure =
+      failures.length === 1 ? error : new AggregateError(failures, failures.map(String).join('; '));
+    throw new FrameSaveError(partialDirectory, artifacts, failure);
   }
 }
 

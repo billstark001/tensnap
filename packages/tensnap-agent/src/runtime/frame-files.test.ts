@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { Scenario } from '@tensnap/core/scenario';
 import { createSingleSnapshot, frameFromRecording } from '@tensnap/core/snapshot';
 import {
@@ -11,10 +11,88 @@ import {
   FrameSaveError,
 } from './frame-files';
 import { RenderBatchError } from './painter';
+import { exportRecordingFrame } from './recording-files';
+import { encodeRecordingFile } from '@tensnap/core/persistence';
+import { snapshotFromFrame } from '@tensnap/core/snapshot';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...original, rename: vi.fn(original.rename), writeFile: vi.fn(original.writeFile) };
+});
 
 const roots: string[] = [];
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map((root) => rm(root, { force: true, recursive: true })));
+});
+
+it('preserves foreign writes in its reserved destination when the evidence commit fails', async () => {
+  const output = join(await root(), 'foreign-write');
+  await expect(
+    saveCapturedFrame(fixture(), output, {
+      envIds: ['world'],
+      render: async () => {
+        await writeFile(join(output, 'foreign.txt'), 'keep me');
+        return [{ painterId: 'fixture', kind: 'environment', data: Uint8Array.of(1) }];
+      },
+    }),
+  ).rejects.toBeInstanceOf(FrameSaveError);
+  expect(await readFile(join(output, 'foreign.txt'), 'utf8')).toBe('keep me');
+});
+
+it('reports the retained temporary directory and original error if preserving partial output also fails', async () => {
+  const output = join(await root(), 'rename-failure');
+  vi.mocked(rename).mockRejectedValueOnce(new Error('partial rename failed'));
+  let failure: FrameSaveError | undefined;
+  try {
+    await saveCapturedFrame(fixture(), output, {
+      envIds: ['world'],
+      render: async () => {
+        throw new Error('original render failure');
+      },
+    });
+  } catch (error) {
+    failure = error as FrameSaveError;
+  }
+  expect(failure).toBeInstanceOf(FrameSaveError);
+  expect(failure!.message).toContain('original render failure');
+  expect(failure!.message).toContain('partial rename failed');
+  expect(
+    JSON.parse(await readFile(join(failure!.partialDirectory, 'failure.json'), 'utf8')).status,
+  ).toBe('failed');
+  await expect(readFile(join(failure!.partialDirectory, 'manifest.json'))).rejects.toMatchObject({
+    code: 'ENOENT',
+  });
+});
+
+it('retains completed artifact values without claiming a path when partial image persistence fails', async () => {
+  const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  vi.mocked(writeFile)
+    .mockImplementationOnce(original.writeFile)
+    .mockRejectedValueOnce(new Error('partial image write failed'));
+  let failure: FrameSaveError | undefined;
+  try {
+    await saveCapturedFrame(fixture(), join(await root(), 'partial-image'), {
+      envIds: ['world'],
+      render: async () => {
+        throw new RenderBatchError(
+          [{ painterId: 'fixture', kind: 'environment', data: Uint8Array.of(1) }],
+          [{ painterId: 'fixture', code: 'render_failed', message: 'original target failure' }],
+        );
+      },
+    });
+  } catch (error) {
+    failure = error as FrameSaveError;
+  }
+  expect(failure).toBeInstanceOf(FrameSaveError);
+  expect(failure!.category).toBe('persistence_failed');
+  expect(failure!.message).toContain('original target failure');
+  expect(failure!.message).toContain('partial image write failed');
+  expect(failure!.artifacts).toMatchObject([{ data: Uint8Array.of(1), path: undefined }]);
+  expect(
+    JSON.parse(await readFile(join(failure!.partialDirectory, 'failure.json'), 'utf8'))
+      .artifacts[0],
+  ).not.toHaveProperty('path');
 });
 async function root() {
   const path = await mkdtemp(join(tmpdir(), 'tensnap-frame-test-'));
@@ -56,6 +134,21 @@ it('writes one independent state and a verifiable manifest, preserving provenanc
   await expect(saveCapturedFrame(frame, directory)).rejects.toMatchObject({ code: 'EEXIST' });
   await writeFile(join(directory, 'state.recording.json'), '{}');
   await expect(readCapturedFrame(directory)).rejects.toThrow(/checksum/);
+});
+
+it('owns offline selection and export options before reading the recording', async () => {
+  const directory = await root();
+  const input = join(directory, 'recording.json');
+  await writeFile(input, encodeRecordingFile(snapshotFromFrame(fixture())));
+  const selection = { frame: 0 };
+  const options = { envIds: [] as string[], renderOptions: { width: 640 } };
+  const exporting = exportRecordingFrame(input, selection, join(directory, 'export'), options);
+  selection.frame = 99;
+  options.envIds.push('changed-after-read-started');
+  options.renderOptions.width = 1;
+  const result = await exporting;
+  expect(result.manifest.artifacts).toEqual([]);
+  expect(result.manifest.renderOptions.width).toBe(640);
 });
 
 it('all render requests consume one owned scene despite source mutations during rendering', async () => {
