@@ -4,7 +4,11 @@ import type {
   TransportEventHandler,
   TransportEventMap,
 } from '../transport';
-import type { ActionResultPayload, ProtocolEncoding, RendererToSimulatorMessage } from '@tensnap/protocol';
+import type {
+  ActionResultPayload,
+  ProtocolEncoding,
+  RendererToSimulatorMessage,
+} from '@tensnap/protocol';
 import { assert, describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
 import { materializeSnapshot, type Snapshot } from '../snapshot';

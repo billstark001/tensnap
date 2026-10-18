@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ActionResultPayload, RendererToSimulatorMessage, SimulatorToRendererMessage } from '@tensnap/protocol';
+import type {
+  ActionResultPayload,
+  RendererToSimulatorMessage,
+  SimulatorToRendererMessage,
+} from '@tensnap/protocol';
 import type { ISimulatorTransport, TransportEventMap } from '../transport';
 import { RendererClient } from './RendererClient';
 import { RendererSession } from './RendererSession';

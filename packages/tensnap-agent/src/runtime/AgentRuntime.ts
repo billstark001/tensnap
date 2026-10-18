@@ -1002,9 +1002,8 @@ export class AgentRuntime extends EventEmitter {
 
   private bindRenderer(): void {
     this.renderer.addEventListener('outbound', (event) => {
-      const message = (
-        event as CustomEvent<{ message: RendererToSimulatorMessage }>
-      ).detail.message;
+      const message = (event as CustomEvent<{ message: RendererToSimulatorMessage }>).detail
+        .message;
       if (message.type !== 'action_invoke') return;
       const payload = message.payload as ActionInvokePayload;
       this.actionBoundaryTimes.set(payload.request_id, {
