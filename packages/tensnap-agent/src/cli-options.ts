@@ -1,5 +1,5 @@
 import { Command, Option } from 'commander';
-import { parseIPFamily, type IPFamily } from '@tensnap/network';
+import type { IPFamily } from '@tensnap/network';
 import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 import type { SkillOptions } from './skills';
@@ -140,15 +140,11 @@ export function startupOptions(): Option[] {
       'json',
       'msgpack',
     ]),
-    new Option('--ip-family <family>', 'IP family policy (default: auto).')
-      .choices(['auto', 'ipv4', 'ipv6'])
-      .argParser((value) => {
-        try {
-          return parseIPFamily(value);
-        } catch (error) {
-          throw new CliInputError((error as Error).message);
-        }
-      }),
+    new Option('--ip-family <family>', 'IP family policy (default: auto).').choices([
+      'auto',
+      'ipv4',
+      'ipv6',
+    ]),
     new Option('--render-trigger <mode>', 'Automatic rendering policy (default: manual).').choices([
       'manual',
       'action-result',

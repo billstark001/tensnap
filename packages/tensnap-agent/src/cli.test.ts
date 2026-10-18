@@ -62,7 +62,7 @@ describe('agent CLI', () => {
   it.each(['other', '4'])(
     'rejects invalid IP-family policy before starting: %s',
     async (ipFamily) => {
-      await expect(main(['runtime', 'up', '--ip-family', ipFamily])).rejects.toThrow(/ip_family/);
+      await expect(main(['runtime', 'up', '--ip-family', ipFamily])).rejects.toThrow(/--ip-family/);
     },
   );
 
@@ -415,6 +415,11 @@ it.each([
   ['scene', 'restore', '--parameters', 'null'],
   ['scene', 'restore', '--parameters', '{'],
   ['scene', 'restore', '--chart-policy', 'unknown'],
+  ['param', 'set', '', '1'],
+  ['action', 'run', ''],
+  ['run', 'start', '', '--max-actions', '1'],
+  ['chart', 'get', ''],
+  ['scene', 'restore'],
   ['param', 'set', 'speed'],
   ['unknown', 'command'],
 ])('rejects invalid CLI input before runtime access: %j', async (...argv) => {
@@ -528,6 +533,9 @@ it('treats output-version after the option terminator as a literal positional va
 });
 
 it.each([
+  ['action', 'run', '', '--output-version=1'],
+  ['scene', 'restore', '--output-version=1'],
+  ['runtime', 'up', '--ip-family', 'invalid', '--output-version=1'],
   ['--output-version=1', 'unknown'],
   ['unknown', '--output-version', '1'],
   ['run', 'start', '--output-version=1'],
@@ -567,18 +575,45 @@ it('preserves the public root-dir replacement hint for equals syntax', async () 
   );
 });
 
-it.each([
-  ['param', 'set', '', '1'],
-  ['action', 'run', ''],
-  ['run', 'start', '', '--max-actions', '1'],
-  ['chart', 'get', ''],
-  ['scene', 'restore'],
-])('preserves business validation failures before runtime access: %j', async (...argv) => {
-  const fetch = vi.spyOn(globalThis, 'fetch');
-  const error = await main(argv).catch((error: unknown) => error);
-  expect(error).toBeInstanceOf(Error);
-  expect(classifyCliError(error)).toEqual({ category: 'execution_failed', exitCode: 3 });
-  expect(fetch).not.toHaveBeenCalled();
+it('preserves parameter value types and literal strings through the Commander actions', async () => {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-parameter-values-'));
+  tempDirs.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  await mkdir(context.contextDir, { recursive: true });
+  await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+  const requests: unknown[] = [];
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    if (String(input).endsWith('/health')) return Response.json({});
+    expect(String(input)).toBe('http://127.0.0.1:1234/v1/params/label%2Fpath');
+    requests.push(JSON.parse(init?.body as string));
+    return Response.json({ requestId: 'parameter-set' });
+  });
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  for (const raw of ['', 'plain', '-1', 'true', 'null', '{"speed":2}', '--literal']) {
+    await main([
+      '--context-dir',
+      rootDir,
+      '--output-version',
+      '1',
+      'param',
+      'set',
+      'label/path',
+      ...(raw.startsWith('--') ? ['--', raw] : [raw]),
+    ]);
+  }
+  expect(requests).toEqual(
+    ['', 'plain', -1, true, null, { speed: 2 }, '--literal'].map((value) => ({ value })),
+  );
+  expect(output).toHaveBeenCalledTimes(7);
+  for (const [line] of output.mock.calls) {
+    expect(JSON.parse(line)).toEqual({
+      schemaVersion: 1,
+      ok: true,
+      data: { requestId: 'parameter-set' },
+      correlationId: 'parameter-set',
+    });
+  }
 });
 
 it.each([

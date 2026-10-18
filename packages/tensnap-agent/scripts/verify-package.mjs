@@ -255,6 +255,12 @@ syncBuiltinESMExports();
     );
     assert.equal((await run(['--version', '--unknown'], 2)).error.category, 'input_error');
     assert.equal((await run(['run', 'start'], 2)).error.category, 'input_error');
+    assert.equal((await run(['action', 'run', ''], 2)).error.category, 'input_error');
+    assert.equal((await run(['scene', 'restore'], 2)).error.category, 'input_error');
+    assert.equal(
+      (await run(['runtime', 'up', '--ip-family', 'invalid'], 2)).error.category,
+      'input_error',
+    );
     assert.equal(
       (await run(['runtime', 'up', '--port', 'Infinity'], 2)).error.category,
       'input_error',

@@ -100,14 +100,18 @@ async function waitForDaemon(
   throw new Error(`Timed out waiting for runtime daemon in context ${context.contextName}.`);
 }
 
+function resolveRuntimeContextPathsFromOptions(options: CliOptions): RuntimeContextPaths {
+  return resolveRuntimeContextPaths({
+    contextName: options.context,
+    rootDir: options.contextDir,
+  });
+}
+
 async function startForegroundDaemon(options: CliOptions): Promise<void> {
   // Metadata, skill installs, and HTTP clients do not need native headless painters.
   const { AgentRuntime, HeadlessEnvironmentPainter, HeadlessChartPainter, RuntimeControlServer } =
     await import('./index');
-  const context = resolveRuntimeContextPaths({
-    contextName: options.context,
-    rootDir: options.contextDir,
-  });
+  const context = resolveRuntimeContextPathsFromOptions(options);
   const controlPort = options.port;
 
   const runtime = new AgentRuntime(context, {
@@ -175,10 +179,7 @@ async function startForegroundDaemon(options: CliOptions): Promise<void> {
 async function startBackgroundDaemon(options: CliOptions): Promise<void> {
   const ipFamily = options.ipFamily ?? 'auto';
   const port = options.port;
-  const context = resolveRuntimeContextPaths({
-    contextName: options.context,
-    rootDir: options.contextDir,
-  });
+  const context = resolveRuntimeContextPathsFromOptions(options);
 
   const running = await resolveRunningRuntime(context);
   if (running) {
@@ -262,10 +263,7 @@ async function startBackgroundDaemon(options: CliOptions): Promise<void> {
 }
 
 async function stopDaemon(options: CliOptions): Promise<void> {
-  const context = resolveRuntimeContextPaths({
-    contextName: options.context,
-    rootDir: options.contextDir,
-  });
+  const context = resolveRuntimeContextPathsFromOptions(options);
   const running = await resolveRunningRuntime(context);
   if (running) {
     const result = await requestJson(running.baseUrl, '/v1/runtime/stop', { method: 'POST' });
@@ -284,10 +282,7 @@ async function stopDaemon(options: CliOptions): Promise<void> {
 }
 
 async function printStatus(options: CliOptions): Promise<void> {
-  const context = resolveRuntimeContextPaths({
-    contextName: options.context,
-    rootDir: options.contextDir,
-  });
+  const context = resolveRuntimeContextPathsFromOptions(options);
   const running = await resolveRunningRuntime(context);
   if (running) {
     printJson(options, await requestJson(running.baseUrl, '/v1/runtime/status'));
@@ -299,10 +294,7 @@ async function printStatus(options: CliOptions): Promise<void> {
 }
 
 async function printLogs(options: CliOptions): Promise<void> {
-  const context = resolveRuntimeContextPaths({
-    contextName: options.context,
-    rootDir: options.contextDir,
-  });
+  const context = resolveRuntimeContextPathsFromOptions(options);
   try {
     const raw = await readFile(context.logFile, 'utf8');
     emitText(options, raw);
@@ -314,10 +306,7 @@ async function printLogs(options: CliOptions): Promise<void> {
 async function requireRuntime(
   options: CliOptions,
 ): Promise<{ context: RuntimeContextPaths; baseUrl: string }> {
-  const context = resolveRuntimeContextPaths({
-    contextName: options.context,
-    rootDir: options.contextDir,
-  });
+  const context = resolveRuntimeContextPathsFromOptions(options);
   const running = await resolveRunningRuntime(context);
   if (!running) {
     throw new Error(`No running daemon found for context ${context.contextName}.`);
@@ -566,7 +555,7 @@ export function createProgram(
     const chartPolicy = options.chartPolicy;
     if (chartPolicy !== undefined) input.chartPolicy = chartPolicy;
     if (Object.keys(input).length === 0) {
-      throw new Error(
+      throw new CliInputError(
         'No checkpoint or projected scene state was supplied. Use scene restore --help.',
       );
     }
@@ -641,7 +630,7 @@ export function createProgram(
       .description('Set a parameter to a JSON value or plain string.'),
     async (options, rest) => {
       const [parameterId, rawValue] = rest;
-      if (!parameterId) throw new Error('Parameter ID must not be empty.');
+      if (!parameterId) throw new CliInputError('Parameter ID must not be empty.');
       const { baseUrl } = await requireRuntime(options);
       printJson(
         options,
@@ -660,7 +649,7 @@ export function createProgram(
     action.command('run <action-id>').description('Dispatch one simulator action.'),
     async (options, rest) => {
       const [actionId] = rest;
-      if (!actionId) throw new Error('Action ID must not be empty.');
+      if (!actionId) throw new CliInputError('Action ID must not be empty.');
       const { baseUrl } = await requireRuntime(options);
       printJson(
         options,
@@ -700,7 +689,7 @@ export function createProgram(
   });
   handle(runStart, async (options, rest) => {
     const [actionId] = rest;
-    if (!actionId) throw new Error('Action ID must not be empty.');
+    if (!actionId) throw new CliInputError('Action ID must not be empty.');
     const maxSteps = options.maxActions ?? options.maxSteps;
     const { baseUrl } = await requireRuntime(options);
     printJson(
@@ -737,7 +726,7 @@ export function createProgram(
     chart.command('get <chart-id>').description('Read a chart series.'),
     async (options, rest) => {
       const [chartId] = rest;
-      if (!chartId) throw new Error('Chart ID must not be empty.');
+      if (!chartId) throw new CliInputError('Chart ID must not be empty.');
       const { baseUrl } = await requireRuntime(options);
       printJson(options, await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`));
     },
