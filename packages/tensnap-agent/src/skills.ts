@@ -15,7 +15,15 @@ import {
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CliInputError, type ParsedArgs } from './cli-arguments';
+import { CliInputError } from './cli-options';
+
+export interface SkillOptions {
+  scope?: 'project' | 'user';
+  agent?: 'codex' | 'claude-code' | 'universal';
+  projectDir?: string;
+  all?: boolean;
+  force?: boolean;
+}
 
 function packageVersion(): string {
   try {
@@ -198,11 +206,10 @@ async function loadSkillBundle(): Promise<{ root: string; bundle: SkillBundle }>
   );
 }
 
-function target(parsed: ParsedArgs) {
-  const scope = parsed.flags.scope === 'user' ? 'user' : 'project';
-  const agent = typeof parsed.flags.agent === 'string' ? parsed.flags.agent : 'codex';
-  const base =
-    scope === 'user' ? homedir() : resolve(String(parsed.flags['project-dir'] ?? process.cwd()));
+function target(options: SkillOptions) {
+  const scope = options.scope ?? 'project';
+  const agent = options.agent ?? 'codex';
+  const base = scope === 'user' ? homedir() : resolve(options.projectDir ?? process.cwd());
   return {
     scope,
     agent,
@@ -444,26 +451,31 @@ export async function installSkills(
   return results;
 }
 
-export async function manageSkills(parsed: ParsedArgs): Promise<unknown> {
+export async function listSkills(options: SkillOptions): Promise<unknown> {
   const { root: source, bundle } = await loadSkillBundle();
-  const destination = target(parsed);
-  if (parsed.positional[1] === 'list')
-    return {
-      ...destination,
-      package: PACKAGE,
-      version: bundle.version,
-      source,
-      skills: bundle.skills.map(({ name, description }) => ({ name, description })),
-    };
-  const selected = parsed.flags.all
+  return {
+    ...target(options),
+    package: PACKAGE,
+    version: bundle.version,
+    source,
+    skills: bundle.skills.map(({ name, description }) => ({ name, description })),
+  };
+}
+
+export async function installBundledSkills(
+  name: string | undefined,
+  options: SkillOptions,
+): Promise<unknown> {
+  const { root: source, bundle } = await loadSkillBundle();
+  const destination = target(options);
+  const selected = options.all
     ? bundle.skills
-    : bundle.skills.filter((skill) => skill.name === parsed.positional[2]);
-  if (!selected.length)
-    throw new CliInputError(`Unknown skill: ${parsed.positional[2]}. Use skills list.`);
+    : bundle.skills.filter((skill) => skill.name === name);
+  if (!selected.length) throw new CliInputError(`Unknown skill: ${name}. Use skills list.`);
   return {
     ...destination,
     package: PACKAGE,
     version: bundle.version,
-    results: await installSkills(source, bundle, destination.root, selected, !!parsed.flags.force),
+    results: await installSkills(source, bundle, destination.root, selected, !!options.force),
   };
 }

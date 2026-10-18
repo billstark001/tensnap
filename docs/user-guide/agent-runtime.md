@@ -18,6 +18,8 @@ tensnap-agent runtime down --context demo
 
 Use `--context-dir <path>` to change the `.tensnap` storage root. Every command validates flags, value types, enums, mutually exclusive options and positional argument counts before runtime access or file writes. `--root-dir` is rejected with a `--context-dir` hint. `--record` and `--foreground` are switches; do not append `true` or `false`. `--max-actions` is a positive completed-action limit, including failed results. The deprecated public `--max-steps` spelling remains accepted; combining the two fails. HTTP/core still name this quota `maxSteps`.
 
+Commands and command groups provide generated help through `--help` (or `-h`). For example, `tensnap-agent run start --help` works without an action ID or quota, and `tensnap-agent scene --help` lists scene commands. Help does not access the runtime or write files; `--output-version 1` wraps the complete help text in one successful JSON envelope. Global options may appear before or after subcommands; `--context` and `--context-dir` apply to runtime operations and are rejected by skills commands. Use `--` to end option processing when a positional value begins with a dash: `tensnap-agent param set label -- --literal`.
+
 HTTP connection requests require a `ws://` or `wss://` URL. Recording options validate nested codec names, model identity and checkpoint fields before starting a run. Checkpoint bytes in JSON must use base64 or a base64 data URL.
 
 A run is driven by its target action's `should_continue` result. For standard model-builder examples, use the continuous `start` action for bounded runs; the one-shot `step` action can explicitly stop after one result. Model time need not advance on a successful action.

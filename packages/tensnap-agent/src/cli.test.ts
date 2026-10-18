@@ -4,7 +4,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { classifyCliError, CliRequestError, main } from './cli';
+import { classifyCliError, CliRequestError, createProgram, main } from './cli';
+import { CLI_VERSION } from './skills';
 import { resolveRuntimeContextPaths, writeRuntimeControl } from './runtime/context';
 
 it.each(['Infinity', '-Infinity', 'NaN'])('rejects non-finite numeric flags: %s', async (value) => {
@@ -378,6 +379,10 @@ describe('agent CLI', () => {
 
 it.each([
   ['runtime', 'up', '--root-dir', '/tmp/unused'],
+  ['--version', '--output-version', '2'],
+  ['--version', '--unknown'],
+  ['--version', '--version'],
+  ['runtime', 'status', '--version'],
   ['runtime', 'up', '--encoding', 'invalid'],
   ['runtime', 'up', '--simulator-url', 'http://localhost'],
   ['scene', 'restore', '--parameters', '[]'],
@@ -393,12 +398,152 @@ it.each([
   ['run', 'start', 'step', '--max-actions', '1', '--max-steps', '1'],
   ['run', 'start', 'step', '--max-actions', '1', '--max-actions', '2'],
   ['run', 'start', 'step', '--max-actions', '1', '--record', 'false'],
+  ['run', 'start', 'step'],
+  ['run', 'start', 'step', '--max-actions', '1', '--record', '--record'],
+  ['run', 'start', 'step', '--max-actions', '1', '--record=false'],
+  ['run', 'start', 'step', '--max-actions', '9007199254740992'],
+  ['run', 'start', 'step', '--max-actions', '1', '--max-wall-time-ms', '0'],
+  ['--context', 'one', 'runtime', 'status', '--context', 'two'],
+  ['runtime', 'up', '--port', '0', '--port', '1'],
+  ['scene', 'render', '--output='],
+  ['scene', 'render', '--output', '   '],
+  ['scene', 'render', '--quality', '1.01'],
+  ['scene', 'render', '--quality', '-0.01'],
+  ['scene', 'render', '--format', 'svg'],
+  ['scene', 'render', '--viewport', '{"x":1e309,"y":0,"width":1,"height":1}'],
+  ['scene', 'render', '--viewport', '{"x":0,"y":0,"width":1,"height":1,"extra":1}'],
+  ['scene', 'restore', '--parameters', 'null'],
+  ['scene', 'restore', '--parameters', '{'],
+  ['scene', 'restore', '--chart-policy', 'unknown'],
   ['param', 'set', 'speed'],
   ['unknown', 'command'],
 ])('rejects invalid CLI input before runtime access: %j', async (...argv) => {
   const fetch = vi.spyOn(globalThis, 'fetch');
-  await expect(main(argv as string[])).rejects.toThrow();
+  await expect(main(argv as string[])).rejects.toMatchObject({
+    category: 'input_error',
+    exitCode: 2,
+  });
   expect(fetch).not.toHaveBeenCalled();
+});
+
+const helpCommands = createProgram().commands.flatMap((group) =>
+  group.commands.map((command) => [group.name(), command.name()]),
+);
+
+describe('generated command help', () => {
+  it.each(helpCommands)(
+    'shows %s %s help without required arguments or runtime access',
+    async (group, command) => {
+      const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const stderr = vi.spyOn(process.stderr, 'write');
+      const fetch = vi.spyOn(globalThis, 'fetch');
+      const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('Unexpected process.exit');
+      });
+      await main([group, command, '--help']);
+      expect(output).toHaveBeenCalledTimes(1);
+      expect(output.mock.calls[0]![0]).toContain(`Usage: tensnap-agent ${group} ${command}`);
+      expect(output.mock.calls[0]![0]).toContain('--output-version');
+      expect(fetch).not.toHaveBeenCalled();
+      expect(stderr).not.toHaveBeenCalled();
+      expect(exit).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(helpCommands)('wraps %s %s help in exactly one JSON envelope', async (group, command) => {
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await main([group, command, '--help', '--output-version=1']);
+    expect(output).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(output.mock.calls[0]![0])).toEqual({
+      schemaVersion: 1,
+      ok: true,
+      data: expect.stringContaining(`Usage: tensnap-agent ${group} ${command}`),
+    });
+  });
+
+  it.each([[], ['--help'], ['run'], ['run', '--help'], ['skills', '--help']])(
+    'shows root or group help: %j',
+    async (...argv) => {
+      const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await main(argv);
+      expect(output).toHaveBeenCalledTimes(1);
+      expect(output.mock.calls[0]![0]).toContain('Commands:');
+    },
+  );
+
+  it('includes command options, choices, and the public deprecated quota spelling', async () => {
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await main(['run', 'start', '--help']);
+    expect(output.mock.calls[0]![0]).toContain('<action-id>');
+    expect(output.mock.calls[0]![0]).toContain('--max-actions');
+    expect(output.mock.calls[0]![0]).toContain('--max-steps');
+    expect(output.mock.calls[0]![0]).toContain('Deprecated');
+    await main(['scene', 'render', '--help']);
+    expect(output.mock.calls[1]![0]).toContain('--viewport');
+    expect(output.mock.calls[1]![0]).toContain('"png", "jpeg"');
+    await main(['skills', 'install', '--help']);
+    expect(output.mock.calls[2]![0]).not.toContain('--context');
+    expect(output.mock.calls[2]![0]).not.toContain('--version ');
+  });
+
+  it.each([['--output-version', '1'], ['--output-version=1']])(
+    'wraps group help and its additional notes in one response: %j',
+    async (...flags) => {
+      const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await main(['skills', '--help', ...flags]);
+      expect(output).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(output.mock.calls[0]![0])).toEqual({
+        schemaVersion: 1,
+        ok: true,
+        data: expect.stringContaining('Installs are offline and non-interactive.'),
+      });
+    },
+  );
+
+  it('does not share option state across help and execution invocations', async () => {
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await main(['--output-version', '1', 'param', 'set', '--help']);
+    await main(['--version']);
+    await main(['--version', '--output-version', '1']);
+    expect(output).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(output.mock.calls[0]![0])).toMatchObject({
+      ok: true,
+      data: expect.stringContaining('param set'),
+    });
+    expect(output.mock.calls[1]![0]).toBe(CLI_VERSION);
+    expect(JSON.parse(output.mock.calls[2]![0])).toEqual({
+      schemaVersion: 1,
+      ok: true,
+      data: CLI_VERSION,
+    });
+  });
+});
+
+it('treats output-version after the option terminator as a literal positional value', async () => {
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await expect(main(['param', 'set', '--', '--output-version=1'])).rejects.toMatchObject({
+    exitCode: 2,
+  });
+  expect(output).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['--output-version=1', 'unknown'],
+  ['unknown', '--output-version', '1'],
+  ['run', 'start', '--output-version=1'],
+  ['runtime', 'up', '--encoding', 'other', '--output-version', '1'],
+  ['runtime', 'up', '--context', '--output-version', '1'],
+])('uses versioned input errors even when parsing fails early: %j', async (...argv) => {
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const stderr = vi.spyOn(process.stderr, 'write');
+  await expect(main(argv)).rejects.toMatchObject({ category: 'input_error', exitCode: 2 });
+  expect(output).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(output.mock.calls[0]![0])).toMatchObject({
+    schemaVersion: 1,
+    ok: false,
+    error: { category: 'input_error' },
+  });
+  expect(stderr).not.toHaveBeenCalled();
 });
 
 it('emits one versioned JSON input error without touching the runtime', async () => {
@@ -415,6 +560,39 @@ it('emits one versioned JSON input error without touching the runtime', async ()
   });
   expect(fetch).not.toHaveBeenCalled();
 });
+
+it('preserves the public root-dir replacement hint for equals syntax', async () => {
+  await expect(main(['runtime', 'up', '--root-dir=/tmp/unused'])).rejects.toThrow(
+    'Use --context-dir.',
+  );
+});
+
+it.each([
+  ['param', 'set', '', '1'],
+  ['action', 'run', ''],
+  ['run', 'start', '', '--max-actions', '1'],
+  ['chart', 'get', ''],
+  ['scene', 'restore'],
+])('preserves business validation failures before runtime access: %j', async (...argv) => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const error = await main(argv).catch((error: unknown) => error);
+  expect(error).toBeInstanceOf(Error);
+  expect(classifyCliError(error)).toEqual({ category: 'execution_failed', exitCode: 3 });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it.each([
+  [400, { error: 'invalid' }, 'input_error', 2],
+  [500, { error: 'failed' }, 'execution_failed', 3],
+  [500, { error: 'timed out' }, 'result_unknown', 4],
+  [422, { error: 'render failed', category: 'render_failed' }, 'render_failed', 5],
+  [422, { error: 'disk full', category: 'persistence_failed' }, 'persistence_failed', 6],
+] as const)(
+  'preserves error categories and exit codes: %s %j',
+  (status, body, category, exitCode) => {
+    expect(classifyCliError(new CliRequestError(status, body))).toEqual({ category, exitCode });
+  },
+);
 
 it('keeps structured HTTP failures and partial artifacts in versioned stdout', async () => {
   const { writeFile, mkdir } = await import('node:fs/promises');

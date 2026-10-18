@@ -8,55 +8,20 @@ import {
   resolveRuntimeContextPaths,
   type RuntimeContextPaths,
 } from './runtime/context';
-import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
-import type { RenderTriggerMode } from './types';
-import { parseIPFamily, listenerUrl } from '@tensnap/network';
+import { listenerUrl } from '@tensnap/network';
+import { Argument, Command, CommanderError, Help, Option } from 'commander';
 
-import { parseArgs, CliInputError, type ParsedArgs } from './cli-arguments';
-import { CLI_VERSION, manageSkills, SkillPersistenceError } from './skills';
+import {
+  addOptions,
+  CliInputError,
+  jsonOption,
+  numericOption,
+  startupOptions,
+  type CliOptions,
+} from './cli-options';
+import { CLI_VERSION, listSkills, installBundledSkills, SkillPersistenceError } from './skills';
 
 const DEFAULT_RUNTIME_READY_TIMEOUT_MS = 10000;
-
-function getIPFamilyFlag(parsed: ParsedArgs) {
-  if (parsed.flags['ip-family'] === true)
-    throw new Error('--ip-family requires auto, ipv4, or ipv6.');
-  return parseIPFamily(getStringFlag(parsed, 'ip-family'));
-}
-
-function getStringFlag(parsed: ParsedArgs, key: string): string | undefined {
-  const value = parsed.flags[key];
-  return typeof value === 'string' ? value : undefined;
-}
-
-function getNumberFlag(parsed: ParsedArgs, key: string): number | undefined {
-  const value = getStringFlag(parsed, key);
-  if (value === undefined) {
-    return undefined;
-  }
-  const parsedValue = Number(value);
-  if (!Number.isFinite(parsedValue)) {
-    throw new Error(`Flag --${key} must be a finite number.`);
-  }
-  return parsedValue;
-}
-
-function getPortFlag(parsed: ParsedArgs): number | undefined {
-  const port = getNumberFlag(parsed, 'port');
-  if (port !== undefined && (!Number.isInteger(port) || port < 0 || port > 65535)) {
-    throw new Error('Flag --port must be an integer from 0 through 65535.');
-  }
-  return port;
-}
-
-function getValidationLevelFlag(
-  parsed: ParsedArgs,
-  key: string,
-): ProtocolValidationLevel | undefined {
-  const value = getStringFlag(parsed, key);
-  if (value === undefined) return undefined;
-  if (value === 'off' || value === 'warning' || value === 'error') return value;
-  throw new Error(`Flag --${key} must be one of: off, warning, error.`);
-}
 
 function parseJsonValue(raw: string): unknown {
   try {
@@ -64,33 +29,6 @@ function parseJsonValue(raw: string): unknown {
   } catch {
     return raw;
   }
-}
-
-function parseViewportFlag(
-  raw?: string,
-): { x: number; y: number; width: number; height: number } | undefined {
-  if (!raw) {
-    return undefined;
-  }
-
-  const value = parseJsonValue(raw);
-  if (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Record<string, unknown>).x === 'number' &&
-    typeof (value as Record<string, unknown>).y === 'number' &&
-    typeof (value as Record<string, unknown>).width === 'number' &&
-    typeof (value as Record<string, unknown>).height === 'number'
-  ) {
-    return value as { x: number; y: number; width: number; height: number };
-  }
-
-  throw new Error('Flag --viewport must be a JSON object: {"x":0,"y":0,"width":10,"height":10}.');
-}
-
-function getColorFlag(parsed: ParsedArgs, key: string): string | undefined {
-  const value = getStringFlag(parsed, key)?.trim();
-  return value ? value : undefined;
 }
 
 function buildBaseUrl(control: { host: string; controlPort: number | null }): string {
@@ -162,28 +100,27 @@ async function waitForDaemon(
   throw new Error(`Timed out waiting for runtime daemon in context ${context.contextName}.`);
 }
 
-async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
+async function startForegroundDaemon(options: CliOptions): Promise<void> {
   // Metadata, skill installs, and HTTP clients do not need native headless painters.
   const { AgentRuntime, HeadlessEnvironmentPainter, HeadlessChartPainter, RuntimeControlServer } =
     await import('./index');
   const context = resolveRuntimeContextPaths({
-    contextName: getStringFlag(parsed, 'context'),
-    rootDir: getStringFlag(parsed, 'context-dir'),
+    contextName: options.context,
+    rootDir: options.contextDir,
   });
-  const controlPort = getPortFlag(parsed);
+  const controlPort = options.port;
 
   const runtime = new AgentRuntime(context, {
-    ip_family: getIPFamilyFlag(parsed),
-    host: getStringFlag(parsed, 'host'),
+    ip_family: options.ipFamily ?? 'auto',
+    host: options.host,
     controlPort,
-    encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
-    clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
-    serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
-    maxRunStepsPolicy: getNumberFlag(parsed, 'max-steps-policy'),
+    encoding: options.encoding ?? 'msgpack',
+    clientMessageValidation: options.clientMessageValidation,
+    serverMessageValidation: options.serverMessageValidation,
+    maxRunStepsPolicy: options.maxStepsPolicy,
     render: {
-      trigger:
-        (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
-      backgroundColor: getColorFlag(parsed, 'background-color'),
+      trigger: options.renderTrigger ?? 'manual',
+      backgroundColor: options.backgroundColor,
     },
   });
   await runtime.initialize();
@@ -191,7 +128,7 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
     new HeadlessEnvironmentPainter({
       capturesDir: context.capturesDir,
       defaultFormat: 'png',
-      backgroundColor: getColorFlag(parsed, 'background-color'),
+      backgroundColor: options.backgroundColor,
     }),
   );
   runtime.registerPainter(
@@ -202,25 +139,25 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
   );
 
   const server = new RuntimeControlServer(runtime, {
-    ip_family: getIPFamilyFlag(parsed),
-    host: getStringFlag(parsed, 'host'),
+    ip_family: options.ipFamily ?? 'auto',
+    host: options.host,
     port: controlPort,
   });
   const address = await server.listen();
 
-  const simulatorUrl = getStringFlag(parsed, 'simulator-url');
+  const simulatorUrl = options.simulatorUrl;
   if (simulatorUrl) {
     await runtime.connect({
-      ip_family: getIPFamilyFlag(parsed),
+      ip_family: options.ipFamily ?? 'auto',
       simulatorUrl,
-      encoding: (getStringFlag(parsed, 'encoding') as ProtocolEncoding | undefined) ?? 'msgpack',
-      clientMessageValidation: getValidationLevelFlag(parsed, 'client-message-validation'),
-      serverMessageValidation: getValidationLevelFlag(parsed, 'server-message-validation'),
+      encoding: options.encoding ?? 'msgpack',
+      clientMessageValidation: options.clientMessageValidation,
+      serverMessageValidation: options.serverMessageValidation,
     });
     await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
   }
 
-  printJson(parsed, {
+  printJson(options, {
     status: runtime.getStatus(),
     control: address,
   });
@@ -235,17 +172,17 @@ async function startForegroundDaemon(parsed: ParsedArgs): Promise<void> {
   process.on('SIGTERM', () => void shutdown());
 }
 
-async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
-  const ipFamily = getIPFamilyFlag(parsed);
-  const port = getPortFlag(parsed);
+async function startBackgroundDaemon(options: CliOptions): Promise<void> {
+  const ipFamily = options.ipFamily ?? 'auto';
+  const port = options.port;
   const context = resolveRuntimeContextPaths({
-    contextName: getStringFlag(parsed, 'context'),
-    rootDir: getStringFlag(parsed, 'context-dir'),
+    contextName: options.context,
+    rootDir: options.contextDir,
   });
 
   const running = await resolveRunningRuntime(context);
   if (running) {
-    printJson(parsed, await requestJson(running.baseUrl, '/v1/runtime/status'));
+    printJson(options, await requestJson(running.baseUrl, '/v1/runtime/status'));
     return;
   }
 
@@ -267,16 +204,16 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
     '--context-dir',
     context.rootDir,
     '--render-trigger',
-    (getStringFlag(parsed, 'render-trigger') as RenderTriggerMode | undefined) ?? 'manual',
+    options.renderTrigger ?? 'manual',
   ];
 
-  const simulatorUrl = getStringFlag(parsed, 'simulator-url');
+  const simulatorUrl = options.simulatorUrl;
   childArgs.push('--ip-family', ipFamily);
   if (simulatorUrl) {
     childArgs.push('--simulator-url', simulatorUrl);
   }
 
-  const host = getStringFlag(parsed, 'host');
+  const host = options.host;
   if (host) {
     childArgs.push('--host', host);
   }
@@ -285,24 +222,26 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
     childArgs.push('--port', String(port));
   }
 
-  const encoding = getStringFlag(parsed, 'encoding');
+  const encoding = options.encoding;
   if (encoding) {
     childArgs.push('--encoding', encoding);
   }
 
-  const backgroundColor = getColorFlag(parsed, 'background-color');
+  const backgroundColor = options.backgroundColor;
   if (backgroundColor) {
     childArgs.push('--background-color', backgroundColor);
   }
 
-  const maxStepsPolicy = getStringFlag(parsed, 'max-steps-policy');
-  if (maxStepsPolicy) {
-    childArgs.push('--max-steps-policy', maxStepsPolicy);
+  const maxStepsPolicy = options.maxStepsPolicy;
+  if (maxStepsPolicy !== undefined) {
+    childArgs.push('--max-steps-policy', String(maxStepsPolicy));
   }
 
-  for (const key of ['client-message-validation', 'server-message-validation'] as const) {
-    const level = getValidationLevelFlag(parsed, key);
-    if (level !== undefined) childArgs.push(`--${key}`, level);
+  for (const [flag, level] of [
+    ['client-message-validation', options.clientMessageValidation],
+    ['server-message-validation', options.serverMessageValidation],
+  ] as const) {
+    if (level !== undefined) childArgs.push(`--${flag}`, level);
   }
 
   const child = spawn(process.execPath, childArgs, {
@@ -319,65 +258,65 @@ async function startBackgroundDaemon(parsed: ParsedArgs): Promise<void> {
       body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
     });
   }
-  printJson(parsed, await requestJson(ready.baseUrl, '/v1/runtime/status'));
+  printJson(options, await requestJson(ready.baseUrl, '/v1/runtime/status'));
 }
 
-async function stopDaemon(parsed: ParsedArgs): Promise<void> {
+async function stopDaemon(options: CliOptions): Promise<void> {
   const context = resolveRuntimeContextPaths({
-    contextName: getStringFlag(parsed, 'context'),
-    rootDir: getStringFlag(parsed, 'context-dir'),
+    contextName: options.context,
+    rootDir: options.contextDir,
   });
   const running = await resolveRunningRuntime(context);
   if (running) {
     const result = await requestJson(running.baseUrl, '/v1/runtime/stop', { method: 'POST' });
-    if (parsed.flags['output-version'] === '1') printJson(parsed, result);
+    if (options.outputVersion === '1') printJson(options, result);
     return;
   }
 
   const control = await readRuntimeControl(context);
   if (control?.pid && isProcessAlive(control.pid)) {
     process.kill(control.pid, 'SIGTERM');
-    if (parsed.flags['output-version'] === '1') printJson(parsed, { stopping: true });
+    if (options.outputVersion === '1') printJson(options, { stopping: true });
     return;
   }
 
   throw new Error(`No running daemon found for context ${context.contextName}.`);
 }
 
-async function printStatus(parsed: ParsedArgs): Promise<void> {
+async function printStatus(options: CliOptions): Promise<void> {
   const context = resolveRuntimeContextPaths({
-    contextName: getStringFlag(parsed, 'context'),
-    rootDir: getStringFlag(parsed, 'context-dir'),
+    contextName: options.context,
+    rootDir: options.contextDir,
   });
   const running = await resolveRunningRuntime(context);
   if (running) {
-    printJson(parsed, await requestJson(running.baseUrl, '/v1/runtime/status'));
+    printJson(options, await requestJson(running.baseUrl, '/v1/runtime/status'));
     return;
   }
 
   const control = await readRuntimeControl(context);
-  printJson(parsed, control ?? { context: context.contextName, running: false });
+  printJson(options, control ?? { context: context.contextName, running: false });
 }
 
-async function printLogs(parsed: ParsedArgs): Promise<void> {
+async function printLogs(options: CliOptions): Promise<void> {
   const context = resolveRuntimeContextPaths({
-    contextName: getStringFlag(parsed, 'context'),
-    rootDir: getStringFlag(parsed, 'context-dir'),
+    contextName: options.context,
+    rootDir: options.contextDir,
   });
   try {
     const raw = await readFile(context.logFile, 'utf8');
-    emitText(parsed, raw);
+    emitText(options, raw);
   } catch {
-    emitText(parsed, '');
+    emitText(options, '');
   }
 }
 
 async function requireRuntime(
-  parsed: ParsedArgs,
+  options: CliOptions,
 ): Promise<{ context: RuntimeContextPaths; baseUrl: string }> {
   const context = resolveRuntimeContextPaths({
-    contextName: getStringFlag(parsed, 'context'),
-    rootDir: getStringFlag(parsed, 'context-dir'),
+    contextName: options.context,
+    rootDir: options.contextDir,
   });
   const running = await resolveRunningRuntime(context);
   if (!running) {
@@ -386,8 +325,8 @@ async function requireRuntime(
   return { context, baseUrl: running.baseUrl };
 }
 
-async function streamEvents(parsed: ParsedArgs): Promise<void> {
-  const { baseUrl } = await requireRuntime(parsed);
+async function streamEvents(options: CliOptions): Promise<void> {
+  const { baseUrl } = await requireRuntime(options);
   const response = await fetch(`${baseUrl}/v1/events`);
   if (!response.ok || !response.body) {
     throw new Error('Unable to open event stream.');
@@ -420,84 +359,141 @@ async function streamEvents(parsed: ParsedArgs): Promise<void> {
       if (!data) {
         continue;
       }
-      printJson(parsed, JSON.parse(data));
+      printJson(options, JSON.parse(data));
     }
   }
 }
 
-async function execute(parsed: ParsedArgs): Promise<void> {
-  const [group, command, ...rest] = parsed.flags.help ? [] : parsed.positional;
-
-  if (parsed.flags.version) {
-    emitText(parsed, CLI_VERSION);
-    return;
-  }
-
-  if (group === 'skills') {
-    printJson(parsed, await manageSkills(parsed));
-    return;
-  }
-
-  if (!parsed.flags.help && group === 'daemon' && command === 'serve') {
-    await startForegroundDaemon(parsed);
-    return;
-  }
-
-  if (group === 'runtime' && command === 'up') {
-    if (parsed.flags.foreground) {
-      await startForegroundDaemon(parsed);
-      return;
+/** Build a fresh command tree so repeated in-process invocations never share option state. */
+export function createProgram(
+  writeText: (text: string) => void = (text) => process.stdout.write(text),
+): Command {
+  const program = new Command()
+    .name('tensnap-agent')
+    .description('Headless TenSnap simulator control, rendering, and offline skills.')
+    .helpCommand(false)
+    .exitOverride()
+    .showSuggestionAfterError(false)
+    .configureHelp({
+      showGlobalOptions: true,
+      visibleGlobalOptions(command) {
+        return Help.prototype.visibleGlobalOptions
+          .call(this, command)
+          .filter(
+            (option) =>
+              option.long !== '--version' &&
+              (isRuntimeCommand(command) ||
+                !['--context', '--context-dir'].includes(option.long ?? '')),
+          );
+      },
+    })
+    .configureOutput({
+      writeOut: writeText,
+      // main owns diagnostics and JSON error envelopes, including parser errors.
+      writeErr: () => {},
+    });
+  addOptions(program, [
+    new Option('--version', 'Output the version number.'),
+    new Option('--context <name>', 'Runtime context name (runtime commands only).'),
+    new Option('--context-dir <path>', 'Runtime storage root (runtime commands only).'),
+    new Option(
+      '--output-version <version>',
+      'Wrap results, help, and errors in versioned JSON.',
+    ).choices(['1']),
+  ]);
+  program.action(() => {
+    if (program.opts<{ version?: boolean }>().version) writeText(`${CLI_VERSION}\n`);
+    else program.outputHelp();
+  });
+  program.hook('preAction', (_parent, command) => {
+    const options = command.optsWithGlobals<CliOptions>();
+    if (program.opts<{ version?: boolean }>().version && command !== program) {
+      throw new CliInputError('--version is only available on the root command.');
     }
-    await startBackgroundDaemon(parsed);
-    return;
-  }
-
-  if (group === 'runtime' && command === 'down') {
-    await stopDaemon(parsed);
-    return;
-  }
-
-  if (group === 'runtime' && command === 'status') {
-    await printStatus(parsed);
-    return;
-  }
-
-  if (group === 'runtime' && command === 'logs') {
-    await printLogs(parsed);
-    return;
-  }
-
-  if (group === 'runtime' && command === 'render-trigger') {
-    const { baseUrl } = await requireRuntime(parsed);
-    const trigger = rest[0] as RenderTriggerMode | undefined;
-    if (!trigger) {
-      printJson(parsed, await requestJson(baseUrl, '/v1/runtime/status'));
-      return;
+    if (
+      !isRuntimeCommand(command) &&
+      (options.context !== undefined || options.contextDir !== undefined)
+    ) {
+      throw new CliInputError('--context and --context-dir require a runtime command.');
     }
-    printJson(
-      parsed,
-      await requestJson(baseUrl, '/v1/runtime/render-trigger', {
-        method: 'POST',
-        body: JSON.stringify({ trigger }),
-      }),
-    );
-    return;
-  }
+  });
 
-  if (group === 'scene' && command === 'inspect') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/scene'));
-    return;
-  }
+  const group = (name: string, description: string) => {
+    const command = program.command(name).description(description);
+    command.action(() => command.outputHelp());
+    return command;
+  };
+  const daemon = group('daemon', 'Run the runtime daemon directly.');
+  const runtime = group('runtime', 'Start, stop, and inspect a runtime context.');
+  const scene = group('scene', 'Inspect, capture, restore, and render simulator state.');
+  const param = group('param', 'Inspect and update simulator parameters.');
+  const action = group('action', 'Discover and dispatch simulator actions.');
+  const run = group('run', 'Control bounded simulator runs.');
+  const chart = group('chart', 'Inspect chart data.');
+  const asset = group('asset', 'List simulator assets.');
+  const stream = group('stream', 'Stream runtime events.');
+  const skills = group(
+    'skills',
+    'List and install version-matched offline agent skills.',
+  ).addHelpText(
+    'after',
+    '\nInstalls are offline and non-interactive. Defaults: project scope, current directory, codex.\nConflicts preserve existing content; --force replaces with a backup. Re-run after CLI upgrades.',
+  );
 
-  if (group === 'scene' && command === 'snapshot') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/scene/snapshot'));
-    return;
-  }
+  const serve = daemon.command('serve').description('Serve the runtime in the foreground.');
+  addOptions(serve, startupOptions());
+  handle(serve, startForegroundDaemon);
+  const up = runtime
+    .command('up')
+    .description('Start the runtime and optionally connect to a simulator.');
+  addOptions(up, [...startupOptions(), new Option('--foreground', 'Run in the foreground.')]);
+  handle(up, (options) =>
+    options.foreground ? startForegroundDaemon(options) : startBackgroundDaemon(options),
+  );
+  handle(runtime.command('down').description('Stop the runtime.'), stopDaemon);
+  handle(runtime.command('status').description('Report runtime status.'), printStatus);
+  handle(runtime.command('logs').description('Read runtime logs.'), printLogs);
+  handle(
+    runtime
+      .command('render-trigger')
+      .description('Read or set automatic rendering.')
+      .addArgument(
+        new Argument('[mode]', 'Render trigger mode.').choices(['manual', 'action-result']),
+      ),
+    async (options, rest) => {
+      const { baseUrl } = await requireRuntime(options);
+      const trigger = rest[0];
+      if (!trigger) {
+        printJson(options, await requestJson(baseUrl, '/v1/runtime/status'));
+        return;
+      }
+      printJson(
+        options,
+        await requestJson(baseUrl, '/v1/runtime/render-trigger', {
+          method: 'POST',
+          body: JSON.stringify({ trigger }),
+        }),
+      );
+    },
+  );
+  handle(scene.command('inspect').description('Inspect the current scene.'), async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(options, await requestJson(baseUrl, '/v1/scene'));
+  });
+  handle(
+    scene.command('snapshot').description('Read the current scene snapshot.'),
+    async (options) => {
+      const { baseUrl } = await requireRuntime(options);
+      printJson(options, await requestJson(baseUrl, '/v1/scene/snapshot'));
+    },
+  );
 
-  if (group === 'scene' && command === 'capture') {
-    const { baseUrl } = await requireRuntime(parsed);
+  const sceneCapture = scene
+    .command('capture')
+    .description('Capture a restorable scene checkpoint.');
+  addOptions(sceneCapture, [new Option('--output <path>', 'Write the capture to a JSON file.')]);
+  handle(sceneCapture, async (options) => {
+    const { baseUrl } = await requireRuntime(options);
     const result = (await requestJson(baseUrl, '/v1/scene/capture', { method: 'POST' })) as Record<
       string,
       unknown
@@ -515,16 +511,29 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       typeof capturedTime === 'number' && Number.isFinite(capturedTime)
         ? { ...result, time: capturedTime }
         : result;
-    const outputPath = getStringFlag(parsed, 'output');
+    const outputPath = options.output;
     if (outputPath) {
       await writeFile(outputPath, `${JSON.stringify(capture, null, 2)}\n`, 'utf8');
     }
-    printJson(parsed, capture);
-    return;
-  }
+    printJson(options, capture);
+  });
 
-  if (group === 'scene' && command === 'restore') {
-    const checkpointPath = getStringFlag(parsed, 'checkpoint');
+  const sceneRestore = scene
+    .command('restore')
+    .description('Restore a checkpoint or projected scene state.');
+  addOptions(sceneRestore, [
+    new Option('--checkpoint <path>', 'Restore from a capture JSON file.'),
+    numericOption('--time <number>', 'Override scene time.'),
+    jsonOption('--parameters <json>', 'Projected parameter object.', 'object'),
+    jsonOption('--envs <json>', 'Projected environment array.', 'array'),
+    new Option('--chart-policy <policy>', 'Chart restore policy.').choices([
+      'preserve',
+      'replace',
+      'truncate',
+    ]),
+  ]);
+  handle(sceneRestore, async (options) => {
+    const checkpointPath = options.checkpoint;
     const input: Record<string, unknown> = {};
     let capturedTime: number | undefined;
     if (checkpointPath) {
@@ -548,205 +557,251 @@ async function execute(parsed: ParsedArgs): Promise<void> {
       if (typeof record.time === 'number' && Number.isFinite(record.time))
         capturedTime = record.time;
     }
-    const time = getNumberFlag(parsed, 'time');
+    const time = options.time;
     if (time !== undefined || capturedTime !== undefined) input.time = time ?? capturedTime;
-    const parameters = getStringFlag(parsed, 'parameters');
-    if (parameters !== undefined) input.parameters = parseJsonValue(parameters);
-    const envs = getStringFlag(parsed, 'envs');
-    if (envs !== undefined) input.envs = parseJsonValue(envs);
-    const chartPolicy = getStringFlag(parsed, 'chart-policy');
+    const parameters = options.parameters;
+    if (parameters !== undefined) input.parameters = parameters;
+    const envs = options.envs;
+    if (envs !== undefined) input.envs = envs;
+    const chartPolicy = options.chartPolicy;
     if (chartPolicy !== undefined) input.chartPolicy = chartPolicy;
     if (Object.keys(input).length === 0) {
       throw new Error(
-        'Usage: tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>]',
+        'No checkpoint or projected scene state was supplied. Use scene restore --help.',
       );
     }
-    const { baseUrl } = await requireRuntime(parsed);
+    const { baseUrl } = await requireRuntime(options);
     printJson(
-      parsed,
+      options,
       await requestJson(baseUrl, '/v1/scene/restore', {
         method: 'POST',
         body: JSON.stringify(input),
       }),
     );
-    return;
-  }
+  });
+  handle(
+    scene.command('sync').description('Synchronize the scene with the simulator.'),
+    async (options) => {
+      const { baseUrl } = await requireRuntime(options);
+      printJson(options, await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }));
+    },
+  );
 
-  if (group === 'scene' && command === 'sync') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/runtime/sync', { method: 'POST' }));
-    return;
-  }
-
-  if (group === 'scene' && command === 'render') {
-    const { baseUrl } = await requireRuntime(parsed);
-    const viewport = parseViewportFlag(getStringFlag(parsed, 'viewport'));
-    const envId = getStringFlag(parsed, 'env');
-    const chartId = getStringFlag(parsed, 'chart');
-    if (envId && chartId) {
-      throw new Error('Flags --env and --chart are mutually exclusive.');
-    }
+  const sceneRender = scene
+    .command('render [reason]')
+    .description('Render environments or charts to image files.');
+  addOptions(sceneRender, [
+    new Option('--env <id>', 'Render one environment.').conflicts('chart'),
+    new Option('--chart <id>', 'Render one chart.').conflicts('env'),
+    numericOption('--width <pixels>', 'Image width.', 'integer'),
+    numericOption('--height <pixels>', 'Image height.', 'integer'),
+    jsonOption(
+      '--viewport <json>',
+      'Viewport with finite x/y and positive width/height.',
+      'viewport',
+    ),
+    new Option('--format <format>', 'Image format.').choices(['png', 'jpeg']),
+    numericOption('--quality <number>', 'JPEG quality from 0 through 1.', 'quality'),
+    new Option('--background-color <css-color>', 'Image background color.').argParser((value) =>
+      value.trim(),
+    ),
+    new Option('--output <path>', 'Write the rendered image to this path.'),
+  ]);
+  handle(sceneRender, async (options, rest) => {
+    const { baseUrl } = await requireRuntime(options);
+    const viewport = options.viewport;
+    const envId = options.env;
+    const chartId = options.chart;
     printJson(
-      parsed,
+      options,
       await requestJson(baseUrl, '/v1/scene/render', {
         method: 'POST',
         body: JSON.stringify({
           reason: rest[0] ?? 'manual',
           envId,
           chartId,
-          width: getNumberFlag(parsed, 'width'),
-          height: getNumberFlag(parsed, 'height'),
-          format: getStringFlag(parsed, 'format'),
-          quality: getNumberFlag(parsed, 'quality'),
-          backgroundColor: getColorFlag(parsed, 'background-color'),
-          outputPath: getStringFlag(parsed, 'output'),
+          width: options.width,
+          height: options.height,
+          format: options.format,
+          quality: options.quality,
+          backgroundColor: options.backgroundColor,
+          outputPath: options.output,
           viewport,
         }),
       }),
     );
-    return;
-  }
-
-  if (group === 'param' && command === 'list') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/params'));
-    return;
-  }
-
-  if (group === 'param' && command === 'set') {
-    const [parameterId, rawValue] = rest;
-    if (!parameterId || rawValue === undefined) {
-      throw new Error('Usage: tensnap-agent param set <parameter-id> <json-value>');
-    }
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(
-      parsed,
-      await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
-        method: 'POST',
-        body: JSON.stringify({ value: parseJsonValue(rawValue) }),
-      }),
-    );
-    return;
-  }
-
-  if (group === 'action' && command === 'list') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/actions'));
-    return;
-  }
-
-  if (group === 'action' && command === 'run') {
-    const [actionId] = rest;
-    if (!actionId) {
-      throw new Error('Usage: tensnap-agent action run <action-id>');
-    }
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(
-      parsed,
-      await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      }),
-    );
-    return;
-  }
-
-  if (group === 'run' && command === 'start') {
-    const [actionId] = rest;
-    const maxSteps = getNumberFlag(parsed, 'max-actions') ?? getNumberFlag(parsed, 'max-steps');
-    if (!actionId || maxSteps === undefined) {
-      throw new Error(
-        'Usage: tensnap-agent run start <action-id> --max-actions <n> [--stop-when <expr>] [--max-wall-time-ms <ms>]',
+  });
+  handle(param.command('list').description('List simulator parameters.'), async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(options, await requestJson(baseUrl, '/v1/params'));
+  });
+  handle(
+    param
+      .command('set <parameter-id> <json-value>')
+      .description('Set a parameter to a JSON value or plain string.'),
+    async (options, rest) => {
+      const [parameterId, rawValue] = rest;
+      if (!parameterId) throw new Error('Parameter ID must not be empty.');
+      const { baseUrl } = await requireRuntime(options);
+      printJson(
+        options,
+        await requestJson(baseUrl, `/v1/params/${encodeURIComponent(parameterId)}`, {
+          method: 'POST',
+          body: JSON.stringify({ value: parseJsonValue(rawValue) }),
+        }),
       );
+    },
+  );
+  handle(action.command('list').description('List simulator actions.'), async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(options, await requestJson(baseUrl, '/v1/actions'));
+  });
+  handle(
+    action.command('run <action-id>').description('Dispatch one simulator action.'),
+    async (options, rest) => {
+      const [actionId] = rest;
+      if (!actionId) throw new Error('Action ID must not be empty.');
+      const { baseUrl } = await requireRuntime(options);
+      printJson(
+        options,
+        await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
+          method: 'POST',
+          body: JSON.stringify({}),
+        }),
+      );
+    },
+  );
+
+  const runStart = run
+    .command('start <action-id>')
+    .description('Start a bounded run; requires --max-actions or --max-steps.');
+  addOptions(runStart, [
+    numericOption('--max-actions <count>', 'Positive completed-action limit.', 'integer').conflicts(
+      'maxSteps',
+    ),
+    numericOption(
+      '--max-steps <count>',
+      'Deprecated public spelling of --max-actions.',
+      'integer',
+    ).conflicts('maxActions'),
+    new Option('--stop-when <expression>', 'Stop condition expression.'),
+    numericOption(
+      '--max-wall-time-ms <ms>',
+      'Positive wall-time limit in milliseconds.',
+      'positive',
+    ),
+    new Option('--record', 'Record this run.'),
+  ]);
+  runStart.hook('preAction', (_parent, command) => {
+    const options = command.optsWithGlobals<CliOptions>();
+    if (options.maxActions === undefined && options.maxSteps === undefined) {
+      throw new CliInputError('run start requires --max-actions <n> (or --max-steps <n>).');
     }
-    const { baseUrl } = await requireRuntime(parsed);
+  });
+  handle(runStart, async (options, rest) => {
+    const [actionId] = rest;
+    if (!actionId) throw new Error('Action ID must not be empty.');
+    const maxSteps = options.maxActions ?? options.maxSteps;
+    const { baseUrl } = await requireRuntime(options);
     printJson(
-      parsed,
+      options,
       await requestJson(baseUrl, '/v1/runs', {
         method: 'POST',
         body: JSON.stringify({
           mode: 'bounded',
           actionId,
           maxSteps,
-          stopWhen: getStringFlag(parsed, 'stop-when'),
-          maxWallTimeMs: getNumberFlag(parsed, 'max-wall-time-ms'),
-          record: parsed.flags.record === true,
+          stopWhen: options.stopWhen,
+          maxWallTimeMs: options.maxWallTimeMs,
+          record: options.record === true,
         }),
       }),
     );
-    return;
-  }
+  });
+  handle(
+    run.command('status').description('Report the current run and its settlement.'),
+    async (options) => {
+      const { baseUrl } = await requireRuntime(options);
+      printJson(options, await requestJson(baseUrl, '/v1/runs'));
+    },
+  );
+  handle(run.command('stop').description('Stop the current run.'), async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(options, await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }));
+  });
+  handle(chart.command('list').description('List charts.'), async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(options, await requestJson(baseUrl, '/v1/charts'));
+  });
+  handle(
+    chart.command('get <chart-id>').description('Read a chart series.'),
+    async (options, rest) => {
+      const [chartId] = rest;
+      if (!chartId) throw new Error('Chart ID must not be empty.');
+      const { baseUrl } = await requireRuntime(options);
+      printJson(options, await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`));
+    },
+  );
+  handle(asset.command('list').description('List available assets.'), async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(options, await requestJson(baseUrl, '/v1/assets'));
+  });
 
-  if (group === 'run' && command === 'status') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/runs'));
-    return;
-  }
-
-  if (group === 'run' && command === 'stop') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/runs', { method: 'DELETE' }));
-    return;
-  }
-
-  if (group === 'chart' && command === 'list') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/charts'));
-    return;
-  }
-
-  if (group === 'chart' && command === 'get') {
-    const [chartId] = rest;
-    if (!chartId) {
-      throw new Error('Usage: tensnap-agent chart get <chart-id>');
+  handle(stream.command('events').description('Stream server-sent runtime events.'), streamEvents);
+  const skillOptions = () => [
+    new Option('--scope <scope>', 'Installation scope (default: project).').choices([
+      'project',
+      'user',
+    ]),
+    new Option('--agent <agent>', 'Target agent (default: codex).').choices([
+      'codex',
+      'claude-code',
+      'universal',
+    ]),
+    new Option('--project-dir <path>', 'Target project directory (default: current directory).'),
+  ];
+  const skillList = skills
+    .command('list')
+    .description('List bundled skills and their destination.');
+  addOptions(skillList, skillOptions());
+  const skillInstall = skills
+    .command('install [name]')
+    .description('Install one bundled skill or all bundled skills.');
+  addOptions(skillInstall, [
+    ...skillOptions(),
+    new Option('--all', 'Install all bundled skills.'),
+    new Option('--force', 'Back up and replace conflicting skill content.'),
+  ]);
+  skills.hook('preAction', (_parent, command) => {
+    const options = command.optsWithGlobals<CliOptions>();
+    if (options.scope === 'user' && options.projectDir !== undefined) {
+      throw new CliInputError('--project-dir cannot be combined with --scope user.');
     }
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, `/v1/charts/${encodeURIComponent(chartId)}`));
-    return;
-  }
+  });
+  handle(skillList, async (options) => printJson(options, await listSkills(options)));
+  skillInstall.hook('preAction', (_parent, command) => {
+    const options = command.optsWithGlobals<CliOptions>();
+    const [name] = command.processedArgs;
+    if (Boolean(options.all) === (name !== undefined)) {
+      throw new CliInputError('skills install requires one skill name or --all. Use skills list.');
+    }
+  });
+  handle(skillInstall, async (options, [name]) => {
+    printJson(options, await installBundledSkills(name, options));
+  });
+  return program;
+}
 
-  if (group === 'asset' && command === 'list') {
-    const { baseUrl } = await requireRuntime(parsed);
-    printJson(parsed, await requestJson(baseUrl, '/v1/assets'));
-    return;
-  }
+function handle(
+  command: Command,
+  handler: (options: CliOptions, args: string[]) => void | Promise<void>,
+): void {
+  command.action(() => handler(command.optsWithGlobals<CliOptions>(), command.processedArgs));
+}
 
-  if (group === 'stream' && command === 'events') {
-    await streamEvents(parsed);
-    return;
-  }
-
-  emitText(
-    parsed,
-    [
-      'Usage:',
-      '  tensnap-agent --version',
-      '  tensnap-agent skills list [--scope project|user] [--agent codex|claude-code|universal]',
-      '  tensnap-agent skills install [<name> | --all] [--scope project|user] [--project-dir <path>] [--agent codex|claude-code|universal] [--force]',
-      '  Skills install is offline and non-interactive. Defaults: project scope, current directory, codex.',
-      '  Conflicts preserve existing content; --force replaces with a backup. Re-run after CLI upgrades.',
-      '  Global: --context <name> --context-dir <path> --output-version 1',
-      '  --max-steps remains a deprecated public spelling of --max-actions; do not combine them.',
-      '  tensnap-agent runtime up --simulator-url ws://localhost:8765 [--ip-family auto|ipv4|ipv6] [--client-message-validation off|warning|error] [--server-message-validation off|warning|error] [--background-color <css-color>] [--max-steps-policy <n>]',
-      '  tensnap-agent runtime status',
-      '  tensnap-agent runtime render-trigger manual|action-result',
-      '  tensnap-agent scene inspect',
-      '  tensnap-agent scene snapshot',
-      '  tensnap-agent scene capture [--output <capture.json>]',
-      '  tensnap-agent scene restore --checkpoint <capture.json> [--time <n>] [--parameters <json>] [--envs <json>] [--chart-policy preserve|replace|truncate]',
-      '  tensnap-agent scene render [reason] [--env <env-id> | --chart <chart-id>] [--width <px>] [--height <px>] [--viewport <json>] [--background-color <css-color>] [--output <path>]',
-      '  tensnap-agent param list',
-      '  tensnap-agent param set <parameter-id> <json-value>',
-      '  tensnap-agent action list',
-      '  tensnap-agent action run <action-id>',
-      '  tensnap-agent run start <action-id> --max-actions <n> [--stop-when <expr>] [--max-wall-time-ms <ms>] [--record]',
-      '  tensnap-agent run status',
-      '  tensnap-agent run stop',
-      '  tensnap-agent chart list',
-      '  tensnap-agent chart get <chart-id>',
-      '  tensnap-agent asset list',
-      '  tensnap-agent stream events',
-    ].join('\n'),
+function isRuntimeCommand(command: Command): boolean {
+  return (
+    Boolean(command.parent) && command.name() !== 'skills' && command.parent?.name() !== 'skills'
   );
 }
 
@@ -785,8 +840,8 @@ export class CliRequestError extends Error {
   }
 }
 
-function printJson(parsed: ParsedArgs, data: unknown): void {
-  if (parsed.flags['output-version'] !== '1') {
+function printJson(options: Pick<CliOptions, 'outputVersion'>, data: unknown): void {
+  if (options.outputVersion !== '1') {
     console.log(JSON.stringify(data, null, 2));
     return;
   }
@@ -801,19 +856,46 @@ function printJson(parsed: ParsedArgs, data: unknown): void {
   );
 }
 
-function emitText(parsed: ParsedArgs, value: string): void {
-  if (parsed.flags['output-version'] === '1') printJson(parsed, value);
+function emitText(options: Pick<CliOptions, 'outputVersion'>, value: string): void {
+  if (options.outputVersion === '1') printJson(options, value);
   else console.log(value);
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
+  // Select the error transport even when parsing fails before reaching this option.
+  const terminator = argv.indexOf('--');
+  const optionArgs = terminator < 0 ? argv : argv.slice(0, terminator);
+  const output: Pick<CliOptions, 'outputVersion'> = {
+    outputVersion: optionArgs.some(
+      (token, index) =>
+        token === '--output-version=1' ||
+        (token === '--output-version' && optionArgs[index + 1] === '1'),
+    )
+      ? '1'
+      : undefined,
+  };
+  // Commander can emit help in several chunks (including addHelpText). Flush it
+  // as one response so machine clients always receive exactly one envelope.
+  let commandOutput = '';
   try {
-    await execute(parseArgs(argv));
-  } catch (error) {
-    if (
-      (argv.includes('--output-version') && argv[argv.indexOf('--output-version') + 1] === '1') ||
-      argv.includes('--output-version=1')
-    ) {
+    await createProgram((text) => {
+      commandOutput += text;
+    }).parseAsync(argv, { from: 'user' });
+  } catch (cause) {
+    if (cause instanceof CommanderError && cause.code === 'commander.helpDisplayed') {
+      emitText(output, commandOutput.trimEnd());
+      return;
+    }
+    const error =
+      cause instanceof CommanderError
+        ? new CliInputError(
+            cause.message.replace(/^error: /, '') +
+              (cause.code === 'commander.unknownOption' && /'--root-dir(?:=|')/.test(cause.message)
+                ? ' Use --context-dir.'
+                : ''),
+          )
+        : cause;
+    if (output.outputVersion === '1') {
       const category = classifyCliError(error).category;
       console.log(
         JSON.stringify({
@@ -826,6 +908,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     }
     throw error;
   }
+  if (commandOutput) emitText(output, commandOutput.trimEnd());
 }
 
 export function classifyCliError(error: unknown): { category: string; exitCode: number } {

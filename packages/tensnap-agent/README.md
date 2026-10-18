@@ -10,6 +10,7 @@ Requires **Node.js 22 or newer** (`engines.node: >=22.0.0`; build target: Node 2
 npm install --global @tensnap/agent
 tensnap-agent --version
 tensnap-agent --help
+tensnap-agent run start --help
 
 # Start your TenSnap simulator separately, then connect:
 tensnap-agent runtime up --context demo --simulator-url ws://127.0.0.1:8765
@@ -25,6 +26,8 @@ tensnap-agent runtime down --context demo
 Use action, parameter, and environment IDs from your simulator's inspection results. `start` and `main` above are example IDs. For a project dependency, use `npm install --save-dev @tensnap/agent` and invoke `npx --no-install tensnap-agent ...` from that project. No source checkout or pnpm workspace is required.
 
 State and captures live under `.tensnap/contexts/<context>/` by default; `--context-dir <path>` changes the storage root. `action run <id>` dispatches once; `run start <id>` requires `--max-actions` and supports `--stop-when`, `--max-wall-time-ms` and `--record`. Accepted requests may still be running. Inspect settlement, classified failures, and recording persistence before claiming completion. Use `--output-version 1` for versioned JSON results and errors on stdout; diagnostics go to stderr.
+
+Use `--help` on any command or command group for generated help, including commands with required arguments. Help and `--version` also support `--output-version 1`. Use `--` before positional values that begin with a dash, for example `tensnap-agent param set label -- --literal`.
 
 ## Install the bundled skills offline
 

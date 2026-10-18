@@ -52,6 +52,7 @@
     "@tensnap/network": "workspace:*",
     "@tensnap/protocol": "workspace:*",
     "canvas": "^3.2.3",
+    "commander": "^14.0.3",
     "hono": "^4.13.13",
     "ws": "^8.22.0"
   },

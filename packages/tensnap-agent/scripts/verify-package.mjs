@@ -41,7 +41,6 @@ const env = {
   npm_config_cache: join(temporary, 'cache'),
   npm_config_audit: 'false',
   npm_config_fund: 'false',
-  npm_config_allow_scripts: 'canvas',
 };
 delete env.NODE_PATH;
 delete env.CODEX_HOME;
@@ -150,7 +149,12 @@ syncBuiltinESMExports();
   );
   await writeFile(
     join(app, 'package.json'),
-    JSON.stringify({ name: 'acceptance-model', private: true, type: 'module' }),
+    JSON.stringify({
+      name: 'acceptance-model',
+      private: true,
+      type: 'module',
+      allowScripts: { canvas: true },
+    }),
   );
   await checkLinks(join(packageRoot, 'dist'));
   // Use the same dependency artifacts as a coordinated release, including unpublished versions.
@@ -241,6 +245,20 @@ syncBuiltinESMExports();
   await rename(nativeBuild, savedBuild);
   try {
     assert.equal((await run(['--version'])).data, manifest.version);
+    const help = await command(cli, ['run', 'start', '--help']);
+    assert.equal(help.stderr, '');
+    assert(help.stdout.includes('Usage: tensnap-agent run start'));
+    assert(help.stdout.includes('--max-actions'));
+    assert((await run(['param', 'set', '--help'])).data.includes('Usage: tensnap-agent param set'));
+    assert(
+      (await run(['skills', '--help'])).data.includes('Installs are offline and non-interactive.'),
+    );
+    assert.equal((await run(['--version', '--unknown'], 2)).error.category, 'input_error');
+    assert.equal((await run(['run', 'start'], 2)).error.category, 'input_error');
+    assert.equal(
+      (await run(['runtime', 'up', '--port', 'Infinity'], 2)).error.category,
+      'input_error',
+    );
     assert.equal((await run(['skills', 'list'])).data.skills.length, 2);
     assert.equal((await run(['skills', 'install', '--all'])).data.results[0].status, 'unchanged');
   } finally {

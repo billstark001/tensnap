@@ -78,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Set the agent CLI's minimum supported Node.js version and build target to Node 22; workspace development retains its existing Node 24 requirement.
 - Replace staged npm package documentation with installation and simulator usage guidance, bundled-skill lifecycle behavior, and Vercel skills instructions for repository and local-bundle sources. Check bundled reference snapshots during builds and validate YAML metadata before packaging.
+- Use [commander](https://www.npmjs.com/package/commander) for CLI parsing and help generation, with explicit `--help` and `--version` handling, consistent error categories, and a shared acceptance script for CLI commands.
 
 ## @tensnap/web [0.3.5] - 2026-10-18
 
