@@ -908,6 +908,29 @@ describe('fixed frame capture and renderer-local restore history', () => {
     expect(frame.source.commitRevision).toBeLessThan(session.commitRevision);
   });
 
+  it('pins the scene only after an in-flight barrier and stop lifecycle have settled', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const session = new RendererSession({ run: { renderBarrier: { wait: async (_task, result) => { if (result.id === 'start') await gate; } } } });
+    const sent: RendererToSimulatorMessage[] = [];
+    session.attachTransport(createTransport(sent)); announce(session);
+    session.scenario.apply({ type: 'action_create', payload: { id: 'start', label: 'Start', continuous: true } });
+    session.scenario.apply({ type: 'action_create', payload: { id: 'stop', label: 'Stop' } });
+    session.run.start({ mode: 'bounded', actionId: 'start', maxSteps: 2 });
+    let captured = false;
+    const capture = session.captureFrame().then((frame) => { captured = true; return frame; });
+    const start = sent.find((message) => message.type === 'action_invoke')!;
+    session.handleIncoming({ type: 'action_result', payload: start.payload as import('@tensnap/protocol').ActionResultPayload });
+    await Promise.resolve(); expect(captured).toBe(false);
+    release();
+    await vi.waitFor(() => expect(sent.some((message) => message.type === 'action_invoke' && (message.payload as { id: string }).id === 'stop')).toBe(true));
+    const stop = sent.find((message) => message.type === 'action_invoke' && (message.payload as { id: string }).id === 'stop')!;
+    session.handleIncoming({ type: 'metadata_update', payload: { time: 100 } });
+    session.handleIncoming({ type: 'action_result', payload: stop.payload as import('@tensnap/protocol').ActionResultPayload });
+    expect((await capture).scene.metadata.time).toBe(100);
+    expect(session.run.status?.settled).toBe(true);
+  });
+
   it('captures an aligned checkpoint and rejects concurrent commits in required mode', async () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();

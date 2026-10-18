@@ -448,6 +448,7 @@ export class RendererSession extends LazyEventTarget {
    * must start a replace sync and never send the former model's inventory.
    */
   resetSimulatorIdentity(): void {
+    this.lastCommittedActionRequestId = undefined;
     this.cancelActiveRequest('The simulator source was replaced.');
     this.announcedInfo = null;
     this.committedInfo = null;
@@ -1041,6 +1042,7 @@ export class RendererSession extends LazyEventTarget {
       transaction.scenario.apply(message);
       transaction.messages.push(message);
       this.scenario.load(transaction.scenario.dump());
+      this.lastCommittedActionRequestId = undefined;
       this.recorder.recordMessages(transaction.messages);
     } catch (error) {
       this.failActiveRequest(
@@ -1129,6 +1131,7 @@ export class RendererSession extends LazyEventTarget {
           transaction.scenario.charts.truncateAll(transaction.truncateTime, false);
         }
         this.scenario.load(transaction.scenario.dump());
+        this.lastCommittedActionRequestId = undefined;
         this.recorder.recordMessages(transaction.messages);
         this.dispatch('commit', {
           revision: ++this.commitRevisionValue,

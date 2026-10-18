@@ -42,6 +42,12 @@ export const PROJECT_FILE_VERSION = 3;
  */
 export const MIGRATABLE_PROJECT_FILE_VERSIONS = [0, 1, 2] as const;
 
+const BytesSchema = z.custom<Uint8Array>(
+  (value) =>
+    ArrayBuffer.isView(value) && Object.prototype.toString.call(value) === '[object Uint8Array]',
+  'Expected Uint8Array.',
+);
+
 const UnknownRecordSchema = z.record(z.string(), z.unknown());
 
 const ScenarioLayerSnapshotSchema = z.object({
@@ -75,7 +81,7 @@ const LogSnapshotSchema = z.object({
 
 const AssetSnapshotSchema = z.object({
   meta: AssetMetaSchema,
-  data: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
+  data: z.union([z.string(), BytesSchema]).optional(),
 });
 
 export const ScenarioSnapshotSchema = z.object({
@@ -110,7 +116,7 @@ const SnapshotModelIdentitySchema = z.object({
 
 const SnapshotCheckpointSchema = z.object({
   encoding: z.string().min(1),
-  data: z.union([z.string(), z.instanceof(Uint8Array)]),
+  data: z.union([z.string(), BytesSchema]),
   model_id: z.string().min(1),
   state_schema_version: z.string().optional(),
 });
@@ -186,7 +192,7 @@ export const SnapshotArchiveSchema = z.object({
         lastFrame: z.number().int().nonnegative(),
         encoding: z.literal('msgpack'),
         compression: z.enum(['none', 'rle']),
-        data: z.union([z.string(), z.instanceof(Uint8Array)]),
+        data: z.union([z.string(), BytesSchema]),
         byteLength: z.number().nonnegative(),
       }),
     )
@@ -234,7 +240,7 @@ const AnyViewSchema: z.ZodType = z.lazy(() =>
 
 export const ProjectAssetBlobSchema = z.object({
   mime: z.string(),
-  data: z.union([z.string(), z.instanceof(Uint8Array)]),
+  data: z.union([z.string(), BytesSchema]),
 });
 
 const isWebSocketUrl = (value: string): boolean => {
@@ -594,7 +600,7 @@ export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTab
     for (const message of frame.messages) {
       if (message.type !== 'asset_data') continue;
       const payload = message.payload as { hash: string; mime: string; data: string | Uint8Array };
-      storeAsset(table, payload.hash, payload.mime, payload.data);
+      if (payload.data !== undefined) storeAsset(table, payload.hash, payload.mime, payload.data);
       // Frame payloads are rehydrated from the same table before Scenario replay.
       delete (payload as { data?: string | Uint8Array }).data;
     }

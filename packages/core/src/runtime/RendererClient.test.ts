@@ -329,3 +329,32 @@ it('returns the correlated action result when its render barrier fails', async (
   });
   client.disconnect();
 });
+
+it('preserves the received action result if the render wait times out', async () => {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const client = new RendererClient({ run: { renderBarrier: { wait: () => gate } } });
+  const transport = synchronousTransport();
+  await client.connect(transport);
+  const send = transport.send;
+  transport.send = (message) => {
+    if (message.type === 'action_invoke')
+      transport.emitMessage({
+        type: 'action_result',
+        payload: message.payload as import('@tensnap/protocol').ActionResultPayload,
+      });
+    else send(message);
+  };
+  try {
+    const action = client.beginAction('step', 5);
+    await expect(action.completion).rejects.toMatchObject({
+      renderStatus: 'unknown',
+      result: { id: 'step', request_id: action.requestId },
+    });
+  } finally {
+    release();
+    client.disconnect();
+  }
+});

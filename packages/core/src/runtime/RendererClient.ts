@@ -28,6 +28,7 @@ export class ActionRenderError extends Error {
   constructor(
     readonly result: ActionResultPayload,
     message: string,
+    readonly renderStatus: 'failed' | 'unknown' = 'failed',
   ) {
     super(message);
     this.name = 'ActionRenderError';
@@ -284,6 +285,12 @@ export class RendererClient {
           this.pendingAborters.add(onDisconnect);
           if (!this.renderer.isConnected) onDisconnect();
           else wakeRendered();
+        }).catch((error: unknown) => {
+          throw new ActionRenderError(
+            completed.value,
+            error instanceof Error ? error.message : String(error),
+            'unknown',
+          );
         });
       }
       const renderError = renderErrors.get(requestId);
