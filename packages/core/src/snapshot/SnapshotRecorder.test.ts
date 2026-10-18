@@ -589,6 +589,62 @@ describe('SnapshotRecorder', () => {
     });
   });
 
+  it.each([1, 5])('retains a bounded prefix of exactly %i transition frames', async (maxSteps) => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({ maxSteps, keyframeEvery: 1 });
+    for (let time = 1; time <= maxSteps + 4; time++) {
+      const update = { type: 'metadata_update' as const, payload: { time } };
+      scenario.apply(update);
+      recorder.recordMessage(update);
+      if (time % 3 === 1) {
+        recorder.recordMessage(
+          { type: 'action_result', payload: { id: 'step', request_id: `r${time}` } },
+          'action',
+        );
+      } else if (time % 3 === 2) {
+        recorder.recordMessage({ type: 'state_sync_end', payload: { request_id: `s${time}` } });
+      } else {
+        await Promise.resolve();
+      }
+      const report = recorder.inspect()!.report;
+      expect(report.frameCount).toBeLessThanOrEqual(maxSteps);
+      expect(report.keyframeCount).toBeLessThanOrEqual(maxSteps);
+    }
+    const snapshot = recorder.stop()!;
+    expect(scenario.time).toBe(maxSteps + 4);
+    expect(snapshot.frames.map((frame) => frame.index)).toEqual(
+      Array.from({ length: maxSteps }, (_, i) => i + 1),
+    );
+    expect(snapshot.truncated).toBe(true);
+    expect(snapshot.keyframes.map((frame) => frame.frame)).toEqual(
+      snapshot.frames.map((frame) => frame.index),
+    );
+    expect(materializeSnapshot(snapshot).metadata.time).toBe(maxSteps);
+    const imported = decodeSnapshotArchive(encodeSnapshotArchive(snapshot));
+    expect(imported.frames.map((frame) => [frame.index, frame.kind])).toEqual(
+      snapshot.frames.map((frame) => [frame.index, frame.kind]),
+    );
+    expect(materializeSnapshot(imported)).toEqual(materializeSnapshot(snapshot));
+  });
+
+  it('leaves an exactly full bounded prefix untruncated and accounts for a rejected keyframe', () => {
+    const scenario = new Scenario();
+    const recorder = new SnapshotRecorder(scenario);
+    recorder.start({ maxSteps: 1, keyframeEvery: 1, maxBytes: 1_000_000 });
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+    const before = recorder.inspect()!.report;
+    expect(before.truncated).toBe(false);
+    recorder.recordMessage({ type: 'action_result', payload: { id: 'step' } });
+    const after = recorder.inspect()!.report;
+    expect(after.byteLength).toBe(before.byteLength);
+    expect(after.frameCount).toBe(1);
+    expect(after.keyframeCount).toBe(1);
+    expect(after.lastFrame).toBe(1);
+    expect(after.truncated).toBe(true);
+    recorder.stop();
+  });
+
   it('keeps a seekable suffix when ring-buffer retention is exceeded', () => {
     const scenario = new Scenario();
     const recorder = new SnapshotRecorder(scenario);

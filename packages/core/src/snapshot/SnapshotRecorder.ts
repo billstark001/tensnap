@@ -666,7 +666,7 @@ export class SnapshotRecorder {
     };
     if (!exceeds()) return;
     if (!this.options.ringBuffer) {
-      if (exceedsBytes()) this.discardNewestFrame();
+      this.discardNewestFrame();
       target.truncated = true;
       this.retentionExhausted = true;
       return;
