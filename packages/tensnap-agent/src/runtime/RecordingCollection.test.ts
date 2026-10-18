@@ -338,3 +338,44 @@ it('reports final-manifest failure as failed collection instead of completed evi
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it('reuses checkpoint retention budgets after rolling boundaries are evicted', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'tensnap-rolling-checkpoints-'));
+  const backend = new NodeRecordingStore(directory);
+  const { session, sent } = harness();
+  const rolling: CollectionConfig = {
+    ...config,
+    mode: 'rolling',
+    maxFrames: 2,
+    rules: [],
+    checkpoints: {
+      ...config.checkpoints,
+      every: 1,
+      onTrigger: false,
+      maxCount: 3,
+      maxBytes: 3,
+      overflow: 'fail',
+    },
+  };
+  try {
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'rolling-checkpoints',
+      ...rolling,
+      modelIdentity: { model_id: 'm' },
+    });
+    const collection = await RecordingCollection.start(session, writer, rolling);
+    const run = session.run.start({ mode: 'bounded', actionId: 'step', maxSteps: 6 });
+    await session.run.waitForSettled(run.id);
+    await collection.close();
+    expect(collection.status).toMatchObject({ state: 'complete', checkpointTruncated: false });
+    expect(sent.filter((m) => m.type === 'scene_capture')).toHaveLength(7);
+    const reader = await RecordingStoreReader.open(backend);
+    expect(reader.root).toMatchObject({ firstFrame: 4, lastFrame: 6, count: 3 });
+    expect((await reader.readFrame(6)).checkpoint?.data).toEqual(Uint8Array.of(6));
+    await reader.close();
+  } finally {
+    backend.close();
+    session.run.reset();
+    await rm(directory, { recursive: true, force: true });
+  }
+});

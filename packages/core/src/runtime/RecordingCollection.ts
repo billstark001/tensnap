@@ -133,7 +133,7 @@ export class RecordingCollection extends EventTarget {
   private readonly previous = new Map<string, unknown>();
   private readonly lastTrigger = new Map<string, number>();
   private windows: TriggerWindow[] = [];
-  private checkpointFrames = new Set<number>();
+  private checkpointFrames = new Map<number, number>();
   private checkpointCount = 0;
   private checkpointBytes = 0;
   private checkpointTruncated = false;
@@ -278,6 +278,15 @@ export class RecordingCollection extends EventTarget {
     this.chain = this.chain
       .then(async () => {
         this.frame++;
+        if (this.config.mode === 'rolling') {
+          const first = Math.max(0, this.frame - this.config.maxFrames!);
+          for (const [frame, bytes] of this.checkpointFrames)
+            if (frame < first) {
+              this.checkpointFrames.delete(frame);
+              this.checkpointCount--;
+              this.checkpointBytes -= bytes;
+            }
+        }
         const candidates: Array<{ ruleId: string; kind: string; reason: string }> = [];
         for (const rule of this.config.rules) {
           let matched = false;
@@ -450,7 +459,7 @@ export class RecordingCollection extends EventTarget {
     }
     this.checkpointCount++;
     this.checkpointBytes += bytes;
-    this.checkpointFrames.add(this.frame);
+    this.checkpointFrames.set(this.frame, bytes);
   }
   private async append(
     captured: CapturedFrame,
@@ -486,8 +495,9 @@ export class RecordingCollection extends EventTarget {
     this.session.scenario.retainLiveHistory(this.config.liveHistory);
     this.activeHistoryFrom = this.frame;
     // This is only the checkpoint lookup for active trigger windows; archived associations remain immutable.
-    for (const frame of this.checkpointFrames)
-      if (frame < this.frame - this.config.window.before) this.checkpointFrames.delete(frame);
+    if (this.config.mode === 'full-history')
+      for (const frame of this.checkpointFrames.keys())
+        if (frame < this.frame - this.config.window.before) this.checkpointFrames.delete(frame);
   }
   private fail(error: unknown) {
     this.error ??= error instanceof Error ? error.message : String(error);
