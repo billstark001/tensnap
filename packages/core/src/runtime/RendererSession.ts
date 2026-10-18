@@ -728,7 +728,12 @@ export class RendererSession extends LazyEventTarget {
     assertIdentity();
     const projected =
       options.mode === 'projected' ? projectSnapshotForRestore(frame.scene) : undefined;
-    const payload = options.mode === 'checkpoint' ? { checkpoint: frame.checkpoint! } : projected!;
+    // Snapshot checkpoint provenance belongs to the archive. The strict wire
+    // checkpoint contains only the opaque encoding and bytes.
+    const payload =
+      options.mode === 'checkpoint'
+        ? { checkpoint: { encoding: frame.checkpoint!.encoding, data: frame.checkpoint!.data } }
+        : projected!;
     const chartPolicy = options.chartPolicy ?? 'replace';
     try {
       const result = await this.restoreScene(
