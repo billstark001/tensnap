@@ -671,6 +671,8 @@ export class SnapshotRecorder {
       this.keyframeScenarioByteLengths.delete(target.initial.frame);
       this.keyframeScenarioByteLengths.set(nextInitial.frame, byteLength(state));
       target.initial = nextInitial;
+      // A model checkpoint belongs only to the original initial boundary.
+      delete target.metadata.checkpoint;
       for (const keyframe of target.keyframes) {
         if (keyframe.frame > removed.index) continue;
         this.estimatedByteLength -= this.keyframeByteLengths.get(keyframe.frame) ?? 0;

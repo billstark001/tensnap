@@ -77,7 +77,7 @@ const AssetSnapshotSchema = z.object({
   data: z.union([z.string(), z.instanceof(Uint8Array)]).optional(),
 });
 
-const ScenarioSnapshotSchema = z.object({
+export const ScenarioSnapshotSchema = z.object({
   metadata: UnknownRecordSchema,
   actions: z.array(ActionSchema),
   parameters: z.array(ParameterSchema),
@@ -135,7 +135,7 @@ const SnapshotMetadataSchema = z.object({
   checkpoint: SnapshotCheckpointSchema.optional(),
 });
 
-const SnapshotSchema = z.object({
+export const SnapshotSchema = z.object({
   version: z.literal(1),
   metadata: SnapshotMetadataSchema,
   initial: SnapshotKeyframeSchema,
@@ -150,6 +150,7 @@ const SnapshotSchema = z.object({
         .optional()
         .transform((value) => value ?? undefined),
       kind: z.enum(['action', 'control', 'sync']),
+      source: z.enum(['action', 'lifecycle']).optional(),
     }),
   ),
   layerCodecs: z.record(z.string(), z.enum(['delta', 'keyframe', 'adaptive', 'derived'])),
@@ -157,7 +158,7 @@ const SnapshotSchema = z.object({
   truncated: z.boolean(),
 });
 
-const SnapshotArchiveSchema = z.object({
+export const SnapshotArchiveSchema = z.object({
   version: z.literal(1),
   metadata: SnapshotMetadataSchema,
   layerCodecs: z.record(z.string(), z.enum(['delta', 'keyframe', 'adaptive', 'derived'])),
@@ -214,7 +215,7 @@ const AnyViewSchema: z.ZodType = z.lazy(() =>
   ]),
 );
 
-const ProjectAssetBlobSchema = z.object({
+export const ProjectAssetBlobSchema = z.object({
   mime: z.string(),
   data: z.union([z.string(), z.instanceof(Uint8Array)]),
 });
@@ -561,7 +562,7 @@ function hydrateScenarioAssets(
   return next;
 }
 
-function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
+export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
   next.initial.scenario = extractScenarioAssets(next.initial.scenario, table);
   for (const keyframe of next.keyframes)
@@ -578,7 +579,7 @@ function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Sn
   return next;
 }
 
-function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
+export function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
   next.initial.scenario = hydrateScenarioAssets(next.initial.scenario, table);
   for (const keyframe of next.keyframes)
