@@ -6,7 +6,7 @@ A spatial common-pool resource model inspired by [Commons Harvest / Melting Pot]
 
 The model exposes the tension between immediate individual harvest and future shared resource availability. Agents have local information, compete for regenerating stock, and may communicate without enforced agreements. Researcher views connect resource and inequality trajectories to movements, harvests and messages.
 
-The implementation supports exploratory comparisons of resource pressure, population, memory and decision policies. Public message/action discrepancies motivate hypotheses about coordination and restraint. Demonstrating an effect of communication requires a separate controlled comparison: there is currently no communication-off treatment, negotiated quota system or formal cooperation metric.
+The main extension compares message delivery on/off crossed with a temporary drought. It asks whether local advice changes stock, personal/total yield, irreversible component extinction and recovery after the shock. The [factorial protocol](../EXPERIMENTS.md#commons-message-delivery--temporary-drought) defines matched initial states/random fields, a message-aware rule and negative controls. There are no negotiated quotas or enforced agreements. Run all controls with `python -m examples.python_llm.experiments commons --output /path/to/new-results`.
 
 ## Run the backend
 
@@ -45,7 +45,12 @@ A historical tape made with a prompt clarification needs that same clarification
 | `--width`, `--height` | 12, 9 | Dimensions, each 6–40; no wraparound |
 | `--memory` | 4 | Each agent's last 1–8 personal activations |
 | `--regrowth` | 0.35 | Regeneration multiplier in [0, 1] |
-| `--rule` | `greedy` | Rule strategy: `greedy` or `conserve` |
+| `--rule` | `greedy` | Rule strategy: `greedy`, `conserve` or factorial-only `signal` |
+| `--protocol` | `legacy` | Use `factorial-v1` for common random fields, uniform legal-action clarification and extended metrics |
+| `--message-delivery` | `on` | `off` suppresses incoming observations while retaining generation/publication |
+| `--drought-start` | 0 | First affected completed round; positive when drought is enabled |
+| `--drought-duration` | 0 | Number of affected rounds; zero disables the shock |
+| `--drought-multiplier` | 0.1 | Scale baseline regrowth during the drought; automatically return to baseline afterward |
 
 Three fertile regions have Manhattan radius two around `(width//4, height//3)`, `(3*width//4, height//3)` and `(width//2, 2*height//3)`; they can overlap on small grids. Fertile cells start at capacity three, and barren cells stay at zero. The default grid has 39 fertile cells and 117 initial units. Initial population must fit the fertile cells.
 
@@ -73,7 +78,7 @@ p(regrowth at cell) = regrowth * s / 5
 
 Full/barren cells do not grow. Growth tests use the same previous grid, so a new unit cannot seed another cell during that event. A depleted cell can recover from a stocked neighbor; an isolated fertile patch without seeds cannot recover spontaneously. Harvesting one cell's last unit does not by itself prove irreversible patch collapse.
 
-Environmental initialization/regeneration and rule exploration use separate RNG streams, both checkpointed. Identical seeds reproduce a fixed policy/tape trajectory. Across policies, changed resource states can change which regeneration draws occur; the same seed alone does not guarantee identical noise at each cell/round.
+Environmental initialization and rule exploration use separate RNG streams, both checkpointed. The legacy protocol retains conditional regeneration draws for historical tapes. In `factorial-v1`, a seed/round-keyed field assigns a draw to every cell, independent of resource eligibility; paired treatments therefore share cell/round noise. Temporary drought scales `regrowth` during `[drought_start, drought_start + drought_duration)` completed rounds. Weather is researcher-visible and not announced in agent observations.
 
 ## Information, messages and policies
 
@@ -88,7 +93,15 @@ Messages expire on activation after about two rounds; delivery uses the recorded
 
 Messages are cheap talk: they enter local observations but enforce no reserve, quota, role or sanction. A public promise is observable output, not a guarantee of intent or internal reasoning.
 
-`greedy` harvests whenever its current cell has stock. `conserve` harvests only above one unit. Otherwise both approach a nearest visible cell above their reserve, randomizing ties; without a target they explore legal nonharvest actions. Rules send no messages. A rule/LLM comparison changes policy and language behavior together, so it does not isolate communication's effect.
+`greedy` harvests whenever its current cell has stock. `conserve` harvests only above one unit. Otherwise both approach a nearest visible cell above their reserve, randomizing ties; without a target they explore legal nonharvest actions. Those two rules send no messages and serve as delivery negative controls.
+
+The factorial-only `signal` rule emits `reserve x y` while on a fertile cell containing at most two units. It is otherwise greedy but leaves one unit at coordinates warned about by another nearby agent. Incoming advice expires after two rounds; own warnings are excluded from reception. The action/message schema and sender behavior are identical with delivery on/off. This is a scripted receiver for testing the channel, not evidence that cooperation emerges. Rules, local messages and LLM objectives receive no knowledge of the drought schedule.
+
+```bash
+python -m examples.python_llm.mini_commons_harvest serve --policy rule \
+  --protocol factorial-v1 --rule signal --message-delivery on \
+  --drought-start 40 --drought-duration 40 --drought-multiplier .1 --port 8766
+```
 
 ## Measurements and visualization
 
@@ -102,6 +115,8 @@ Messages are cheap talk: they enter local observations but enforce no reserve, q
 
 Charts show resource, cumulative harvest and harvest Gini. `metrics`, `local_messages`, `last_event`, `selected_agent` and `inference` are researcher monitors. The global message monitor extends beyond any individual's hearing. Low Gini means similar accumulated yields, not necessarily restraint, efficiency or sustainable cooperation.
 
+Factorial metrics additionally report per-connected-fertile-component stock, extinct-component count, total components, weather state and effective regeneration. Entire seedless components cannot recover; a zero-stock cell alone can recover. The `treatment` monitor reports the delivery setting, weather schedule and actual connected habitat. The factorial runner records round-level stock/yield, phase harvests, extinction and recovery confirmation/censoring; [definitions and paired contrasts](../EXPERIMENTS.md) are fixed before analysis.
+
 Pale gray cells are barren, tan cells are depleted fertile cells, and darker greens indicate one to three units. Purple harvesters may overlap while retaining separate identities. Inspect cells for stock/fertility and agents for actions, messages, harvest and history. Model rows are top-down; both cells and agents use projected y `height - 1 - row`.
 
 ## Interpreting an experiment
@@ -109,3 +124,13 @@ Pale gray cells are barren, tan cells are depleted fertile cells, and darker gre
 Compare stock, yield, depletion and inequality over a stated number of rounds. Check whether events precede or follow regeneration, and distinguish local observations from global researcher views. A message/action discrepancy is an inspectable event; a single trajectory establishes no general cooperation advantage or collapse mechanism.
 
 Independent initializations supply distinct runs. Checkpoint continuations share a prefix; tape replay verifies a trajectory without measuring its frequency. Use [CLI collection and checkpoint/history restoration](../README.md#standard-recording-historical-frames-and-restoration) for historical event windows and exact continuation.
+
+The core model rejects unavailable actions before changing state. The explicit
+`LegalActionPolicy` adapter (`common/action_policy.py`) optionally asks the LLM
+for one correction at that same state. Its first request is unchanged. If the
+answer is illegal, the second request adds the rejected answer, the current
+cell's observed resource and the legal action list, explaining that past plans
+and messages cannot override available actions. Both answers remain on tape and
+both live requests consume the budget. Exhaustion stops the branch atomically;
+there is no rule fallback. This adapter is used by `repair_pilot`, not silently
+activated in the original no-retry experiment or historical replay CLI.

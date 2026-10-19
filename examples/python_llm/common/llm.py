@@ -183,10 +183,17 @@ class DecisionTape:
             await self._client.aclose()
 
 
-def text_field(answer: dict, key: str, limit: int = 160) -> str:
+def text_field(answer: dict, key: str, limit: int | None = 160) -> str:
     value = answer.get(key, "")
-    if not isinstance(value, str) or len(value) > limit:
+    if not isinstance(value, str):
+        raise DecisionError(f"Decision {key} must be a string")
+    if limit is not None and len(value) > limit:
         raise DecisionError(
             f"Decision {key} must be a string of at most {limit} characters"
         )
     return value
+
+
+def display_text(value: str, limit: int = 160) -> str:
+    """Shorten presentation only; callers keep the original model/tape text."""
+    return value if len(value) <= limit else value[: limit - 1] + "…"

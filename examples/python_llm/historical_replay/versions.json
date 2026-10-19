@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "a3c777b3d531751c17d52ab7ee5922cdc288aa14",
+  "cliVersion": "0.3.5",
+  "cliSha256": "f20c19ee71f5b9699543ab71721952a0157ac4ef93ab83705b2430ba8897761c",
+  "modelSources": {
+    "examples/python_llm/__init__.py": "8eb846aa6b1a776823ef8d88b1a88a185ca5a1a9621ed863ac5060d5b379a81d",
+    "examples/python_llm/common/__init__.py": "6b6ad44da5006af9e9458efaf605837e31d5307acad604964b9faa545d0257cb",
+    "examples/python_llm/common/cli.py": "4be99ea40d46dea26ead388b9cd3e392ce7fded3ed59190cc569e0ff10ea5ca6",
+    "examples/python_llm/common/config.py": "e17a4cbfde1dd82e8abe5d56382df1e2aaa60c81612652e19fef6443bd4d1252",
+    "examples/python_llm/common/llm.py": "ef8d846d1404f6c7ca97b3cd5431df53b5e11d0146ae4e9eacd1760330a52644",
+    "examples/python_llm/common/model.py": "a3bf8817fcdc097ffca387f7ef2359f9b34ab48d7712a96c32b03db27c99f0eb",
+    "examples/python_llm/common/viz.py": "66b8163ff345fa4f379a9bf8e98a725bcfd7d2f3317e8845a72ddc5184459893",
+    "examples/python_llm/mini_commons_harvest/__init__.py": "0f58ee6ed9dd333be3694f7026f887b926ec1c052daccb6357a08ec4d60ad7e6",
+    "examples/python_llm/mini_commons_harvest/__main__.py": "df726906ff19fae66900d1d9f1ddbaeceefcf73e3c088e8d812468588068c602",
+    "examples/python_llm/mini_commons_harvest/model.py": "8f84ee891fe223f0b3e16173eb6ccde3f864f622e38d368dad2ec37a9072d29e",
+    "examples/python_llm/mini_commons_harvest/viz.py": "e8981b9468c4fcb83173ef6a5c7cdf8d3e75547d221c56b787fb041ce2d4c7b7",
+    "examples/python_llm/naming_game/__init__.py": "57726d823c8945e3951713acb55c237893eb248cc1d33cf6f5fc6ab06d85fdb6",
+    "examples/python_llm/naming_game/__main__.py": "75db6fedb2ff5f5e3613f20192f21b984132513154f615b5e9364e56b397d283",
+    "examples/python_llm/naming_game/model.py": "e529517e55e2a413aa70e588d4023b46f24f79719563a6a8491fac6c941632f1",
+    "examples/python_llm/naming_game/viz.py": "e022c48b8b9003932471f209b6cdf216c829dc550a4900b55029f2192a3345c6",
+    "examples/python_llm/tests/test_bindings.py": "c854966061ea80884549c33158e13c754448e37f797609a7ec6648ee70d1b831",
+    "examples/python_llm/tests/test_cli.py": "6083688c105713fb0216b0248bb1218ffc132872fa716bf3b867088b7f3307b7",
+    "examples/python_llm/tests/test_llm.py": "9950980ef29f1b7a8443112a5d6ff69a55764bcb1cb0366b3095b4733e03b283",
+    "examples/python_llm/tests/test_models.py": "624bec6c45a160ff42d7a726149849f1b1b6be39426bdb48b887c74d31522587"
+  }
+}

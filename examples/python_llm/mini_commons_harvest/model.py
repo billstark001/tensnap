@@ -7,6 +7,7 @@ observations of nearby agents, never the environment's transition rules.
 from __future__ import annotations
 
 import random
+import re
 from dataclasses import asdict, dataclass, field
 
 from ..common.config import integer, probability
@@ -38,6 +39,11 @@ class CommonsConfig:
     memory: int = 4
     regrowth: float = 0.35
     rule: str = "greedy"
+    protocol: str = "legacy"
+    message_delivery: str = "on"
+    drought_start: int = 0
+    drought_duration: int = 0
+    drought_multiplier: float = 0.1
 
     def __post_init__(self) -> None:
         """Validate launch options before allocating a grid or sending requests."""
@@ -47,8 +53,24 @@ class CommonsConfig:
         integer(self.height, "height", 6, 40)
         integer(self.memory, "memory", 1, 8)
         probability(self.regrowth, "regrowth")
-        if self.rule not in ("greedy", "conserve"):
-            raise ValueError("rule must be greedy or conserve")
+        if self.rule not in ("greedy", "conserve", "signal"):
+            raise ValueError("rule must be greedy, conserve or signal")
+        if self.protocol not in (
+            "legacy",
+            "factorial-v1",
+        ) or self.message_delivery not in ("on", "off"):
+            raise ValueError("Unknown commons protocol or message delivery")
+        integer(self.drought_start, "drought_start", 0, 10**6)
+        integer(self.drought_duration, "drought_duration", 0, 10**6)
+        probability(self.drought_multiplier, "drought_multiplier")
+        if self.drought_duration and not self.drought_start:
+            raise ValueError("Drought must start at round 1 or later")
+        if self.protocol == "legacy" and (
+            self.rule == "signal"
+            or self.message_delivery == "off"
+            or self.drought_duration
+        ):
+            raise ValueError("New mechanisms require --protocol factorial-v1")
 
 
 @dataclass
@@ -112,6 +134,21 @@ class MiniCommons(CheckpointModel):
             [self.capacity if self.habitat[y][x] else 0 for x in range(w)]
             for y in range(h)
         ]
+        remaining = {(x, y) for y in range(h) for x in range(w) if self.habitat[y][x]}
+        self.components = []
+        while remaining:
+            start = min(remaining)
+            remaining.remove(start)
+            component, todo = [start], [start]
+            while todo:
+                x, y = todo.pop()
+                for dx, dy in MOVES.values():
+                    neighbor = (x + dx, y + dy)
+                    if neighbor in remaining:
+                        remaining.remove(neighbor)
+                        component.append(neighbor)
+                        todo.append(neighbor)
+            self.components.append(sorted(component))
 
     def _create_agents(self) -> list[Harvester]:
         """Place agents on distinct fertile cells using the environment seed."""
@@ -164,10 +201,19 @@ class MiniCommons(CheckpointModel):
 
     def _audible_messages(self, player: Harvester) -> list[dict]:
         """Deliver recent messages near their original sending positions."""
+        if self.config.message_delivery == "off":
+            return []
         return [
             message
             for message in self.messages
             if abs(message["x"] - player.x) + abs(message["y"] - player.y) <= 3
+            and (
+                self.config.protocol == "legacy"
+                or (
+                    message["agent"] != player.id
+                    and self.tick - message["tick"] < 2 * len(self.agents)
+                )
+            )
         ][-6:]
 
     def observation(self, player: Harvester) -> dict:
@@ -186,6 +232,8 @@ class MiniCommons(CheckpointModel):
 
     def rule_decision(self, player: Harvester, observation: dict) -> dict:
         """Harvest above the chosen reserve; otherwise approach visible food or explore."""
+        if self.config.rule == "signal":
+            return self._signal_decision(player, observation)
         reserve = 1 if self.config.rule == "conserve" else 0
         if self.resources[player.y][player.x] > reserve:
             return {"action": "harvest", "message": ""}
@@ -208,6 +256,41 @@ class MiniCommons(CheckpointModel):
             "action": self._move_toward_food(player, candidates, observation),
             "message": "",
         }
+
+    def _signal_decision(self, player: Harvester, observation: dict) -> dict:
+        """Greedy except for received leave-one-cell warnings; emit local warnings.
+
+        This intentionally scripted receiver is a mechanism check, not evidence
+        of spontaneous communication or an equilibrium cooperation strategy.
+        """
+        protected = set()
+        for message in observation["local_messages"]:
+            match = re.fullmatch(r"reserve (\d+) (\d+)", message["message"])
+            if match:
+                protected.add(tuple(map(int, match.groups())))
+        current = self.resources[player.y][player.x]
+        message = (
+            f"reserve {player.x} {player.y}"
+            if self.habitat[player.y][player.x] and current <= 2
+            else ""
+        )
+        reserve = int((player.x, player.y) in protected)
+        if current > reserve:
+            action = "harvest"
+        else:
+            candidates = [
+                cell
+                for cell in observation["cells"]
+                if cell["resource"] > int((cell["x"], cell["y"]) in protected)
+            ]
+            action = (
+                self._move_toward_food(player, candidates, observation)
+                if candidates
+                else self.policy_rng.choice(
+                    [a for a in observation["legal_actions"] if a != "harvest"]
+                )
+            )
+        return {"action": action, "message": message}
 
     def _move_toward_food(
         self, player: Harvester, candidates: list[dict], observation: dict
@@ -232,8 +315,18 @@ class MiniCommons(CheckpointModel):
     def regrow(self) -> None:
         """Regenerate synchronously from the previous grid, once per complete round."""
         previous = [row[:] for row in self.resources]
+        # One draw for EVERY cell, including barren/full cells, keyed by round.
+        # Resource-dependent eligibility never shifts another cell's random draw.
+        field_rng = random.Random(
+            f"commons-field-v1:{self.config.seed}:{self.tick // len(self.agents)}"
+        )
         for y in range(self.config.height):
             for x in range(self.config.width):
+                draw = (
+                    field_rng.random()
+                    if self.config.protocol == "factorial-v1"
+                    else None
+                )
                 if not self.habitat[y][x] or previous[y][x] == self.capacity:
                     continue
                 seeds = int(previous[y][x] > 0) + sum(
@@ -242,14 +335,38 @@ class MiniCommons(CheckpointModel):
                     if 0 <= x + dx < self.config.width
                     and 0 <= y + dy < self.config.height
                 )
-                if self.rng.random() < self.config.regrowth * seeds / 5:
+                if draw is None:
+                    draw = self.rng.random()
+                if draw < self.effective_regrowth() * seeds / 5:
                     self.resources[y][x] += 1
+
+    def drought_active(self) -> bool:
+        round_number = self.tick // len(self.agents)
+        return bool(
+            self.config.drought_duration
+            and self.config.drought_start
+            <= round_number
+            < self.config.drought_start + self.config.drought_duration
+        )
+
+    def effective_regrowth(self) -> float:
+        return self.config.regrowth * (
+            self.config.drought_multiplier if self.drought_active() else 1
+        )
 
     async def _choose_action(self, player: Harvester) -> dict:
         """Choose from the observation's legal actions without changing the world."""
         observation = self.observation(player)
         answer = (
-            await self.provider.decide(SYSTEM, observation)
+            await self.provider.decide(
+                SYSTEM
+                + (
+                    "\nThe action value must exactly equal one entry in legal_actions.\nDo not combine actions or use coordinates as the action."
+                    if self.config.protocol == "factorial-v1"
+                    else ""
+                ),
+                observation,
+            )
             if self.provider
             else self.rule_decision(player, observation)
         )
@@ -329,7 +446,7 @@ class MiniCommons(CheckpointModel):
             if total
             else 0
         )
-        return {
+        values = {
             "tick": self.tick,
             "round": self.tick // len(self.agents),
             "resource": sum(map(sum, self.resources)),
@@ -337,6 +454,19 @@ class MiniCommons(CheckpointModel):
             "gini": gini,
             "live_cells": sum(value > 0 for row in self.resources for value in row),
         }
+        if self.config.protocol == "factorial-v1":
+            stocks = [
+                sum(self.resources[y][x] for x, y in component)
+                for component in self.components
+            ]
+            values.update(
+                component_stocks=stocks,
+                extinct_components=sum(stock == 0 for stock in stocks),
+                fertile_components=len(stocks),
+                drought_active=self.drought_active(),
+                effective_regrowth=self.effective_regrowth(),
+            )
+        return values
 
     def state(self) -> dict:
         """Return model-owned data to be detached by the checkpoint serializer."""

@@ -6,7 +6,9 @@ A small pairwise coordination model inspired by [Ashery, Aiello & Baronchelli (S
 
 How do agents using only recent personal interactions coordinate on a shared convention? How do memory, contact topology and policy affect formation and persistence? Matching is individually rewarded, but agents receive no global consensus instruction or population statistics.
 
-The current model supports complete/ring topology, memory and rule/LLM comparisons. Inspecting individual histories connects aggregate choice shares to preceding interactions. Repeated independent runs are needed to study convention selection and persistence. Supplied metrics describe trajectories; they do not by themselves test collective bias or establish an LLM advantage.
+The model supports complete/ring contacts and a degree-controlled mixed/community comparison with a fixed alternative-name minority. The main intervention asks whether community structure protects an established convention or supports persistent local disagreement. Inspecting individual histories connects aggregate choices to contacts. Repeated independent populations are needed; the supplied rules do not establish an LLM advantage.
+
+See the [factorial protocol](../EXPERIMENTS.md#naming-network-structure--fixed-minority) for the graph generator, shared stable prefix, minority assignment, label counterbalancing, sustained reversal endpoint and paired estimands. Run all four conditions with `python -m examples.python_llm.experiments naming --output /path/to/new-results`.
 
 ## Run the backend
 
@@ -19,7 +21,7 @@ python -m examples.python_llm.naming_game serve --policy rule --port 8765
 Connect the GUI to the printed URL or follow the [minimal agent CLI path](../README.md#connect-the-agent-cli-minimal-path). The backend waits for actions; stop it with Ctrl-C.
 
 ```bash
-# Headless rules: Python 3.10+, no binding installation or API access.
+# Headless rules: Python 3.10+ and NetworkX, no binding or API access.
 python -m examples.python_llm.naming_game batch --policy rule \
   --seeds 1,2,3 --agents 24 --memory 5 --topology ring --steps 1000
 
@@ -44,8 +46,14 @@ See [shared workflows](../README.md) for credentials, caps, recordings and resto
 | `--memory` | 5 | Each agent's last 1–12 personal interactions |
 | `--topology` | `complete` | Permitted contacts: `complete` or `ring` |
 | `--exploration` | 0.05 | Rule-only probability of a fresh uniform choice, in [0, 1] |
+| `--protocol` | `legacy` | Use `factorial-v1` for extended mechanisms and measurements |
+| `--degree` | 4 | Mixed/community degree; even and below N/2, with even N |
+| `--committed` | 0 | Existing agents assigned an exogenous fixed-name policy |
+| `--committed-name` | `M` | The fixed choice; no LLM requests for fixed agents |
+| `--label-order` | `QM` | `QM` or `MQ`; factorial mode counterbalances system/observation/rule ordering |
+| `--rule` | `wsls` | Original `wsls` or empirical partner-`frequency` policy |
 
-Agents start without a name, at score zero, with empty history. State contains their last choice, cumulative score, recent interactions and last returned decision. Names are fixed to Q and M. There is no movement, population turnover, committed minority or changing contact network.
+Agents start without a name, at score zero, with empty history. State contains their last choice, cumulative score, recent interactions and last returned decision. Names are Q and M. There is no movement or population turnover. In factorial mode, fixed agents keep their histories/payoffs but always choose their assigned name. The experiment runner changes contact topology and fixed-agent assignment at the shared checkpoint without clearing personal memory or resetting stochastic cursors. A direct model CLI launch applies its configured minority from tick zero; use the factorial runner for the established-convention experiment.
 
 Population, memory and topology are launch-time settings. `exploration` can be edited at runtime but affects rule mode only. `selected_agent` changes inspection, not behavior. Reset restarts the current seed; **Reset with next seed** starts the next seed.
 
@@ -61,9 +69,17 @@ One tick is **one pairwise interaction**, not a population round. Failed decisio
 
 ## Information and decision policies
 
-The LLM sees its ID, run seed, a shuffled Q/M option list and recent personal interactions. It receives no global choice shares, other agents' private memories or partner's next choice. The system prompt specifies payoffs and asks it to maximize score. It returns `{"name":"Q or M","note":"..."}`. The optional note is a public reported observation, limited to 160 characters. It is displayed for inspection, not added as a separate field to subsequent interaction histories or treated as internal reasoning.
+The LLM sees its ID, run seed, a shuffled Q/M option list and recent personal interactions. It receives no global choice shares, other agents' private memories or partner's next choice. The system prompt specifies payoffs and asks it to maximize score. It returns `{"name":"Q or M","note":"..."}`. The prompt requests a short optional note, but a longer string does not invalidate the name or stop the experiment. The full text remains in the model, checkpoint and decision tape; the node/selected-agent display shortens it to 160 characters with an ellipsis. Notes are not added to subsequent interaction histories or treated as internal reasoning.
 
-The rule chooses uniformly with empty history or during exploration. Otherwise it repeats its previous choice after success and adopts its partner's previous choice after failure. The rule is symmetric under Q/M relabeling. Shuffling the LLM observation's option list does not demonstrate absence of bias: the fixed system prompt still names Q/M.
+The original rule chooses uniformly with empty history or during exploration. Otherwise it repeats its previous choice after success and adopts its partner's previous choice after failure. `frequency` chooses the most frequent partner name in personal memory and breaks ties uniformly, with the same exploration mechanism. Both are symmetric under Q/M relabeling. Legacy mode retains the original fixed system-prompt order; factorial mode changes that order too. Counterbalancing does not by itself demonstrate absence of LLM bias.
+
+For an inspectable new-mechanism backend (minority active from launch):
+
+```bash
+python -m examples.python_llm.naming_game serve --policy rule \
+  --protocol factorial-v1 --topology community --degree 4 --agents 24 \
+  --rule frequency --exploration .01 --committed 4 --committed-name M
+```
 
 ## Measurements and visualization
 
@@ -78,6 +94,10 @@ These are researcher observations, not global information given to policies:
 
 Charts `names` and `coordination_rate` show those series. Monitors include `metrics`, `selected_agent`, `last_interaction` and `inference`. Set `selected_agent` to the numeric index or inspect a node for its history/decision.
 
+`contact_network` reports actual allowed adjacency, community membership and fixed IDs. `factorial-v1` adds ordinary-agent recent choice/last-choice shares, rolling coordination, community shares/gap and the treatment boundary to `metrics`, plus the `ordinary_target_share` chart. Its 4N-interaction window is researcher state, separate from each agent's bounded personal memory. Undefined recent shares are `null`; the factorial runner evaluates the sustained reversal criterion on every step.
+
+The share chart uses zero before any ordinary choice is observed (and in legacy mode); check `ordinary_recent_choices` and the nullable metric to distinguish an empty window from an observed zero share.
+
 Nodes start on a circle and use the renderer's graph layout. Blue is Q, amber is M, gray is not yet activated. Edges show actual contacts from the last twelve ticks, retaining the latest per pair; the newest is thicker. They do not show the full permitted network. Display layout is separate from fixed projected model coordinates.
 
 ## Interpreting an experiment
@@ -85,3 +105,10 @@ Nodes start on a circle and use the renderer's graph layout. Blue is Q, amber is
 Agreement of one means all last choices align at that instant. Stable convention formation requires a stated persistence window or further analysis. Cumulative success can hide recent instability, so inspect the event sequence too.
 
 Convention-bias experiments need independent runs, recorded provider/prompt settings, initial individual-preference measurements and label/order controls. One converged trajectory cannot establish collective bias. Replaying a tape checks reproducibility and adds no independent sample. See [replay and restoration](../README.md#standard-recording-historical-frames-and-restoration).
+
+`ContactNetwork` in `network.py` owns the graph, seeded community partition,
+regular-ring construction and degree-preserving mixing. It uses NetworkX for
+simple graph operations and connectivity. The sampler retains the original
+sorted edge proposals and graph-only RNG, rather than replacing them with
+NetworkX's differently sampled swap routine. The refactor therefore preserves
+existing factorial-v1 adjacency and contact schedules exactly.

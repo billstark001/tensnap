@@ -83,3 +83,18 @@ class NamingView(ModelView):
     def last_interaction(self):
         """Keep the most recent event available without navigating chart history."""
         return self.model.last_interaction
+
+    @monitor("contact_network", "Allowed contacts / fixed minority", render_hint="tree")
+    def contact_network(self):
+        return self.model.network_summary()
+
+    @chart(
+        "ordinary_target_share",
+        "Ordinary agents: recent target choices",
+        color="#dc2626",
+    )
+    def ordinary_target_share(self):
+        # Wire chart samples require a number/string. Missingness remains explicit
+        # in the metrics monitor; zero is only the chart's pre-observation value.
+        value = self.model.metrics().get("ordinary_target_choice_share")
+        return value if value is not None else 0.0

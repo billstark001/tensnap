@@ -4,10 +4,14 @@ These examples explore how bounded local decisions produce population-level outc
 
 | Example | Scientific question | One step | Rule baseline |
 | --- | --- | --- | --- |
-| [Naming Game](naming_game/README.md) | How do local interactions form and maintain conventions? | Two simultaneous name choices | Symmetric win-stay / lose-switch |
-| [Mini Commons Harvest](mini_commons_harvest/README.md) | How do local decisions affect a shared renewable resource? | One harvester activation | Greedy or leave-one-unit harvesting |
+| [Naming Game](naming_game/README.md) | How does contact structure mediate a fixed minority's challenge to an established convention? | Two simultaneous name choices | Win-stay / lose-switch or partner-frequency |
+| [Mini Commons Harvest](mini_commons_harvest/README.md) | Does local message delivery change resilience to a temporary drought? | One harvester activation | Greedy, leave-one-unit or message-aware harvesting |
 
 These are exploratory models, separate from the evaluation harness. They do not reproduce published benchmarks. The model pages define their mechanisms, assumptions, observations and metrics.
+
+The [paired factorial protocol](EXPERIMENTS.md) supplies reusable rule-only control experiments, sustained-convention criteria, message-delivery negative controls, common environmental random fields, extinction/recovery measurements and checkpoint verification. The original CLI defaults retain the `legacy` protocol for historical tapes; choose `--protocol factorial-v1` for the new mechanisms. No paid inference is needed to run the controls.
+
+For a small paid four-condition run per model, [the LLM pilot](EXPERIMENTS.md#small-live-llm-pilot) uses a shared CNY spending guard, records branched decision tapes, preserves failures, and verifies every completed trajectory through offline replay. Its one-seed results are exploratory and kept separately from the rule controls.
 
 ## Choose a Python environment
 
@@ -72,16 +76,18 @@ python -c 'import tensnap, websockets; print(tensnap.__file__); print(websockets
 
 The server requires `websockets>=13`. For development, prefix a `serve` command with `TENSNAP_USE_SOURCE=1` to select the checked-out binding explicitly. This does not install dependencies.
 
-### Route D: headless rules without installation
+### Route D: headless rules without the TenSnap binding
 
-Rule-mode `run` and `batch` use only the Python 3.10+ standard library:
+Rule-mode `run` and `batch` do not need the binding or an inference client.
+Naming uses NetworkX for its contact network:
 
 ```bash
+python -m pip install 'networkx>=3.4,<4'
 python -m examples.python_llm.naming_game run --policy rule --steps 20
 python -m examples.python_llm.mini_commons_harvest run --policy rule --steps 24
 ```
 
-If an installed `examples` package interferes, the `PYTHONPATH=examples` route above applies here too. For a standard-library-only run, `python -S -m examples.python_llm.<model> run --policy rule ...` also excludes all site-packages. Headless tape replay needs no provider client. Serving any policy requires the binding and its dependencies from routes A–C. Live LLM decisions additionally use `requirements.txt`.
+If an installed `examples` package interferes, the `PYTHONPATH=examples` route above applies here too. Commons alone can still run with only the standard library, including `python -S -m examples.python_llm.mini_commons_harvest run --policy rule ...`; Naming needs NetworkX available on its import path. Headless tape replay needs no provider client. Serving any policy requires the binding and its dependencies from routes A–C. Live LLM decisions additionally use `requirements.txt`.
 
 ## Start the model backend
 

@@ -9,7 +9,16 @@ def add_arguments(parser):
     parser.add_argument("--width", type=int, default=12)
     parser.add_argument("--height", type=int, default=9)
     parser.add_argument("--regrowth", type=float, default=0.35)
-    parser.add_argument("--rule", choices=["greedy", "conserve"], default="greedy")
+    parser.add_argument(
+        "--rule", choices=["greedy", "conserve", "signal"], default="greedy"
+    )
+    parser.add_argument(
+        "--protocol", choices=["legacy", "factorial-v1"], default="legacy"
+    )
+    parser.add_argument("--message-delivery", choices=["on", "off"], default="on")
+    parser.add_argument("--drought-start", type=int, default=0)
+    parser.add_argument("--drought-duration", type=int, default=0)
+    parser.add_argument("--drought-multiplier", type=float, default=0.1)
 
 
 def load_view():

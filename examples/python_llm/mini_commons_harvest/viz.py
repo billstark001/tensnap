@@ -41,7 +41,7 @@ def resource_color(view, row, col, resource):
 @controls(
     {
         "regrowth": NumberParameter("", min=0, max=1, step=0.05),
-        "rule": EnumParameter("", options=["greedy", "conserve"]),
+        "rule": EnumParameter("", options=["greedy", "conserve", "signal"]),
     }
 )
 @grid_layer(
@@ -125,3 +125,15 @@ class CommonsView(ModelView):
     def last_event(self):
         """Show the last completed activation and its actual harvest gain."""
         return self.model.last_event
+
+    @monitor("treatment", "Delivery / drought / fertile components", render_hint="tree")
+    def treatment(self):
+        return {
+            "protocol": self.model.config.protocol,
+            "message_delivery": self.model.config.message_delivery,
+            "drought_start": self.model.config.drought_start,
+            "drought_duration": self.model.config.drought_duration,
+            "drought_active": self.model.drought_active(),
+            "effective_regrowth": self.model.effective_regrowth(),
+            "component_cells": self.model.components,
+        }
