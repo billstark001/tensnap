@@ -1,6 +1,6 @@
 # Versioning and release sources
 
-TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-19, the package versions are:
+TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-20, the package versions are:
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |

@@ -185,3 +185,11 @@ Project/recording extraction and hydration normalize known protocol binary field
 `RendererClient.beginAction` returns a request ID and a completion promise registered before dispatch. `invokeAction` also waits for the host barrier. Hosts that only need settlement can use `beginAction(id, timeoutMs, { retainMessages: false })` to avoid retaining the action’s protocol stream; the default still returns collected messages. Hosts own image rendering, evidence directory commits, file checksums and persistence waits.
 
 Incremental recording storage, bounded historical queries, trigger collection and asynchronous playback are documented in the [storage API contract](../../docs/api-reference/recording-storage.md) and [agent runtime guide](../../docs/user-guide/agent-runtime.md).
+
+### Playback disposal and scene replacement
+
+`SnapshotPlayer.close()` and `SnapshotPlaybackSource.close()` are idempotent and release their owned Scenario resources. `RecordingPlayback.close()` cancels reads and releases its scene immediately, then joins reader/backend disposal through a shared promise, including failure. Seek and Step share cancellation ownership from index lookup through scene publication; delayed Step lookups cannot override a newer selection. Navigation after close fails. Hosts must release both a playback source and any renderer Scenario loaded from it; each owns its own image URLs. Constructor/initialization failure also requires cleanup.
+
+`Scenario.load(snapshot, { reuseAssets: true })` replaces scene state while reusing resolved assets with unchanged ID/hash/MIME. Missing IDs and changed hashes/MIME release old URLs. Metadata-only entries can retain matching held bytes. The inspection receiver uses this explicit option; default `load` and `reset` retain complete replacement semantics. Asset hashes identify immutable byte content. Inspection views include metadata for acknowledged assets and omit only their bytes, allowing metadata/MIME updates without retransmission.
+
+Segment encoding omits optional undefined object fields before MessagePack encoding; undefined array entries fail. JSON and MessagePack recording files therefore have the same validated schema without changing the released format version.

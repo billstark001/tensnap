@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## @tensnap/web [0.3.7] - 2026-10-19
+## @tensnap/web [0.3.7] - 2026-10-20
 
 ### Added
 
@@ -41,10 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bind rendered/native Save and Settings to an explicit originating project; capture save format before awaited pickers and stop commands when their owner closes.
+- Unify project/playback disposal across closure, source replacement and initialization failure; retain the old source and restore its scene after failed candidate initialization. Reuse acknowledged inspection image resources; apply metadata/MIME changes and suppress unchanged cloned information packets.
 - Preserve replay cursor and release rendering assets across refresh, StrictMode and closure. Subscribe recording selectors to their actual owner.
 - Poll bounded agent views with cancellation, deadlines and backoff; acknowledge revisions only after successful load and revoke receiver Blob URLs on teardown. Avoid full-scene information packets and unnecessary spatial indexes.
 
-## @tensnap/tauri [0.3.6] - 2026-10-19
+## @tensnap/tauri [0.3.6] - 2026-10-20
 
 ### Added
 
@@ -54,9 +56,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Separate main and auxiliary capabilities; initialize filesystem, persistence and simulator services only in the main Webview. Release listeners, operations and windows with their owner.
-- Share workbench menu command handlers and remove unimplemented zoom/grid/shortcut items. Retain overlay titlebar/fullscreen behavior.
+- Share main-only project menu command handlers, including original-project Settings and Save ownership, and remove unimplemented zoom/grid/shortcut items. Retain overlay titlebar/fullscreen behavior.
 
-## @tensnap/core [0.3.6] - 2026-10-19
+## @tensnap/core [0.3.6] - 2026-10-20
 
 ### Added
 
@@ -65,9 +67,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Normalize optional undefined properties before archive segment encoding so valid recordings round-trip in both file formats.
+- Add idempotent playback closure with scene URL release, cancelled reads and joined reader/backend cleanup; cancel stale Step index lookups when a newer selection starts. Preserve asset bytes across realms when dumping scenes; offer explicit resource reuse for scene replacement.
+- Finalize manual recordings on transport retirement/loss and expose an action-settlement boundary for graceful host shutdown. Notify owned tools when simulator identity is reset.
 - Normalize known asset, screenshot and checkpoint binary fields across JSON/MessagePack extraction and hydration; deduplicate equivalent binary representations without interpreting user strings.
 
-## @tensnap/agent [0.3.6] - 2026-10-19
+## @tensnap/agent [0.3.6] - 2026-10-20
 
 ### Added
 
@@ -75,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Restore recording ID admission at startup without decoding historical payloads; atomically publish complete ID directories to prevent duplicate/cross-format/concurrent overwrites, while retaining legacy file discovery.
+- Own persistence format with recording status, share manual/run pending-write admission, and finalize/drain active recordings during disconnect/shutdown even when checkpoint cleanup fails.
 - Discover both recording encodings in catalogs and restore/compare evidence through its declared state path, including mixed encodings. Extend public CLI acceptance coverage and bundled offline references.
 
 ## @tensnap/web-common [0.3.3] - 2026-10-19
