@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { AnyView, ContainerView } from '@/types/ui';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { findView, findViewAndParentEntry, getAllViews, validateViewTree } from './container';
 
 function container(id: string, views: AnyView[] = []): ContainerView {

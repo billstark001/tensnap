@@ -1,0 +1,305 @@
+import { writeFileAtomically } from './atomic-file';
+import { mkdir, readFile, writeFile, opendir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import type { DatabaseSync as SQLiteDatabase } from 'node:sqlite';
+import { decodeMessagePack, encodeMessagePack } from '@tensnap/protocol';
+import type {
+  RecordingStoreBackend,
+  StoreIndexRow,
+  StoreIndexQuery,
+} from '@tensnap/core/persistence';
+
+const missing = (error: unknown) => (error as NodeJS.ErrnoException).code === 'ENOENT';
+function alive(pid: number) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
+  }
+}
+
+/** Same-directory rename provides process-interruption atomicity; this does not claim power-loss durability. */
+export class NodeRecordingStore implements RecordingStoreBackend {
+  constructor(
+    readonly directory: string,
+    private readonly fault?: (stage: 'object' | 'root', key: string) => void | Promise<void>,
+  ) {}
+  private objectDatabase?: SQLiteDatabase;
+  private async objects() {
+    if (!this.objectDatabase) {
+      const { DatabaseSync } = await import('node:sqlite');
+      await mkdir(this.directory, { recursive: true });
+      const db = new DatabaseSync(join(this.directory, 'objects.sqlite'));
+      db.exec(
+        'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-1024; PRAGMA busy_timeout=5000; CREATE TABLE IF NOT EXISTS objects(key TEXT PRIMARY KEY, bytes BLOB NOT NULL);',
+      );
+      this.objectDatabase = db;
+    }
+    return this.objectDatabase;
+  }
+  private indexDatabase?: SQLiteDatabase;
+  private async index() {
+    if (!this.indexDatabase) {
+      const { DatabaseSync } = await import('node:sqlite');
+      await mkdir(this.directory, { recursive: true });
+      const db = new DatabaseSync(join(this.directory, 'index.sqlite'));
+      db.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA cache_size=-1024; PRAGMA busy_timeout=5000;
+        CREATE TABLE IF NOT EXISTS boundaries(frame INTEGER PRIMARY KEY, time REAL, request TEXT, ref BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS streams(frame INTEGER PRIMARY KEY);
+        CREATE INDEX IF NOT EXISTS by_time ON boundaries(time, frame);
+        CREATE INDEX IF NOT EXISTS by_request ON boundaries(request, frame);`);
+      this.indexDatabase = db;
+    }
+    return this.indexDatabase;
+  }
+  async putIndex(row: StoreIndexRow) {
+    await this.fault?.('object', 'index');
+    const db = await this.index();
+    db.prepare('INSERT INTO boundaries(frame,time,request,ref) VALUES(?,?,?,?)').run(
+      row.frame,
+      row.time ?? null,
+      row.requestId ?? null,
+      encodeMessagePack(row.ref),
+    );
+    if (row.stream) db.prepare('INSERT INTO streams(frame) VALUES(?)').run(row.frame);
+  }
+  private indexRow(row: Record<string, unknown> | undefined): StoreIndexRow | undefined {
+    return row
+      ? {
+          frame: Number(row.frame),
+          time: row.time === null ? undefined : Number(row.time),
+          requestId: row.request === null ? undefined : String(row.request),
+          ref: decodeMessagePack(row.ref as Uint8Array),
+          stream: row.stream === 1,
+        }
+      : undefined;
+  }
+  async findIndex(query: StoreIndexQuery) {
+    const db = await this.index();
+    const column = query.by === 'frame' ? 'frame' : query.by === 'time' ? 'time' : 'request';
+    const comparison = query.match === 'before' ? '<=' : query.match === 'after' ? '>=' : '=';
+    const direction = query.match === 'last' || query.match === 'before' ? 'DESC' : 'ASC';
+    return this.indexRow(
+      db
+        .prepare(
+          `SELECT boundaries.*, EXISTS(SELECT 1 FROM streams WHERE streams.frame=boundaries.frame) AS stream FROM boundaries WHERE frame BETWEEN ? AND ? AND ${column} ${comparison} ? ORDER BY ${column} ${direction}, frame ${direction} LIMIT 1`,
+        )
+        .get(query.firstFrame, query.lastFrame, query.value),
+    );
+  }
+  async *frameIndex(firstFrame: number, lastFrame: number): AsyncGenerator<StoreIndexRow> {
+    const db = await this.index();
+    // Keyset batches keep transactions short while the generation's frame range remains fixed.
+    let next = firstFrame;
+    while (next <= lastFrame) {
+      const rows = db
+        .prepare(
+          'SELECT boundaries.*, EXISTS(SELECT 1 FROM streams WHERE streams.frame=boundaries.frame) AS stream FROM boundaries WHERE frame BETWEEN ? AND ? ORDER BY frame LIMIT 64',
+        )
+        .all(next, lastFrame);
+      if (!rows.length) break;
+      for (const row of rows) yield this.indexRow(row)!;
+      next = Number(rows[rows.length - 1].frame) + 1;
+    }
+  }
+  async *streamIndex(firstFrame: number, lastFrame: number): AsyncGenerator<StoreIndexRow> {
+    const db = await this.index();
+    let next = firstFrame;
+    while (next <= lastFrame) {
+      const rows = db
+        .prepare(
+          'SELECT boundaries.*, 1 AS stream FROM streams JOIN boundaries USING(frame) WHERE streams.frame BETWEEN ? AND ? ORDER BY streams.frame LIMIT 64',
+        )
+        .all(next, lastFrame);
+      if (!rows.length) break;
+      for (const row of rows) yield this.indexRow(row)!;
+      next = Number(rows[rows.length - 1].frame) + 1;
+    }
+  }
+  async pruneIndex(firstFrame: number) {
+    const db = await this.index();
+    db.prepare('DELETE FROM streams WHERE frame < ?').run(firstFrame);
+    db.prepare('DELETE FROM boundaries WHERE frame < ?').run(firstFrame);
+  }
+  async rebuildIndex(rows: AsyncIterable<StoreIndexRow>) {
+    const db = await this.index();
+    db.exec('BEGIN IMMEDIATE; DELETE FROM boundaries; DELETE FROM streams;');
+    try {
+      for await (const row of rows) await this.putIndex(row);
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  }
+  close() {
+    this.indexDatabase?.close();
+    this.indexDatabase = undefined;
+    this.objectDatabase?.close();
+    this.objectDatabase = undefined;
+  }
+
+  private path(key: string) {
+    if (
+      !/^(root|writer|segments\/[0-9]{16}|objects\/[a-f0-9]{64}|roots\/[1-9][0-9]*|pins\/[1-9][0-9]*\.[a-f0-9-]+)$/.test(
+        key,
+      )
+    )
+      throw new Error('Invalid store key.');
+    return join(this.directory, key);
+  }
+  private isDatabaseKey(key: string) {
+    return (
+      key === 'writer' ||
+      key.startsWith('objects/') ||
+      key.startsWith('segments/') ||
+      key.startsWith('roots/')
+    );
+  }
+  async read(key: string): Promise<Uint8Array> {
+    this.path(key);
+    if (this.isDatabaseKey(key)) {
+      const row = (await this.objects())
+        .prepare('SELECT bytes FROM objects WHERE key = ?')
+        .get(key);
+      if (!row) throw Object.assign(new Error(`Missing store object: ${key}`), { code: 'ENOENT' });
+      return Uint8Array.from(row.bytes as Uint8Array);
+    }
+    return new Uint8Array(await readFile(this.path(key)));
+  }
+  async put(key: string, bytes: Uint8Array): Promise<boolean> {
+    const path = this.path(key);
+    if (this.isDatabaseKey(key)) {
+      await this.fault?.('object', key);
+      const db = await this.objects();
+      const result = db
+        .prepare('INSERT OR IGNORE INTO objects(key,bytes) VALUES(?,?)')
+        .run(key, bytes);
+      if (result.changes) return true;
+      const previous = await this.read(key);
+      if (previous.length !== bytes.length || !previous.every((v, i) => v === bytes[i]))
+        throw new Error(`Immutable store object conflicts: ${key}.`);
+      return false;
+    }
+    await mkdir(join(path, '..'), { recursive: true });
+    await writeFile(path, bytes, { flag: 'wx' });
+    return true;
+  }
+  async publishRoot(expectedGeneration: number, bytes: Uint8Array): Promise<void> {
+    let generation = 0;
+    try {
+      generation = decodeMessagePack<{ generation: number }>(await this.read('root')).generation;
+    } catch (error) {
+      if (!missing(error)) throw error;
+    }
+    if (generation !== expectedGeneration)
+      throw new Error('Store generation changed under the writer.');
+    await this.fault?.('root', 'root');
+    await writeFileAtomically(this.path('root'), bytes);
+  }
+  async *list(prefix = ''): AsyncGenerator<string> {
+    async function* visit(directory: string, relative: string): AsyncGenerator<string> {
+      let entries;
+      try {
+        entries = await opendir(directory);
+      } catch (error) {
+        if (missing(error)) return;
+        throw error;
+      }
+      for await (const entry of entries) {
+        const key = `${relative}${entry.name}`;
+        if (entry.isDirectory()) {
+          if (prefix.startsWith(`${key}/`) || key.startsWith(prefix))
+            yield* visit(join(directory, entry.name), `${key}/`);
+        } else if (
+          !key.startsWith('index.sqlite') &&
+          !key.startsWith('objects.sqlite') &&
+          key.startsWith(prefix)
+        )
+          yield key;
+      }
+    }
+    const db = await this.objects();
+    let after = prefix;
+    for (;;) {
+      const rows = db
+        .prepare('SELECT key FROM objects WHERE key > ? AND key < ? ORDER BY key LIMIT 64')
+        .all(after, `${prefix}\uffff`);
+      if (!rows.length) break;
+      for (const row of rows) yield String(row.key);
+      after = String(rows[rows.length - 1].key);
+    }
+    yield* visit(this.directory, '');
+  }
+  async remove(key: string) {
+    this.path(key);
+    if (this.isDatabaseKey(key)) {
+      (await this.objects()).prepare('DELETE FROM objects WHERE key = ?').run(key);
+      return;
+    }
+    const { unlink } = await import('node:fs/promises');
+    try {
+      await unlink(this.path(key));
+    } catch (error) {
+      if (!missing(error)) throw error;
+    }
+  }
+  async isWriterActive(): Promise<boolean> {
+    const row = (await this.objects())
+      .prepare("SELECT bytes FROM objects WHERE key='writer'")
+      .get();
+    return row ? alive(decodeMessagePack<{ pid: number }>(row.bytes as Uint8Array).pid) : false;
+  }
+  async acquireWriter(): Promise<() => Promise<void>> {
+    const db = await this.objects();
+    const token = randomUUID();
+    // Reclaiming a dead lease is one SQLite transaction, so two processes cannot
+    // both remove a stale lock and steal the replacement from each other.
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const row = db.prepare("SELECT bytes FROM objects WHERE key='writer'").get();
+      if (row) {
+        const owner = decodeMessagePack<{ pid: number; token: string }>(row.bytes as Uint8Array);
+        if (alive(owner.pid)) throw new Error('Recording store already has a writer.');
+      }
+      db.prepare("INSERT OR REPLACE INTO objects(key,bytes) VALUES('writer',?)").run(
+        encodeMessagePack({ pid: process.pid, token }),
+      );
+      db.exec('COMMIT');
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+    return async () => {
+      const database = await this.objects();
+      database.exec('BEGIN IMMEDIATE');
+      try {
+        const row = database.prepare("SELECT bytes FROM objects WHERE key='writer'").get();
+        const owner = row && decodeMessagePack<{ token: string }>(row.bytes as Uint8Array);
+        if (owner?.token !== token) throw new Error('Recording writer ownership changed.');
+        database.prepare("DELETE FROM objects WHERE key='writer'").run();
+        database.exec('COMMIT');
+      } catch (error) {
+        database.exec('ROLLBACK');
+        throw error;
+      }
+    };
+  }
+  async pin(generation: number): Promise<() => Promise<void>> {
+    const key = `pins/${generation}.${randomUUID()}`;
+    await this.put(key, encodeMessagePack({ pid: process.pid }));
+    return () => this.remove(key);
+  }
+  async pinnedGenerations() {
+    const generations = new Set<number>();
+    for await (const key of this.list('pins/'))
+      if (key.startsWith('pins/')) {
+        const { pid } = decodeMessagePack<{ pid: number }>(await this.read(key));
+        if (alive(pid)) generations.add(Number(key.slice(5).split('.')[0]));
+        else await this.remove(key);
+      }
+    return [...generations];
+  }
+}

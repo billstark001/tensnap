@@ -37,7 +37,41 @@ export function useButtonControls() {
   // then becomes stopped by derivation, without a cascading reset effect.
   const [playingSnapshot, setPlayingSnapshot] = useState<typeof snapshotPlayback>(undefined);
   const snapshotPlaying = playingSnapshot === snapshotPlayback && Boolean(snapshotPlayback);
-  const isSnapshotSource = Boolean(snapshotPlayback);
+  const recordingPlayback = activeProject?.recordingPlayback;
+  const [playingRecording, setPlayingRecording] = useState<typeof recordingPlayback>();
+  const recordingPlaying = Boolean(recordingPlayback) && playingRecording === recordingPlayback;
+  const isSnapshotSource = Boolean(snapshotPlayback || recordingPlayback);
+  useEffect(() => {
+    if (!recordingPlaying || !recordingPlayback || !activeProject) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const next = async () => {
+      try {
+        const scene = await recordingPlayback.step(controller.signal);
+        if (cancelled) return;
+        if (!scene) {
+          setPlayingRecording(undefined);
+          return;
+        }
+        activeProject.useScenarioStore.getState().load(scene.dump());
+        timer = setTimeout(() => {
+          void next();
+        }, 1000 / snapshotPlaybackFps);
+      } catch (error) {
+        if (!cancelled) {
+          setPlayingRecording(undefined);
+          toast.error(_(msg`Snapshot playback`), String(error));
+        }
+      }
+    };
+    void next();
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (timer) clearTimeout(timer);
+    };
+  }, [recordingPlaying, recordingPlayback, activeProject, snapshotPlaybackFps, toast, _]);
 
   /** Full materialization is reserved for source load and explicit rewind. */
   const loadSnapshotScenario = useCallback(() => {
@@ -69,6 +103,23 @@ export function useButtonControls() {
 
   const runSnapshotAction = useCallback(
     (action: string) => {
+      if (recordingPlayback && activeProject) {
+        if (!['start', 'stop', 'step', 'reset'].includes(action)) return false;
+        if (action === 'start')
+          setPlayingRecording(recordingPlaying ? undefined : recordingPlayback);
+        else {
+          setPlayingRecording(undefined);
+          if (action === 'step' || action === 'reset') {
+            void (action === 'step' ? recordingPlayback.step() : recordingPlayback.reset())
+              .then((scene) => {
+                if (scene && activeProject.recordingPlayback === recordingPlayback)
+                  activeProject.useScenarioStore.getState().load(scene.dump());
+              })
+              .catch((error) => toast.error(_(msg`Snapshot playback`), String(error)));
+          }
+        }
+        return true;
+      }
       if (!snapshotPlayback) return false;
       if (action === 'start') {
         if (snapshotPlaying) {
@@ -99,7 +150,17 @@ export function useButtonControls() {
       }
       return false;
     },
-    [loadSnapshotScenario, replaySnapshotFrame, snapshotPlayback, snapshotPlaying],
+    [
+      loadSnapshotScenario,
+      replaySnapshotFrame,
+      snapshotPlayback,
+      snapshotPlaying,
+      recordingPlayback,
+      recordingPlaying,
+      activeProject,
+      toast,
+      _,
+    ],
   );
 
   useEffect(() => {
@@ -265,12 +326,12 @@ export function useButtonControls() {
 
   const isRunning = useCallback(
     (id: string) => {
-      if (isSnapshotSource) return id === 'start' && snapshotPlaying;
+      if (isSnapshotSource) return id === 'start' && (snapshotPlaying || recordingPlaying);
       void runRevision;
       const run = session?.run.status;
       return isActionVisiblyRunning(run, id);
     },
-    [isSnapshotSource, runRevision, session, snapshotPlaying],
+    [isSnapshotSource, runRevision, session, snapshotPlaying, recordingPlaying],
   );
 
   return {

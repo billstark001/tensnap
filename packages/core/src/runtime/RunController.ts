@@ -172,7 +172,7 @@ const cloneStatus = (status: RunStatus): RunStatus => {
   };
 };
 
-function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
+export function validateRunSpec(spec: RunRequest, maxStepsPolicy: number): RunRequest {
   if (spec.mode !== 'bounded' && spec.mode !== 'manual') {
     throw new Error("RunRequest.mode must be either 'bounded' or 'manual'.");
   }
@@ -288,6 +288,18 @@ export class RunController {
 
   get isPaused(): boolean {
     return this.activeRun?.state === 'paused';
+  }
+
+  /** Gate future dispatch without stopping or settling the run. Release is idempotent. */
+  holdActionBoundary(): () => void {
+    const release = this.runtime.holdDispatch();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      release();
+      this.flushCommands();
+    };
   }
 
   /** True while any simulator action, including the lifecycle stop hook, is active. */
@@ -459,6 +471,10 @@ export class RunController {
       this.resetting = false;
     }
     this.maybeSettle();
+  }
+
+  matchesActiveAction(payload: Pick<ActionResultPayload, 'id' | 'request_id'>): boolean {
+    return this.matchActiveTask(payload) !== null;
   }
 
   actionSource(

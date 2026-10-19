@@ -1,4 +1,5 @@
-import { ContainerView, AnchoredView, AnyView, ButtonView } from '@/types/ui';
+import { generateUniqueId } from '@/utils/common';
+import { ContainerView, AnchoredView, ButtonView } from '@tensnap/core/persistence';
 import { Parameter, Action, BooleanParameter } from '@/types/model';
 import {
   ObjectWithEnvironmentMetadata,
@@ -16,30 +17,7 @@ import {
   MONITOR_CARD_HEIGHT,
   WINDOW_X_DELTA,
   WINDOW_Y_DELTA,
-  preservedViewIds,
 } from '@/components/view/constants';
-import { generateUniqueId } from '@/utils/common';
-
-/**
- * Creates the default root layout container
- */
-export function createDefaultRootLayout(views?: AnyView[]): ContainerView {
-  views ??= [];
-  return {
-    id: preservedViewIds.mainContainer,
-    type: 'container',
-    left: 0,
-    top: 0,
-    width: 1200,
-    height: 800,
-    expanded: true,
-    disabled: false,
-    data: {
-      title: 'TenSnap Visualization',
-    },
-    views,
-  };
-}
 
 /**
  * Creates a generic container with vertically packed views

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ContainerView } from '@/types/ui';
+import type { ContainerView } from '@tensnap/core/persistence';
 import { useScenarioStore } from './scenario/store';
 import { useScenarioUndoRedoStore } from './undo-redo';
 import type { HistoryCommandScope } from './history-model';

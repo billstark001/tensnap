@@ -20,7 +20,7 @@ Consult the bundled [runtime guide](references/docs/user-guide/agent-runtime.md)
 - You need to connect to a running simulator and inspect the current scene state.
 - You need to trigger one simulator action by id.
 - You need to change parameters from an agent workflow.
-- You need a bounded continuous run with a condition based on time, charts, metadata, parameters, or agent counts.
+- You need a bounded continuous run with a condition based on time, charts, monitors, metadata, parameters, or agent counts.
 - You need an environment render, optionally for a specific viewport.
 - You need a long-lived local runtime instead of a one-shot WebSocket client.
 
@@ -84,13 +84,46 @@ tensnap-agent run status --context demo
 tensnap-agent run stop --context demo
 ```
 
-`action run` and `run start` return acceptance, not completion. Use the returned request/run ID to correlate results. Dispatch stop (`state`) precedes cleanup completion (`settled`); inspect `primaryFailure`, classified action counts, and `stateKnown` before treating a run as successful. Never automatically rerun against unknown state. The core `waitForSettled(runId)` waits through final rendering and the stop hook; CLI `--wait` is not implemented.
+`action run` and `run start` return acceptance, not completion. Use the returned request/run ID to correlate results. Dispatch stop (`state`) precedes cleanup completion (`settled`); inspect `primaryFailure`, classified action counts, and `stateKnown` before treating a run as successful. Never automatically rerun against unknown state. Use `action run <id> --wait` or `action wait <request-id>` for one action; `run start ... --wait` or `run wait <run-id> --until settled|persisted` waits by run identity through final rendering and the stop hook. `persisted` requires a recorded run. A wait timeout does not cancel the operation.
 
-`--record` closes only after settlement and saves the existing SnapshotArchive under the context's `recordings/<run-id>.snapshot.json`. Query `GET /v1/runs/<run-id>` for recording `pending`/`persisted`/`failed`, path and error. This is not the future standalone recording file format; persisted does not mean untruncated. Default retention is 10,000 frames / 64 MiB rolling. A second recorded run is rejected before dispatch while an earlier recording write is pending; retry after its persistence event/status. Unrecorded runs can continue meanwhile.
+`--record` closes only after settlement and saves a self-contained recording under the context's `recordings/<recording-id>.tensnap-recording.json`. Query `GET /v1/runs/<run-id>` for recording `pending`/`persisted`/`failed`, path and error. Persisted does not mean untruncated. `recording list` reports recording IDs, paths, retained ranges, budgets and resource completeness. Default retention is 10,000 frames / 64 MiB rolling. A second recorded run is rejected before dispatch while an earlier recording write is pending; retry after its persistence event/status. Unrecorded runs can continue meanwhile.
 
 Use `--output-version 1` for versioned JSON stdout; diagnostics go to stderr. Unknown/missing flags and extra positional arguments fail before runtime access. Use `--context-dir`, not `--root-dir`. Exit codes and the full error/settlement contract are in [the runtime guide](references/docs/user-guide/agent-runtime.md).
 
-The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first dispatch and after every `action_result`. It can read `steps`, `time`, metadata, `parameters`, `charts`, `agent(envId, layerId, id)`, and `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
+The matching HTTP resource is `POST /v1/runs`, `GET /v1/runs`, and `DELETE /v1/runs`. `stopWhen` is parsed once and evaluated before the first dispatch and after every `action_result`. It can read `steps`, `time`, metadata, `parameters`, `charts`, `monitors`, `agent(envId, layerId, id)`, and `agentCount(envId, layerId)`; it cannot call arbitrary host functions.
+
+## Offline recordings and fixed evidence
+
+```bash
+tensnap-agent run start start --max-actions 20 --record --wait --until persisted --context demo
+tensnap-agent recording list --context demo
+tensnap-agent recording export <recording-id> --output run.tensnap-recording.json --context demo
+tensnap-agent recording info run.tensnap-recording.json
+tensnap-agent recording seek run.tensnap-recording.json --time 10 --match last
+tensnap-agent recording export-frame run.tensnap-recording.json --frame 10 --env main --output evidence
+tensnap-agent recording render evidence/state.recording.json --frame 0 --env main --output history.png
+tensnap-agent frame save --checkpoint required --env main --output saved --context demo
+tensnap-agent frame restore saved --mode checkpoint --history replace --context demo
+tensnap-agent frame compare saved evidence
+```
+
+Use actual IDs and retained indexes from inspection. Offline operations require an explicit frame or `--time` plus `--match first|last|before|after`, and reject runtime context flags. They work without a daemon or simulator. For a project containing multiple recordings, use `--snapshot-id`; this reads the file without opening its online source. New recording/frame/wait commands emit version-1 JSON by default.
+
+Manual recording uses `recording start --max-frames <n> --max-bytes <n> --retention rolling|bounded` followed by `recording stop`. Conflicting recording sessions fail; action quotas and frame budgets are separate.
+
+A frame evidence directory contains a verified manifest, a self-contained single-frame recording, and requested images. Checkpoint policies are `none|if-supported|required`; required capture must prove an unchanged renderer revision and source identity. Historical checkpoints exist only at their original captured boundary. Never attach a current online checkpoint to historical state. Missing checkpoints allow viewing/rendering but fail exact restoration. Restore validates identity/schema, preserves history on model failure, and reports model/history status and state certainty. A complete manifest is committed only after every requested artifact succeeds; failures preserve explicit partial output. Existing evidence directories are never overwritten.
+
+Use the GUI's **File → Open recording** from an empty app; the replay dialog exports full recordings or the current frame. Cursor selection retains the whole timeline. Checkpoint-only models can replace/truncate renderer charts without projected wire time.
+
+## Bounded queries and long collection
+
+Use `scene inspect --query <json>` and `recording inspect <file-or-store> --frame <index> --query <json>` for independent small results. Select typed agents, neighbors, projected x/y cells, monitors, parameters, chart metadata/latest values, layers or metadata; fields are bounded path arrays/JSON Pointers. Cursors belong to the exact source revision/generation. `agent inspect <id>` requires `--env`, `--layer` and `--id-type string|number`; `--output` requests a screenshot. Use `monitor list|get` and `recording monitor-history ... --sampling boundaries|changes` for current values versus recorded history.
+
+`frame diff` and `recording diff` report exact and selected equality independently. Pass explicit object/field/ignore/tolerance policy files; do not invent a diagnostic-field whitelist or treat truncated changes as complete. Checkpoint bytes and model/schema compatibility remain independent constraints. Keep using `frame compare` for its released exact behavior.
+
+For long collection use `run start ... --collection <config.json> --store <new-directory> --wait --until persisted`. Read the bundled [collection/configuration guide](references/docs/user-guide/agent-runtime.md#incremental-collection-stores) for actual supported rules, windows and budgets, and the [storage contract](references/docs/api-reference/recording-storage.md) for ownership and resource guarantees. Full-history never silently becomes rolling; rolling requires an explicit frame budget. Check observed versus committed position, evidence errors, checkpoint availability and partial windows. Wait for persistence before issuing another mutation. A trigger never authorizes extra model/provider calls or retries.
+
+Use offline `recording recover`, `recording recover --rebuild-index`, `recording export-range`, and `recording render-range` for store operations. An interrupted store is read-only; recovery never restarts the model. Existing single-file recordings remain supported with their eager read cost. Browser store links are local to their owner/origin, and do not embed a transferable recording.
 
 ## Rendering
 
@@ -158,7 +191,7 @@ Useful event families:
 - Prefer `scene inspect` before mutating parameters or actions, so the agent has the current ids.
 - If a protocol payload looks wrong, check the bundled specification. In a TenSnap checkout, inspect `packages/protocol/src/schemas.ts` and `packages/protocol/src/layers.ts`, then regenerate the Markdown protocol reference before changing runtime code.
 - Prefer `action run` for one action and `run start` for every continuous workflow.
-- Use `run status` or the SSE stream to observe a run; do not build a client-side wait loop for conditions the shared controller can evaluate.
+- Use `run start --wait`, `run wait <run-id>`, or the SSE stream; avoid client-side wait loops. Query status with the returned ID before treating a timed-out operation as failed or retryable.
 - The retired `scene start|step|reset`, `wait`, and `experiment` commands have no aliases. Use the action id or a bounded run instead.
 - Use `manual` render trigger when you need to separate simulation stepping from image capture.
 - Use `action-result` render trigger when a downstream workflow expects every action to produce a new image.

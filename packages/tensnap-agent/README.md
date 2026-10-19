@@ -25,9 +25,24 @@ tensnap-agent runtime down --context demo
 
 Use action, parameter, and environment IDs from your simulator's inspection results. `start` and `main` above are example IDs. For a project dependency, use `npm install --save-dev @tensnap/agent` and invoke `npx --no-install tensnap-agent ...` from that project. No source checkout or pnpm workspace is required.
 
-State and captures live under `.tensnap/contexts/<context>/` by default; `--context-dir <path>` changes the storage root. `action run <id>` dispatches once; `run start <id>` requires `--max-actions` and supports `--stop-when`, `--max-wall-time-ms` and `--record`. Accepted requests may still be running. Inspect settlement, classified failures, and recording persistence before claiming completion. Use `--output-version 1` for versioned JSON results and errors on stdout; diagnostics go to stderr.
+State and captures live under `.tensnap/contexts/<context>/` by default; `--context-dir <path>` changes the storage root. `action run <id>` dispatches once; `run start <id>` requires `--max-actions` and supports `--stop-when`, `--max-wall-time-ms` and `--record`. Add `--wait` for correlated completion; recorded runs can use `--until persisted`. `run wait <run-id>` and `action wait <request-id>` retain identity across later operations. Timeouts cancel only the wait. Use `--output-version 1` for versioned JSON results and errors on stdout; diagnostics go to stderr.
 
 Use `--help` on any command or command group for generated help, including commands with required arguments. Help and `--version` also support `--output-version 1`. Use `--` before positional values that begin with a dash, for example `tensnap-agent param set label -- --literal`.
+
+## Recordings and evidence
+
+```sh
+tensnap-agent run start start --max-actions 20 --record --wait --until persisted --context demo
+tensnap-agent recording list --context demo
+tensnap-agent recording export <recording-id> --output run.tensnap-recording.json --context demo
+tensnap-agent recording info run.tensnap-recording.json
+tensnap-agent recording export-frame run.tensnap-recording.json --frame 10 --env main --output evidence
+tensnap-agent frame save --checkpoint required --env main --output saved --context demo
+tensnap-agent frame restore saved --mode checkpoint --history replace --context demo
+tensnap-agent frame compare saved evidence
+```
+
+Offline commands need no simulator or daemon and select actual retained frames. Model time requires an explicit matching rule. Evidence directories own their scene, optional checkpoint and images, with a verified manifest committed after all requested artifacts succeed. Existing evidence is never overwritten. Independent recordings open directly in an empty GUI. See the [runtime guide](../../docs/user-guide/agent-runtime.md) for format, capability, retention and failure semantics.
 
 ## Install the bundled skills offline
 
@@ -93,7 +108,7 @@ npx skills list --agent claude-code --global
 npx --yes skills add /absolute/path/to/installed/agent/skills --skill tensnap-agent --skill tensnap-abm-binding --agent codex --copy --yes
 ```
 
-`--skill` selects names, `--agent` selects the coding agent, and `--global` changes project scope to user scope. `--copy` requests independent copies. The first `--yes` bypasses npm's package-download prompt; the last bypasses the skills tool's prompts. Repository skills follow the chosen Git revision; use a GitHub tree URL at a released tag or commit to pin them. The repository changes described here become available after they are pushed.
+`--skill` selects names, `--agent` selects the coding agent, and `--global` changes project scope to user scope. `--copy` requests independent copies. The first `--yes` bypasses npm's package-download prompt; the last bypasses the skills tool's prompts. Repository skills follow the chosen Git revision; use a GitHub tree URL at a released tag or commit to pin them.
 
 The local npm bundle matches the installed CLI version. Vercel `skills` itself must already be installed/cached for offline local-source use. Its lock files, updates, and overwrite policies are independent: it does not write a TenSnap receipt. Installing over a Vercel-managed destination with `tensnap-agent` therefore reports a conflict unless `--force` is explicitly requested; Vercel's installer does not provide TenSnap's receipt checks or backup guarantee.
 
@@ -108,9 +123,14 @@ pnpm install
 pnpm --filter @tensnap/agent skills:sync  # refresh checked-in skill reference snapshots
 pnpm --filter @tensnap/agent build        # checks snapshots and stamps the package version
 pnpm --filter @tensnap/agent test:package # pack, install, and smoke-test outside the checkout
+pnpm --filter @tensnap/agent test:recording-workflow # seeded model, restore/re-run, and offline evidence
 pnpm --filter @tensnap/agent test:package:ecosystem # also verify the Vercel skills local-source fallback
 ```
+
+The recording workflow test runs seeded Schelling through the built public CLI. It verifies recording persistence, checkpoint restore, chart history, deterministic re-run, classified target failure and identical offline rendering after shutdown.
 
 The publishing artifact is `packages/tensnap-agent/dist`, with its own npm manifest and README. Pack that directory with `npm pack ./packages/tensnap-agent/dist`, then install the resulting `.tgz` with npm. Packing the workspace source manifest directly with npm is unsupported because it contains `workspace:*` dependencies. The acceptance script builds and packs `network`, `protocol`, and `core` using the release workflow's pnpm pack step, then installs all artifacts with npm into an isolated directory and HOME. This permits testing unpublished dependency versions without modifying the registry. Publishing remains a separate release operation. The workspace development toolchain still requires Node 24; the installed agent package supports Node 22.
 
 MIT licensed.
+
+For typed scene/monitor queries, explicit diff policies, trigger collection, incremental stores and offline recovery/range commands, see the [runtime guide](../../docs/user-guide/agent-runtime.md#bounded-queries-and-explicit-comparison). Store format, ownership and resource limits are in the [storage contract](../../docs/api-reference/recording-storage.md).

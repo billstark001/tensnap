@@ -22,7 +22,6 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setTimeout as delay } from 'node:timers/promises';
 import { promisify } from 'node:util';
 import { parse } from 'yaml';
 import { stampSkill } from './skills-build.mjs';
@@ -211,6 +210,54 @@ syncBuiltinESMExports();
   const upgradeNote = join(project, '.agents/skills/tensnap-abm-binding/local.txt');
   await writeFile(upgradeNote, 'keep this during upgrade');
   await install(currentTarball);
+  await command(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `
+    import assert from 'node:assert/strict';
+    import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile, encodeRecordingFile, decodeRecordingFile, RecordingStoreWriter, RecordingStoreReader, RecordingPlayback } from '@tensnap/core/persistence';
+    import { Scenario } from '@tensnap/core/scenario';
+    import { createSingleSnapshot, diffCapturedFrames } from '@tensnap/core/snapshot';
+    import { RecordingCollection, validateCollectionConfig } from '@tensnap/core/runtime';
+    import { NodeRecordingStore } from '@tensnap/agent/runtime';
+    assert.equal(typeof window, 'undefined');
+    const scene = new Scenario().dump();
+    const snapshot = createSingleSnapshot(scene, { id: 'published-import' });
+    const project = { version: 3, source: { kind: 'snapshot', snapshot_id: 'published-import' }, mainView: createDefaultRootLayout(), scenario: scene, snapshots: [snapshot] };
+    for (const format of ['json', 'msgpack']) {
+      assert.equal(decodeProjectFile(encodeProjectFile(project, format), format).snapshots[0].metadata.id, 'published-import');
+      assert.equal(decodeRecordingFile(encodeRecordingFile(snapshot, { format })).report.resourcesComplete, true);
+    }
+    for (const value of [RecordingStoreWriter, RecordingStoreReader, RecordingPlayback, RecordingCollection, validateCollectionConfig, NodeRecordingStore, diffCapturedFrames]) assert.equal(typeof value, 'function');
+    const beforeItems = structuredClone(scene);
+    beforeItems.environments = [{ id: 'main', type: '2d', layers: [
+      { id: 'agents', layerType: 'agent', metadata: {}, dependencyLayerIds: {}, storageSnapshot: { agents: [{ id: 1 }, { id: '1' }] } },
+      { id: 'edges', layerType: 'edge', metadata: {}, dependencyLayerIds: { agent: 'agents' }, storageSnapshot: { edges: [{ source: 1, target: '1' }, { source: '1', target: 1 }] } },
+      { id: 'trails', layerType: 'trajectory', metadata: {}, dependencyLayerIds: { agent: 'agents' }, storageSnapshot: { configs: [{ id: 1 }, { id: '1' }], trajectories: [{ id: 1, points: [{ x: 1, y: 1, time: 0 }] }, { id: '1', points: [{ x: 2, y: 2, time: 0 }] }] } },
+    ] }];
+    const afterItems = structuredClone(beforeItems);
+    for (const layer of afterItems.environments[0].layers) for (const items of Object.values(layer.storageSnapshot)) items.reverse();
+    const leftFrame = { scene: beforeItems, source: { kind: 'live' } }, rightFrame = { scene: afterItems, source: { kind: 'live' } };
+    const identityDiff = diffCapturedFrames(leftFrame, rightFrame);
+    assert.equal(identityDiff.sceneEqual, true);
+    assert.equal(identityDiff.selectedEqual, true);
+    assert.equal('exactSceneEqual' in identityDiff, false);
+    assert.equal(diffCapturedFrames(leftFrame, rightFrame, { comparison: 'exact' }).sceneEqual, false);
+    const backend = new NodeRecordingStore('./published.store');
+    const writer = await RecordingStoreWriter.create(backend, { id: 'published', mode: 'full-history' });
+    await writer.append({ scene, timestamp: 0, location: { kind: 'recording', sourceId: 'published', revision: 0, frame: 0 } });
+    await writer.close();
+    const reader = await RecordingStoreReader.open(backend);
+    assert.equal((await reader.query(0, { selector: { kind: 'metadata' } })).found, true);
+    assert.equal((await reader.recover()).complete, true);
+    await reader.close(); backend.close();
+    console.log('PASS: published core/persistence imports, legacy round trips and incremental stores in pure Node');
+  `,
+    ],
+    { cwd: app },
+  );
   assert.equal((await command(cli, ['--version'])).stdout.trim(), manifest.version);
   assert.equal((await run(['--version'])).data, manifest.version);
   await run(['skills', 'install', '--all'], 2);
@@ -267,6 +314,12 @@ syncBuiltinESMExports();
     );
     assert.equal((await run(['skills', 'list'])).data.skills.length, 2);
     assert.equal((await run(['skills', 'install', '--all'])).data.results[0].status, 'unchanged');
+    const failedStartup = await run(['runtime', 'up', '--context', 'missing-canvas'], 3);
+    assert.equal(failedStartup.error.category, 'execution_failed');
+    assert.equal(failedStartup.data.exitCode, 3);
+    assert.match(failedStartup.data.stderrTail, /canvas\.node/);
+    assert.match(failedStartup.error.message, /exited before readiness/);
+    assert.match(await readFile(failedStartup.data.stderrPath, 'utf8'), /canvas\.node/);
   } finally {
     await rename(savedBuild, nativeBuild);
   }
@@ -433,6 +486,7 @@ syncBuiltinESMExports();
   server = new WebSocketServer({ port: 0, host: '127.0.0.1' });
   await once(server, 'listening');
   let tick = 0;
+  let slowInvocations = 0;
   server.on('connection', (socket) => {
     const send = (type, payload) => socket.send(JSON.stringify({ type, payload }));
     send('simulator_info', {
@@ -460,12 +514,19 @@ syncBuiltinESMExports();
           items: [{ id: 'one', x: 5, y: 5, color: '#00aa88', size: 1 }],
         });
         send('action_create', { id: 'step', label: 'Step', continuous: true });
+        send('action_create', { id: 'slow', label: 'Slow', continuous: true });
         send('metadata_update', { time: tick });
         send('state_sync_end', { request_id, state_revision: '1' });
       } else if (message.type === 'action_invoke') {
-        tick += 1;
-        send('metadata_update', { time: tick });
-        send('action_result', { id: message.payload.id, request_id, should_continue: true });
+        const complete = () => {
+          tick += 1;
+          send('metadata_update', { time: tick });
+          send('action_result', { id: message.payload.id, request_id, should_continue: true });
+        };
+        if (message.payload.id === 'slow') {
+          slowInvocations++;
+          setTimeout(complete, 200);
+        } else complete();
       }
     });
   });
@@ -484,15 +545,50 @@ syncBuiltinESMExports();
     await run(['run', 'start', 'step', '--max-actions', '2', '--record', '--context', 'package'])
   ).data;
   assert(accepted.run.id);
-  let summary;
-  for (let i = 0; i < 100; i++) {
-    summary = (await run(['run', 'status', '--context', 'package'])).data;
-    if (summary.run?.settled && summary.run?.recording?.status === 'persisted') break;
-    await delay(50);
-  }
+  const summary = (
+    await run(['run', 'wait', accepted.run.id, '--until', 'persisted', '--context', 'package'])
+  ).data;
   assert.equal(summary.run.completedActions, 2);
   assert.equal(summary.run.settled, true);
   assert.equal(summary.run.recording.status, 'persisted');
+  const actionDeadline = await run(
+    ['action', 'run', 'slow', '--wait', '--timeout-ms', '1', '--context', 'package'],
+    4,
+  );
+  assert.equal(actionDeadline.error.category, 'result_unknown');
+  assert.equal(actionDeadline.correlationId, actionDeadline.data.requestId);
+  assert(actionDeadline.data.requestId);
+  const resumedAction = await run([
+    'action',
+    'wait',
+    actionDeadline.data.requestId,
+    '--context',
+    'package',
+  ]);
+  assert.equal(resumedAction.data.action.status, 'succeeded');
+  assert.equal(slowInvocations, 1);
+  const runDeadline = await run(
+    [
+      'run',
+      'start',
+      'slow',
+      '--max-actions',
+      '1',
+      '--wait',
+      '--timeout-ms',
+      '1',
+      '--context',
+      'package',
+    ],
+    4,
+  );
+  assert.equal(runDeadline.error.category, 'result_unknown');
+  assert.equal(runDeadline.correlationId, runDeadline.data.runId);
+  assert(runDeadline.data.runId);
+  const resumedRun = await run(['run', 'wait', runDeadline.data.runId, '--context', 'package']);
+  assert.equal(resumedRun.data.run.settled, true);
+  assert.equal(resumedRun.data.run.completedActions, 1);
+  assert.equal(slowInvocations, 2);
   const output = join(project, 'evidence.png');
   await run([
     'scene',

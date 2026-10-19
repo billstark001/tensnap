@@ -1,5 +1,4 @@
 import type { ScenarioEnvironmentState } from '@tensnap/core';
-import { getEnvironmentDisplayType } from '@/components/scenario/environment-adapter';
 
 export type EnvironmentLayerGroup = {
   title: string;
@@ -129,7 +128,7 @@ export const getEditableEnvironmentData = (
   return {
     id: environment.id,
     type: environment.type,
-    displayType: getEnvironmentDisplayType(environment),
+    displayType: environment.type,
     layers: [...environment.layers.values()].map((layer) => {
       const metadata = structuredClone((layer.metadata ?? {}) as Record<string, unknown>);
       const groups = [

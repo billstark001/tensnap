@@ -1,4 +1,4 @@
-import { ContainerView, AnyView } from '@/types/ui';
+import { ContainerView, AnyView } from '@tensnap/core/persistence';
 import {
   Parameter,
   Action,
@@ -20,8 +20,8 @@ import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/compon
 import type { MonitorMetadata } from '@tensnap/protocol';
 import { getEffectiveViewBox } from './geometry';
 import { assertValidViewTree, iterateViews } from './container';
+import { createDefaultRootLayout } from '@tensnap/core/persistence';
 import {
-  createDefaultRootLayout,
   createVerticalContainer,
   createButtonViews,
   createParameterViews,

@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/web-adapter",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "type": "module",
   "description": "Web utilities for TenSnap including filesystem UI and development tools",
@@ -39,6 +39,7 @@
     "@tensnap/protocol": "workspace:*",
     "@tensnap/web-common": "workspace:*",
     "clsx": "^2.1.1",
+    "idb": "^8.0.3",
     "jszip": "^3.10.2",
     "lucide-react": "^1.52.0",
     "react": "^19.3.0",

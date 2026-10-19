@@ -1,7 +1,7 @@
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
 import type { MonitorState } from '@tensnap/core/monitor';
-import type { AnchoredView } from '@/types/ui';
+import type { AnchoredView } from '@tensnap/core/persistence';
 import { useScenarioStore } from '@/store/scenario/store';
 import { BaseViewFields, type BaseViewEditorProps } from './BaseViewEditor';
 import * as styles from './EditViews.css';

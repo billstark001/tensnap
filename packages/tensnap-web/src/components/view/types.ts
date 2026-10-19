@@ -1,4 +1,4 @@
-import { AnchoredView, AnyView, ContainerView } from '@/types/ui';
+import { AnchoredView, AnyView, ContainerView } from '@tensnap/core/persistence';
 import { ComponentType, PropsWithChildren } from 'react';
 
 /**

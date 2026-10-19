@@ -23,6 +23,7 @@ import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 import { once } from 'node:events';
 import WebSocket from 'ws';
+import type { Page } from 'playwright';
 import {
   createProtocolCodec,
   PROTOCOL_VERSION,
@@ -1604,7 +1605,7 @@ function sha256Bytes(value: Uint8Array): string {
  * byte-identical PNGs before accepting the checkpoint.
  */
 export async function captureStableExternalBrowserScreenshot(
-  page: Pick<import('playwright').Page, 'screenshot' | 'waitForTimeout'>,
+  page: Pick<Page, 'screenshot' | 'waitForTimeout'>,
   timeoutMs = 15_000,
   intervalMs = 100,
 ): Promise<Uint8Array> {
@@ -1658,7 +1659,7 @@ async function waitForWebSocketEndpoint(
 }
 
 async function gotoWhenReady(
-  page: import('playwright').Page,
+  page: Page,
   url: string,
   selector: string,
   timeoutMs: number,
@@ -1686,7 +1687,7 @@ async function gotoWhenReady(
 }
 
 async function readExternalBrowserSignal(
-  page: import('playwright').Page,
+  page: Page,
   signal: { selector: string; attribute?: string },
 ): Promise<string> {
   return page.locator(signal.selector).evaluate((element, attribute) => {
@@ -1717,7 +1718,7 @@ function parseExternalState(value: string): unknown {
 }
 
 async function measureExternalBrowserAction(
-  page: import('playwright').Page,
+  page: Page,
   spec: ExternalBrowserSpec,
   expectedRevision: number,
 ): Promise<number> {

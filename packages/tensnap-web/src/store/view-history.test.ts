@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultRootLayout } from '@/utils/view/create-view';
+import { createDefaultRootLayout } from '@tensnap/core/persistence';
+
 import { createStore } from 'zustand/vanilla';
 import { createHistoryState } from './history-model';
 import { recordViewHistoryChange } from './view-history-model';

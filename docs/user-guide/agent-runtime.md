@@ -20,6 +20,8 @@ Use `--context-dir <path>` to change the `.tensnap` storage root. Every command 
 
 Commands and command groups provide generated help through `--help` (or `-h`). For example, `tensnap-agent run start --help` works without an action ID or quota, and `tensnap-agent scene --help` lists scene commands. Help does not access the runtime or write files; `--output-version 1` wraps the complete help text in one successful JSON envelope. Global options may appear before or after subcommands; `--context` and `--context-dir` apply to runtime operations and are rejected by skills commands. Use `--` to end option processing when a positional value begins with a dash: `tensnap-agent param set label -- --literal`.
 
+Background `runtime up` detects child exit before readiness and reports its exit code/signal and stderr. The current launch writes `contexts/<context>/logs/daemon.stderr.log`, replacing the previous launch log; versioned failures include `data.phase` (`spawn|exit|readiness`), PID/exit details, `data.stderrPath` and up to 64 KiB of `data.stderrTail`. Diagnostic read/close failures are reported alongside the original startup cause. The launch keeps its own log handle, so replacing or removing the pathname does not substitute another launch's stderr. A process that exits during startup is an execution failure, while a readiness deadline with no observed exit remains unknown. Foreground startup failures close initialized runtime/listener resources. If stderr identifies a missing `canvas.node`, repair or reinstall that installation using the package manager's script-approval mechanism for `canvas`; the CLI does not change package-manager approval settings.
+
 HTTP connection requests require a `ws://` or `wss://` URL. Recording options validate nested codec names, model identity and checkpoint fields before starting a run. Checkpoint bytes in JSON must use base64 or a base64 data URL.
 
 A run is driven by its target action's `should_continue` result. For standard model-builder examples, use the continuous `start` action for bounded runs; the one-shot `step` action can explicitly stop after one result. Model time need not advance on a successful action.
@@ -36,15 +38,17 @@ A run status reports:
 - `stopReasons` for every observed reason, and `primaryFailure` when a failure occurred. The compatible `stopReason` prioritizes disconnected, action-timeout, validation-error, action-error, condition-error, then render-error over normal stop reasons. A failure on the quota action or its final render is preserved.
 - `stateKnown: false` after action timeout/disconnection while an owned action is in flight. Do not automatically run a recovery comparison against unknown state.
 
-Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run happens to be latest. Core's `run.getRun(id)` and `run.waitForSettled(id, timeoutMs, signal)` use the same identity. The last 100 settled summaries are retained in memory; the active run remains available. Restarting the runtime clears these summaries. Unknown or expired IDs fail immediately. Wait timeout/abort stops the wait only and does not cancel simulator work. CLI `--wait` and `run wait` are not implemented.
+Use `GET /v1/runs/<run-id>` to query a particular run rather than whichever run happens to be latest. Core's `run.getRun(id)` and `run.waitForSettled(id, timeoutMs, signal)` use the same identity. The last 100 settled summaries are retained in memory; the active run remains available. Restarting the runtime clears these summaries. Unknown or expired IDs fail immediately. Wait timeout/abort stops the wait only and does not cancel simulator work. CLI `action run --wait`, `run start --wait`, `action wait <request-id>` and `run wait <run-id>` expose these boundaries. `--until persisted` requires a recorded run and also waits for its file commit. Wait endpoints propagate failure categories and preserve their correlated summaries.
+
+For `action run --wait` and `run start --wait`, a wait failure retains the accepted ID even when the HTTP wait times out or disconnects. With `--output-version 1`, the error envelope carries `correlationId` plus `data.requestId` or `data.runId`; existing structured server error details remain in `data`. Resume with `action wait <requestId>` or `run wait <runId>` rather than dispatching again. Separate wait commands and HTTP wait timeout errors also include the requested ID. The wait deadline does not cancel the accepted operation.
 
 `RendererClient.invokeAction()` waits through the matching host barrier. A barrier failure rejects with `ActionRenderError`, which preserves the simulator's correlated `result`. An action result's own `error` remains part of that result.
 
 ## Recording and rendering failures
 
-`--record` begins before first dispatch and closes after settlement. Stop-hook frames carry `source: 'lifecycle'` and retain their control request IDs. The runtime atomically saves the existing SnapshotArchive JSON under `contexts/<context>/recordings/<run-id>.snapshot.json`. Run status exposes `recording.status` (`pending`, `persisted`, `failed`), with `path` or `error`; SSE emits `recording.persistence` with `runId`. `settled` does not imply that this write succeeded. Runtime shutdown waits for pending recording writes. A runtime holds at most one pending recording snapshot: another recorded run is rejected before model dispatch until that write finishes; inspect the previous run’s recording status and retry after it is persisted or failed. Unrecorded runs can continue meanwhile. Settlement checkpoints are emitted once, and non-forced saves/shutdown join an existing write of the same scene revision.
+`--record` begins before first dispatch and closes after settlement. Stop-hook frames carry `source: 'lifecycle'` and retain their control request IDs. The runtime atomically saves a self-contained recording under `contexts/<context>/recordings/<recording-id>.tensnap-recording.json`. Run status exposes `recording.status` (`pending`, `persisted`, `failed`), with `path` or `error`; SSE emits `recording.persistence` with `runId`. `settled` does not imply that this write succeeded. Runtime shutdown waits for pending recording writes. A runtime holds at most one pending recording snapshot: another recorded run is rejected before model dispatch until that write finishes; inspect the previous run’s recording status and retry after it is persisted or failed. Unrecorded runs can continue meanwhile. Settlement checkpoints are emitted once, and non-forced saves/shutdown join an existing write of the same scene revision.
 
-The default recording budget remains 10,000 retained frames / 64 MiB with rolling retention. `persisted` means the archive reached disk; inspect the archive's `truncated` field before claiming full history. The standalone recording format, GUI import, offline recording commands and frame manifests are not implemented.
+The default recording budget remains 10,000 retained frames / 64 MiB with rolling retention. `persisted` means the archive reached disk; inspect the archive's `truncated` field before claiming full history. Standalone recordings can be opened in the GUI and queried/rendered offline; fixed-frame evidence has its own manifest workflow below.
 
 Recording closes before unrelated queued actions are dispatched, so their updates cannot enter the previous run's archive. Disconnect detaches the simulator before waiting for the final scene checkpoint. A failed checkpoint of changed scene state is reported and leaves the scene dirty; a later disconnect or shutdown can retry saving it. Pending recording writes release their admission limit after either success or failure; this permits a new recorded run without retrying the failed archive automatically.
 
@@ -58,11 +62,13 @@ Readonly graph rendering uses stored coordinates without force simulation or wri
 
 ## Library ownership and file commits
 
-`getStatus()` returns owned render settings and painter lists. Render requests copy viewport values before awaiting a painter; inspection renders also detach the supplied inspection scene and avoid dumping the unrelated live scene. The captured request, scene and assets are shared read-only among painters for that render. A custom painter must copy any values it intends to mutate.
+`getStatus()` returns owned render settings and painter lists. Render requests copy viewport values before awaiting a painter; inspection renders also detach the supplied inspection scene and avoid dumping the unrelated live scene. The captured request, scene and assets are shared read-only among painters for that render. A custom painter must copy any values it intends to mutate. Returned artifacts are also published read-only: detach reusable byte buffers and metadata before returning them, and keep those values stable while consumers persist them.
+
+Concurrent action waits return independent settlement values, separate from event-observer data. Frame save/restore and offline recording operations capture their value options before the first asynchronous wait; nested render settings and target arrays are detached. Manual recording status contains serializable option data; callable codec policies stay with the recorder and are not passed to `structuredClone`.
 
 Connection requests capture scalar options and resolved defaults before waiting for status writes. Disconnect cancels attempts still waiting on that write or their handshake, as well as an installed connection. Retired attempts reject without attaching later or replacing the current operation's phase/error.
 
-Context persistence captures control, scene, recording and log values by encoding them before its first filesystem await. Status, scene, recording and image files are written to a temporary file in the destination directory and renamed only after the write completes. A write or rename failure preserves the previous destination and cleans the temporary output. Image buffers remain owned and stable until that write resolves. Atomicity applies to each file; multi-target renders retain their documented partial-result behavior. Rename commits do not add an fsync or multi-file crash-recovery guarantee.
+Context persistence captures control, scene, recording and log values by encoding them before its first filesystem await. Status, scene, recording and image files are written to a temporary file in the destination directory and renamed only after the write completes. A write or rename failure preserves the previous destination and cleans the temporary output. Image buffers remain owned and stable until that write resolves. Atomicity applies to each file; multi-target renders retain their documented partial-result behavior. Rename commits do not add an fsync or multi-file crash-recovery guarantee. Evidence-directory failure cleanup removes only its empty reservation, preserving files placed there by another writer. If partial-output persistence or relocation also fails, the error retains the original failure, cleanup failures, completed artifact values and the actual retained directory; it does not advertise an image path whose write failed.
 
 Background write failures emit `runtime.status-write-failed`, `runtime.log-write-failed` or `scene.persistence-failed`; failure to deliver a screenshot response emits `render.screenshot-failed`. These events do not fabricate model failures or discard a successfully committed state sync. Callers awaiting an explicit persistence operation still receive its rejection.
 
@@ -86,3 +92,169 @@ On failure, stdout contains `schemaVersion`, `ok: false`, `error.category` and `
 | 6 | `persistence_failed` | Required output or scene-checkpoint write failed |
 
 A successful `run status` query exits 0 even if its returned run failed. Inspect the run's classified outcome and settlement fields. A background action failure does not retroactively change an earlier acceptance command's exit code.
+
+## Recording and fixed-frame workflow
+
+New `recording`, `frame`, `run wait`, and `action wait` commands use the version-1 JSON envelope by default. Offline recording commands reject runtime context options and require an explicit retained `--frame`, or `--time` together with `--match first|last|before|after`. A model time can repeat, move backwards, jump, or be absent. `before`/`after` select the nearest time on that side, then respectively the last/first frame at that time; exact `first`/`last` resolve repeated times in recording order. Positions always report an actual retained frame. No CLI-global replay cursor is retained.
+
+```sh
+# Single-action acceptance and settlement are separate; --wait includes the host barrier.
+tensnap-agent action run step --wait --timeout-ms 30000 --context demo
+tensnap-agent action wait <request-id> --context demo
+
+# Recording includes target actions and stop lifecycle commits.
+tensnap-agent run start start --max-actions 20 --record --wait --until persisted --context demo
+tensnap-agent run wait <run-id> --until persisted --context demo
+tensnap-agent recording list --context demo
+tensnap-agent recording export <recording-id> --output run.tensnap-recording.json --context demo
+
+# Manual recordings cannot overlap run-owned recordings.
+tensnap-agent recording start --max-frames 500 --max-bytes 16777216 --retention rolling --context demo
+tensnap-agent action run step --wait --context demo
+tensnap-agent recording stop --context demo
+
+# These commands work after both the daemon and simulator have stopped.
+tensnap-agent recording info run.tensnap-recording.json
+tensnap-agent recording seek run.tensnap-recording.json --time 10 --match last
+tensnap-agent recording inspect run.tensnap-recording.json --frame 10
+tensnap-agent recording render run.tensnap-recording.json --frame 10 --env main --output history.png
+tensnap-agent recording export-frame run.tensnap-recording.json --frame 10 --env main --chart series --output evidence
+```
+
+Replace IDs and frame indexes with those reported by the simulator and recording. An action count is never assumed to equal a frame index or a model tick. `recording info` reports retained range, frame/keyframe count, truncation, retention limits, missing assets and external URL dependencies. `--max-frames` applies to recorded protocol frames, while run `--max-actions` limits target action results. Manual `bounded` retention stops retaining once its budget is exhausted and reports `truncated`; rolling retention drops the oldest seekable prefix. Neither policy promises full-history preservation after a budget is reached.
+
+Recordings persist as `kind: "tensnap-recording", version: 1`, wrapping the existing segmented SnapshotArchive and an independent content-addressed asset table. JSON and MessagePack are supported by core. CLI output uses JSON recordings. File recognition uses contents, including when a browser file adapter returns JSON as bytes. Bare Snapshot/Archive files are explicit legacy imports with a `legacy` report. Export always writes the new wrapper; missing resources or external dependencies fail a complete export. The low-level core encoder can explicitly permit incomplete exports and returns a truthful resource report on import.
+
+An enclosing project file can be inspected with the same offline commands. If it contains multiple recordings, provide `--snapshot-id <id>`; the error lists available IDs. Reading a project for this purpose never opens its source or connects its simulator. In the GUI, **File → Open recording** works from an empty app and lets you select a recording from another project. **Open File** recognizes independent recordings too. Independent recordings receive an automatic layout and synthetic start/step/stop/reset playback controls. Opening at a selected frame moves the playback cursor and retains the full timeline. Parameter edits and simulator-specific actions remain disabled; the recording serving as a tab's source cannot be deleted.
+
+### Save, restore and compare evidence
+
+```sh
+tensnap-agent frame save --checkpoint required --env main --chart series --output saved --context demo
+tensnap-agent action run step --wait --context demo
+tensnap-agent frame restore saved --mode checkpoint --history replace --context demo
+tensnap-agent frame save --checkpoint none --output restored --context demo
+tensnap-agent frame compare saved restored
+```
+
+`frame save` stops new run dispatch, waits for in-flight work and the stop lifecycle, then owns a fixed scene. Checkpoint policies are `none` (default), `if-supported`, and `required`. A checkpoint is associated only when renderer revision and source identity remain unchanged through capture. Concurrent updates produce an inconsistent result; required mode fails. This proves alignment at the protocol capture boundary under the simulator's checkpoint contract, not reproducibility of future external services or hidden autonomous model changes that were never published.
+
+The evidence directory contains `manifest.json`, `state.recording.json`, and requested environment/chart images. The manifest records provenance, model identity/schema, renderer revision when available, checkpoint availability, render settings, relative artifact paths and SHA-256 checksums; it does not duplicate the scene. All painters consume the same owned scene and asset bytes. An existing directory is never overwritten. A failed required image leaves an explicitly failed sibling directory with `failure.json` and available partial artifacts, without a successful manifest. The complete manifest and directory are committed only after every requested artifact succeeds. This is a normal-completion guarantee; it does not provide fsync or crash-tail recovery.
+
+`frame restore` verifies the manifest, artifact checksums, single-frame state, provenance and checkpoint association before model dispatch. It requires an explicit `--mode checkpoint|projected` and verified source/target model ID and schema. The default history policy is `replace`, using the entire saved chart prefix. `--history preserve` retains live charts; `--history truncate` uses the saved model time or an explicit `--history-time`. Checkpoint restore never automatically sends projected `time`, `parameters`, or `envs`. The low-level `scene restore` also accepts local `--history-time` and `--replacement-charts <json>`; the released payload-time fallback for truncate remains supported.
+
+Restore returns `modelStatus`, `historyStatus`, and `stateKnown`. Failed/unknown model restores do not install the saved chart history. Timeout/abort stops the wait, leaves state unknown when appropriate, and never starts a comparison action automatically. To rerun, verify successful restoration, issue an action/run with `--wait`, and save to a new evidence directory. `frame compare` compares the entire public scene, including charts and model time, exactly by default. It reports field paths and before/after values. Checkpoints are compared only as opaque encoding and decoded-byte equality, without interpreting model-private fields.
+
+A historical frame without an associated checkpoint remains viewable, renderable and exportable. Only the recording's actual initial boundary can carry its initial checkpoint; rolling retention removes that checkpoint when the initial boundary advances. Seek/cursor movement does not create model checkpoints. GUI full recording and current-frame export are separate controls in the replay dialog; current-frame exports preserve original recording/frame provenance through subsequent imports and exports.
+
+## Bounded queries and explicit comparison
+
+`scene inspect --query <json>` and `recording inspect <file-or-store> --frame <index> --query <json>` use the same query schema. Select `agent` with a typed `ref`, `neighbors` with a radius, `cell` with an explicit environment/layer and public x/y coordinates, `monitor`, `parameter`, `chart`, `layer`, or `metadata`. Monitor/parameter/chart IDs are optional for paged lists. Layers return declarations; chart queries return metadata and the latest point, rather than copying their history. Fields are own-property path arrays or JSON Pointers, with at most 64 fields and 32 path components. Prototype access, recursive selectors and JavaScript are rejected.
+
+```sh
+tensnap-agent agent inspect 1 --id-type number --env main --layer agents --fields '["/data/score"]' --context demo
+tensnap-agent monitor get metrics --fields '["/value"]' --context demo
+tensnap-agent scene inspect --query '{"selector":{"kind":"monitor"},"limit":20}' --context demo
+tensnap-agent recording inspect run.store --frame 40 --query '{"selector":{"kind":"monitor","id":"metrics"},"fields":["/value"]}'
+tensnap-agent recording monitor-history run.store metrics --from 0 --to 40 --sampling changes --limit 100
+```
+
+`agent inspect` requires `--id-type string|number`, `--env` and `--layer`. `--radius` selects neighbors; `--output <png>` requests an inspection image. Numeric `1` and string `"1"` remain different IDs, including inside IDs containing `/` or `:`. A `cell` query only matches projected agent x/y values; it never decodes a model-specific cell ID.
+
+Queries return version 1, `found`, `count`, `items`, `truncated`, and the actual `location` (source/revision/frame/time/generation where available). Default page size is 100, maximum 1,000. Pass the returned `cursor` in the same query; a different boundary or selector rejects it. Current monitor values are replace-only. `recording monitor-history` explicitly samples `boundaries` or `changes`, returns actual positions and gaps, and does not interpolate model time. `--after` continues after the returned frame continuation; check the returned source/generation when continuing a store that is still being written.
+
+`frame diff <left-evidence> <right-evidence>` and `recording diff <left> <right> --left-frame <index> --right-frame <index>` accept `--policy <json-file>`, `--limit`, and `--offset`. A policy can select typed `objects`, scene-relative `fields`, ignored paths, and nonnegative finite `absoluteTolerance` / `relativeTolerance`. Numbers match when `abs(a-b) <= absoluteTolerance + relativeTolerance * max(abs(a), abs(b))`. Default tolerances and ignored paths are zero/empty.
+
+Every layer defaults to `"comparison": "identity"`. Agent items match by typed `id`; edges by the ordered typed `(source, target)` pair; trajectory `configs` and `trajectories` each by typed `id`. Numeric and string IDs differ, embedded separators are preserved, and reversing endpoints changes edge identity even when `directed` is false. Environment/layer IDs and named scene collections also match by identity. Only declared item collections disregard their outer order: agent data arrays, trajectory points, trajectory segments, logs and other ordinary arrays remain ordered. Duplicate or malformed identities fail explicitly. Grid/background fields retain their normal structural comparison.
+
+Use `"comparison": "exact"` for position-sensitive scene and item arrays. `layerComparisons` overrides the item strategy for a particular environment/layer while retaining the default elsewhere. For example:
+
+```json
+{
+  "comparison": "identity",
+  "layerComparisons": [{ "environmentId": "main", "layerId": "trails", "comparison": "exact" }]
+}
+```
+
+Custom item layers describe their storage layout in `itemCollections`; no item identity is inferred from an arbitrary array. Each descriptor gives a `layerType`, a storage-relative JSON Pointer or path array, and ordered `keyFields` naming fields whose values are strings or finite numbers. Multiple disjoint collection paths are supported. Built-in keys cannot be redefined; duplicate overrides and overlapping paths reject the policy. For a custom layer storing its items under `storageSnapshot.nested.items`:
+
+```json
+{
+  "itemCollections": [
+    { "layerType": "particles", "path": "/nested/items", "keyFields": ["group", "id"] }
+  ]
+}
+```
+
+Identity-mode item change paths contain the JSON tuple of key values under the declared storage path; exact-mode paths contain array indices. Agent changes carry an agent ref; other item changes carry their environment/layer ref. Selecting a layer includes its agent items; selecting an agent also detects changes when its containing layer or environment is added or removed.
+
+Diff reports `sceneEqual`, `selectedEqual`, `identityCompatible`, independent opaque `checkpointEqual`, the effective policy, and changes with typed refs, paths, before/after values and selection/ignore/tolerance flags. `sceneEqual` uses the chosen identity/exact strategies before selection, ignored paths or tolerances; `selectedEqual` applies those policies and additionally requires compatible model identity/schema and checkpoints. Reordered item collections can therefore be scene-equal in identity mode and unequal in exact mode. Pagination never hides total change counts or a false selected equality; `complete` and `continuation` describe enumeration. For example, a model whose diagnostic counter does not rewind may explicitly ignore `["monitors","inference","value","replayed_calls"]`; `sceneEqual` remains false while `selectedEqual` can be true. Existing `frame compare` keeps its strict comparison behavior.
+
+## Incremental collection stores
+
+Use `run start ... --collection collection.json --store new-run.store --wait --until persisted` for an incremental store. `--record` and `--collection` are mutually exclusive. Collection requires an idle simulator boundary and owns mutation access until persistence completes; use `run stop` to stop dispatch and `run wait <id> --until persisted` to await final evidence. It never dispatches an action to fill a trigger window or retries a failed model action.
+
+A complete configuration example:
+
+```json
+{
+  "version": 1,
+  "mode": "full-history",
+  "maxSegmentBytes": 4194304,
+  "maxPendingBytes": 8388608,
+  "maxPendingSegments": 2,
+  "cacheBytes": 1048576,
+  "maxStoredBytes": 134217728,
+  "liveHistory": { "chartPoints": 200, "logs": 200 },
+  "rules": [
+    { "id": "failure", "kind": "action-error" },
+    {
+      "id": "threshold",
+      "kind": "expression",
+      "source": "monitors.metrics.resource <= 20",
+      "edge": "rising",
+      "cooldownFrames": 10
+    },
+    {
+      "id": "changed",
+      "kind": "change",
+      "query": {
+        "selector": { "kind": "monitor", "id": "metrics" },
+        "fields": ["/value/resource"]
+      },
+      "cooldownFrames": 10
+    }
+  ],
+  "window": { "before": 10, "after": 5 },
+  "maxTriggers": 100,
+  "checkpoints": {
+    "policy": "if-supported",
+    "every": 100,
+    "onTrigger": true,
+    "maxCount": 100,
+    "maxBytes": 16777216,
+    "overflow": "fail",
+    "requirePreWindow": false
+  }
+}
+```
+
+Use real monitor names/fields from inspection. Expression rules and `--stop-when` may read current `monitors.<id>` values as well as the existing time/steps/metadata/parameter/chart/agent scope. The same restricted AST, evaluation budget and callable whitelist apply. Change rules must fit their query limit; a truncated query fails rather than silently missing changes. Action-error rules optionally filter `actionId` and require the active request ID to match. `edge` is `rising` by default or `level` for sustained expression hits. Cooldown suppresses the configured number of following frame boundaries; the trigger budget is global across rules.
+
+Windows store rule/reason, run/action, frame/model time, commit revision, requested/actual ranges, checkpoint availability, gaps, and `pending|complete|partial`. Overlapping windows share stored boundaries. A stopped/failed run has partial post-windows when future boundaries do not exist. Rolling eviction also makes affected windows partial. `requirePreWindow` rejects missing historical checkpoints; collection cannot manufacture them later. Checkpoint count/byte budgets bound retained checkpoints: full-history accumulates them, while rolling releases the budget as its old boundaries leave the retained range; overflow explicitly `truncate`s checkpoint retention, `stop`s scheduling, or `fail`s collection. A stop budget exhausted at the initial boundary rejects collection before dispatch. Periodic capture uses a dispatch hold and render barrier without repeatedly invoking the stop hook. Public `captureFrame()` retains its original stop-and-settle contract.
+
+`full-history` retains every requested committed boundary. `rolling` requires `maxFrames` and retains its latest N transitions plus their initial baseline, with `truncated` reported. Neither changes model action quotas. Collection limits the live chart/log history explicitly; complete historical charts/logs remain accessible through the asynchronous store reader. Old recording defaults remain 10,000 frames / 64 MiB rolling, and default `Scenario.dump()` remains unchanged outside explicit collection live-history retention.
+
+Collection status is included in run status and `GET /v1/collections/<run-id>`; events are `collection.status` and `collection.persistence`. It reports observed/committed frames, pending bytes, hold/backpressure, active/retained ranges, checkpoint truncation, deduplication counters and collection errors. Automatic progress events and retained completed-run summaries carry window counts; active collection inspection includes window details, and persisted details are available in `recording info` summary. Model settlement, collection closure and `recording.status: persisted` are distinct. A collection failure preserves the model's action result and stops future automated dispatch at the boundary. Unknown state, disconnect and timeout never cause automatic continuation.
+
+```sh
+tensnap-agent recording info new-run.store
+tensnap-agent recording recover new-run.store
+tensnap-agent recording recover new-run.store --rebuild-index
+tensnap-agent recording export-range new-run.store --from 10 --to 30 --output selected.store
+tensnap-agent recording render-range new-run.store --from 10 --to 30 --env main --output frames
+```
+
+These commands are offline. Recovery verifies the contiguous committed prefix, stream/asset integrity and index completeness; an uncommitted tail is excluded from ordinary reads. Rebuilding verifies immutable descriptors before atomically replacing only the derived index and requires exclusive writer ownership. An interrupted store remains read-only; start a new collection in a new directory to collect again. No recovery command resumes the model or invokes a provider. Range export preserves original frame provenance, complete initial chart/log history available at its start and only checkpoints actually captured at their original boundary.
+
+See [the storage API and format contract](../api-reference/recording-storage.md) for ownership, host persistence guarantees, cancellation and resource accounting.

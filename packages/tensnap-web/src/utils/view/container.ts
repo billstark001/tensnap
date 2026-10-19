@@ -1,4 +1,4 @@
-import { ContainerView, AnyView } from '@/types/ui';
+import { ContainerView, AnyView } from '@tensnap/core/persistence';
 import { getEffectiveViewBox } from './geometry';
 
 export type ViewParentEntry = {

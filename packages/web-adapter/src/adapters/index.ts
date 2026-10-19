@@ -8,3 +8,5 @@
 
 export { MemoryFileSystemAdapter } from './memory-adapter';
 export { IndexedDBFileSystemAdapter } from './indexeddb-adapter';
+
+export * from './recording-store';

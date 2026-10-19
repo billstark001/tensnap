@@ -1,3 +1,5 @@
+import { ScenarioQuerySchema, AgentInspectionRequestSchema } from '@tensnap/core/scenario';
+import { ScenarioSnapshotSchema } from '@tensnap/core/persistence';
 // #region Imports
 import type { Hono } from 'hono';
 import { encodeBytesAsBase64, ProtocolValueSchema } from '@tensnap/protocol';
@@ -36,6 +38,16 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     });
   });
 
+  app.post('/v1/scene/query', async (c) => {
+    const parsed = ScenarioQuerySchema.safeParse(await readJsonObject(c.req));
+    if (!parsed.success) invalid(parsed.error.message);
+    try {
+      return c.json(runtime.queryScene(parsed.data));
+    } catch (error) {
+      invalid(error instanceof Error ? error.message : String(error));
+    }
+  });
+
   app.get('/v1/scene/snapshot', (c) => {
     return c.json(runtime.inspectSnapshot());
   });
@@ -62,6 +74,8 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     const body = await readJsonObject<Record<string, unknown>>(c.req);
     validateFields(body, {
       chartPolicy: ['preserve', 'replace', 'truncate'],
+      historyTime: 'number',
+      replacementCharts: 'array',
       checkpoint: 'object',
       time: 'number',
       parameters: 'object',
@@ -71,6 +85,11 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     });
     const chartPolicy = body.chartPolicy;
     if (
+      body.replacementCharts !== undefined &&
+      !ScenarioSnapshotSchema.shape.charts.safeParse(body.replacementCharts).success
+    )
+      invalid('replacementCharts must contain valid chart groups.');
+    if (
       chartPolicy !== undefined &&
       chartPolicy !== 'preserve' &&
       chartPolicy !== 'replace' &&
@@ -78,15 +97,34 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     ) {
       return c.json({ error: 'chartPolicy must be preserve, replace, or truncate.' }, 400);
     }
-    const { chartPolicy: _chartPolicy, ...input } = body;
+    const { chartPolicy: _chartPolicy, historyTime, replacementCharts, ...input } = body;
     try {
       const result = await runtime.restoreScene(input, {
         chartPolicy: chartPolicy as RestoreChartPolicy | undefined,
+        historyTime: historyTime as number | undefined,
+        replacementCharts: replacementCharts as
+          | import('@tensnap/core/chart').ChartGroup[]
+          | undefined,
       });
       return c.json(result, result.status === 'ok' ? 200 : 409);
     } catch (error) {
       return c.json({ error: error instanceof Error ? error.message : String(error) }, 400);
     }
+  });
+
+  app.post('/v1/agents/inspect', async (c) => {
+    const parsed = AgentInspectionRequestSchema.safeParse(await readJsonObject(c.req));
+    if (!parsed.success) invalid(parsed.error.message);
+    const { ref, radius, render } = parsed.data;
+    const inspection = runtime.inspectAgent(ref, { radius });
+    if (!inspection) return c.json({ found: false, ref });
+    if (!render || inspection.kind === 'none') return c.json({ found: true, inspection });
+    const artifacts = await runtime.renderAgentInspection(inspection, {
+      format: 'png',
+      includeData: true,
+      persist: false,
+    });
+    return c.json({ found: true, inspection, artifacts: artifacts.map(serializeRenderArtifact) });
   });
 
   app.get('/v1/agents/:environmentId/:layerId/:agentId', async (c) => {
@@ -248,6 +286,36 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     return c.json(runtime.listActions());
   });
 
+  app.get('/v1/action-results/:requestId', (c) => {
+    const action = runtime.getAction(c.req.param('requestId'));
+    return action
+      ? c.json({ action })
+      : c.json({ error: 'Unknown or expired action request ID.', category: 'input_error' }, 404);
+  });
+  app.post('/v1/action-results/:requestId/wait', async (c) => {
+    const id = c.req.param('requestId');
+    if (!runtime.getAction(id)) invalid('Unknown or expired action request ID.');
+    const body = await readJsonObject<{ timeoutMs?: number }>(c.req, { optional: true });
+    validateFields(body, { timeoutMs: 'positive' });
+    const action = await runtime.waitAction(id, body.timeoutMs, c.req.raw.signal);
+    const category = !action.stateKnown
+      ? 'result_unknown'
+      : action.renderStatus === 'failed'
+        ? 'render_failed'
+        : action.status === 'failed'
+          ? 'execution_failed'
+          : undefined;
+    return category
+      ? c.json(
+          {
+            action,
+            error: action.error ?? action.result?.error?.message ?? 'Action failed.',
+            category,
+          },
+          422,
+        )
+      : c.json({ action });
+  });
   app.post('/v1/actions/:actionId', async (c) => {
     const actionId = c.req.param('actionId');
     if (!actionId) {

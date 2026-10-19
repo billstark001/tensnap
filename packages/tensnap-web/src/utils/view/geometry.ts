@@ -1,4 +1,4 @@
-import type { AnyView } from '@/types/ui';
+import type { AnyView } from '@tensnap/core/persistence';
 import type { ViewBox } from '@/utils/layout/guideline';
 import { viewConstants } from '@/components/view/constants';
 

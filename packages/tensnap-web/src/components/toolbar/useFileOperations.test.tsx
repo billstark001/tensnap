@@ -11,6 +11,9 @@ const mocks = vi.hoisted(() => ({
   openProject: vi.fn(),
   saveProject: vi.fn(),
   createProject: vi.fn(),
+  readRecordingSources: vi.fn(),
+  openOfflineSnapshot: vi.fn(),
+  selectRecording: vi.fn(),
   invokeCreateProject: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
   saveFormat: 'msgpack' as 'json' | 'msgpack',
@@ -24,7 +27,13 @@ vi.mock('@/store/loading', () => ({
   useWithLoading: () => mocks.withLoading,
 }));
 
+vi.mock('@/dialogs/SelectRecordingDialogStore', () => ({
+  useSelectRecordingStore: (selector: (state: Record<string, unknown>) => unknown) =>
+    selector({ invoke: mocks.selectRecording }),
+}));
+
 vi.mock('@/store/project', () => ({
+  readRecordingSources: mocks.readRecordingSources,
   useProjectStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({
       activeProject: null,
@@ -32,6 +41,7 @@ vi.mock('@/store/project', () => ({
       new: mocks.createProject,
       open: mocks.openProject,
       save: mocks.saveProject,
+      openOfflineSnapshot: mocks.openOfflineSnapshot,
     }),
 }));
 
@@ -59,6 +69,18 @@ describe('useFileOperations', () => {
     vi.clearAllMocks();
     mocks.openFile.mockResolvedValue({ path: '/broken-project.msgpack' });
     mocks.withLoading.mockImplementation((operation: () => Promise<unknown>) => operation());
+  });
+
+  it('selects an external recording while the app has no active project', async () => {
+    const one = { metadata: { id: 'one' }, initial: { frame: 4 } };
+    const two = { metadata: { id: 'two' }, initial: { frame: 9 } };
+    mocks.readRecordingSources.mockResolvedValue({ snapshots: [one, two] });
+    mocks.selectRecording.mockResolvedValue('two');
+    const { result } = renderHook(() => useFileOperations());
+    await result.current.onRecordingOpen();
+    expect(mocks.selectRecording).toHaveBeenCalledWith({ snapshots: [one, two] });
+    expect(mocks.openOfflineSnapshot).toHaveBeenCalledWith(two, undefined, 9, undefined);
+    expect(mocks.openProject).not.toHaveBeenCalled();
   });
 
   it('surfaces a project parse failure as a toast instead of leaving a rejected promise', async () => {

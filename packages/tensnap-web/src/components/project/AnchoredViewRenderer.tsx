@@ -4,10 +4,9 @@ import { ParameterControl } from './ParameterControl';
 import { ChartView } from '../scenario/ChartView';
 import { useScenarioStore } from '../../store/scenario/store';
 import type { ScenarioStore } from '../../store/scenario/types';
-import { getEnvironmentDisplayType } from '../scenario/environment-adapter';
 import { useToast } from '@/store/toast';
 import { AnchoredViewRendererType } from '../view/types';
-import { AnchoredView } from '@/types/ui';
+import { AnchoredView } from '@tensnap/core/persistence';
 import { ViewErrorBoundary } from '../view/ViewErrorBoundary';
 import { ValueInspector } from '../value-inspector';
 import { useCallback, useSyncExternalStore } from 'react';
@@ -20,7 +19,7 @@ const AnchoredEnvironmentView = ({ id, view }: { id: string; view: AnchoredView 
   const environment = environments.get(id);
   if (!environment) return <div>Environment not found: {id}</div>;
 
-  const displayType = getEnvironmentDisplayType(environment);
+  const displayType = environment.type;
 
   if (displayType === '2d') {
     return (

@@ -1,8 +1,9 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
 import { createAutoLayout } from '@/utils/view/pack';
-import { createDefaultRootLayout } from '@/utils/view/create-view';
-import { AnyView, ContainerView } from '@/types/ui';
+import { createDefaultRootLayout } from '@tensnap/core/persistence';
+
+import { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { useSettingsStore } from '../settings';
 import {

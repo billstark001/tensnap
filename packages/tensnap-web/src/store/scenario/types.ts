@@ -23,7 +23,7 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
-import { ContainerView } from '../../types/ui';
+import { ContainerView } from '@tensnap/core/persistence';
 import { UpdateTriggerState } from '../update-trigger';
 
 export interface StateSyncStatus {

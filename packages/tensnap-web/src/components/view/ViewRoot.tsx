@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import * as styles from './styles.css';
-import { ContainerView } from '@/types/ui';
+import { ContainerView } from '@tensnap/core/persistence';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import { nestedOverlapCollisionDetection } from '@/utils/view/collision';
 import { ViewContext, ViewContextScheme } from './useViewContext';

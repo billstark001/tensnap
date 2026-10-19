@@ -26,7 +26,7 @@
         "args": ["--project=benchmarks/schelling/v1/environments/julia", "benchmarks/schelling/v1/subjects/julia/kernel.jl", "--width=50", "--height=50", "--density=0.8", "--balance=0.5", "--thresholds=0.80", "--warmup-steps=25", "--steps=500", "--seeds=1", "--seed={seed}", "--mode=steady", "--benchmark-json=true"],
         "cwd": ".",
         "timeoutMs": 180000,
-        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "0e0c8d9bf16dc7d69680eab3f17738d470a0b4063393fb4be49e07f3d6d73c3e" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 500, "max": 500 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 500, "max": 500 } } }
       }
@@ -55,7 +55,7 @@
           "TENSNAP_SCHELLING_SEED": "{seed}"
         },
         "timeoutMs": 180000,
-        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "0e0c8d9bf16dc7d69680eab3f17738d470a0b4063393fb4be49e07f3d6d73c3e" },
         "url": "http://127.0.0.1:{port}",
         "readySelector": "canvas",
         "actionSelector": "button:has-text('Step')",
@@ -93,7 +93,7 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 180000,
-        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "0e0c8d9bf16dc7d69680eab3f17738d470a0b4063393fb4be49e07f3d6d73c3e" },
         "seed": 20260718
       }
     },
@@ -126,7 +126,7 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 180000,
-        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "6588c08764ed13301893460501e623e54a79a0001076284579ba2d5be8048068" },
+        "environmentLocks": { "benchmarks/schelling/v1/environments/julia/Project.toml": "e65915cf874510a79ace5473dc1f38a36df03063145285d49a6291120f2bd5c3", "benchmarks/schelling/v1/environments/julia/Manifest.toml": "0e0c8d9bf16dc7d69680eab3f17738d470a0b4063393fb4be49e07f3d6d73c3e" },
         "seed": 20260718
       }
     }

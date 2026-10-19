@@ -16,6 +16,7 @@ import type {
 } from './types';
 import { snapshotEncodedByteLength } from './SnapshotArchive';
 import { cloneRecordingOptions } from './recording-options';
+import { inspectRecording, type RecordingReport } from './recording-report';
 
 const DEFAULT_KEYFRAME_EVERY = 120;
 const retainItemDelta = () => true;
@@ -408,6 +409,13 @@ export class SnapshotRecorder {
     return this.snapshot ? clone(this.snapshot) : null;
   }
 
+  /** Report retained boundaries/resources without copying scene, history or binary payloads. */
+  inspect(): { id: string; report: RecordingReport } | null {
+    return this.snapshot
+      ? { id: this.snapshot.metadata.id, report: inspectRecording(this.snapshot) }
+      : null;
+  }
+
   /** Start a recording only after its options and initial byte budget are valid. */
   start(options: RecordingOptions = {}): Snapshot {
     for (const key of ['maxBytes', 'maxDurationMs'] as const) {
@@ -441,6 +449,12 @@ export class SnapshotRecorder {
     };
     const snapshot = createSingleSnapshot(this.scenario.dump(), options);
     snapshot.metadata.endedAt = undefined;
+    snapshot.metadata.retention = {
+      ...(options.maxSteps !== undefined ? { maxFrames: options.maxSteps } : {}),
+      ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
+      ...(options.maxDurationMs !== undefined ? { maxDurationMs: options.maxDurationMs } : {}),
+      ringBuffer: options.ringBuffer === true,
+    };
     snapshot.layerCodecs = nextOptions.layerCodecs;
     const initialByteLength = byteLength(snapshot.initial);
     const initialScenarioByteLength = byteLength(snapshot.initial.scenario);
@@ -652,7 +666,7 @@ export class SnapshotRecorder {
     };
     if (!exceeds()) return;
     if (!this.options.ringBuffer) {
-      if (exceedsBytes()) this.discardNewestFrame();
+      this.discardNewestFrame();
       target.truncated = true;
       this.retentionExhausted = true;
       return;
@@ -671,6 +685,8 @@ export class SnapshotRecorder {
       this.keyframeScenarioByteLengths.delete(target.initial.frame);
       this.keyframeScenarioByteLengths.set(nextInitial.frame, byteLength(state));
       target.initial = nextInitial;
+      // A model checkpoint belongs only to the original initial boundary.
+      delete target.metadata.checkpoint;
       for (const keyframe of target.keyframes) {
         if (keyframe.frame > removed.index) continue;
         this.estimatedByteLength -= this.keyframeByteLengths.get(keyframe.frame) ?? 0;

@@ -1,3 +1,16 @@
+import { NodeRecordingStore } from './NodeRecordingStore';
+import { saveCapturedFrame, readCapturedFrame } from './frame-files';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import {
+  RecordingStoreWriter,
+  decodeRecordingFile,
+  encodeRecordingFile,
+  inspectRecording,
+  type RecordingReport,
+} from '@tensnap/core/persistence';
+import type { RecordingOptions } from '@tensnap/core/snapshot';
+import { writeFileAtomically } from './atomic-file';
 import { EventEmitter } from 'node:events';
 import type {
   Action,
@@ -11,18 +24,27 @@ import type {
   SceneRestorePayload,
   ScreenshotRequestPayload,
   SimulatorToRendererMessage,
+  RendererToSimulatorMessage,
+  ActionInvokePayload,
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
 import { validateIPFamily, parseIPFamily, type IPFamily } from '@tensnap/network';
 import {
+  ActionRenderError,
+  RecordingCollection,
+  validateCollectionConfig,
+  validateRunSpec,
+  compileRunCondition,
+  type CollectionConfig,
   RendererClient,
   RendererSession,
   type BoundedRunSpec,
   type RunStatus,
   type RendererSessionRecordingDetail,
   type SceneRestoreOptions,
+  RestoreChartPolicy,
 } from '@tensnap/core/runtime';
-import { ScenarioInspector } from '@tensnap/core/scenario';
+import { ScenarioInspector, type ScenarioQuery } from '@tensnap/core/scenario';
 import type {
   AgentInspection,
   AgentInspectionOptions,
@@ -57,14 +79,12 @@ import {
 import {
   normalizeRenderBackgroundColor,
   RenderBatchError,
-  renderTargetError,
-  type RenderTargetError,
+  renderPainterBatch,
   type RenderArtifact,
   type RenderAssetSource,
   type RenderRequest,
   type ScenePainter,
 } from './painter';
-import { appendImageOutputSuffix } from './image-output';
 
 export interface AgentRuntimeOptions {
   ip_family?: IPFamily;
@@ -89,6 +109,29 @@ export interface RunRecordingPersistence {
   error?: string;
 }
 
+export interface RecordingStatus {
+  id: string;
+  runId?: string;
+  status: 'recording' | 'pending' | 'persisted' | 'failed';
+  path?: string;
+  error?: string;
+  report?: RecordingReport;
+  options?: Omit<RecordingOptions, 'layerCodecImplementations'>;
+}
+
+export interface ActionSettlement {
+  requestId: string;
+  actionId: string;
+  settled: boolean;
+  stateKnown: boolean;
+  status: 'accepted' | 'succeeded' | 'failed' | 'unknown';
+  timeBefore?: number;
+  timeAfter?: number;
+  result?: ActionResultPayload;
+  renderStatus: 'pending' | 'completed' | 'failed' | 'unknown';
+  error?: string;
+}
+
 interface RuntimeRenderRequest extends RenderRequest {
   sceneRevision: number;
 }
@@ -110,8 +153,23 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['enviro
 export class AgentRuntime extends EventEmitter {
   private readonly client: RendererClient;
   private readonly renderer: RendererSession;
+  private readonly recordingEntries = new Map<string, RecordingStatus>();
+  private collectionStarting = false;
+  private activeCollection?: RecordingCollection;
+  private readonly collections = new Map<
+    string,
+    { collection?: RecordingCollection; status?: RecordingCollection['progress']; path: string }
+  >();
+  private manualRecordingId: string | null = null;
+  private readonly actionBoundaryTimes = new Map<
+    string,
+    { id: string; timeBefore?: number; timeAfter?: number }
+  >();
+  private readonly actionResults = new Map<string, ActionSettlement>();
+  private readonly actionCompletions = new Map<string, Promise<ActionSettlement>>();
   private readonly painters = new Map<string, ScenePainter>();
   private readonly control: RuntimeControlFile;
+  private readonly recordingCompletionByRun = new Map<string, Promise<void>>();
   private readonly recordingWrites = new Set<Promise<void>>();
   private readonly recordingResults = new Map<string, RunRecordingPersistence>();
   private readonly recordingWriter: typeof writeRunRecording;
@@ -310,6 +368,16 @@ export class AgentRuntime extends EventEmitter {
     return [...this.painters.keys()];
   }
 
+  queryScene(query: ScenarioQuery) {
+    return new ScenarioInspector(this.renderer.scenario).query(query, {
+      kind: 'live',
+      sourceId: this.context.contextName,
+      revision: this.renderer.commitRevision,
+      generation: this.connectionGeneration,
+      modelTime: this.renderer.scenario.time,
+    });
+  }
+
   inspectScene(): SceneSummary {
     const snapshot = this.renderer.scenario.dump();
     return {
@@ -415,6 +483,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Refresh the projected scene and wait until the transaction commits. */
   async syncScene(): Promise<void> {
+    this.assertCollectionAvailable();
     const targetSyncCount = this.completedStateSyncCount + 1;
     this.assertConnected();
     this.setPhase('syncing');
@@ -428,6 +497,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Capture an exact simulator checkpoint; the protocol result is preserved verbatim. */
   async captureScene(): Promise<SceneCaptureResultPayload> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     const result = await this.renderer.captureScene();
     await this.log('info', 'scene', 'Scene checkpoint captured.', {
@@ -443,6 +513,7 @@ export class AgentRuntime extends EventEmitter {
     input: unknown,
     options: SceneRestoreOptions = {},
   ): Promise<SceneRestoreEndPayload> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     if (typeof input !== 'object' || input === null || Array.isArray(input)) {
       throw new Error('scene restore payload must be an object.');
@@ -478,30 +549,372 @@ export class AgentRuntime extends EventEmitter {
 
   /** Request a parameter change; the simulator may later normalize it with param_sync. */
   async setParameter(id: string, value: ProtocolData): Promise<void> {
+    this.assertCollectionAvailable();
     this.assertConnected();
     this.renderer.setParameter(id, value);
     await this.log('info', 'param', 'Parameter change requested.', { id, value });
     this.emitRuntimeEvent('param.change.requested', { id, value });
   }
 
-  /** Dispatch one action; completion is reported through runtime events. */
+  /** Dispatch once; the completion is retained independently of subsequent runs. */
   async runAction(id: string): Promise<string> {
+    this.assertCollectionAvailable();
     this.assertConnected();
-    const requestId = this.client.requestAction(id);
-    await this.log('info', 'action', 'Action requested.', {
-      id,
-      requestId,
+    const { requestId, completion } = this.client.beginAction(id, 30_000, {
+      retainMessages: false,
     });
-    this.emitRuntimeEvent('action.start.requested', {
-      id,
+    const timeBefore = this.actionBoundaryTimes.get(requestId)?.timeBefore;
+    this.actionResults.set(requestId, {
       requestId,
+      actionId: id,
+      settled: false,
+      stateKnown: true,
+      status: 'accepted',
+      renderStatus: 'pending',
+      ...(typeof timeBefore === 'number' ? { timeBefore } : {}),
     });
+    const finish = completion
+      .then(
+        ({ result }) => {
+          const timeAfter = this.actionBoundaryTimes.get(requestId)?.timeAfter;
+          this.actionResults.set(requestId, {
+            ...this.actionResults.get(requestId)!,
+            settled: true,
+            status: result.error ? 'failed' : 'succeeded',
+            result,
+            renderStatus: 'completed',
+            ...(typeof timeAfter === 'number' ? { timeAfter } : {}),
+          });
+        },
+        (error: unknown) => {
+          const result = error instanceof ActionRenderError ? error.result : undefined;
+          this.actionResults.set(requestId, {
+            ...this.actionResults.get(requestId)!,
+            settled: true,
+            stateKnown: error instanceof ActionRenderError && error.renderStatus === 'failed',
+            status:
+              error instanceof ActionRenderError && error.renderStatus === 'failed'
+                ? 'failed'
+                : 'unknown',
+            ...(result ? { result } : {}),
+            renderStatus: error instanceof ActionRenderError ? error.renderStatus : 'unknown',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        },
+      )
+      .then(() => {
+        this.actionCompletions.delete(requestId);
+        this.actionBoundaryTimes.delete(requestId);
+        const settled = structuredClone(this.actionResults.get(requestId)!);
+        this.emitRuntimeEvent('action.settled', structuredClone(settled));
+        while (this.actionResults.size > 100) {
+          const expired = [...this.actionResults].find(([, value]) => value.settled);
+          if (!expired) break;
+          this.actionResults.delete(expired[0]);
+        }
+        return settled;
+      });
+    this.actionCompletions.set(requestId, finish);
+    await this.log('info', 'action', 'Action requested.', { id, requestId });
+    this.emitRuntimeEvent('action.start.requested', { id, requestId });
     return requestId;
   }
 
+  getAction(requestId: string): ActionSettlement | null {
+    const value = this.actionResults.get(requestId);
+    return value ? structuredClone(value) : null;
+  }
+
+  async waitAction(
+    requestId: string,
+    timeoutMs = 30_000,
+    signal?: AbortSignal,
+  ): Promise<ActionSettlement> {
+    if (!this.actionResults.has(requestId))
+      throw new Error('Unknown or expired action request ID.');
+    const pending = this.actionCompletions.get(requestId);
+    if (pending) return structuredClone(await waitWithoutCancelling(pending, timeoutMs, signal));
+    return this.getAction(requestId)!;
+  }
+
+  async waitRun(
+    id: string,
+    until: 'settled' | 'persisted' = 'settled',
+    timeoutMs = 30_000,
+    signal?: AbortSignal,
+  ) {
+    const startedAt = Date.now();
+    const settled = await this.renderer.run.waitForSettled(id, timeoutMs, signal);
+    if (until === 'persisted') {
+      if (!settled.spec.record && !this.collections.has(id))
+        throw new Error('This run did not request recording persistence.');
+      const pending = this.recordingCompletionByRun.get(id);
+      if (pending)
+        await waitWithoutCancelling(
+          pending,
+          Math.max(1, timeoutMs - (Date.now() - startedAt)),
+          signal,
+        );
+    }
+    const recording = this.recordingResults.get(id);
+    return {
+      ...settled,
+      ...(recording ? { recording: structuredClone(recording) } : {}),
+      ...(this.collections.has(id) ? { collection: this.getCollection(id) } : {}),
+    };
+  }
+
+  async saveFrame(
+    output: string,
+    options: {
+      checkpoint?: 'none' | 'if-supported' | 'required';
+      envIds?: string[];
+      chartIds?: string[];
+      renderOptions?: SceneRenderOptions;
+      timeoutMs?: number;
+    } = {},
+  ) {
+    this.assertConnected();
+    options = structuredClone(options);
+    this.assertCollectionAvailable();
+    const frame = await this.renderer.captureFrame({
+      checkpoint: options.checkpoint,
+      timeoutMs: options.timeoutMs,
+    });
+    return saveCapturedFrame(frame, output, {
+      ...options,
+      render: (request) => this.runPainters(request),
+    });
+  }
+
+  async restoreFrame(
+    directory: string,
+    options: {
+      mode: 'checkpoint' | 'projected';
+      chartPolicy?: RestoreChartPolicy;
+      historyTime?: number;
+      timeoutMs?: number;
+    },
+    signal?: AbortSignal,
+  ) {
+    this.assertCollectionAvailable();
+    options = { ...options };
+    const { frame } = await readCapturedFrame(directory);
+    this.assertCollectionAvailable();
+    return this.renderer.restoreFrame(frame, { ...options, signal });
+  }
+
+  startRecording(options: RecordingOptions = {}): RecordingStatus {
+    this.assertCollectionAvailable();
+    this.assertConnected();
+    if (
+      this.renderer.run.hasInFlightAction ||
+      (this.renderer.run.status && !this.renderer.run.status.settled)
+    )
+      throw new Error('Settle the current action/run before starting a manual recording.');
+    if ([...this.recordingEntries.values()].some((entry) => entry.status === 'pending'))
+      throw new Error('A recording write is pending.');
+    const actual = { maxSteps: 10_000, maxBytes: 64 * 1024 * 1024, ringBuffer: true, ...options };
+    if (actual.id && this.recordingEntries.has(actual.id))
+      throw new Error('Recording ID already exists.');
+    // Status is serializable data; callable codec policies belong to the recorder.
+    const { layerCodecImplementations: _policies, ...values } = actual;
+    const statusOptions = structuredClone(values);
+    const snapshot = this.renderer.startRecording(actual);
+    this.manualRecordingId = snapshot.metadata.id;
+    const entry = this.recordingEntries.get(snapshot.metadata.id)!;
+    entry.options = statusOptions;
+    return structuredClone(entry);
+  }
+
+  async stopRecording(timeoutMs = 30_000, signal?: AbortSignal): Promise<RecordingStatus> {
+    const id = this.manualRecordingId;
+    if (!id) throw new Error('No manual recording is active.');
+    if (this.renderer.run.hasInFlightAction)
+      throw new Error('Wait for the in-flight action before stopping the recording.');
+    this.renderer.stopRecording();
+    this.manualRecordingId = null;
+    const pending = this.recordingCompletionByRun.get(id);
+    if (pending) await waitWithoutCancelling(pending, timeoutMs, signal);
+    return structuredClone(this.recordingEntries.get(id)!);
+  }
+
+  async listRecordings(): Promise<RecordingStatus[]> {
+    let files: string[] = [];
+    try {
+      files = await readdir(this.context.recordingsDir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    for (const name of files.filter((file) => file.endsWith('.tensnap-recording.json'))) {
+      const path = join(this.context.recordingsDir, name);
+      const encodedId = name.slice(0, -'.tensnap-recording.json'.length);
+      let id: string;
+      try {
+        id = decodeURIComponent(encodedId);
+      } catch {
+        // A malformed external filename must not hide the rest of the catalog.
+        continue;
+      }
+      if (this.recordingEntries.has(id)) continue;
+      try {
+        const document = decodeRecordingFile(await readFile(path));
+        this.recordingEntries.set(id, { id, status: 'persisted', path, report: document.report });
+      } catch (error) {
+        this.recordingEntries.set(id, { id, status: 'failed', path, error: String(error) });
+      }
+    }
+    const active = this.renderer.recorder.inspect();
+    if (active) {
+      const entry = this.recordingEntries.get(active.id);
+      if (entry) entry.report = active.report;
+    }
+    return structuredClone([...this.recordingEntries.values()]);
+  }
+
+  async exportRecording(id: string, outputPath: string): Promise<RecordingStatus> {
+    await this.listRecordings();
+    const entry = this.recordingEntries.get(id);
+    if (!entry || entry.status !== 'persisted' || !entry.path)
+      throw new Error('Recording is not persisted or does not exist.');
+    const document = decodeRecordingFile(await readFile(entry.path));
+    await writeFileAtomically(
+      outputPath,
+      encodeRecordingFile(document.snapshot, { origin: document.origin }),
+    );
+    return { ...structuredClone(entry), path: outputPath };
+  }
+
+  private assertCollectionAvailable() {
+    if (this.collectionStarting || this.activeCollection)
+      throw new Error(
+        'A collection owns the simulator boundary; stop it and await persistence before other mutations.',
+      );
+  }
+
+  async startCollectedRun(spec: BoundedRunSpec, input: CollectionConfig, output: string) {
+    this.assertCollectionAvailable();
+    spec = structuredClone(spec);
+    input = validateCollectionConfig(input);
+    this.collectionStarting = true;
+    try {
+      return await this.beginCollectedRun(spec, input, output);
+    } finally {
+      this.collectionStarting = false;
+    }
+  }
+
+  private async beginCollectedRun(spec: BoundedRunSpec, input: CollectionConfig, output: string) {
+    this.assertConnected();
+    const config = validateCollectionConfig(input);
+    validateRunSpec(spec, this.control.maxRunStepsPolicy);
+    if (spec.stopWhen) compileRunCondition(spec.stopWhen);
+    if (spec.record || this.renderer.recorder.active || this.activeCollection)
+      throw new Error('Collection cannot share a recording session.');
+    if (
+      this.renderer.run.hasInFlightAction ||
+      (this.renderer.run.status && !this.renderer.run.status.settled)
+    )
+      throw new Error('Settle the current action before collection.');
+    if (!output) throw new Error('A new store output directory is required.');
+    const backend = new NodeRecordingStore(output);
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: crypto.randomUUID(),
+      ...config,
+      modelIdentity: this.renderer.modelIdentity ?? undefined,
+    }).catch((error) => {
+      backend.close();
+      throw error;
+    });
+    let collection: RecordingCollection;
+    try {
+      collection = await RecordingCollection.start(this.renderer, writer, config);
+    } catch (error) {
+      backend.close();
+      throw error;
+    }
+    this.activeCollection = collection;
+    let run: RunStatus;
+    try {
+      run = this.startRunInternal(spec);
+    } catch (error) {
+      writer.abort(error);
+      await collection.close().catch(() => {});
+      this.activeCollection = undefined;
+      backend.close();
+      throw error;
+    }
+    const entry = { collection, path: output } as {
+      collection?: RecordingCollection;
+      status?: RecordingCollection['progress'];
+      path: string;
+    };
+    this.collections.set(run.id, entry);
+    this.recordingResults.set(run.id, { status: 'pending', path: output });
+    collection.addEventListener('status', () =>
+      this.emitRuntimeEvent('collection.status', { runId: run.id, ...collection.progress }),
+    );
+    const settlement = run.settled
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+          const onSettled = (event: Event) => {
+            if ((event as CustomEvent<RunStatus>).detail.id !== run.id) return;
+            this.renderer.removeEventListener('run:settled', onSettled);
+            resolve();
+          };
+          this.renderer.addEventListener('run:settled', onSettled);
+        });
+    const completion = settlement.then(async () => {
+      try {
+        await collection.close();
+        this.recordingResults.set(run.id, { status: 'persisted', path: output });
+      } catch (error) {
+        this.recordingResults.set(run.id, { status: 'failed', path: output, error: String(error) });
+      } finally {
+        entry.status = collection.progress;
+        entry.collection = undefined;
+        if (this.activeCollection === collection) this.activeCollection = undefined;
+        backend.close();
+        this.emitRuntimeEvent('collection.persistence', {
+          runId: run.id,
+          ...this.recordingResults.get(run.id),
+          collection: entry.status,
+        });
+      }
+    });
+    this.recordingCompletionByRun.set(run.id, completion);
+    this.recordingWrites.add(completion);
+    void completion.finally(() => {
+      this.recordingWrites.delete(completion);
+      this.recordingCompletionByRun.delete(run.id);
+    });
+    while (this.collections.size > 100) {
+      const previous = [...this.collections].find(([, value]) => !value.collection);
+      if (!previous) break;
+      this.collections.delete(previous[0]);
+      this.recordingResults.delete(previous[0]);
+    }
+    return { ...run, recording: this.recordingResults.get(run.id), collection: collection.status };
+  }
+
+  getCollection(runId: string) {
+    const entry = this.collections.get(runId);
+    return entry ? { path: entry.path, ...(entry.collection?.status ?? entry.status) } : undefined;
+  }
+
   startRun(spec: BoundedRunSpec) {
+    this.assertCollectionAvailable();
+    return this.startRunInternal(spec);
+  }
+
+  private startRunInternal(spec: BoundedRunSpec) {
     this.assertConnected();
     if (spec.record) {
+      if (this.renderer.recorder.active) throw new Error('A recording is already active.');
+      if (spec.record.id && this.recordingEntries.has(spec.record.id))
+        throw new Error('Recording ID already exists.');
+      if (this.renderer.run.hasInFlightAction)
+        throw new Error('Settle the current action before starting a recorded run.');
       for (const result of this.recordingResults.values()) {
         if (result.status === 'pending')
           throw new Error(
@@ -526,7 +939,11 @@ export class AgentRuntime extends EventEmitter {
     const status = id ? this.renderer.run.getRun(id) : this.renderer.run.status;
     if (!status) return null;
     const recording = this.recordingResults.get(status.id);
-    return { ...status, ...(recording ? { recording: structuredClone(recording) } : {}) };
+    return {
+      ...status,
+      ...(recording ? { recording: structuredClone(recording) } : {}),
+      ...(this.collections.has(status.id) ? { collection: this.getCollection(status.id) } : {}),
+    };
   }
 
   stopRun() {
@@ -584,59 +1001,14 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private async runPainters(request: RenderRequest): Promise<RenderArtifact[]> {
-    const artifacts: RenderArtifact[] = [];
-    const errors: RenderTargetError[] = [];
-    const disambiguateOutput = Boolean(
-      request.options.outputPath &&
-      !request.options.envId &&
-      !request.options.chartId &&
-      this.painters.size > 1,
-    );
-    for (const painter of this.painters.values()) {
-      try {
-        const painterRequest = disambiguateOutput
-          ? {
-              ...request,
-              options: {
-                ...request.options,
-                outputPath: appendImageOutputSuffix(
-                  request.options.outputPath!,
-                  painter.id,
-                  request.options.format ?? 'png',
-                ),
-              },
-            }
-          : request;
-        const result = await painter.render(painterRequest);
-        if (result?.length) {
-          artifacts.push(...result);
-        }
-      } catch (error) {
-        if (error instanceof RenderBatchError) {
-          artifacts.push(...error.artifacts);
-          errors.push(...error.errors);
-        } else
-          errors.push(
-            renderTargetError(painter.id, request.options.envId ?? request.options.chartId, error),
-          );
-        const message = error instanceof Error ? error.message : String(error);
-        await this.log('error', 'render', 'Painter render failed.', {
-          painterId: painter.id,
-          error: message,
-        }).catch(() => {});
-        this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
-      }
-    }
-
-    if (!artifacts.length && !errors.length)
-      errors.push({
-        painterId: '*',
-        targetId: request.options.envId ?? request.options.chartId,
-        code: 'render_missing',
-        message: 'No render artifacts were produced.',
-      });
-    if (errors.length) throw new RenderBatchError(artifacts, errors);
-    return artifacts;
+    return renderPainterBatch([...this.painters.values()], request, async (painter, error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.log('error', 'render', 'Painter render failed.', {
+        painterId: painter.id,
+        error: message,
+      }).catch(() => {});
+      this.emitRuntimeEvent('render.failed', { painterId: painter.id, error: message });
+    });
   }
 
   private createRenderRequest(
@@ -671,41 +1043,80 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private bindRenderer(): void {
+    this.renderer.addEventListener('outbound', (event) => {
+      const message = (event as CustomEvent<{ message: RendererToSimulatorMessage }>).detail
+        .message;
+      if (message.type !== 'action_invoke') return;
+      const payload = message.payload as ActionInvokePayload;
+      this.actionBoundaryTimes.set(payload.request_id, {
+        id: payload.id,
+        timeBefore: this.renderer.scenario.time,
+      });
+      while (this.actionBoundaryTimes.size > 100)
+        this.actionBoundaryTimes.delete(this.actionBoundaryTimes.keys().next().value!);
+    });
+    this.renderer.addEventListener('message', (event) => {
+      const message = (event as CustomEvent<{ message: SimulatorToRendererMessage }>).detail
+        .message;
+      if (message.type !== 'action_result') return;
+      const payload = message.payload as ActionResultPayload;
+      const timing = this.actionBoundaryTimes.get(payload.request_id);
+      if (timing?.id === payload.id) timing.timeAfter = this.renderer.scenario.time;
+    });
+
+    this.renderer.addEventListener('recording:start', (event) => {
+      const { snapshot } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
+      this.recordingEntries.set(snapshot.metadata.id, {
+        id: snapshot.metadata.id,
+        status: 'recording',
+        report: inspectRecording(snapshot),
+      });
+    });
     this.renderer.addEventListener('recording:complete', (event) => {
       const { snapshot, runId } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
-      if (!runId) return;
-      this.recordingResults.set(runId, { status: 'pending' });
+      const id = snapshot.metadata.id;
+      const entry: RecordingStatus = {
+        ...this.recordingEntries.get(id),
+        id,
+        runId,
+        status: 'pending',
+        report: inspectRecording(snapshot),
+      };
+      this.recordingEntries.set(id, entry);
+      if (runId) this.recordingResults.set(runId, { status: 'pending' });
       while (this.recordingResults.size > 100) {
         const removable = [...this.recordingResults].find(
           ([, value]) => value.status !== 'pending',
         );
         if (!removable) break;
         this.recordingResults.delete(removable[0]);
+        this.recordingCompletionByRun.delete(removable[0]);
       }
       const write = Promise.resolve()
-        .then(() => this.recordingWriter(this.context, runId, snapshot))
+        .then(() => this.recordingWriter(this.context, id, snapshot))
         .then(
           (path) => {
-            this.recordingResults.set(runId, { status: 'persisted', path });
+            entry.status = 'persisted';
+            entry.path = path;
+            if (runId) this.recordingResults.set(runId, { status: 'persisted', path });
           },
           (error: unknown) => {
-            this.recordingResults.set(runId, {
-              status: 'failed',
-              error: error instanceof Error ? error.message : String(error),
-            });
+            entry.status = 'failed';
+            entry.error = error instanceof Error ? error.message : String(error);
+            if (runId) this.recordingResults.set(runId, { status: 'failed', error: entry.error });
           },
         )
         .then(() => {
-          this.emitRuntimeEvent('recording.persistence', {
-            runId,
-            ...this.recordingResults.get(runId),
-          });
+          this.emitRuntimeEvent('recording.persistence', { runId, ...entry });
         });
+      this.recordingCompletionByRun.set(runId ?? id, write);
       this.recordingWrites.add(write);
-      void write.then(
-        () => this.recordingWrites.delete(write),
-        () => this.recordingWrites.delete(write),
-      );
+      void write.finally(() => {
+        this.recordingWrites.delete(write);
+        const key = runId ?? id;
+        if (this.recordingCompletionByRun.get(key) === write)
+          this.recordingCompletionByRun.delete(key);
+      });
     });
     this.renderer.addEventListener('transport:open', () => {
       this.setPhase('open');
@@ -1126,4 +1537,40 @@ export class AgentRuntime extends EventEmitter {
     this.statusWriteChain = write.catch(() => {});
     return write;
   }
+}
+
+/** A wait timeout never cancels the underlying operation or invents a result. */
+export function waitWithoutCancelling<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
+    return Promise.reject(new Error('timeoutMs must be positive.'));
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+    const onAbort = () => {
+      cleanup();
+      reject(new Error('Wait aborted; operation was not cancelled.'));
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out waiting; operation was not cancelled.'));
+    }, timeoutMs);
+    signal?.addEventListener('abort', onAbort, { once: true });
+    if (signal?.aborted) onAbort();
+    operation.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
 }

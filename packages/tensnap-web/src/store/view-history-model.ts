@@ -1,4 +1,4 @@
-import type { ContainerView } from '@/types/ui';
+import type { ContainerView } from '@tensnap/core/persistence';
 import {
   createHistoryCommandId,
   estimateHistoryBytes,

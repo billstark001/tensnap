@@ -1,4 +1,4 @@
-import { ButtonView } from '@/types/ui';
+import { ButtonView } from '@tensnap/core/persistence';
 import * as styles from './styles.css';
 import { useViewContext } from './useViewContext';
 import clsx from 'clsx';

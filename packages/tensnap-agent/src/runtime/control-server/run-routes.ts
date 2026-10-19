@@ -1,5 +1,6 @@
+import { isFileSystemFailure } from '../artifact-errors';
 import type { Hono } from 'hono';
-import type { BoundedRunSpec } from '@tensnap/core/runtime';
+import type { BoundedRunSpec, CollectionConfig } from '@tensnap/core/runtime';
 import { isEncodedBinaryString } from '@tensnap/protocol';
 import type { AgentRuntime } from '../AgentRuntime';
 import { validateFields, invalid } from './validation';
@@ -7,6 +8,82 @@ import { readJsonObject } from './json-body';
 
 /** Shared bounded-run API for automation clients and the CLI. */
 export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
+  app.get('/v1/collections/:runId', (c) => {
+    const collection = runtime.getCollection(c.req.param('runId'));
+    return collection ? c.json({ collection }) : c.json({ error: 'Unknown collection.' }, 404);
+  });
+  app.post('/v1/collections', async (c) => {
+    const body = await readJsonObject<{
+      spec: BoundedRunSpec;
+      config: CollectionConfig;
+      output: string;
+    }>(c.req);
+    validateFields(body, { spec: 'object', config: 'object', output: 'string' }, [
+      'spec',
+      'config',
+      'output',
+    ]);
+    validateFields(
+      body.spec,
+      {
+        mode: ['bounded'],
+        actionId: 'string',
+        maxSteps: 'integer',
+        stopWhen: 'string',
+        maxWallTimeMs: 'positive',
+      },
+      ['mode', 'actionId', 'maxSteps'],
+    );
+    try {
+      return c.json(
+        { run: await runtime.startCollectedRun(body.spec, body.config, body.output) },
+        202,
+      );
+    } catch (error) {
+      if (isFileSystemFailure(error)) throw error;
+      invalid(error instanceof Error ? error.message : String(error));
+    }
+  });
+  app.post('/v1/runs/:runId/wait', async (c) => {
+    const id = c.req.param('runId');
+    if (!runtime.getRun(id)) invalid('Unknown or expired run ID.');
+    const body = await readJsonObject<{ until?: 'settled' | 'persisted'; timeoutMs?: number }>(
+      c.req,
+      { optional: true },
+    );
+    validateFields(body, { until: ['settled', 'persisted'], timeoutMs: 'positive' });
+    if (
+      body.until === 'persisted' &&
+      !runtime.getRun(id)?.spec.record &&
+      !runtime.getCollection(id)
+    )
+      invalid('This run did not request recording persistence.');
+    const run = await runtime.waitRun(id, body.until, body.timeoutMs, c.req.raw.signal);
+    const category =
+      run.recording?.status === 'failed'
+        ? 'persistence_failed'
+        : !run.stateKnown
+          ? 'result_unknown'
+          : run.primaryFailure === 'render-error'
+            ? 'render_failed'
+            : run.primaryFailure
+              ? 'execution_failed'
+              : undefined;
+    return category
+      ? c.json(
+          {
+            run,
+            category,
+            error:
+              run.recording?.error ??
+              run.renderError ??
+              run.primaryFailure ??
+              'Run state is unknown.',
+          },
+          422,
+        )
+      : c.json({ run });
+  });
   app.get('/v1/runs/:runId', (c) => {
     const run = runtime.getRun(c.req.param('runId'));
     return run

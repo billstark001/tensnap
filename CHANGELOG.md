@@ -26,6 +26,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/benchmark [0.3.5] - 2026-10-18
+
+### Changed
+
+- Use explicit type imports for Playwright page annotations and refresh maintained profile fingerprints after dependency lock changes. Historical measurement exports retain their original hashes.
+
+## @tensnap/core [0.3.5] - 2026-10-18
+
+### Added
+
+- Portable project/recording codecs and migrations, owned frame/checkpoint capture, durable provenance, explicit frame/model-time selection and independent model/history restore.
+- Bounded typed queries, monitor history and structured diffs with default identity/exact item strategies, per-layer overrides, custom item collections, field selection and numeric tolerances. Report `sceneEqual`, selected equality and checkpoint equality separately.
+- Incremental recording stores with atomic roots, indexed frame/time/request and stream selection, content-addressed assets, bounded queues/caches, pinned readers, recovery/index rebuild, streamed range export and asynchronous playback.
+- Action-boundary collection with error/expression/value-change triggers, cooldown/deduplication, honest pre/post windows and scheduled checkpoints for full-history or rolling retention.
+
+### Changed
+
+- Move layout DTOs and project serialization from Web into `core/persistence`; remove obsolete internal modules while retaining released formats and APIs. Wire protocol remains 0.3.
+
+### Fixed
+
+- Send only checkpoint encoding/data on strict restore; verify checkpoint/source alignment and discard checkpoints outside retained boundaries. Roll back bounded-retention frames, keyframes and accounting together.
+- Own asynchronous frame/options/resource inputs, preserve cancellation and reject conflicting capture/restore/sync controls before changing run state.
+- Avoid whole-recording copies, repeated scene decoding and unchanged chart/log prefix scans. Verify stream chains, enforce encoded storage budgets, protect pinned generations during GC and release rolling checkpoint budgets on eviction.
+- Keep item diff traversal linear and output copying limited to the requested page. Preserve typed identities, sparse-array distinctions and parent-subtree selection; reject duplicate keys and prevent numeric-tolerance overflow.
+
+## @tensnap/agent [0.3.5] - 2026-10-18
+
+### Added
+
+- By-ID action/run waits through host settlement and recording persistence, with retained outcomes and classified failures.
+- Recording catalog/export and daemon-free selection, inspection, rendering and fixed-frame evidence with checkpoint restore, provenance and independent scene/checkpoint comparison.
+- Typed agent/monitor commands, historical queries and diffs, collection configuration, offline recovery, range export and batch rendering.
+- SQLite recording stores with separate immutable/derived databases, exclusive writer leases, generation pins and committed-prefix recovery. Bundle matching offline skills and storage/runtime guidance.
+
+### Fixed
+
+- Preserve structured request/run IDs on wait timeout or transport failure so callers can resume waiting without repeating actions. Report early daemon exits, bounded stderr diagnostics and startup cleanup errors while retaining the original cause.
+- Preserve partial evidence, original/cleanup errors and foreign files during failed rendering or atomic publication; distinguish rendering and persistence failures.
+- Own asynchronous inputs/results, avoid unused recording/message copies and guard collection admission against concurrent mutation. Include collection closure in persisted waits while preserving model outcomes and partial windows.
+- Close failed offline readers, preserve source provenance, reclaim dead writer leases atomically and distinguish live writers, superseded generations and unknown interrupted tails.
+
+## @tensnap/web [0.3.6] - 2026-10-18
+
+### Added
+
+- Open self-contained recordings from an empty app or select one from an external project without connecting its source; generate playback layout and retain the full timeline.
+- Separate full-recording/current-frame exports, durable frame provenance and English/Chinese/Japanese messages.
+
+### Fixed
+
+- Recognize uploaded JSON carried as bytes by file adapters, preserve chart prefixes and avoid reusing checkpoints after timeline rebasing.
+- Open owner-scoped IndexedDB store links with asynchronous per-tab playback and bounded active history; abort superseded/paused reads, release reader pins on close/source replacement, and clear stale store save links.
+
+## @tensnap/web-adapter [0.3.3] - 2026-10-18
+
+### Added
+
+- IndexedDB recording storage with transactional roots and index replacement, bounded keyset pages, owner isolation, Web Locks writer leases and generation pins.
+
+## @tensnap/tauri [0.3.5] - 2026-10-18
+
+### Added
+
+- Native localized Open recording menu wired to the shared browser/desktop recording workflow, using existing file permissions.
+
 ## @tensnap/core [0.3.4] - 2026-10-18
 
 ### Fixed
@@ -67,7 +133,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Share CLI option and profile parsing, normalize artifact paths once, and refresh the active JavaScript dependency fingerprint.
+- Share CLI option and profile parsing, normalize artifact paths once, and refresh maintained benchmark profile fingerprints for current package manifests and the workspace lockfile. Historical measurement exports retain their original hashes.
 
 ### Fixed
 

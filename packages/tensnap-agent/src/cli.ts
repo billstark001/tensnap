@@ -1,4 +1,28 @@
-import { spawn } from 'node:child_process';
+import { NodeRecordingStore } from './runtime/NodeRecordingStore';
+import { validateCollectionConfig, compileRunCondition } from '@tensnap/core/runtime';
+import { ArtifactInputError, isFileSystemFailure } from './runtime/artifact-errors';
+import {
+  readRecording,
+  readRecordingBoundary,
+  inspectRecordingBoundary,
+  withRecordingStore,
+  monitorStoreHistory,
+  isRecordingStore,
+  renderRecordingFrame,
+  exportRecordingFrame,
+} from './runtime/recording-files';
+import { readCapturedFrame, compareCapturedFrames, FrameSaveError } from './runtime/frame-files';
+import {
+  RecordingStoreWriter,
+  rebuildRecordingStoreIndex,
+  type RecordingSelection,
+} from '@tensnap/core/persistence';
+import { monitorHistory, diffCapturedFrames, ComparisonPolicySchema } from '@tensnap/core/snapshot';
+import { ScenarioQuerySchema, type ScenarioQuery } from '@tensnap/core/scenario';
+import type { SceneRenderOptions } from './types';
+import { RenderBatchError } from './runtime/painter';
+import { DaemonStartupError, startDetachedDaemon } from './runtime/daemon-startup';
+import { join } from 'node:path';
 import { readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -17,6 +41,8 @@ import {
   jsonOption,
   numericOption,
   startupOptions,
+  imageOptions,
+  selectionOptions,
   type CliOptions,
 } from './cli-options';
 import { CLI_VERSION, listSkills, installBundledSkills, SkillPersistenceError } from './skills';
@@ -40,6 +66,7 @@ function buildBaseUrl(control: { host: string; controlPort: number | null }): st
 
 async function resolveRunningRuntime(
   context: RuntimeContextPaths,
+  signal?: AbortSignal,
 ): Promise<{ baseUrl: string } | null> {
   const control = await readRuntimeControl(context);
   if (!control?.controlPort) {
@@ -47,7 +74,8 @@ async function resolveRunningRuntime(
   }
 
   try {
-    const response = await fetch(`${buildBaseUrl(control)}/health`);
+    const response = await fetch(`${buildBaseUrl(control)}/health`, { signal });
+    await response.body?.cancel();
     if (!response.ok) {
       return null;
     }
@@ -84,20 +112,42 @@ async function requestJson(baseUrl: string, path: string, init?: RequestInit): P
   return response.json();
 }
 
+async function requestWait(
+  baseUrl: string,
+  identity: { requestId: string } | { runId: string },
+  body: { timeoutMs?: number; until?: 'settled' | 'persisted' },
+): Promise<unknown> {
+  const path =
+    'requestId' in identity
+      ? `/v1/action-results/${encodeURIComponent(identity.requestId)}/wait`
+      : `/v1/runs/${encodeURIComponent(identity.runId)}/wait`;
+  try {
+    return await requestJson(baseUrl, path, { method: 'POST', body: JSON.stringify(body) });
+  } catch (cause) {
+    throw new CliWaitError(cause, identity);
+  }
+}
+
 async function waitForDaemon(
   context: RuntimeContextPaths,
   timeoutMs = 5000,
+  signal?: AbortSignal,
 ): Promise<{ baseUrl: string }> {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < timeoutMs) {
-    const running = await resolveRunningRuntime(context);
-    if (running) {
-      return running;
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const pollingSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+  try {
+    for (;;) {
+      pollingSignal.throwIfAborted();
+      const running = await resolveRunningRuntime(context, pollingSignal);
+      if (running) return running;
+      await delay(100, undefined, { signal: pollingSignal });
     }
-    await delay(100);
+  } catch (cause) {
+    if (!deadline.aborted || signal?.aborted) throw cause;
+    throw new Error(`Timed out waiting for runtime daemon in context ${context.contextName}.`, {
+      cause,
+    });
   }
-
-  throw new Error(`Timed out waiting for runtime daemon in context ${context.contextName}.`);
 }
 
 function resolveRuntimeContextPathsFromOptions(options: CliOptions): RuntimeContextPaths {
@@ -127,44 +177,58 @@ async function startForegroundDaemon(options: CliOptions): Promise<void> {
       backgroundColor: options.backgroundColor,
     },
   });
-  await runtime.initialize();
-  runtime.registerPainter(
-    new HeadlessEnvironmentPainter({
-      capturesDir: context.capturesDir,
-      defaultFormat: 'png',
-      backgroundColor: options.backgroundColor,
-    }),
-  );
-  runtime.registerPainter(
-    new HeadlessChartPainter({
-      capturesDir: context.capturesDir,
-      defaultFormat: 'png',
-    }),
-  );
-
   const server = new RuntimeControlServer(runtime, {
     ip_family: options.ipFamily ?? 'auto',
     host: options.host,
     port: controlPort,
   });
-  const address = await server.listen();
+  try {
+    await runtime.initialize();
+    runtime.registerPainter(
+      new HeadlessEnvironmentPainter({
+        capturesDir: context.capturesDir,
+        defaultFormat: 'png',
+        backgroundColor: options.backgroundColor,
+      }),
+    );
+    runtime.registerPainter(
+      new HeadlessChartPainter({
+        capturesDir: context.capturesDir,
+        defaultFormat: 'png',
+      }),
+    );
 
-  const simulatorUrl = options.simulatorUrl;
-  if (simulatorUrl) {
-    await runtime.connect({
-      ip_family: options.ipFamily ?? 'auto',
-      simulatorUrl,
-      encoding: options.encoding ?? 'msgpack',
-      clientMessageValidation: options.clientMessageValidation,
-      serverMessageValidation: options.serverMessageValidation,
+    const address = await server.listen();
+
+    const simulatorUrl = options.simulatorUrl;
+    if (simulatorUrl) {
+      await runtime.connect({
+        ip_family: options.ipFamily ?? 'auto',
+        simulatorUrl,
+        encoding: options.encoding ?? 'msgpack',
+        clientMessageValidation: options.clientMessageValidation,
+        serverMessageValidation: options.serverMessageValidation,
+      });
+      await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
+    }
+
+    printJson(options, {
+      status: runtime.getStatus(),
+      control: address,
     });
-    await runtime.waitUntilReady(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
+  } catch (error) {
+    const cleanup = await Promise.allSettled([runtime.stop(), server.close()]);
+    const failures = cleanup
+      .filter((result) => result.status === 'rejected')
+      .map((result) => result.reason);
+    if (failures.length)
+      throw new AggregateError(
+        [error, ...failures],
+        `${error instanceof Error ? error.message : String(error)}; daemon startup cleanup failed.`,
+        { cause: error },
+      );
+    throw error;
   }
-
-  printJson(options, {
-    status: runtime.getStatus(),
-    control: address,
-  });
 
   const shutdown = async (): Promise<void> => {
     await runtime.stop();
@@ -181,7 +245,7 @@ async function startBackgroundDaemon(options: CliOptions): Promise<void> {
   const port = options.port;
   const context = resolveRuntimeContextPathsFromOptions(options);
 
-  const running = await resolveRunningRuntime(context);
+  const running = await resolveRunningRuntime(context, AbortSignal.timeout(5000));
   if (running) {
     printJson(options, await requestJson(running.baseUrl, '/v1/runtime/status'));
     return;
@@ -245,21 +309,30 @@ async function startBackgroundDaemon(options: CliOptions): Promise<void> {
     if (level !== undefined) childArgs.push(`--${flag}`, level);
   }
 
-  const child = spawn(process.execPath, childArgs, {
+  const status = await startDetachedDaemon(process.execPath, childArgs, {
     cwd: context.cwd,
-    detached: true,
-    stdio: 'ignore',
+    stderrPath: join(context.logsDir, 'daemon.stderr.log'),
+    waitUntilReady: async (signal) => {
+      const ready = await waitForDaemon(context, 5000, signal);
+      const deadline = AbortSignal.timeout(DEFAULT_RUNTIME_READY_TIMEOUT_MS);
+      const readinessSignal = AbortSignal.any([signal, deadline]);
+      try {
+        if (simulatorUrl) {
+          await requestJson(ready.baseUrl, '/v1/runtime/wait-ready', {
+            method: 'POST',
+            body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
+            signal: readinessSignal,
+          });
+        }
+        return await requestJson(ready.baseUrl, '/v1/runtime/status', { signal: readinessSignal });
+      } catch (cause) {
+        if (deadline.aborted && !signal.aborted)
+          throw new Error('Timed out waiting for runtime readiness.', { cause });
+        throw cause;
+      }
+    },
   });
-  child.unref();
-
-  const ready = await waitForDaemon(context);
-  if (simulatorUrl) {
-    await requestJson(ready.baseUrl, '/v1/runtime/wait-ready', {
-      method: 'POST',
-      body: JSON.stringify({ timeoutMs: DEFAULT_RUNTIME_READY_TIMEOUT_MS }),
-    });
-  }
-  printJson(options, await requestJson(ready.baseUrl, '/v1/runtime/status'));
+  printJson(options, status);
 }
 
 async function stopDaemon(options: CliOptions): Promise<void> {
@@ -465,9 +538,81 @@ export function createProgram(
       );
     },
   );
-  handle(scene.command('inspect').description('Inspect the current scene.'), async (options) => {
+  const sceneInspect = scene.command('inspect').description('Inspect the current scene.');
+  addOptions(sceneInspect, [jsonOption('--query <json>', 'Bounded scene query.', 'object')]);
+  handle(sceneInspect, async (options) => {
+    const query = options.query === undefined ? undefined : parseQuery(options.query);
     const { baseUrl } = await requireRuntime(options);
-    printJson(options, await requestJson(baseUrl, '/v1/scene'));
+    printJson(
+      query ? { outputVersion: '1' } : options,
+      await requestJson(
+        baseUrl,
+        query ? '/v1/scene/query' : '/v1/scene',
+        query ? { method: 'POST', body: JSON.stringify(query) } : undefined,
+      ),
+    );
+  });
+  const monitor = group('monitor', 'Query current monitor values and metadata.');
+  for (const verb of ['list', 'get <id>']) {
+    const command = monitor.command(verb);
+    addOptions(command, [
+      jsonOption('--fields <json>', 'Selected field paths.', 'array'),
+      numericOption('--limit <n>', 'Page size.', 'integer'),
+      new Option('--cursor <json>', 'Continue a query at the same revision.'),
+    ]);
+    handle(command, async (options, [id]) => {
+      const query = parseQuery({
+        selector: { kind: 'monitor', ...(id ? { id } : {}) },
+        fields: options.fields,
+        limit: options.limit,
+        cursor: options.cursor,
+      });
+      const { baseUrl } = await requireRuntime(options);
+      printJson(
+        { outputVersion: '1' },
+        await requestJson(baseUrl, '/v1/scene/query', {
+          method: 'POST',
+          body: JSON.stringify(query),
+        }),
+      );
+    });
+  }
+  const agentInspect = group('agent', 'Inspect typed agent references.').command('inspect <id>');
+  addOptions(agentInspect, [
+    new Option('--env <id>', 'Environment ID.').makeOptionMandatory(),
+    new Option('--layer <id>', 'Layer ID.').makeOptionMandatory(),
+    new Option('--id-type <type>', 'Explicit agent ID type.')
+      .choices(['string', 'number'])
+      .makeOptionMandatory(),
+    numericOption('--radius <number>', 'Neighbor radius.', 'positive'),
+    jsonOption('--fields <json>', 'Selected field paths.', 'array'),
+    new Option('--output <path>', 'Save the inspection screenshot.'),
+  ]);
+  handle(agentInspect, async (options, [id]) => {
+    const agentId = options.idType === 'number' ? Number(id) : id;
+    const ref = { environmentId: options.env!, layerId: options.layer!, agentId };
+    const query = parseQuery({
+      selector:
+        options.radius === undefined
+          ? { kind: 'agent', ref }
+          : { kind: 'neighbors', ref, radius: options.radius },
+      fields: options.fields,
+    });
+    const { baseUrl } = await requireRuntime(options);
+    const result = await requestJson(baseUrl, '/v1/scene/query', {
+      method: 'POST',
+      body: JSON.stringify(query),
+    });
+    if (options.output) {
+      const inspection = (await requestJson(baseUrl, '/v1/agents/inspect', {
+        method: 'POST',
+        body: JSON.stringify({ ref, radius: options.radius, render: true }),
+      })) as { artifacts?: Array<{ data: string }> };
+      if (!inspection.artifacts?.[0])
+        throw new Error('Agent inspection has no renderable viewport.');
+      await writeFile(options.output, Buffer.from(inspection.artifacts[0].data, 'base64'));
+    }
+    printJson({ outputVersion: '1' }, result);
   });
   handle(
     scene.command('snapshot').description('Read the current scene snapshot.'),
@@ -515,6 +660,8 @@ export function createProgram(
     numericOption('--time <number>', 'Override scene time.'),
     jsonOption('--parameters <json>', 'Projected parameter object.', 'object'),
     jsonOption('--envs <json>', 'Projected environment array.', 'array'),
+    numericOption('--history-time <number>', 'Renderer-local chart boundary.'),
+    jsonOption('--replacement-charts <json>', 'Saved renderer chart groups.', 'array'),
     new Option('--chart-policy <policy>', 'Chart restore policy.').choices([
       'preserve',
       'replace',
@@ -554,6 +701,9 @@ export function createProgram(
     if (envs !== undefined) input.envs = envs;
     const chartPolicy = options.chartPolicy;
     if (chartPolicy !== undefined) input.chartPolicy = chartPolicy;
+    if (options.historyTime !== undefined) input.historyTime = options.historyTime;
+    if (options.replacementCharts !== undefined)
+      input.replacementCharts = options.replacementCharts;
     if (Object.keys(input).length === 0) {
       throw new CliInputError(
         'No checkpoint or projected scene state was supplied. Use scene restore --help.',
@@ -579,23 +729,7 @@ export function createProgram(
   const sceneRender = scene
     .command('render [reason]')
     .description('Render environments or charts to image files.');
-  addOptions(sceneRender, [
-    new Option('--env <id>', 'Render one environment.').conflicts('chart'),
-    new Option('--chart <id>', 'Render one chart.').conflicts('env'),
-    numericOption('--width <pixels>', 'Image width.', 'integer'),
-    numericOption('--height <pixels>', 'Image height.', 'integer'),
-    jsonOption(
-      '--viewport <json>',
-      'Viewport with finite x/y and positive width/height.',
-      'viewport',
-    ),
-    new Option('--format <format>', 'Image format.').choices(['png', 'jpeg']),
-    numericOption('--quality <number>', 'JPEG quality from 0 through 1.', 'quality'),
-    new Option('--background-color <css-color>', 'Image background color.').argParser((value) =>
-      value.trim(),
-    ),
-    new Option('--output <path>', 'Write the rendered image to this path.'),
-  ]);
+  addOptions(sceneRender, imageOptions());
   handle(sceneRender, async (options, rest) => {
     const { baseUrl } = await requireRuntime(options);
     const viewport = options.viewport;
@@ -645,21 +779,34 @@ export function createProgram(
     const { baseUrl } = await requireRuntime(options);
     printJson(options, await requestJson(baseUrl, '/v1/actions'));
   });
-  handle(
-    action.command('run <action-id>').description('Dispatch one simulator action.'),
-    async (options, rest) => {
-      const [actionId] = rest;
-      if (!actionId) throw new CliInputError('Action ID must not be empty.');
-      const { baseUrl } = await requireRuntime(options);
-      printJson(
-        options,
-        await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
-          method: 'POST',
-          body: JSON.stringify({}),
-        }),
-      );
-    },
-  );
+  const actionRun = action.command('run <action-id>').description('Dispatch one simulator action.');
+  addOptions(actionRun, [
+    new Option('--wait', 'Wait for action result and host barrier.'),
+    numericOption(
+      '--timeout-ms <ms>',
+      'Wait deadline without cancellation; enables --wait.',
+      'positive',
+    ).implies({ wait: true }),
+  ]);
+  handle(actionRun, async (options, rest) => {
+    const [actionId] = rest;
+    if (!actionId) throw new CliInputError('Action ID must not be empty.');
+    const { baseUrl } = await requireRuntime(options);
+    const accepted = (await requestJson(baseUrl, `/v1/actions/${encodeURIComponent(actionId)}`, {
+      method: 'POST',
+      body: '{}',
+    })) as { requestId: string };
+    printJson(
+      options,
+      options.wait
+        ? await requestWait(
+            baseUrl,
+            { requestId: accepted.requestId },
+            { timeoutMs: options.timeoutMs },
+          )
+        : accepted,
+    );
+  });
 
   const runStart = run
     .command('start <action-id>')
@@ -679,32 +826,103 @@ export function createProgram(
       'Positive wall-time limit in milliseconds.',
       'positive',
     ),
-    new Option('--record', 'Record this run.'),
+    new Option('--record', 'Record this run.').conflicts('collection'),
+    new Option('--collection <file>', 'Strict trigger/storage collection config.').conflicts(
+      'record',
+    ),
+    new Option('--store <directory>', 'New collection store directory.'),
+    new Option('--wait', 'Wait for this run to settle or persist.'),
+    new Option('--until <phase>', 'Wait phase (default: settled).')
+      .choices(['settled', 'persisted'])
+      .implies({ wait: true }),
+    numericOption(
+      '--timeout-ms <ms>',
+      'Wait deadline without cancellation; enables --wait.',
+      'positive',
+    ).implies({ wait: true }),
   ]);
   runStart.hook('preAction', (_parent, command) => {
     const options = command.optsWithGlobals<CliOptions>();
     if (options.maxActions === undefined && options.maxSteps === undefined) {
       throw new CliInputError('run start requires --max-actions <n> (or --max-steps <n>).');
     }
+    if (options.until === 'persisted' && !options.record && !options.collection)
+      throw new CliInputError('--until persisted requires --record or --collection.');
+    if (Boolean(options.collection) !== Boolean(options.store))
+      throw new CliInputError('--collection and --store are required together.');
   });
   handle(runStart, async (options, rest) => {
     const [actionId] = rest;
     if (!actionId) throw new CliInputError('Action ID must not be empty.');
     const maxSteps = options.maxActions ?? options.maxSteps;
+    let collection;
+    if (options.collection) {
+      try {
+        collection = validateCollectionConfig(
+          JSON.parse(await readFile(options.collection, 'utf8')),
+        );
+        if (options.stopWhen) compileRunCondition(options.stopWhen);
+      } catch (error) {
+        throw new CliInputError(String(error));
+      }
+    }
+    const spec = {
+      mode: 'bounded',
+      actionId,
+      maxSteps,
+      stopWhen: options.stopWhen,
+      maxWallTimeMs: options.maxWallTimeMs,
+    };
     const { baseUrl } = await requireRuntime(options);
+    const accepted = (await requestJson(baseUrl, collection ? '/v1/collections' : '/v1/runs', {
+      method: 'POST',
+      body: JSON.stringify(
+        collection
+          ? { spec, config: collection, output: options.store }
+          : { ...spec, record: options.record === true },
+      ),
+    })) as { run: { id: string } };
     printJson(
       options,
-      await requestJson(baseUrl, '/v1/runs', {
-        method: 'POST',
-        body: JSON.stringify({
-          mode: 'bounded',
-          actionId,
-          maxSteps,
-          stopWhen: options.stopWhen,
-          maxWallTimeMs: options.maxWallTimeMs,
-          record: options.record === true,
-        }),
-      }),
+      options.wait
+        ? await requestWait(
+            baseUrl,
+            { runId: accepted.run.id },
+            {
+              until: options.until,
+              timeoutMs: options.timeoutMs,
+            },
+          )
+        : accepted,
+    );
+  });
+  const runWait = run.command('wait <run-id>').description('Wait for a retained run by ID.');
+  addOptions(runWait, [
+    new Option('--until <phase>', 'Completion phase.').choices(['settled', 'persisted']),
+    numericOption('--timeout-ms <ms>', 'Wait deadline without cancellation.', 'positive'),
+  ]);
+  handle(runWait, async (options, [id]) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { ...options, outputVersion: '1' },
+      await requestWait(
+        baseUrl,
+        { runId: id },
+        { until: options.until, timeoutMs: options.timeoutMs },
+      ),
+    );
+  });
+  const actionWait = action
+    .command('wait <request-id>')
+    .description('Wait for a retained action by ID.');
+  addOptions(actionWait, [
+    numericOption('--timeout-ms <ms>', 'Wait deadline without cancellation.', 'positive'),
+  ]);
+  handle(actionWait, async (options, [id]) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { ...options, outputVersion: '1' },
+      await requestWait(baseUrl, { requestId: id }, { timeoutMs: options.timeoutMs }),
     );
   });
   handle(
@@ -737,6 +955,439 @@ export function createProgram(
   });
 
   handle(stream.command('events').description('Stream server-sent runtime events.'), streamEvents);
+  const recording = group(
+    'recording',
+    'Record online runs and inspect or render saved recordings offline.',
+  );
+  const frame = group('frame', 'Save, restore and compare fixed frame evidence.');
+  const recordingStart = recording
+    .command('start')
+    .description('Start a manual context recording.');
+  addOptions(recordingStart, [
+    numericOption('--max-frames <count>', 'Retained frame budget (default: 10000).', 'integer'),
+    numericOption('--max-bytes <bytes>', 'Retained byte budget (default: 64 MiB).', 'positive'),
+    numericOption('--max-duration-ms <ms>', 'Retained duration budget.', 'positive'),
+    new Option('--retention <policy>', 'Retention policy (default: rolling).').choices([
+      'rolling',
+      'bounded',
+    ]),
+    new Option('--label <text>', 'Recording label.'),
+  ]);
+  handle(recordingStart, async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { outputVersion: '1' },
+      await requestJson(baseUrl, '/v1/recordings', {
+        method: 'POST',
+        body: JSON.stringify({
+          maxSteps: options.maxFrames,
+          maxBytes: options.maxBytes,
+          maxDurationMs: options.maxDurationMs,
+          ringBuffer: options.retention !== 'bounded',
+          label: options.label,
+        }),
+      }),
+    );
+  });
+  const recordingStop = recording
+    .command('stop')
+    .description('Close and persist the manual recording.');
+  addOptions(recordingStop, [
+    numericOption('--timeout-ms <ms>', 'Persistence wait deadline.', 'positive'),
+  ]);
+  handle(recordingStop, async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { outputVersion: '1' },
+      await requestJson(baseUrl, '/v1/recordings/stop', {
+        method: 'POST',
+        body: JSON.stringify({ timeoutMs: options.timeoutMs }),
+      }),
+    );
+  });
+  handle(
+    recording.command('list').description('List retained context recordings and failures.'),
+    async (options) => {
+      const { baseUrl } = await requireRuntime(options);
+      printJson({ outputVersion: '1' }, await requestJson(baseUrl, '/v1/recordings'));
+    },
+  );
+  const recordingExport = recording
+    .command('export <recording-id>')
+    .description('Export a persisted context recording.');
+  addOptions(recordingExport, [
+    new Option('--output <path>', 'Recording output file.').makeOptionMandatory(),
+  ]);
+  handle(recordingExport, async (options, [id]) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { outputVersion: '1' },
+      await requestJson(baseUrl, `/v1/recordings/${encodeURIComponent(id)}/export`, {
+        method: 'POST',
+        body: JSON.stringify({ output: options.output }),
+      }),
+    );
+  });
+  const recordingInfo = recording
+    .command('info <file>')
+    .description('Inspect format, retained range and resource completeness offline.');
+  addOptions(recordingInfo, [
+    new Option('--snapshot-id <id>', 'Select a recording in a project file.'),
+  ]);
+  handle(recordingInfo, async (options, [file]) => {
+    if (await isRecordingStore(file)) {
+      if (options.snapshotId) throw new CliInputError('--snapshot-id requires a project file.');
+      printJson(
+        { outputVersion: '1' },
+        await withRecordingStore(file, async (reader) => ({
+          ...reader.root,
+          summary: await reader.summary(),
+        })),
+      );
+      return;
+    }
+    const document = await readRecording(file, options.snapshotId);
+    printJson(
+      { outputVersion: '1' },
+      {
+        id: document.snapshot.metadata.id,
+        modelIdentity: document.snapshot.metadata.model_identity,
+        origin: document.origin,
+        ...document.report,
+      },
+    );
+  });
+  for (const verb of ['seek', 'inspect', 'render', 'export-frame'] as const) {
+    const command = recording
+      .command(`${verb} <file>`)
+      .description(`${verb} a saved recording at an explicit retained frame or model time.`);
+    addOptions(command, selectionOptions());
+    if (verb === 'inspect')
+      addOptions(command, [jsonOption('--query <json>', 'Bounded historical query.', 'object')]);
+    if (verb === 'render' || verb === 'export-frame')
+      addOptions(command, imageOptions(verb === 'render'));
+    command.hook('preAction', (_parent, target) => {
+      const options = target.optsWithGlobals<CliOptions>();
+      recordingSelection(options);
+      if ((verb === 'render' || verb === 'export-frame') && !options.output)
+        throw new CliInputError('--output is required.');
+    });
+    handle(command, async (options, [file]) => {
+      const query = options.query === undefined ? undefined : parseQuery(options.query);
+      const selection = recordingSelection(options);
+      if (verb === 'render')
+        printJson(
+          { outputVersion: '1' },
+          await renderRecordingFrame(
+            file,
+            selection,
+            sceneRenderOptions(options),
+            options.snapshotId,
+          ),
+        );
+      else if (verb === 'export-frame')
+        printJson(
+          { outputVersion: '1' },
+          await exportRecordingFrame(file, selection, options.output!, {
+            snapshotId: options.snapshotId,
+            envIds: options.env ? [options.env] : [],
+            chartIds: options.chart ? [options.chart] : [],
+            renderOptions: sceneRenderOptions(options),
+          }),
+        );
+      else {
+        const result =
+          query || verb === 'seek'
+            ? await inspectRecordingBoundary(file, selection, query, options.snapshotId)
+            : await readRecordingBoundary(file, selection, options.snapshotId);
+        printJson({ outputVersion: '1' }, result);
+      }
+    });
+  }
+  const recover = recording
+    .command('recover <directory>')
+    .description('Verify the committed prefix without dispatching simulator actions.');
+  addOptions(recover, [
+    new Option(
+      '--rebuild-index',
+      'Verify immutable segments and atomically rebuild the derived index.',
+    ),
+  ]);
+  handle(recover, async (options, [path]) => {
+    if (options.rebuildIndex) {
+      const backend = new NodeRecordingStore(path);
+      try {
+        await rebuildRecordingStoreIndex(backend);
+      } finally {
+        backend.close();
+      }
+    }
+    printJson({ outputVersion: '1' }, await withRecordingStore(path, (reader) => reader.recover()));
+  });
+  const exportRange = recording
+    .command('export-range <directory>')
+    .description('Stream a retained range into a new independent store.');
+  addOptions(exportRange, [
+    numericOption('--from <frame>', 'First frame.'),
+    numericOption('--to <frame>', 'Last frame.'),
+    new Option('--output <directory>', 'New output store.').makeOptionMandatory(),
+  ]);
+  handle(exportRange, async (options, [path]) => {
+    if (
+      options.from === undefined ||
+      options.to === undefined ||
+      options.from < 0 ||
+      options.to < options.from
+    )
+      throw new CliInputError('Specify a valid --from/--to frame range.');
+    await withRecordingStore(path, async (reader) => {
+      if (
+        !Number.isSafeInteger(options.from) ||
+        !Number.isSafeInteger(options.to) ||
+        options.from! < reader.root.firstFrame ||
+        options.to! > reader.root.lastFrame
+      )
+        throw new CliInputError('Export range is outside retained boundaries.');
+      const backend = new NodeRecordingStore(options.output!);
+      const writer = await RecordingStoreWriter.create(backend, {
+        id: crypto.randomUUID(),
+        mode: 'full-history',
+        modelIdentity: reader.root.modelIdentity,
+      });
+      try {
+        await reader.exportRange(writer, options.from!, options.to!);
+        await writer.close({
+          derivedFrom: { recordingId: reader.root.id, from: options.from, to: options.to },
+        });
+      } catch (error) {
+        writer.abort(error);
+        await writer.close().catch(() => {});
+        throw error;
+      } finally {
+        backend.close();
+      }
+      printJson(
+        { outputVersion: '1' },
+        { path: options.output, from: options.from, to: options.to },
+      );
+    });
+  });
+  const renderRange = recording
+    .command('render-range <directory>')
+    .description('Render a range using one bounded reader cache.');
+  addOptions(renderRange, [
+    numericOption('--from <frame>', 'First frame.'),
+    numericOption('--to <frame>', 'Last frame.'),
+    ...imageOptions(true),
+  ]);
+  handle(renderRange, async (options, [path]) => {
+    if (options.from === undefined || options.to === undefined || !options.output)
+      throw new CliInputError('--from, --to and --output directory are required.');
+    const { mkdir } = await import('node:fs/promises');
+    const { join } = await import('node:path');
+    const { renderHistoricalFrame } = await import('./runtime/recording-files');
+    const { fixedRenderRequest } = await import('./runtime/frame-files');
+    let count = 0;
+    await withRecordingStore(path, async (reader) => {
+      for await (const captured of reader.range(options.from!, options.to!, {
+        history: options.env ? 'active' : 'full',
+      })) {
+        const outputPath = join(options.output!, String(captured.source.frame), 'scene.png');
+        await mkdir(join(outputPath, '..'), { recursive: true });
+        await renderHistoricalFrame(
+          fixedRenderRequest(
+            captured.scene,
+            { ...sceneRenderOptions(options), outputPath },
+            'recording-range',
+          ),
+        );
+        count++;
+      }
+    });
+    printJson({ outputVersion: '1' }, { count, path: options.output });
+  });
+  const history = recording
+    .command('monitor-history <file> <monitor-id>')
+    .description('Sample recorded monitor boundaries or changes.');
+  addOptions(history, [
+    numericOption('--from <frame>', 'First frame.'),
+    numericOption('--to <frame>', 'Last frame.'),
+    new Option('--sampling <mode>', 'Boundary or change-point sampling.')
+      .choices(['boundaries', 'changes'])
+      .makeOptionMandatory(),
+    jsonOption('--fields <json>', 'Selected paths.', 'array'),
+    numericOption('--limit <n>', 'Page size.', 'integer'),
+    numericOption('--after <frame>', 'Continue after frame.'),
+    new Option('--snapshot-id <id>', 'Project recording ID.'),
+  ]);
+  handle(history, async (options, [file, monitorId]) => {
+    if (options.from === undefined || options.to === undefined)
+      throw new CliInputError('--from and --to are required.');
+    if (await isRecordingStore(file)) {
+      if (options.snapshotId) throw new CliInputError('--snapshot-id requires a project file.');
+      parseQuery({ selector: { kind: 'monitor', id: monitorId }, fields: options.fields });
+      printJson(
+        { outputVersion: '1' },
+        await monitorStoreHistory(file, {
+          monitorId,
+          from: options.from,
+          to: options.to,
+          sampling: options.sampling!,
+          fields: options.fields,
+          limit: options.limit,
+          after: options.after,
+        }),
+      );
+      return;
+    }
+    const document = await readRecording(file, options.snapshotId);
+    try {
+      printJson(
+        { outputVersion: '1' },
+        monitorHistory(document.snapshot, {
+          monitorId,
+          from: options.from,
+          to: options.to,
+          sampling: options.sampling!,
+          fields: options.fields,
+          limit: options.limit,
+          after: options.after,
+        }),
+      );
+    } catch (error) {
+      throw new ArtifactInputError(error);
+    }
+  });
+  for (const [parent, recordingFiles] of [
+    [frame, false],
+    [recording, true],
+  ] as const) {
+    const command = parent
+      .command('diff <left> <right>')
+      .description('Compare fixed boundaries with an explicit field/tolerance policy.');
+    addOptions(command, [
+      new Option('--policy <file>', 'Comparison policy JSON file.'),
+      numericOption('--limit <n>', 'Maximum reported differences.', 'integer'),
+      numericOption('--offset <n>', 'Continue at a difference offset.'),
+    ]);
+    if (recordingFiles)
+      addOptions(command, [
+        numericOption('--left-frame <index>', 'Left retained frame.').makeOptionMandatory(),
+        numericOption('--right-frame <index>', 'Right retained frame.').makeOptionMandatory(),
+      ]);
+    handle(command, async (options, [left, right]) => {
+      if (
+        (options.limit !== undefined && options.limit > 10000) ||
+        (options.offset !== undefined &&
+          (!Number.isSafeInteger(options.offset) || options.offset < 0)) ||
+        (recordingFiles &&
+          ![options.leftFrame, options.rightFrame].every(
+            (frame) => Number.isSafeInteger(frame) && frame! >= 0,
+          ))
+      )
+        throw new CliInputError('Invalid diff page/frame selector.');
+      let policy;
+      try {
+        policy = ComparisonPolicySchema.parse(
+          options.policy ? JSON.parse(await readFile(options.policy, 'utf8')) : {},
+        );
+      } catch (error) {
+        throw new ArtifactInputError(error);
+      }
+      const a = recordingFiles
+        ? await readRecordingBoundary(left, { frame: options.leftFrame! })
+        : await readCapturedFrame(left);
+      const b = recordingFiles
+        ? await readRecordingBoundary(right, { frame: options.rightFrame! })
+        : await readCapturedFrame(right);
+      printJson(
+        { outputVersion: '1' },
+        {
+          ...diffCapturedFrames(a.frame, b.frame, policy, {
+            limit: options.limit,
+            offset: options.offset,
+          }),
+          ...('position' in a ? { leftPosition: a.position } : {}),
+          ...('position' in b ? { rightPosition: b.position } : {}),
+        },
+      );
+    });
+  }
+  const frameSave = frame
+    .command('save')
+    .description('Save a fixed online frame and optional images into an evidence directory.');
+  addOptions(frameSave, [
+    ...imageOptions(false),
+    new Option('--checkpoint <policy>', 'Checkpoint capture policy (default: none).').choices([
+      'none',
+      'if-supported',
+      'required',
+    ]),
+    numericOption('--timeout-ms <ms>', 'Capture wait deadline.', 'positive'),
+  ]);
+  frameSave.hook('preAction', (_parent, command) => {
+    if (!command.opts<CliOptions>().output) throw new CliInputError('--output is required.');
+  });
+  handle(frameSave, async (options) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { outputVersion: '1' },
+      await requestJson(baseUrl, '/v1/frames', {
+        method: 'POST',
+        body: JSON.stringify({
+          output: options.output,
+          checkpoint: options.checkpoint,
+          envIds: options.env ? [options.env] : [],
+          chartIds: options.chart ? [options.chart] : [],
+          renderOptions: sceneRenderOptions(options, false),
+          timeoutMs: options.timeoutMs,
+        }),
+      }),
+    );
+  });
+  const frameRestore = frame
+    .command('restore <directory>')
+    .description('Validate and restore model state and renderer history from fixed evidence.');
+  addOptions(frameRestore, [
+    new Option('--mode <mode>', 'Explicit restore method.')
+      .choices(['checkpoint', 'projected'])
+      .makeOptionMandatory(),
+    new Option('--history <policy>', 'Renderer chart policy (default: replace).').choices([
+      'preserve',
+      'replace',
+      'truncate',
+    ]),
+    numericOption('--history-time <number>', 'Explicit truncate boundary.'),
+    numericOption('--timeout-ms <ms>', 'Restore wait deadline.', 'positive'),
+  ]);
+  handle(frameRestore, async (options, [directory]) => {
+    const { baseUrl } = await requireRuntime(options);
+    printJson(
+      { outputVersion: '1' },
+      await requestJson(baseUrl, '/v1/frames/restore', {
+        method: 'POST',
+        body: JSON.stringify({
+          directory,
+          mode: options.mode,
+          chartPolicy: options.history,
+          historyTime: options.historyTime,
+          timeoutMs: options.timeoutMs,
+        }),
+      }),
+    );
+  });
+  handle(
+    frame
+      .command('compare <left> <right>')
+      .description('Compare saved scenes/charts and opaque checkpoint encodings offline.'),
+    async (_options, [left, right]) => {
+      const [a, b] = await Promise.all([readCapturedFrame(left), readCapturedFrame(right)]);
+      printJson(
+        { outputVersion: '1' },
+        { left: a.frame.source, right: b.frame.source, ...compareCapturedFrames(a.frame, b.frame) },
+      );
+    },
+  );
   const skillOptions = () => [
     new Option('--scope <scope>', 'Installation scope (default: project).').choices([
       'project',
@@ -790,7 +1441,25 @@ function handle(
 
 function isRuntimeCommand(command: Command): boolean {
   return (
-    Boolean(command.parent) && command.name() !== 'skills' && command.parent?.name() !== 'skills'
+    Boolean(command.parent) &&
+    command.name() !== 'skills' &&
+    command.parent?.name() !== 'skills' &&
+    !(
+      command.parent?.name() === 'recording' &&
+      [
+        'info',
+        'seek',
+        'inspect',
+        'render',
+        'export-frame',
+        'monitor-history',
+        'diff',
+        'recover',
+        'export-range',
+        'render-range',
+      ].includes(command.name())
+    ) &&
+    !(command.parent?.name() === 'frame' && ['compare', 'diff'].includes(command.name()))
   );
 }
 
@@ -829,18 +1498,51 @@ export class CliRequestError extends Error {
   }
 }
 
+class CliWaitError extends Error {
+  readonly category: string;
+  readonly exitCode: number;
+  readonly data: Record<string, unknown>;
+  readonly correlationId: string;
+
+  constructor(cause: unknown, identity: { requestId: string } | { runId: string }) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    const [kind, id] = Object.entries(identity)[0];
+    super(`${message} (${kind}: ${id})`, { cause });
+    this.correlationId = id;
+    // The dispatch already succeeded. A transport failure during the wait cannot
+    // determine its outcome; the same ID can still be waited on without dispatch.
+    const classification =
+      cause instanceof CliRequestError
+        ? classifyCliError(cause)
+        : { category: 'result_unknown', exitCode: 4 };
+    this.category = classification.category;
+    this.exitCode = classification.exitCode;
+    const body = cause instanceof CliRequestError ? cause.body : undefined;
+    this.data = {
+      ...(body && typeof body === 'object' && !Array.isArray(body) ? body : {}),
+      ...identity,
+    };
+  }
+}
+
 function printJson(options: Pick<CliOptions, 'outputVersion'>, data: unknown): void {
   if (options.outputVersion !== '1') {
     console.log(JSON.stringify(data, null, 2));
     return;
   }
-  const record = data as { requestId?: string; request_id?: string; run?: { id?: string } } | null;
+  const record = data as {
+    requestId?: string;
+    request_id?: string;
+    action?: { requestId?: string };
+    run?: { id?: string };
+  } | null;
   console.log(
     JSON.stringify({
       schemaVersion: 1,
       ok: true,
       data,
-      correlationId: record?.requestId ?? record?.request_id ?? record?.run?.id,
+      correlationId:
+        record?.requestId ?? record?.request_id ?? record?.action?.requestId ?? record?.run?.id,
     }),
   );
 }
@@ -854,14 +1556,17 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
   // Select the error transport even when parsing fails before reaching this option.
   const terminator = argv.indexOf('--');
   const optionArgs = terminator < 0 ? argv : argv.slice(0, terminator);
+  const implicitMachineOutput = usesMachineOutputByDefault(optionArgs);
   const output: Pick<CliOptions, 'outputVersion'> = {
-    outputVersion: optionArgs.some(
-      (token, index) =>
-        token === '--output-version=1' ||
-        (token === '--output-version' && optionArgs[index + 1] === '1'),
-    )
-      ? '1'
-      : undefined,
+    outputVersion:
+      implicitMachineOutput ||
+      optionArgs.some(
+        (token, index) =>
+          token === '--output-version=1' ||
+          (token === '--output-version' && optionArgs[index + 1] === '1'),
+      )
+        ? '1'
+        : undefined,
   };
   // Commander can emit help in several chunks (including addHelpText). Flush it
   // as one response so machine clients always receive exactly one envelope.
@@ -892,6 +1597,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
           ok: false,
           error: { category, message: error instanceof Error ? error.message : String(error) },
           ...(error instanceof CliRequestError ? { data: error.body } : {}),
+          ...(error instanceof CliWaitError
+            ? { data: error.data, correlationId: error.correlationId }
+            : {}),
+          ...(error instanceof DaemonStartupError ? { data: error.diagnostics } : {}),
         }),
       );
     }
@@ -901,31 +1610,74 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
 }
 
 export function classifyCliError(error: unknown): { category: string; exitCode: number } {
+  if (error instanceof DaemonStartupError) {
+    if (error.diagnostics.phase !== 'readiness')
+      return { category: 'execution_failed', exitCode: 3 };
+    return classifyCliError(error.cause);
+  }
   if (
     error instanceof CliInputError ||
     error instanceof CliRequestError ||
-    error instanceof SkillPersistenceError
+    error instanceof CliWaitError ||
+    error instanceof SkillPersistenceError ||
+    error instanceof FrameSaveError ||
+    error instanceof ArtifactInputError
   )
     return { category: error.category, exitCode: error.exitCode };
-  const code = (error as NodeJS.ErrnoException | null)?.code;
-  if (
-    code &&
-    [
-      'EACCES',
-      'EPERM',
-      'ENOENT',
-      'ENOSPC',
-      'EISDIR',
-      'ENOTDIR',
-      'EROFS',
-      'EDQUOT',
-      'EIO',
-      'EXDEV',
-      'ENOTEMPTY',
-    ].includes(code)
-  )
-    return { category: 'persistence_failed', exitCode: 6 };
+  if (error instanceof RenderBatchError)
+    return {
+      category: error.errors.some((failure) => failure.code === 'persistence_failed')
+        ? 'persistence_failed'
+        : 'render_failed',
+      exitCode: error.errors.some((failure) => failure.code === 'persistence_failed') ? 6 : 5,
+    };
+  if (isFileSystemFailure(error)) return { category: 'persistence_failed', exitCode: 6 };
   if (/timed out|disconnect/i.test(error instanceof Error ? error.message : String(error)))
     return { category: 'result_unknown', exitCode: 4 };
   return { category: 'execution_failed', exitCode: 3 };
+}
+
+function recordingSelection(options: CliOptions): RecordingSelection {
+  if (options.frame !== undefined && options.time === undefined && !options.match)
+    return { frame: options.frame };
+  if (options.frame === undefined && options.time !== undefined && options.match)
+    return { time: options.time, match: options.match };
+  throw new CliInputError('Specify --frame or both --time and --match.');
+}
+
+function sceneRenderOptions(options: CliOptions, includeTarget = true): SceneRenderOptions {
+  return {
+    ...(includeTarget
+      ? { envId: options.env, chartId: options.chart, outputPath: options.output }
+      : {}),
+    width: options.width,
+    height: options.height,
+    viewport: options.viewport,
+    format: options.format,
+    quality: options.quality,
+    backgroundColor: options.backgroundColor,
+  };
+}
+
+function usesMachineOutputByDefault(argv: string[]): boolean {
+  const commands: string[] = [];
+  for (let index = 0; index < argv.length && commands.length < 2; index++) {
+    const token = argv[index];
+    if (['--context', '--context-dir', '--output-version'].includes(token)) {
+      index++;
+      continue;
+    }
+    if (token.startsWith('-')) continue;
+    commands.push(token);
+  }
+  return (
+    ['recording', 'frame'].includes(commands[0]) ||
+    (['run', 'action'].includes(commands[0]) && commands[1] === 'wait')
+  );
+}
+
+function parseQuery(input: unknown): ScenarioQuery {
+  const parsed = ScenarioQuerySchema.safeParse(input);
+  if (!parsed.success) throw new CliInputError(parsed.error.message);
+  return parsed.data;
 }

@@ -170,6 +170,15 @@ export class Scenario extends LazyEventTarget {
     return this.assetState;
   }
 
+  /** Opt-in live window only; default dump/recording behavior continues to include all history. */
+  retainLiveHistory(options: { chartPoints: number; logs: number }): void {
+    if (!Number.isSafeInteger(options.logs) || options.logs < 0)
+      throw new Error('Invalid log history budget.');
+    this.charts.retainHistory(options.chartPoints);
+    if (this.logsState.length > options.logs)
+      this.logsState.splice(0, this.logsState.length - options.logs);
+  }
+
   get logs(): readonly NormalizedLogPayload[] {
     return this.logsState;
   }

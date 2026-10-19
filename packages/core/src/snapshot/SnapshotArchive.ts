@@ -70,13 +70,6 @@ function jsonSafeMetadata(metadata: SnapshotArchive['metadata']): SnapshotArchiv
   return next;
 }
 
-function decodedMetadata(metadata: SnapshotArchive['metadata']): SnapshotArchive['metadata'] {
-  // Checkpoint strings are already protocol-valid JSON payloads. Keep them
-  // opaque so bindings that use a textual checkpoint encoding survive a
-  // project round trip unchanged.
-  return structuredClone(metadata);
-}
-
 function encodeSegment(
   payload: SegmentPayload,
 ): Pick<SnapshotSegment, 'encoding' | 'compression' | 'data' | 'byteLength'> {
@@ -233,7 +226,7 @@ export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
     .sort((a, b) => a.index - b.index);
   return {
     version: 1,
-    metadata: decodedMetadata(archive.metadata),
+    metadata: structuredClone(archive.metadata),
     initial,
     keyframes,
     frames,

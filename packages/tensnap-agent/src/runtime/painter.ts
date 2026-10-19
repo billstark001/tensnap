@@ -1,3 +1,4 @@
+import { appendImageOutputSuffix } from './image-output';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from '../types';
 import type { RenderTriggerMode } from '../types';
@@ -26,6 +27,7 @@ export interface RenderRequest {
   assets: Record<string, RenderAssetSource>;
 }
 
+/** Published read-only output; detach reusable buffers/metadata before returning it. */
 export interface RenderArtifact {
   painterId: string;
   kind: 'environment' | 'chart' | 'composite';
@@ -79,4 +81,56 @@ export function renderTargetError(
     code: error instanceof RenderPersistenceError ? 'persistence_failed' : 'render_failed',
     message: error instanceof Error ? error.message : String(error),
   };
+}
+
+/** Shared live/offline batch contract: preserve partial failures and disambiguate output paths. */
+export async function renderPainterBatch(
+  painters: readonly ScenePainter[],
+  request: RenderRequest,
+  onFailure?: (painter: ScenePainter, error: unknown) => Promise<void>,
+): Promise<RenderArtifact[]> {
+  const artifacts: RenderArtifact[] = [];
+  const errors: RenderTargetError[] = [];
+  const disambiguate = Boolean(
+    request.options.outputPath &&
+    !request.options.envId &&
+    !request.options.chartId &&
+    painters.length > 1,
+  );
+  for (const painter of painters) {
+    try {
+      const input = disambiguate
+        ? {
+            ...request,
+            options: {
+              ...request.options,
+              outputPath: appendImageOutputSuffix(
+                request.options.outputPath!,
+                painter.id,
+                request.options.format ?? 'png',
+              ),
+            },
+          }
+        : request;
+      artifacts.push(...((await painter.render(input)) ?? []));
+    } catch (error) {
+      if (error instanceof RenderBatchError) {
+        artifacts.push(...error.artifacts);
+        errors.push(...error.errors);
+      } else
+        errors.push(
+          renderTargetError(painter.id, request.options.envId ?? request.options.chartId, error),
+        );
+      await onFailure?.(painter, error);
+    }
+  }
+  if (!artifacts.length && !errors.length)
+    errors.push({
+      painterId: '*',
+      targetId: request.options.envId ?? request.options.chartId,
+      code: 'render_missing',
+      message: 'No render artifacts were produced.',
+    });
+  if (errors.length) throw new RenderBatchError(artifacts, errors);
+  return artifacts;
 }

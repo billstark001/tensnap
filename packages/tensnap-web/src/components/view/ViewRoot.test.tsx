@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import ViewRoot from './ViewRoot';
 import { useViewContext } from './useViewContext';
-import type { ContainerView } from '@/types/ui';
+import type { ContainerView } from '@tensnap/core/persistence';
 
 vi.mock('./useDragAndResizeContent', () => ({
   useDragContent: () => ({ dragState: { state: { guideLines: [] } } }),

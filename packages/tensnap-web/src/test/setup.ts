@@ -1,5 +1,8 @@
-import '@testing-library/jest-dom/vitest';
-import { vi } from 'vitest';
+import * as matchers from '@testing-library/jest-dom/matchers';
+import { expect, vi } from 'vitest';
+
+// Register on this runner's expect; pnpm can install distinct Vitest peer graphs.
+expect.extend(matchers);
 import { TextDecoder, TextEncoder } from 'util';
 
 // Mock WebSocket

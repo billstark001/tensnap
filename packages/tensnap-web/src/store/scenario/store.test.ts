@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScenarioStore } from './store';
-import { createDefaultRootLayout } from '@/utils/view/create-view';
+import { createDefaultRootLayout } from '@tensnap/core/persistence';
+
 import { useSettingsStore } from '@/store/settings';
 import { createHistoryStore } from '@/store/undo-redo';
 import { AgentStorage } from '@tensnap/core/environment';

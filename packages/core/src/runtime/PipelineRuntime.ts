@@ -70,6 +70,14 @@ export class PipelineRuntime {
 
   // #region Task lifecycle
 
+  holdDispatch(): () => void {
+    const release = this.q.holdDispatch();
+    return () => {
+      release();
+      if (this.syncBoundary.isIdle) this.q.maybeDispatchNext();
+    };
+  }
+
   enqueue(key: string, options: { continuous?: boolean } = {}): string {
     const id = this.q.enqueue(key, options);
     if (this.syncBoundary.isIdle) {

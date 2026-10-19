@@ -669,3 +669,270 @@ it('preserves a malformed upstream error body without replacing it with a parser
   expect(error.body).toEqual({ error: null });
   expect(error.exitCode).toBe(3);
 });
+
+it.each([
+  ['recording', 'seek', 'file'],
+  ['recording', 'inspect', 'file', '--time', '7'],
+  ['recording', 'seek', 'file', '--frame', '0', '--time', '7', '--match', 'last'],
+  ['recording', 'render', 'file', '--frame', '0'],
+  ['frame', 'save'],
+  ['frame', 'restore', 'directory'],
+])('rejects invalid evidence commands before runtime access: %j', async (...argv) => {
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await expect(main(argv)).rejects.toMatchObject({ category: 'input_error' });
+  expect(fetch).not.toHaveBeenCalled();
+  expect(JSON.parse(stdout.mock.calls[0][0])).toMatchObject({
+    schemaVersion: 1,
+    ok: false,
+    error: { category: 'input_error' },
+  });
+});
+
+it('inspects, exports and compares a saved recording without any runtime or network', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot } = await import('@tensnap/core/snapshot');
+  const { encodeRecordingFile } = await import('@tensnap/core/persistence');
+  const { writeFile } = await import('node:fs/promises');
+  const root = await mkdtemp(join(tmpdir(), 'tensnap-cli-offline-'));
+  tempDirs.push(root);
+  const file = join(root, 'recording.json');
+  await writeFile(
+    file,
+    encodeRecordingFile(createSingleSnapshot(new Scenario().dump(), { id: 'offline-test' })),
+  );
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await main(['recording', 'info', file]);
+  expect(JSON.parse(stdout.mock.calls[0][0])).toMatchObject({
+    schemaVersion: 1,
+    ok: true,
+    data: { id: 'offline-test', resourcesComplete: true },
+  });
+  const directory = join(root, 'frame');
+  await main(['recording', 'export-frame', file, '--frame', '0', '--output', directory]);
+  await main(['frame', 'compare', directory, directory]);
+  expect(JSON.parse(stdout.mock.calls.at(-1)![0])).toMatchObject({
+    ok: true,
+    data: { equal: true, changes: [] },
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it('classifies corrupt offline artifacts as input errors with versioned JSON', async () => {
+  const { writeFile } = await import('node:fs/promises');
+  const path = await mkdtemp(join(tmpdir(), 'tensnap-invalid-artifact-'));
+  tempDirs.push(path);
+  const file = join(path, 'broken.json');
+  await writeFile(file, '{');
+  const stdout = vi.spyOn(console, 'log').mockImplementation(() => {});
+  let failure: unknown;
+  try {
+    await main(['recording', 'info', file]);
+  } catch (error) {
+    failure = error;
+  }
+  expect(classifyCliError(failure)).toEqual({ category: 'input_error', exitCode: 2 });
+  expect(JSON.parse(stdout.mock.calls[0][0])).toMatchObject({
+    ok: false,
+    error: { category: 'input_error' },
+  });
+});
+
+it('uses explicit edge identity policies in offline recording diffs while keeping exact comparison ordered', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot } = await import('@tensnap/core/snapshot');
+  const { encodeRecordingFile } = await import('@tensnap/core/persistence');
+  const { writeFile } = await import('node:fs/promises');
+  const root = await mkdtemp(join(tmpdir(), 'tensnap-cli-edge-diff-'));
+  tempDirs.push(root);
+  const files = [join(root, 'left.json'), join(root, 'right.json')];
+  const policy = join(root, 'policy.json');
+  await writeFile(policy, JSON.stringify({ comparison: 'exact' }));
+  for (const [index, file] of files.entries()) {
+    const scenario = new Scenario();
+    scenario.apply({ type: 'env_create', payload: { id: 'g', type: '2d' } });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: { env_id: 'g', layer_id: 'nodes', layer_type: 'agent' },
+    });
+    scenario.apply({
+      type: 'env_layer_create',
+      payload: {
+        env_id: 'g',
+        layer_id: 'edges',
+        layer_type: 'edge',
+        dependency_layer_ids: { agent: 'nodes' },
+      },
+    });
+    const edges = [
+      { source: 1, target: 'x/y', weight: 2 },
+      { source: '1', target: 'x/y', weight: 3 },
+    ];
+    scenario.apply({
+      type: 'item_create',
+      payload: { env_id: 'g', layer_id: 'edges', items: index ? edges.reverse() : edges },
+    });
+    await writeFile(file, encodeRecordingFile(createSingleSnapshot(scenario.dump())));
+  }
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const fetch = vi.spyOn(globalThis, 'fetch');
+  const args = ['recording', 'diff', ...files, '--left-frame', '0', '--right-frame', '0'];
+  await main(args);
+  await main([...args, '--policy', policy]);
+  expect(JSON.parse(output.mock.calls[0][0]).data).toMatchObject({
+    sceneEqual: true,
+    selectedEqual: true,
+  });
+  expect(JSON.parse(output.mock.calls[1][0]).data).toMatchObject({
+    sceneEqual: false,
+    selectedEqual: false,
+  });
+  expect(fetch).not.toHaveBeenCalled();
+});
+
+it.each(['action', 'run'] as const)(
+  'preserves the accepted %s ID on wait timeout and resumes without dispatching again',
+  async (kind) => {
+    const { mkdir, writeFile } = await import('node:fs/promises');
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-wait-id-'));
+    tempDirs.push(rootDir);
+    const context = resolveRuntimeContextPaths({ rootDir });
+    await mkdir(context.contextDir, { recursive: true });
+    await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+    const id = 'accepted/:id';
+    const identity = kind === 'action' ? { requestId: id } : { runId: id };
+    let dispatches = 0,
+      waits = 0;
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const path = new URL(String(input)).pathname;
+      if (path === '/health') return Response.json({});
+      if (path.endsWith('/wait')) {
+        expect(path).toBe(
+          `/v1/${kind === 'action' ? 'action-results' : 'runs'}/${encodeURIComponent(id)}/wait`,
+        );
+        if (++waits === 1)
+          return Response.json(
+            {
+              error: 'Timed out waiting; operation was not cancelled.',
+              category: 'result_unknown',
+            },
+            { status: 500 },
+          );
+        return Response.json(
+          kind === 'action'
+            ? { action: { requestId: id, status: 'succeeded' } }
+            : { run: { id, settled: true } },
+        );
+      }
+      dispatches++;
+      return Response.json(
+        kind === 'action' ? { requestId: id, accepted: true } : { run: { id } },
+        { status: 202 },
+      );
+    });
+    const common = ['--context-dir', rootDir, '--output-version', '1'];
+    await expect(
+      main([
+        kind,
+        kind === 'action' ? 'run' : 'start',
+        'slow',
+        ...(kind === 'run' ? ['--max-actions', '1'] : []),
+        '--wait',
+        '--timeout-ms',
+        '1',
+        ...common,
+      ]),
+    ).rejects.toMatchObject({ category: 'result_unknown', exitCode: 4 });
+    expect(JSON.parse(output.mock.calls[0][0])).toMatchObject({
+      schemaVersion: 1,
+      ok: false,
+      correlationId: id,
+      data: { ...identity, category: 'result_unknown' },
+    });
+    await main([kind, 'wait', id, ...common]);
+    expect(JSON.parse(output.mock.calls[1][0])).toMatchObject({ ok: true, correlationId: id });
+    expect({ dispatches, waits }).toEqual({ dispatches: 1, waits: 2 });
+  },
+);
+
+it('keeps an accepted request ID when the wait transport fails', async () => {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-wait-network-'));
+  tempDirs.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  await mkdir(context.contextDir, { recursive: true });
+  await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    if (String(input).endsWith('/health')) return Response.json({});
+    if (String(input).endsWith('/wait')) throw new TypeError('fetch failed');
+    return Response.json({ requestId: 'known' }, { status: 202 });
+  });
+  const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+  await expect(
+    main(['action', 'run', 'step', '--wait', '--context-dir', rootDir, '--output-version', '1']),
+  ).rejects.toMatchObject({
+    category: 'result_unknown',
+    exitCode: 4,
+    message: expect.stringContaining('requestId: known'),
+  });
+  expect(JSON.parse(output.mock.calls[0][0])).toMatchObject({
+    correlationId: 'known',
+    data: { requestId: 'known' },
+    error: { category: 'result_unknown' },
+  });
+});
+
+it.each([
+  ['action', 'render_failed', 5],
+  ['run', 'persistence_failed', 6],
+] as const)(
+  'preserves correlated %s wait failure details and exit classification',
+  async (kind, category, exitCode) => {
+    const { mkdir, writeFile } = await import('node:fs/promises');
+    const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-wait-failure-'));
+    tempDirs.push(rootDir);
+    const context = resolveRuntimeContextPaths({ rootDir });
+    await mkdir(context.contextDir, { recursive: true });
+    await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+    const partial = {
+      error: 'evidence failed',
+      category,
+      artifacts: [{ path: '/tmp/partial.png' }],
+      [kind]: { [kind === 'run' ? 'id' : 'requestId']: 'known' },
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) =>
+      String(input).endsWith('/health')
+        ? Response.json({})
+        : Response.json(partial, { status: 422 }),
+    );
+    const output = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await expect(main([kind, 'wait', 'known', '--context-dir', rootDir])).rejects.toMatchObject({
+      category,
+      exitCode,
+    });
+    expect(JSON.parse(output.mock.calls[0][0])).toMatchObject({
+      correlationId: 'known',
+      error: { category },
+      data: { ...partial, [kind === 'run' ? 'runId' : 'requestId']: 'known' },
+    });
+  },
+);
+
+it('releases the unused health-response body before making a control request', async () => {
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-cli-health-body-'));
+  tempDirs.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  await mkdir(context.contextDir, { recursive: true });
+  await writeFile(context.controlFile, JSON.stringify({ host: '127.0.0.1', controlPort: 1234 }));
+  const cancel = vi.fn();
+  vi.spyOn(console, 'log').mockImplementation(() => {});
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    if (String(input).endsWith('/health')) return new Response(new ReadableStream({ cancel }));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    return Response.json({ running: true });
+  });
+  await main(['runtime', 'status', '--context-dir', rootDir]);
+});

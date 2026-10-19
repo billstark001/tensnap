@@ -1,8 +1,9 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import * as styles from './ChartView.css';
 import { ChartGroup, ChartSeriesPoint } from '@/types/model';
-import { CanvasChartView } from '@/components/chart';
-import type { ChartConfig, CanvasChartViewRef } from '@/components/chart';
+import { CanvasChartView } from '@/components/chart/CanvasChartView';
+import type { CanvasChartViewRef } from '@/components/chart/CanvasChartView';
+import type { ChartConfig } from '@tensnap/core/chart';
 import { throttle } from '@tensnap/web-common/react';
 
 const CHART_COLORS = [

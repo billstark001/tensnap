@@ -110,9 +110,13 @@ copyFileSync(ROOT_LICENSE, resolve(DIST, 'LICENSE'));
 writeFileSync(
   resolve(DIST, 'README.md'),
   readFileSync(resolve(ROOT, 'README.md'), 'utf8')
-    .replace(
+    .replaceAll(
       '../../docs/user-guide/agent-runtime.md',
       './skills/tensnap-agent/references/docs/user-guide/agent-runtime.md',
+    )
+    .replaceAll(
+      '../../docs/api-reference/recording-storage.md',
+      './skills/tensnap-agent/references/docs/api-reference/recording-storage.md',
     )
     .replace(
       '../protocol/SPECIFICATION.md',

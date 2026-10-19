@@ -7,7 +7,7 @@ import { setNativeMenuLocale } from '../adapters/common';
 const DOCUMENTATION_URL = 'https://github.com/billstark001/tensnap/tree/main/docs';
 
 export const useTauriMenuEvents = () => {
-  const { onNewFile, onFileOpen, onFileSave, onFileSaveAs } = useFileOperations();
+  const { onNewFile, onFileOpen, onRecordingOpen, onFileSave, onFileSaveAs } = useFileOperations();
 
   const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
@@ -25,6 +25,7 @@ export const useTauriMenuEvents = () => {
     // File menu events
     unlistenPromises.push(listen('menu:new', () => onNewFile()));
     unlistenPromises.push(listen('menu:open', () => onFileOpen()));
+    unlistenPromises.push(listen('menu:open-recording', () => onRecordingOpen()));
     unlistenPromises.push(listen('menu:save', () => onFileSave()));
     unlistenPromises.push(listen('menu:save-as', () => onFileSaveAs()));
 
@@ -62,5 +63,13 @@ export const useTauriMenuEvents = () => {
         unlisteners.forEach((unlisten) => unlisten());
       });
     };
-  }, [onNewFile, onFileOpen, onFileSave, onFileSaveAs, setSettingsDialogOpen, setAboutDialogOpen]);
+  }, [
+    onNewFile,
+    onFileOpen,
+    onRecordingOpen,
+    onFileSave,
+    onFileSaveAs,
+    setSettingsDialogOpen,
+    setAboutDialogOpen,
+  ]);
 };

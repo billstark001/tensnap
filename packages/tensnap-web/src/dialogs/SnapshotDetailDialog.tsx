@@ -1,3 +1,7 @@
+import { encodeRecordingFile } from '@tensnap/core/persistence';
+import { frameFromRecording, snapshotFromFrame } from '@tensnap/core/snapshot';
+import { useFileSystem } from '@/store/file-system/provider';
+import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
@@ -17,7 +21,6 @@ import * as styles from './SnapshotDetailDialog.css';
 import { Environment2DView } from '../components/scenario/Environment2DView';
 import { UniformEnvironmentView } from '../components/scenario/UniformEnvironmentView';
 import { ChartView } from '../components/scenario/ChartView';
-import { getEnvironmentDisplayType } from '../components/scenario/environment-adapter';
 import { ViewErrorBoundary } from '../components/view/ViewErrorBoundary';
 import { ValueInspector } from '../components/value-inspector';
 import { formatTimestamp } from '@/utils/date';
@@ -33,7 +36,7 @@ const OfflineEnvironment = (props: {
   updateTrigger: number;
 }) => {
   const { environment, assets, scenario, updateTrigger } = props;
-  const displayType = getEnvironmentDisplayType(environment);
+  const displayType = environment.type;
   if (displayType === '2d') {
     return (
       <ViewErrorBoundary kind="environment" identifier={environment.id} resetKey={environment.id}>
@@ -140,6 +143,27 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const [playing, setPlaying] = useState(false);
   const [label, setLabel] = useState(snapshot?.metadata.label ?? '');
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const { saveFileAs, writeFile } = useFileSystem();
+  const toast = useToast();
+  const exportRecording = async (singleFrame: boolean) => {
+    if (!snapshot) return;
+    try {
+      const target = singleFrame
+        ? snapshotFromFrame(frameFromRecording(snapshot, frame))
+        : snapshot;
+      const bytes = encodeRecordingFile(target);
+      const file = await saveFileAs({
+        title: singleFrame ? t`Export current frame` : t`Export full recording`,
+        defaultPath: `${target.metadata.id}.tensnap-recording.json`,
+        filters: [{ name: 'TenSnap recording', extensions: ['json'] }],
+      });
+      if (!file) return;
+      await writeFile(file.path, uint8ArrayToArrayBuffer(bytes));
+      toast.success(t`Recording exported`, file.path);
+    } catch (error) {
+      toast.error(t`Failed to export recording`, String(error));
+    }
+  };
   const playbackFps = useSettingsStore((state) => state.snapshotPlaybackFps);
   const isStatic = !snapshot || snapshot.frames.length === 0;
 
@@ -347,6 +371,12 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
           </div>
         </Dialog.Body>
         <Dialog.Footer>
+          <Dialog.Button onClick={() => void exportRecording(false)}>
+            <Trans>Export full recording</Trans>
+          </Dialog.Button>
+          <Dialog.Button onClick={() => void exportRecording(true)}>
+            <Trans>Export current frame</Trans>
+          </Dialog.Button>
           <Dialog.Button variant="danger" onClick={onDelete} disabled={deleteDisabled}>
             <Trans>Delete recording</Trans>
           </Dialog.Button>

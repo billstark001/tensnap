@@ -10,7 +10,7 @@ import {
   ChartArea,
   Activity,
 } from 'lucide-react';
-import { ContainerView, AnyView } from '@/types/ui';
+import { ContainerView, AnyView } from '@tensnap/core/persistence';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { viewConstants } from './constants';

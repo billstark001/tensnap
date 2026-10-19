@@ -1,15 +1,25 @@
-import { create, StoreApi, UseBoundStore } from 'zustand';
-import { createTransportStore, TransportStore } from './transport';
+import { IndexedDBRecordingStore } from '@tensnap/web-adapter/adapters';
 import { generateUniqueId } from '@/utils/common';
 import {
-  archiveProjectFileContentInWorker,
+  RecordingPlayback,
+  RecordingStoreReader,
+  omitUndefinedObjectProperties,
+  decodePersistenceValue,
+  parseRecordingFile,
+  type ContainerView,
+} from '@tensnap/core/persistence';
+import { createAutoLayout } from '@/utils/view/pack';
+import { archiveProjectFileContentInWorker } from '@/workers/project-archive';
+import { create, StoreApi, UseBoundStore } from 'zustand';
+import { createTransportStore, TransportStore } from './transport';
+import {
   parseProjectFileContent,
   PROJECT_FILE_VERSION,
   ProjectSourceSchema,
   recoverProjectFileContent,
   type ProjectFileContent,
-} from '@/types/project';
-import { decode, encode } from '@msgpack/msgpack';
+} from '@tensnap/core/persistence';
+import { encode } from '@msgpack/msgpack';
 import { createHistoryStore } from './undo-redo';
 import type { HistoryState } from './history-model';
 import { useSettingsStore } from './settings';
@@ -19,7 +29,7 @@ import {
   type StateSyncInventory,
 } from '@tensnap/core/scenario';
 import {
-  materializeSnapshot,
+  SNAPSHOT_PLAYBACK_ACTIONS,
   SnapshotPlaybackSource,
   type ProjectSource,
   type Snapshot,
@@ -40,6 +50,13 @@ export interface ProjectContextScheme {
   source: ProjectSource;
   modelIdentity?: SnapshotModelIdentity;
   snapshotPlayback?: SnapshotPlaybackSource;
+  recordingPlayback?: RecordingPlayback;
+  recordingStoreLink?: {
+    kind: 'tensnap-recording-store-link';
+    version: 1;
+    owner: string;
+    recordingId: string;
+  };
   useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>;
   useTransportStore: UseBoundStore<StoreApi<TransportStore>>;
   useUndoRedoStore: UseBoundStore<StoreApi<HistoryState>>;
@@ -63,39 +80,6 @@ export const projectSourceConnectionId = (source: ProjectSource): string | null 
 export const projectSourceDisplayName = (source: ProjectSource): string =>
   projectSourceConnectionId(source) ??
   (source.kind === 'snapshot' ? `offline:${source.snapshot_id}` : 'offline');
-
-/** Rebase a recording so a snapshot project starts at the frame the user chose. */
-const snapshotSourceFromFrame = (snapshot: Snapshot, frame?: number): Snapshot => {
-  if (frame !== undefined && !Number.isSafeInteger(frame)) {
-    throw new Error('Snapshot frame must be a safe integer.');
-  }
-  const initialFrame =
-    frame ?? snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame;
-  const bounded = Math.max(
-    snapshot.initial.frame,
-    Math.min(
-      initialFrame,
-      snapshot.frames[snapshot.frames.length - 1]?.index ?? snapshot.initial.frame,
-    ),
-  );
-  let selectedFrame = snapshot.initial.frame;
-  let frameTimestamp = snapshot.initial.timestamp;
-  for (const entry of snapshot.frames) {
-    if (entry.index > bounded) break;
-    selectedFrame = entry.index;
-    frameTimestamp = entry.timestamp;
-  }
-  if (selectedFrame === snapshot.initial.frame) return structuredClone(snapshot);
-  const rebased = structuredClone(snapshot);
-  rebased.initial = {
-    frame: selectedFrame,
-    timestamp: frameTimestamp,
-    scenario: materializeSnapshot(snapshot, selectedFrame),
-  };
-  rebased.keyframes = rebased.keyframes.filter((keyframe) => keyframe.frame > selectedFrame);
-  rebased.frames = rebased.frames.filter((entry) => entry.index > selectedFrame);
-  return rebased;
-};
 
 const createProject = (
   source: ProjectSource,
@@ -163,32 +147,6 @@ function startProjectTransport(
     });
 }
 
-/**
- * JSON omits undefined object properties, whereas MessagePack writes them as
- * null. Strip them explicitly so both save formats have the same on-disk
- * shape and continue to satisfy the project schema after a round trip.
- */
-const omitUndefinedObjectProperties = (value: unknown): unknown => {
-  if (value === undefined || value === null || typeof value !== 'object') return value;
-  if (value instanceof Uint8Array || value instanceof ArrayBuffer) return value;
-  if (Array.isArray(value)) {
-    return value.map((item, index) => {
-      if (item === undefined) {
-        throw new Error(`Project data contains an undefined array item at index ${index}.`);
-      }
-      return omitUndefinedObjectProperties(item);
-    });
-  }
-  if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null)
-    return value;
-
-  const result: Record<string, unknown> = Object.create(null);
-  for (const [key, item] of Object.entries(value)) {
-    if (item !== undefined) result[key] = omitUndefinedObjectProperties(item);
-  }
-  return result;
-};
-
 export interface ProjectStore {
   projects: ProjectContextScheme[];
   activeIndex: number | null;
@@ -208,7 +166,13 @@ export interface ProjectStore {
   confirmClose: () => void;
   cancelClose: () => void;
   changeSource: (index: number, source: ProjectSource) => Promise<void>;
-  openOfflineSnapshot: (snapshot: Snapshot, indexHint?: number, frame?: number) => void;
+  openRecordingStore: (owner: string, recordingId: string, indexHint?: number) => Promise<void>;
+  openOfflineSnapshot: (
+    snapshot: Snapshot,
+    indexHint?: number,
+    frame?: number,
+    layout?: ContainerView,
+  ) => void;
 }
 
 function projectInsertionIndex(indexHint: number | undefined, count: number): number {
@@ -280,7 +244,27 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const rawContent: unknown =
       typeof fileContent.content === 'string'
         ? JSON.parse(fileContent.content)
-        : decode(new Uint8Array(fileContent.content));
+        : decodePersistenceValue(new Uint8Array(fileContent.content));
+    if (
+      rawContent &&
+      typeof rawContent === 'object' &&
+      'kind' in rawContent &&
+      rawContent.kind === 'tensnap-recording'
+    ) {
+      const document = parseRecordingFile(rawContent);
+      get().openOfflineSnapshot(document.snapshot, indexHint, document.snapshot.initial.frame);
+      return {
+        recovered: false,
+        warnings: document.report.resourcesComplete
+          ? []
+          : ['Recording has unresolved resources or external URL dependencies.'],
+      };
+    }
+    const link = parseRecordingStoreLink(rawContent);
+    if (link) {
+      await get().openRecordingStore(link.owner, link.recordingId, indexHint);
+      return { recovered: false, warnings: [] };
+    }
     let parsedContent: ProjectFileContent;
     let warnings: string[] = [];
     try {
@@ -346,6 +330,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }
 
     const project = projects[targetIndex];
+    if (project.recordingStoreLink) {
+      const filepath = saveAsPath ?? project.filepath;
+      if (!filepath) throw new Error('No file path specified for saving the recording link.');
+      await getFileSystemState().writeFile(filepath, JSON.stringify(project.recordingStoreLink));
+      project.filepath = filepath;
+      project.useUndoRedoStore.getState().markClean();
+      refreshActiveProject();
+      return;
+    }
     const scenarioStore = project.useScenarioStore.getState();
     const savedHistoryStateId = project.useUndoRedoStore.getState().currentStateId;
     const projectFile: ProjectFileContent = {
@@ -399,15 +392,102 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     refreshActiveProject();
   },
 
-  openOfflineSnapshot(snapshot, indexHint, frame) {
+  async openRecordingStore(owner, recordingId, indexHint) {
+    const backend = new IndexedDBRecordingStore(owner, recordingId);
+    const reader = await RecordingStoreReader.open(backend).catch(async (error) => {
+      await backend.close();
+      throw error;
+    });
+    const playback = new RecordingPlayback(reader, () => backend.close());
+    try {
+      await playback.seek(reader.root.firstFrame);
+      const { projects, setActive } = get();
+      const index = projectInsertionIndex(indexHint, projects.length);
+      const project = createProject(
+        { kind: 'snapshot', snapshot_id: reader.root.id },
+        null,
+        reader.root.modelIdentity,
+      );
+      project.recordingPlayback = playback;
+      project.recordingStoreLink = {
+        kind: 'tensnap-recording-store-link',
+        version: 1,
+        owner,
+        recordingId,
+      };
+      project.useScenarioStore.getState().load(playback.scenario.dump());
+      const scenario = playback.scenario;
+      project.useScenarioStore.setState({
+        mainView: createAutoLayout(
+          undefined,
+          [...scenario.environments.values()].map((env) => ({
+            id: env.id,
+            type: env.type,
+            label: env.id,
+          })),
+          [...scenario.parameters.values()],
+          scenario.charts.getGroupList(),
+          {},
+          SNAPSHOT_PLAYBACK_ACTIONS.map((id) => ({
+            id,
+            label: id,
+            scope: 'model' as const,
+            continuous: id === 'start',
+          })),
+          [...scenario.monitors.all.values()],
+        ),
+      });
+      const next = [...projects];
+      next.splice(index, 0, project);
+      set({ projects: next });
+      setActive(index);
+    } catch (error) {
+      await playback.close();
+      throw error;
+    }
+  },
+
+  openOfflineSnapshot(snapshot, indexHint, frame, layout) {
     const { projects, setActive } = get();
     const targetIndex = projectInsertionIndex(indexHint, projects.length);
-    const sourceSnapshot = snapshotSourceFromFrame(snapshot, frame);
+    if (frame !== undefined && !Number.isSafeInteger(frame))
+      throw new Error('Snapshot frame must be a safe integer.');
+    const sourceSnapshot = structuredClone(snapshot);
+    if (
+      frame !== undefined &&
+      frame !== snapshot.initial.frame &&
+      !snapshot.frames.some((entry) => entry.index === frame)
+    )
+      throw new Error('Select an actual retained snapshot frame.');
     const identity = sourceSnapshot.metadata.id;
     const source: ProjectSource = { kind: 'snapshot', snapshot_id: identity };
     const project = createProject(source, null, sourceSnapshot.metadata.model_identity);
     project.snapshotPlayback = new SnapshotPlaybackSource(sourceSnapshot);
-    project.useScenarioStore.getState().load(sourceSnapshot.initial.scenario);
+    if (frame !== undefined) project.snapshotPlayback.seek(frame);
+    project.useScenarioStore.getState().load(project.snapshotPlayback.scenario.dump());
+    const scenario = project.useScenarioStore.getState().scenario;
+    project.useScenarioStore.setState({
+      mainView: layout
+        ? structuredClone(layout)
+        : createAutoLayout(
+            undefined,
+            [...scenario.environments.values()].map((env) => ({
+              id: env.id,
+              type: env.type,
+              label: env.id,
+            })),
+            [...scenario.parameters.values()],
+            scenario.charts.getGroupList(),
+            {},
+            SNAPSHOT_PLAYBACK_ACTIONS.map((id) => ({
+              id,
+              label: id,
+              scope: 'model' as const,
+              continuous: id === 'start',
+            })),
+            [...scenario.monitors.all.values()],
+          ),
+    });
     project.useScenarioStore.setState({ snapshots: [sourceSnapshot] });
     const nextProjects = [...projects];
     nextProjects.splice(targetIndex, 0, project);
@@ -480,6 +560,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // From here on every operation consumes a validated in-memory snapshot.
       const playback = new SnapshotPlaybackSource(snapshot);
       const nextScenario = playback.scenario.dump();
+      await project.recordingPlayback?.close();
+      project.recordingPlayback = undefined;
+      project.recordingStoreLink = undefined;
       project.useTransportStore.getState().destroy();
       scenarioStore.session.resetSimulatorIdentity();
       scenarioStore.load(nextScenario);
@@ -492,6 +575,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await project.useTransportStore
         .getState()
         .changeTransport(connectionId, undefined, { resetSimulatorIdentity: true });
+      await project.recordingPlayback?.close();
+      project.recordingPlayback = undefined;
+      project.recordingStoreLink = undefined;
       project.snapshotPlayback = undefined;
     }
 
@@ -510,6 +596,9 @@ function closeProject(
   const project = projects[index];
   if (!project) return;
 
+  void project.recordingPlayback
+    ?.close()
+    .catch((error) => console.error('Recording playback cleanup failed.', error));
   project.useTransportStore.getState().destroy();
   project.useScenarioStore.getState().clearAll();
   const nextProjects = [...projects];
@@ -526,4 +615,51 @@ function closeProject(
 
   set({ projects: nextProjects, pendingCloseProjectId: null });
   setActive(newActiveIndex);
+}
+
+/** Parse external recordings without opening the source of an enclosing project. */
+export async function readRecordingSources(filepath: string): Promise<{
+  snapshots: Snapshot[];
+  layout?: ContainerView;
+  storeLink?: ProjectContextScheme['recordingStoreLink'];
+}> {
+  const file = await getFileSystemState().readFile(filepath);
+  if (!file?.content) throw new Error(`File not found: ${filepath}`);
+  const raw =
+    typeof file.content === 'string'
+      ? JSON.parse(file.content)
+      : decodePersistenceValue(new Uint8Array(file.content));
+  const link = parseRecordingStoreLink(raw);
+  if (link) return { snapshots: [], storeLink: link };
+  if (raw && typeof raw === 'object' && 'snapshots' in raw && !('kind' in raw)) {
+    const project = parseProjectFileContent(raw);
+    return { snapshots: project.snapshots, layout: project.mainView };
+  }
+  return { snapshots: [parseRecordingFile(raw, { allowLegacy: true }).snapshot] };
+}
+
+function parseRecordingStoreLink(value: unknown): ProjectContextScheme['recordingStoreLink'] {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('kind' in value) ||
+    value.kind !== 'tensnap-recording-store-link'
+  )
+    return undefined;
+  const link = value as Record<string, unknown>;
+  if (
+    link.version !== 1 ||
+    typeof link.owner !== 'string' ||
+    !link.owner ||
+    typeof link.recordingId !== 'string' ||
+    !link.recordingId ||
+    Object.keys(link).some((key) => !['kind', 'version', 'owner', 'recordingId'].includes(key))
+  )
+    throw new Error('Invalid recording store link.');
+  return {
+    kind: 'tensnap-recording-store-link',
+    version: 1,
+    owner: link.owner,
+    recordingId: link.recordingId,
+  };
 }

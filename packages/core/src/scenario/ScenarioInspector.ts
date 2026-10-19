@@ -1,3 +1,9 @@
+import {
+  queryScenario,
+  type ScenarioQuery,
+  type QueryLocation,
+  type ScenarioQueryResult,
+} from './query';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { AgentRenderState, GraphEdge, Viewport } from '../environment';
 import { AgentStorage, EdgeStorage, getCoordOffsetValue } from '../environment';
@@ -247,6 +253,10 @@ function filterOwnedSnapshot(
  */
 export class ScenarioInspector {
   constructor(private readonly scenario: Scenario) {}
+
+  query(spec: ScenarioQuery, location: QueryLocation): ScenarioQueryResult {
+    return queryScenario(this.scenario, spec, location);
+  }
 
   /** Retain incremental spatial indexing for the lifetime of a live inspector. */
   retainSpatialIndex(ref: AgentRef): () => void {

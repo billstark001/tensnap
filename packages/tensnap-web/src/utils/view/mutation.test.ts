@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AnyView, ContainerView } from '@/types/ui';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { MAIN_VIEW_PADDING, viewConstants } from '@/components/view/constants';
-import { createDefaultRootLayout } from './create-view';
+import { createDefaultRootLayout } from '@tensnap/core/persistence';
+
 import { validateViewTree } from './container';
 import {
   addViewToContainerInPlace,

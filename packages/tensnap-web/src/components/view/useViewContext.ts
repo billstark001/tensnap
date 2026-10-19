@@ -1,4 +1,4 @@
-import { AnyView, ContainerView } from '@/types/ui';
+import { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { createContext, useContext } from 'react';
 import { AnchoredViewRendererType, Point, ViewContextMenuRendererType } from './types';
 import type { BoundedRunSpec } from '@tensnap/core/runtime';

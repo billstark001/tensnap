@@ -1,7 +1,7 @@
 /* eslint-disable no-redeclare */
 import { useCallback, useRef, useState, useEffect } from 'react';
 import { DragEndEvent, DragStartEvent, DragMoveEvent, Active, Over } from '@dnd-kit/core';
-import { ContainerView, AnyView } from '@/types/ui';
+import { ContainerView, AnyView } from '@tensnap/core/persistence';
 import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
 import { Coordinates } from '@dnd-kit/core/dist/types';
 import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
