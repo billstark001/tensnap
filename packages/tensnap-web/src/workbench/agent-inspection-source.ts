@@ -5,7 +5,6 @@ import {
   type Scenario,
   type AgentInspectionView,
 } from '@tensnap/core/scenario';
-import { AgentStorage } from '@tensnap/core/environment';
 export interface InspectionRequest {
   radius: number;
   token?: string;
@@ -22,42 +21,40 @@ export interface AgentInspectionSource {
 export function createAgentInspectionSource(scenario: Scenario, initialRef: AgentRef) {
   let ref = initialRef;
   const inspector = new ScenarioInspector(scenario);
-  const retained = new Map<AgentStorage, () => void>();
+  let releaseIndex: (() => void) | undefined;
+  let indexDirty = true;
   let revision = 0;
   let disposed = false;
   const changed = () => {
     revision++;
   };
-  const events = [
+  const structureEvents = [
     'env:create',
     'env:delete',
     'layer:create',
     'layer:update',
     'layer:delete',
+    'reset',
+  ] as const;
+  const events = [
     'item:create',
     'item:update',
     'item:delete',
     'asset:metadata',
     'asset:data',
     'asset:delete',
-    'reset',
   ] as const;
   for (const event of events) scenario.addEventListener(event, changed);
+  const structureChanged = () => {
+    indexDirty = true;
+    changed();
+  };
+  for (const event of structureEvents) scenario.addEventListener(event, structureChanged);
   const syncIndexes = () => {
-    const environment = scenario.getEnvironment(ref.environmentId);
-    const current = new Set<AgentStorage>();
-    for (const layer of environment?.layers.values() ?? []) {
-      if (!(layer.storage instanceof AgentStorage)) continue;
-      current.add(layer.storage);
-      if (!retained.has(layer.storage))
-        retained.set(layer.storage, layer.storage.retainSpatialIndex());
-    }
-    retained.forEach((release, storage) => {
-      if (!current.has(storage)) {
-        release();
-        retained.delete(storage);
-      }
-    });
+    if (!indexDirty) return;
+    releaseIndex?.();
+    releaseIndex = inspector.retainSpatialIndex(ref);
+    indexDirty = false;
   };
   syncIndexes();
   return {
@@ -70,6 +67,7 @@ export function createAgentInspectionSource(scenario: Scenario, initialRef: Agen
         return false;
       ref = next;
       revision++;
+      indexDirty = true;
       syncIndexes();
       return true;
     },
@@ -90,10 +88,12 @@ export function createAgentInspectionSource(scenario: Scenario, initialRef: Agen
       return { view, token };
     },
     dispose() {
+      if (disposed) return;
       disposed = true;
-      retained.forEach((release) => release());
-      retained.clear();
+      releaseIndex?.();
+      releaseIndex = undefined;
       for (const event of events) scenario.removeEventListener(event, changed);
+      for (const event of structureEvents) scenario.removeEventListener(event, structureChanged);
     },
   };
 }

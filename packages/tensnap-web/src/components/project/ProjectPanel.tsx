@@ -1,5 +1,6 @@
 import { createSplit } from '@tensnap/web-common/workbench/layout';
-import { ContentIsland } from '@tensnap/web-common/workbench/portal-content';
+import { createPortal } from 'react-dom';
+import { Activity } from 'react';
 import * as styles from './ProjectPanel.css';
 import { MainViewRenderer } from './MainViewRenderer';
 import { StatusBar } from './StatusBar';
@@ -76,15 +77,13 @@ export const ProjectPanel = () => {
         bottomPanelVisible={bottomPanelVisible}
       />
       <div className={styles.mainContent} ref={setHost} />
-      <ContentIsland host={panels.horizontal.first}>
-        <MainViewRenderer />
-      </ContentIsland>
-      <ContentIsland host={panels.horizontal.second} visible={rightPanelVisible}>
-        <RightPanel />
-      </ContentIsland>
-      <ContentIsland host={panels.vertical.second} visible={bottomPanelVisible}>
-        <ProjectTerminal />
-      </ContentIsland>
+      {createPortal(<MainViewRenderer />, panels.horizontal.first)}
+      <Activity mode={rightPanelVisible ? 'visible' : 'hidden'}>
+        {createPortal(<RightPanel />, panels.horizontal.second)}
+      </Activity>
+      <Activity mode={bottomPanelVisible ? 'visible' : 'hidden'}>
+        {createPortal(<ProjectTerminal />, panels.vertical.second)}
+      </Activity>
     </main>
   );
 };

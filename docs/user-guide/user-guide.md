@@ -254,7 +254,7 @@ Recording exports use the same JSON/MessagePack setting, for both full timelines
 
 Drag files onto the workbench to open each in a new tab. Drag recordings onto the Snapshots panel to append their full timelines to that tab, with one undo operation per file. If no tab exists, the first recording creates an offline tab and the remainder join it. Dropping a project on Snapshots extracts its recordings without connecting its source. Duplicate recording IDs and corrupt files report errors; other files in the batch continue. A local recording-store link opens its own offline tab because its timeline remains in its owning local store. The file picker's upload area continues to import files into its filesystem.
 
-The browser uses movable/resizable WinBox dialog windows. Desktop dialogs use native windows, with content and commands tied to the project from which they opened, even after switching project tabs. Closing that project closes its auxiliary windows.
+The browser and desktop use movable/resizable WinBox windows for settings, editing, confirmations and recording replay. These windows retain the project from which they opened when switching tabs. Desktop Agent Details and Simulator Info use read-only native tool windows. Closing a project closes its owned dialogs and tools.
 
 Window dialogs remember their position and size separately by type. The browser stores these preferences in localStorage; desktop stores them in its local settings cache. Use **Settings → Clear saved window positions** to reset all of them. Reopening a window fits its remembered geometry to the available screen. Close dialogs with their titlebar control or Escape; clicking the backdrop leaves them open.
 

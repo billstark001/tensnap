@@ -1,5 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { Scenario } from '@tensnap/core';
+import { AgentStorage } from '@tensnap/core/environment';
 import { createAgentInspectionSource } from './agent-inspection-source';
 
 function fixture(count: number) {
@@ -102,5 +103,33 @@ it('sends assets only when the receiving window has not acknowledged their curre
     new AbortController().signal,
   );
   expect('view' in next && next.view?.scene.assets).toEqual([]);
+  source.dispose();
+});
+
+it('retains only the inspected spatial layer and releases it when the scene becomes a graph', async () => {
+  const scenario = fixture(3);
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: { env_id: 'world', layer_id: 'unrelated', layer_type: 'agent' },
+  });
+  const target = scenario.getEnvironment('world')!.layers.get('agents')!.storage as AgentStorage;
+  const unrelated = scenario.getEnvironment('world')!.layers.get('unrelated')!
+    .storage as AgentStorage;
+  const retain = vi.spyOn(target, 'retainSpatialIndex');
+  const skip = vi.spyOn(unrelated, 'retainSpatialIndex');
+  const source = createAgentInspectionSource(scenario, ref);
+  expect(retain).toHaveBeenCalledTimes(1);
+  expect(skip).not.toHaveBeenCalled();
+  await source.read({ radius: 3, assets: {} }, new AbortController().signal);
+  await source.read({ radius: 4, assets: {} }, new AbortController().signal);
+  expect(retain).toHaveBeenCalledTimes(1);
+  scenario.apply({
+    type: 'env_layer_update',
+    payload: { env_id: 'world', layer_id: 'agents', metadata: { uses_graph_interaction: true } },
+  });
+  const result = await source.read({ radius: 3, assets: {} }, new AbortController().signal);
+  expect('view' in result && result.view?.inspection.kind).toBe('graph');
+  expect(retain).toHaveBeenCalledTimes(1);
+  source.dispose();
   source.dispose();
 });

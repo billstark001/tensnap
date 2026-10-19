@@ -29,6 +29,7 @@ export function useRemoteInspection(
     if (!source || !open) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
     const read = async () => {
       try {
         const response = await source.read(
@@ -40,6 +41,7 @@ export function useRemoteInspection(
           controller.signal,
         );
         if (controller.signal.aborted) return;
+        failures = 0;
         if ('view' in response) {
           token.current = response.token;
           if (!response.view) {
@@ -57,7 +59,20 @@ export function useRemoteInspection(
           void read();
         }, 100);
       } catch (error) {
-        if (!controller.signal.aborted) toast.error(t`Agent inspection failed`, String(error));
+        if (controller.signal.aborted) return;
+        failures++;
+        if (failures >= 5) {
+          toast.error(t`Agent inspection failed`, String(error));
+          close();
+          return;
+        }
+        // One bounded backoff timer, cancelled on retarget, radius change and closure.
+        timer = setTimeout(
+          () => {
+            void read();
+          },
+          Math.min(250 * 2 ** (failures - 1), 4000),
+        );
       }
     };
     void read();

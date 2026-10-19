@@ -102,3 +102,40 @@ it('acknowledges received bytes only and removes superseded or deleted resources
     owner.dispose();
   }
 });
+
+it('recovers after a transient failure with one backoff timer and stops retries on closure', async () => {
+  vi.useFakeTimers();
+  const read = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('Temporary IPC error'))
+    .mockResolvedValue({ unchanged: true });
+  const source = { read };
+  const hook = renderHook(() => useRemoteInspection(source, 3, true, vi.fn()));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(249);
+  });
+  expect(read).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(read).toHaveBeenCalledTimes(2);
+  hook.unmount();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5000);
+  });
+  expect(read).toHaveBeenCalledTimes(2);
+});
+it('closes rather than showing stale data forever after repeated failures', async () => {
+  const { initI18n } = await import('../i18n');
+  await initI18n('en');
+  vi.useFakeTimers();
+  const source = { read: vi.fn().mockRejectedValue(new Error('Owner unavailable')) };
+  const close = vi.fn();
+  const hook = renderHook(() => useRemoteInspection(source, 3, true, close));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(10000);
+  });
+  expect(source.read).toHaveBeenCalledTimes(5);
+  expect(close).toHaveBeenCalledTimes(1);
+  hook.unmount();
+});

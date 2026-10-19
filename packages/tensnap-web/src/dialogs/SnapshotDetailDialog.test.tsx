@@ -107,3 +107,61 @@ it('does not add playback controls to a single-frame capture', () => {
   expect(screen.queryByRole('slider')).toBeNull();
   expect(screen.queryByRole('group', { name: 'Playback controls' })).toBeNull();
 });
+
+it('keeps the retained cursor when recording data is refreshed without changing its identity', () => {
+  const snapshot = fixture();
+  const view = mount(snapshot);
+  fireEvent.click(button('Next frame'));
+  fireEvent.click(button('Next frame'));
+  expect(slider()).toHaveValue('9');
+  view.rerender(
+    <I18nProvider i18n={i18n}>
+      <SnapshotDetailDialog
+        open
+        snapshot={structuredClone(snapshot)}
+        onDelete={vi.fn()}
+        onRename={vi.fn()}
+        onOpenOffline={vi.fn()}
+      />
+    </I18nProvider>,
+  );
+  expect(slider()).toHaveValue('9');
+  fireEvent.click(button('Previous frame'));
+  expect(slider()).toHaveValue('5');
+});
+it('releases replay image URLs across StrictMode acquisition and final unmount', async () => {
+  const { StrictMode } = await import('react');
+  const create = vi.fn(() => `blob:replay-${Math.random()}`),
+    revoke = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = create;
+      static revokeObjectURL = revoke;
+    },
+  );
+  const snapshot = fixture([]);
+  snapshot.initial.scenario.assets = [
+    { meta: { id: 'icon', hash: 'h', mime: 'image/png', size: 3 }, data: Uint8Array.of(1, 2, 3) },
+  ];
+  try {
+    const view = render(
+      <StrictMode>
+        <I18nProvider i18n={i18n}>
+          <SnapshotDetailDialog
+            open
+            snapshot={snapshot}
+            onDelete={vi.fn()}
+            onRename={vi.fn()}
+            onOpenOffline={vi.fn()}
+          />
+        </I18nProvider>
+      </StrictMode>,
+    );
+    expect(create.mock.calls.length).toBeGreaterThan(0);
+    view.unmount();
+    expect(revoke.mock.calls.length).toBe(create.mock.calls.length);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});

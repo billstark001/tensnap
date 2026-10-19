@@ -1,6 +1,6 @@
 import { t } from '@lingui/core/macro';
 import { createWorkbenchShell } from '@tensnap/web-common/workbench/layout';
-import { ContentIsland } from '@tensnap/web-common/workbench/portal-content';
+import { createPortal } from 'react-dom';
 import { installBrowserFileDrop } from './workbench/file-drop';
 import { useToast } from './store/toast';
 import * as styles from './styles/app.css';
@@ -88,14 +88,10 @@ export function App(props: Partial<MenuBarConfig>) {
           onToggleFullscreen: toggleFullscreen,
         }}
       >
-        <ContentIsland host={shell.toolbar}>
-          <ToolBarLayout />
-        </ContentIsland>
+        {createPortal(<ToolBarLayout />, shell.toolbar)}
       </MenuBarContext.Provider>
 
-      <ContentIsland host={shell.workspace}>
-        <ProjectPanel />
-      </ContentIsland>
+      {createPortal(<ProjectPanel />, shell.workspace)}
 
       <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
 

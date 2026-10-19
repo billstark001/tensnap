@@ -27,15 +27,6 @@ fn main() {
                         let _ = child.destroy();
                     }
                 }
-            } else if window.label().starts_with("dialog-")
-                && matches!(event, tauri::WindowEvent::Destroyed)
-            {
-                let descendant_prefix = format!("{}-", window.label());
-                for (label, child) in window.app_handle().webview_windows() {
-                    if label.starts_with(&descendant_prefix) {
-                        let _ = child.destroy();
-                    }
-                }
             }
         })
         .plugin(

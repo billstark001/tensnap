@@ -194,7 +194,7 @@ export function SimulationControlTools() {
             </button>
           </DropdownMenu.Trigger>
 
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+          <DropdownMenu.Content className={styles.dropdownContent}>
             {overflowActions.map((action) => (
               <DropdownMenu.Item
                 key={action.id}

@@ -1,14 +1,16 @@
-export type WorkbenchCommand =
-  | 'new'
-  | 'open'
-  | 'open-recording'
-  | 'save'
-  | 'save-as'
-  | 'undo'
-  | 'redo'
-  | 'settings'
-  | 'about'
-  | 'documentation';
+export const WORKBENCH_COMMANDS = [
+  'new',
+  'open',
+  'open-recording',
+  'save',
+  'save-as',
+  'undo',
+  'redo',
+  'settings',
+  'about',
+  'documentation',
+] as const;
+export type WorkbenchCommand = (typeof WORKBENCH_COMMANDS)[number];
 type CommandHandler = (projectId: string | null) => unknown;
 const handlers = new Map<WorkbenchCommand, CommandHandler>();
 export function registerWorkbenchCommands(

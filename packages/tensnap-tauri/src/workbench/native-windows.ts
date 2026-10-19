@@ -9,36 +9,49 @@ import {
 import { WebviewWindow, getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emitTo } from '@tauri-apps/api/event';
 import { configureNativeDialogRuntime } from '@tensnap/web-common/workbench/dialog-content';
+import { createAuxiliaryWindowOwner } from '@tensnap/web/auxiliary-owner';
+import { mountAuxiliaryWindow } from '@tensnap/web/auxiliary-content';
 import {
-  contentOwner,
-  mountNativeContent,
-  type ContentState,
-  type WorkbenchCommand,
-  registerWorkbenchCommands,
-} from '@tensnap/web';
+  AuxiliaryMessageSchema,
+  AuxiliaryResponseSchema,
+  AuxiliaryStateSchema,
+  isAuxiliaryWindowId,
+  encodeWindowData,
+  decodeWindowData,
+  type AuxiliaryCommand,
+  type AuxiliaryMessage,
+  type AuxiliaryState,
+  type WindowData,
+} from '@tensnap/web/auxiliary-protocol';
+import { WORKBENCH_COMMANDS } from '@tensnap/web/commands';
 import type { NativeDialogRuntime } from '@tensnap/web-common/workbench/dialog-content';
 
-interface Request {
-  id: string;
-  method: string;
-  args: unknown[];
-}
 interface Response {
+  version: 1;
   id: string;
-  value?: unknown;
+  value?: WindowData;
   error?: string;
 }
 
-/** Each dialog has its own channel, callback scope and owner-project subscription. */
+/** Only the main Webview owns native read-only tools and their request lifetimes. */
 export function installNativeWindows(): void {
   const runtime: NativeDialogRuntime = {
-    open(contentId, props, onClose) {
+    supports: isAuxiliaryWindowId,
+    open(contentId, props, onClose, projectId) {
+      if (!isAuxiliaryWindowId(contentId))
+        throw new Error(`Unsupported auxiliary window: ${contentId}`);
       const channel = crypto.randomUUID();
       const ownerLabel = getCurrentWebviewWindow().label;
-      const label = ownerLabel.startsWith('dialog-')
-        ? `${ownerLabel}-${channel}`
-        : `dialog-${channel}`;
-      const owner = contentOwner(contentId, props);
+      if (ownerLabel !== 'main') throw new Error('Only the main window may own auxiliary tools.');
+      const label = `dialog-${channel}`;
+      const owner = createAuxiliaryWindowOwner(
+        contentId,
+        props as Parameters<typeof createAuxiliaryWindowOwner>[1],
+        projectId,
+      );
+      const operations = new Map<string, AbortController>();
+      let publishing = false;
+      let dirty = false;
       let disposed = false;
       let ready = false;
       let timer: ReturnType<typeof setTimeout> | undefined;
@@ -52,49 +65,71 @@ export function installNativeWindows(): void {
       const publish = () => {
         if (disposed) return;
         if (!owner.isAlive()) {
-          onClose();
-          dispose();
+          closeOwner();
           return;
         }
-        if (!ready || timer) return;
+        dirty = true;
+        if (!ready || timer || publishing) return;
         timer = setTimeout(() => {
           timer = undefined;
-          try {
-            void emitTo(label, `content-state:${channel}`, owner.state()).catch(() => {
-              onClose();
-              dispose();
+          if (disposed) return;
+          publishing = true;
+          dirty = false;
+          void Promise.resolve()
+            .then(() => {
+              return disposed
+                ? undefined
+                : emitTo(label, `content-state:${channel}`, encodeWindowData(owner.state()));
+            })
+            .catch(failed)
+            .finally(() => {
+              publishing = false;
+              if (dirty && !disposed) publish();
             });
-          } catch {
-            onClose();
-            dispose();
-          }
         }, 100);
       };
       const stopSubscription = owner.subscribe(publish);
-      const requestListener = listen<Request>(`content-request:${channel}`, async ({ payload }) => {
+      const requestListener = listen<unknown>(`content-request:${channel}`, async ({ payload }) => {
         if (disposed) return;
-        const reply: Response = { id: payload.id };
-        try {
-          if (payload.method === 'initialize') {
-            ready = true;
-            reply.value = owner.state();
-          } else if (payload.method === 'menu')
-            reply.value = await owner.menu(payload.args[0] as WorkbenchCommand);
-          else reply.value = await owner.codec.invoke(payload.method, payload.args);
-        } catch (error) {
-          reply.error = error instanceof Error ? error.message : String(error);
+        const parsed = AuxiliaryMessageSchema.safeParse(payload);
+        if (!parsed.success) {
+          console.error('Invalid auxiliary window message:', parsed.error.message);
+          return;
         }
-        if (!disposed)
-          await emitTo(label, `content-response:${channel}`, reply).catch((error) => {
-            console.error('Content response failed:', error);
-            onClose();
-            dispose();
-          });
+        const message = parsed.data;
+        if (message.type === 'close') {
+          closeOwner();
+          return;
+        }
+        if (message.type === 'cancel') {
+          operations.get(message.id)?.abort();
+          return;
+        }
+        const reply: Response = { version: 1, id: message.id };
+        const operation = new AbortController();
+        if (operations.size >= 32 || operations.has(message.id)) {
+          reply.error = 'Too many auxiliary window requests.';
+        } else {
+          operations.set(message.id, operation);
+          try {
+            if (message.command.method === 'initialize') ready = true;
+            const result = await owner.execute(message.command, operation.signal);
+            operation.signal.throwIfAborted();
+            reply.value = encodeWindowData(result);
+          } catch (error) {
+            reply.error = error instanceof Error ? error.message : String(error);
+          } finally {
+            operations.delete(message.id);
+          }
+        }
+        if (!disposed) await emitTo(label, `content-response:${channel}`, reply).catch(failed);
       });
       const dispose = () => {
         if (disposed) return;
         disposed = true;
         if (timer) clearTimeout(timer);
+        operations.forEach((operation) => operation.abort());
+        operations.clear();
         stopSubscription();
         owner.dispose();
         stopRequests?.();
@@ -103,11 +138,20 @@ export function installNativeWindows(): void {
           ?.destroy()
           .catch((error) => console.error('Unable to destroy content window:', error));
       };
+      const closeOwner = () => {
+        if (disposed) return;
+        try {
+          onClose();
+        } catch (error) {
+          console.error('Owner close callback failed:', error);
+        } finally {
+          dispose();
+        }
+      };
       const failed = (error: unknown) => {
         if (disposed) return;
         console.error('Content window initialization failed:', error);
-        onClose();
-        dispose();
+        closeOwner();
       };
       // Register the owner listener before the child can send its ready request.
       void requestListener
@@ -214,21 +258,19 @@ export function installNativeWindows(): void {
             .once('tauri://error', (event) => {
               if (disposed) return;
               console.error('Content window creation failed:', event.payload);
-              onClose();
-              dispose();
+              closeOwner();
             })
             .then(ownWindowEvent, failed);
           void window
             .once('tauri://destroyed', () => {
-              if (!disposed) onClose();
-              dispose();
+              closeOwner();
             })
             .then(ownWindowEvent, failed);
         })
         .catch(failed);
       return {
         update(next) {
-          if (owner.update(next)) publish();
+          owner.update(next as Parameters<typeof owner.update>[0]);
         },
         dispose,
       };
@@ -238,41 +280,43 @@ export function installNativeWindows(): void {
 }
 
 export async function startNativeContent(
-  host: HTMLElement,
   signal: AbortSignal,
   render: (content: ReactNode) => void,
 ): Promise<() => void> {
   const params = new URLSearchParams(location.search);
   const channel = params.get('channel');
   const owner = params.get('owner');
-  if (!channel || !owner || !params.get('content'))
+  const contentId = params.get('content');
+  if (!channel || owner !== 'main' || !contentId || !isAuxiliaryWindowId(contentId))
     throw new Error('Invalid auxiliary window address.');
   const window = getCurrentWebviewWindow();
   const pending = new Map<
     string,
-    {
-      resolve: (value: unknown) => void;
-      reject: (error: Error) => void;
-      timer: ReturnType<typeof setTimeout>;
-    }
+    { reject(error: Error): void; resolve(value: unknown): void; release(): void }
   >();
   let disposed = false;
   const stops: (() => void)[] = [];
-  let content: ReturnType<typeof mountNativeContent> | undefined;
+  let content: ReturnType<typeof mountAuxiliaryWindow> | undefined;
+  const notify = (message: AuxiliaryMessage) =>
+    emitTo(owner, `content-request:${channel}`, message);
+  const close = () => {
+    if (!disposed) void notify({ version: 1, type: 'close' }).catch(console.error);
+  };
   const dispose = () => {
     if (disposed) return;
     disposed = true;
     signal.removeEventListener('abort', dispose);
+    content?.dispose();
+    pending.forEach((request, id) => {
+      void notify({ version: 1, type: 'cancel', id }).catch(() => {});
+      request.release();
+      request.reject(new Error('The content window closed.'));
+    });
+    pending.clear();
     stops
       .splice(0)
       .reverse()
       .forEach((stop) => stop());
-    content?.dispose();
-    pending.forEach((request) => {
-      clearTimeout(request.timer);
-      request.reject(new Error('The content window closed.'));
-    });
-    pending.clear();
   };
   const own = (stop: () => void) => {
     if (disposed) stop();
@@ -280,43 +324,78 @@ export async function startNativeContent(
   };
   signal.addEventListener('abort', dispose, { once: true });
   if (signal.aborted) dispose();
-  const call = (method: string, args: unknown[]): Promise<any> =>
+  const request = (command: AuxiliaryCommand, cancellation?: AbortSignal): Promise<unknown> =>
     new Promise((resolve, reject) => {
-      if (disposed) {
-        reject(new Error('The content window is closed.'));
+      if (disposed || cancellation?.aborted) {
+        reject(new Error('The content request was cancelled or closed.'));
+        return;
+      }
+      if (pending.size >= 32) {
+        reject(new Error('Too many auxiliary window requests.'));
         return;
       }
       const id = crypto.randomUUID();
-      const timer = setTimeout(() => {
+      const cancel = (reason: string) => {
+        const entry = pending.get(id);
+        if (!entry) return;
         pending.delete(id);
-        reject(new Error('The owner window did not respond.'));
-      }, 30_000);
-      pending.set(id, { resolve, reject, timer });
-      void emitTo(owner, `content-request:${channel}`, { id, method, args }).catch((error) => {
+        entry.release();
+        void notify({ version: 1, type: 'cancel', id }).catch(() => {});
+        reject(new Error(reason));
+      };
+      const abort = () => cancel('The content request was cancelled.');
+      const timer = setTimeout(
+        () => cancel('The owner window did not respond.'),
+        command.method === 'inspect' ? 10000 : 30000,
+      );
+      const release = () => {
         clearTimeout(timer);
-        pending.delete(id);
+        cancellation?.removeEventListener('abort', abort);
+      };
+      pending.set(id, { resolve, reject, release });
+      cancellation?.addEventListener('abort', abort, { once: true });
+      void notify({ version: 1, type: 'request', id, command }).catch((error) => {
+        if (!pending.delete(id)) return;
+        release();
         reject(error);
       });
     });
   try {
     own(
-      await listen<Response>(`content-response:${channel}`, ({ payload }) => {
-        const request = pending.get(payload.id);
-        if (!request) return;
-        clearTimeout(request.timer);
-        pending.delete(payload.id);
-        if (payload.error) request.reject(new Error(payload.error));
-        else request.resolve(payload.value);
+      await listen<unknown>(`content-response:${channel}`, ({ payload }) => {
+        const parsed = AuxiliaryResponseSchema.safeParse(payload);
+        if (!parsed.success) {
+          console.error('Invalid auxiliary window response:', parsed.error.message);
+          return;
+        }
+        const response = parsed.data;
+        const entry = pending.get(response.id);
+        if (!entry) return;
+        pending.delete(response.id);
+        entry.release();
+        try {
+          if ('error' in response) throw new Error(response.error);
+          entry.resolve(decodeWindowData(response.value));
+        } catch (error) {
+          entry.reject(error instanceof Error ? error : new Error(String(error)));
+        }
       }),
     );
-    let newest: ContentState | undefined;
+    let newest: AuxiliaryState | undefined;
     own(
-      await listen<ContentState>(`content-state:${channel}`, ({ payload }) => {
-        newest = payload;
-        content?.update(payload);
+      await listen<WindowData>(`content-state:${channel}`, ({ payload }) => {
+        try {
+          const state = AuxiliaryStateSchema.parse(decodeWindowData(payload));
+          if (!newest || state.revision > newest.revision) newest = state;
+          content?.update(state);
+        } catch (error) {
+          console.error('Invalid auxiliary window state:', error);
+          close();
+        }
       }),
     );
-    const initial = await call('initialize', []);
+    const initial = AuxiliaryStateSchema.parse(await request({ method: 'initialize' }));
+    if (initial.content.id !== contentId) throw new Error('Auxiliary content ID mismatch.');
     signal.throwIfAborted();
     configureDialogHost({
       create(options) {
@@ -364,32 +443,12 @@ export async function startNativeContent(
         };
       },
     });
-    content = mountNativeContent(host, initial, { call }, render);
+    content = mountAuxiliaryWindow(initial, { request, close }, render);
     if (newest) content.update(newest);
-    const commands = [
-      'new',
-      'open',
-      'open-recording',
-      'save',
-      'save-as',
-      'undo',
-      'redo',
-      'settings',
-      'about',
-      'documentation',
-    ] as const;
-    own(
-      registerWorkbenchCommands(
-        Object.fromEntries(
-          commands.map((command) => [command, () => call('menu', [command])]),
-        ) as Record<WorkbenchCommand, () => Promise<unknown>>,
-      ),
-    );
-    // Register sequentially so each acquired listener is owned even if a later registration fails.
-    for (const command of commands)
+    for (const command of WORKBENCH_COMMANDS)
       own(
         await window.listen(`menu:${command}`, () => {
-          void call('menu', [command]).catch((error) =>
+          void request({ method: 'menu', command }).catch((error) =>
             console.error('Owner command failed:', error),
           );
         }),
@@ -397,12 +456,13 @@ export async function startNativeContent(
     own(
       await window.onCloseRequested((event) => {
         event.preventDefault();
-        document.dispatchEvent(new Event('content-close-request'));
+        close();
       }),
     );
     signal.throwIfAborted();
     return dispose;
   } catch (error) {
+    if (!signal.aborted) close();
     dispose();
     throw error;
   }

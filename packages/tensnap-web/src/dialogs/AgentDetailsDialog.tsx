@@ -18,7 +18,7 @@ import { ValueInspector } from '../components/value-inspector';
 
 // Union type for all agent types
 
-interface AgentDetailsDialogProps {
+export interface AgentDetailsDialogProps {
   inspectionSource?: AgentInspectionSource;
   agent: AgentRenderState | null;
   /** Stable identity used to resolve live data while the inspector is open. */
@@ -191,7 +191,7 @@ const PositionInfo = ({
   return null;
 };
 
-function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
+export function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
   const { _ } = useLingui();
 
   const {

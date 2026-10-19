@@ -145,17 +145,29 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
   const { _ } = useLingui();
   const firstFrame = snapshot?.initial.frame ?? 0;
   const lastFrame = snapshot?.frames[snapshot.frames.length - 1]?.index ?? firstFrame;
-  const player = useMemo(
-    () => (snapshot ? new SnapshotPlaybackSource(snapshot) : null),
-    [snapshot],
-  );
+  const [frame, setFrame] = useState(firstFrame);
+  const [playing, setPlaying] = useState(false);
+  const [player, setPlayer] = useState<SnapshotPlaybackSource | null>(null);
+  const cursor = useRef({ id: snapshot?.metadata.id, frame: firstFrame });
+  useEffect(() => {
+    if (!open || !snapshot) return;
+    const source = new SnapshotPlaybackSource(snapshot);
+    const desired = cursor.current.id === snapshot.metadata.id ? cursor.current.frame : firstFrame;
+    const retained = [firstFrame, ...snapshot.frames.map((entry) => entry.index)];
+    source.seek(retained.includes(desired) ? desired : firstFrame);
+    cursor.current = { id: snapshot.metadata.id, frame: source.frame };
+    // Resource acquisition belongs to the effect: an abandoned render must not allocate Blob URLs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlayer(source);
+    setFrame(source.frame);
+    setPlaying(false);
+    return () => source.scenario.reset({ preserveTrajectoryLayers: false });
+  }, [snapshot, open, firstFrame]);
   const retainedFrames = useMemo(
     () =>
       snapshot ? [snapshot.initial.frame, ...snapshot.frames.map((frame) => frame.index)] : [],
     [snapshot],
   );
-  const [frame, setFrame] = useState(firstFrame);
-  const [playing, setPlaying] = useState(false);
   const [label, setLabel] = useState(snapshot?.metadata.label ?? '');
   const [restoreOpen, setRestoreOpen] = useState(false);
   const { saveFileAs, writeFile } = useFileSystem();
@@ -187,17 +199,21 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
     if (!open || !playing || !snapshot || !player || isStatic) return;
     const handle = window.setInterval(() => {
       const next = player.stepFrame();
-      if (next) setFrame(next.index);
+      if (next) {
+        cursor.current.frame = next.index;
+        setFrame(next.index);
+      }
       if (!next || next.index === lastFrame) setPlaying(false);
     }, 1_000 / playbackFps);
     return () => window.clearInterval(handle);
   }, [isStatic, playbackFps, player, playing, snapshot, open, lastFrame]);
 
-  if (!snapshot || !player) return null;
+  if (!open || !snapshot || !player) return null;
 
   const seekFrame = (next: number) => {
     setPlaying(false);
     player.seek(next);
+    cursor.current.frame = player.frame;
     setFrame(player.frame);
   };
   const stepFrame = (direction: -1 | 1) => {
@@ -432,7 +448,7 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
           <Dialog.Button onClick={() => void exportRecording(true)}>
             <Trans>Export current frame</Trans>
           </Dialog.Button>
-          <Dialog.Button variant="danger" onClick={onDelete} disabled={deleteDisabled}>
+          <Dialog.Button variant="danger" onClick={() => onDelete()} disabled={deleteDisabled}>
             <Trans>Delete recording</Trans>
           </Dialog.Button>
           <Dialog.Button

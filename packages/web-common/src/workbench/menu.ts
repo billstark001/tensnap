@@ -1,7 +1,6 @@
 export interface MenuController {
   element: HTMLElement;
   close(): void;
-  decorate(className: string, style?: Partial<CSSStyleDeclaration>): void;
 }
 const stack: MenuController[] = [];
 export function openMenu(
@@ -14,7 +13,6 @@ export function openMenu(
   stack[stack.length - 1]?.close();
   const element = document.createElement('div');
   element.dataset.workbenchMenu = '';
-  element.setAttribute('role', 'menu');
   element.style.left = `${x}px`;
   element.style.top = `${y}px`;
   element.tabIndex = -1;
@@ -78,10 +76,6 @@ export function openMenu(
   const controller = {
     element,
     close,
-    decorate(className: string, style?: Partial<CSSStyleDeclaration>) {
-      element.className = className;
-      Object.assign(element.style, style);
-    },
   };
   stack.push(controller);
   document.addEventListener('pointerdown', outside, true);

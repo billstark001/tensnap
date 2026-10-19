@@ -13,7 +13,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import { ContentIsland } from '../../workbench/portal-content';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { WindowTypeContext } from '../../workbench/dialog-content';
 import { getDialogHost, type ContentWindow, type WindowOptions } from '../../workbench/content';
@@ -69,15 +69,16 @@ export function Root({
   useLayoutEffect(() => {
     content?.update(options.current);
   });
-  return content ? (
-    <ContentIsland host={content.element}>
-      <DialogContainerContext.Provider value={content.element}>
-        <DialogContext.Provider value={() => onOpenChange?.(false)}>
-          {children}
-        </DialogContext.Provider>
-      </DialogContainerContext.Provider>
-    </ContentIsland>
-  ) : null;
+  return content
+    ? createPortal(
+        <DialogContainerContext.Provider value={content.element}>
+          <DialogContext.Provider value={() => onOpenChange?.(false)}>
+            {children}
+          </DialogContext.Provider>
+        </DialogContainerContext.Provider>,
+        content.element,
+      )
+    : null;
 }
 export const Description = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
   (props, ref) => {

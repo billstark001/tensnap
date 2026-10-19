@@ -1,5 +1,7 @@
 import { SelectRecordingDialogAnchor } from './dialogs/SelectRecordingDialogStore';
-import { PropsWithChildren } from 'react';
+import { useMemo, useEffect, type ReactNode, type PropsWithChildren } from 'react';
+import { DialogScopeContext, type DialogScope } from '@tensnap/web-common/workbench/dialog-content';
+import type { ProjectContextScheme } from './store/project';
 import { I18nProvider } from '@lingui/react';
 import { i18n } from '@/i18n';
 import { ScenarioStoreProvider } from '@/store/scenario/store';
@@ -12,13 +14,28 @@ import { ToastAnchor } from '@/store/toast';
 
 type ProvidersProps = PropsWithChildren;
 
-export function Providers({ children }: ProvidersProps) {
-  const activeProject = useProjectStore((store) => store.activeProject);
+import { ProjectContext } from './store/project-context';
 
-  const projectProvider = activeProject ? (
-    <ScenarioStoreProvider value={activeProject.useScenarioStore}>
-      <TransportStoreProvider value={activeProject.useTransportStore}>
-        <ScenarioUndoRedoStoreProvider value={activeProject.useUndoRedoStore}>
+function ProjectServices({
+  project,
+  children,
+  onMissing,
+}: {
+  project: ProjectContextScheme | null;
+  children: ReactNode;
+  onMissing?: () => void;
+}) {
+  const alive = useProjectStore(
+    (state) => !project || state.projects.some((entry) => entry.id === project.id),
+  );
+  useEffect(() => {
+    if (!alive) onMissing?.();
+  }, [alive, onMissing]);
+  if (!alive) return null;
+  const content = project ? (
+    <ScenarioStoreProvider value={project.useScenarioStore}>
+      <TransportStoreProvider value={project.useTransportStore}>
+        <ScenarioUndoRedoStoreProvider value={project.useUndoRedoStore}>
           {children}
         </ScenarioUndoRedoStoreProvider>
       </TransportStoreProvider>
@@ -26,14 +43,33 @@ export function Providers({ children }: ProvidersProps) {
   ) : (
     children
   );
+  return <ProjectContext.Provider value={project}>{content}</ProjectContext.Provider>;
+}
 
+export function Providers({ children }: ProvidersProps) {
+  const activeProject = useProjectStore((store) => store.activeProject);
+  const scope = useMemo(() => {
+    const value: DialogScope = {
+      id: activeProject?.id ?? null,
+      render: (content, onClose) => (
+        <DialogScopeContext.Provider value={value}>
+          <ProjectServices project={activeProject} onMissing={onClose}>
+            {content}
+          </ProjectServices>
+        </DialogScopeContext.Provider>
+      ),
+    };
+    return value;
+  }, [activeProject]);
   return (
     <I18nProvider i18n={i18n}>
-      {projectProvider}
-      <CreateNewProjectDialogAnchor />
-      <SelectRecordingDialogAnchor />
-      <DiscardProjectChangesDialog />
-      <ToastAnchor />
+      <DialogScopeContext.Provider value={scope}>
+        <ProjectServices project={activeProject}>{children}</ProjectServices>
+        <CreateNewProjectDialogAnchor />
+        <SelectRecordingDialogAnchor />
+        <DiscardProjectChangesDialog />
+        <ToastAnchor />
+      </DialogScopeContext.Provider>
     </I18nProvider>
   );
 }

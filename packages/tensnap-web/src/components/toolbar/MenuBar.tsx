@@ -84,7 +84,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
             </button>
           </DropdownMenu.Trigger>
 
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+          <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item className={styles.dropdownItem} onClick={onNewFile}>
               <Trans>New</Trans>
             </DropdownMenu.Item>
@@ -128,7 +128,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
             </button>
           </DropdownMenu.Trigger>
 
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+          <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item
               className={styles.dropdownItem}
               disabled={!history?.canUndo()}
@@ -172,7 +172,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
             </button>
           </DropdownMenu.Trigger>
 
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+          <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item className={styles.dropdownItem}>
               <Trans>Zoom In</Trans>
             </DropdownMenu.Item>
@@ -200,7 +200,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
             </button>
           </DropdownMenu.Trigger>
 
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+          <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item
               className={styles.dropdownItem}
               onClick={() => setSettingsDialogOpen(true)}
@@ -219,7 +219,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
             </button>
           </DropdownMenu.Trigger>
 
-          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+          <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleDocumentation}>
               <Trans>Documentation</Trans>
             </DropdownMenu.Item>

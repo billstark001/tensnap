@@ -1,7 +1,7 @@
 import { clearWindowPlacements } from '@tensnap/web-common/workbench/window-state';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { IPFamily } from '@tensnap/network';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useSyncExternalStore } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
@@ -12,6 +12,7 @@ import {
   useSettingsStore,
 } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
+import { useDialogProject } from '../store/project-context';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
@@ -23,6 +24,9 @@ import { listBuiltinModels } from '@/transport';
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { ipFamilyError } from '@/utils/network';
+
+const NO_SNAPSHOTS: import('@tensnap/core/snapshot').Snapshot[] = [];
+const subscribeNone = () => () => {};
 
 const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   const { _ } = useLingui();
@@ -53,14 +57,23 @@ const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }
     setActionTimeoutSeconds,
   } = useSettingsStore();
 
-  const { activeProject, activeIndex, changeSource } = useProjectStore();
+  const ownedProject = useDialogProject();
+  const projectStore = useProjectStore();
+  const activeProject = ownedProject ?? projectStore.activeProject;
+  const activeIndex = activeProject
+    ? projectStore.projects.findIndex((entry) => entry.id === activeProject.id)
+    : null;
+  const changeSource = projectStore.changeSource;
   const activeProjectId = activeProject?.id ?? null;
   const currentProjectSource = useMemo<ProjectSource>(
     () => activeProject?.source ?? { kind: 'websocket', url: 'ws://localhost:8765' },
     [activeProject?.source],
   );
   const builtinModels = useMemo(() => listBuiltinModels(), []);
-  const snapshots = activeProject?.useScenarioStore.getState().snapshots ?? [];
+  const snapshots = useSyncExternalStore(
+    activeProject?.useScenarioStore.subscribe ?? subscribeNone,
+    () => activeProject?.useScenarioStore.getState().snapshots ?? NO_SNAPSHOTS,
+  );
 
   // Project settings local state
   const [projectDraft, setProjectDraft] = useState(() => ({

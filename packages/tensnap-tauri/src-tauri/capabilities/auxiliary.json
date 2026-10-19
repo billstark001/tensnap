@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "auxiliary",
+  "description": "Read-only tools can exchange bounded messages with their main owner and update their own title.",
+  "windows": ["dialog-*"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:event:allow-emit-to",
+    "core:window:allow-set-title"
+  ],
+  "platforms": ["linux", "macOS", "windows"]
+}

@@ -26,7 +26,7 @@ Each auxiliary Webview uses its bootstrap React root for all business content. P
 
 ## Registration
 
-`TauriApp.tsx` configures persistence before hydrating shared settings, then registers the filesystem adapter and picker:
+Only the main `TauriApp.tsx` bootstrap configures persistence and hydrates settings, then registers the filesystem adapter and picker:
 
 ```ts
 configureSettingsPersistence(new TauriSettingsPersistence());
@@ -49,3 +49,5 @@ cd packages/tensnap-tauri/src-tauri && cargo check
 ```
 
 When adding an adapter API, prefer the official Tauri plugin API. If a custom Rust command is unavoidable, it must not accept arbitrary paths; enforce a canonical, symlink-safe, session-scoped allowlist and update the capability documentation and tests in the same change.
+
+Read-only auxiliary tools do not initialize these adapters, mirror writable stores, or receive file/settings capabilities. Their only authority is the validated data/command protocol described in the [workbench guide](../../../../docs/maintainer-guide/workbench-infrastructure.md).

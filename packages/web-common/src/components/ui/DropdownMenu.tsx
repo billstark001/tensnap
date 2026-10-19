@@ -17,7 +17,6 @@ import { openMenu, type MenuController } from '../../workbench/menu';
 interface MenuContextValue {
   show(x: number, y: number, focus: HTMLElement | null): void;
   close(): void;
-  decorate(className: string, style?: React.CSSProperties): void;
   element: HTMLElement | null;
 }
 export const MenuContext = createContext<MenuContextValue>(null!);
@@ -29,8 +28,6 @@ export function Root({ children }: { children: ReactNode }) {
     <MenuContext.Provider
       value={{
         element,
-        decorate: (className, style) =>
-          controller.current?.decorate(className, style as Partial<CSSStyleDeclaration>),
         close: () => controller.current?.close(),
         show: (x, y, focus) => {
           controller.current?.close();
@@ -49,7 +46,8 @@ export function Trigger({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) {
   const menu = useContext(MenuContext);
-  const onClick: ButtonHTMLAttributes<HTMLButtonElement>['onClick'] = (event) => {
+  const toggle = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (event.defaultPrevented) return;
     if (menu.element) {
       menu.close();
       return;
@@ -57,33 +55,47 @@ export function Trigger({
     const rect = event.currentTarget.getBoundingClientRect();
     menu.show(rect.left, rect.bottom + 5, event.currentTarget);
   };
-  const attributes = {
+  const child =
+    asChild && isValidElement(children)
+      ? (children as ReactElement<ButtonHTMLAttributes<HTMLButtonElement>>)
+      : undefined;
+  const attributes: ButtonHTMLAttributes<HTMLButtonElement> = {
     ...props,
-    onClick,
-    'aria-haspopup': 'menu' as const,
+    onClick: (event) => {
+      child?.props.onClick?.(event);
+      if (!event.defaultPrevented) props.onClick?.(event);
+      toggle(event);
+    },
+    onKeyDown: (event) => {
+      child?.props.onKeyDown?.(event);
+      if (!event.defaultPrevented) props.onKeyDown?.(event);
+      if (event.defaultPrevented || (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')) return;
+      event.preventDefault();
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (!menu.element) menu.show(rect.left, rect.bottom + 5, event.currentTarget);
+    },
+    'aria-haspopup': 'menu',
     'aria-expanded': !!menu.element,
   };
-  if (asChild && isValidElement(children))
-    return cloneElement(
-      children as ReactElement<ButtonHTMLAttributes<HTMLButtonElement>>,
-      attributes,
-    );
-  return (
+  return child ? (
+    cloneElement(child, attributes)
+  ) : (
     <button type="button" {...attributes}>
       {children}
     </button>
   );
 }
-export function Content({
-  sideOffset: _sideOffset,
-  children,
-  ...props
-}: HTMLAttributes<HTMLDivElement> & { sideOffset?: number }) {
+/** Actual HTML attributes belong to the rendered menu, rather than a compatibility facade. */
+export function Content({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
   const menu = useContext(MenuContext);
-  useEffect(() => {
-    menu.decorate(props.className ?? '', props.style);
-  }, [menu.element, props.className, props.style]);
-  return menu.element ? createPortal(children, menu.element) : null;
+  return menu.element
+    ? createPortal(
+        <div {...props} role="menu">
+          {children}
+        </div>,
+        menu.element,
+      )
+    : null;
 }
 export const Item = forwardRef<
   HTMLButtonElement,
@@ -99,7 +111,9 @@ export const Item = forwardRef<
       tabIndex={-1}
       ref={ref}
       onClick={(event) => {
+        event.stopPropagation();
         onClick?.(event);
+        if (event.defaultPrevented) return;
         const selection = new Event('select', { cancelable: true });
         onSelect?.(selection);
         if (!event.defaultPrevented && !selection.defaultPrevented) menu.close();

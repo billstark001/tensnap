@@ -1,13 +1,11 @@
-import React from 'react';
 import { useEffect, useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import { createSplit } from '@tensnap/web-common/workbench/layout';
 import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
-import { configureDialogHost, mountContent } from '@tensnap/web-common/workbench/content';
+import { configureDialogHost } from '@tensnap/web-common/workbench/content';
 // Controllers are intentionally plain DOM; these tests run in jsdom, with no browser/desktop input.
-import { defineDialog, dialogContent } from '@tensnap/web-common/workbench/dialog-content';
 import { openMenu } from '../../../web-common/src/workbench/menu';
 afterEach(() =>
   document.querySelectorAll('[data-workbench-menu]').forEach((node) => node.remove()),
@@ -94,63 +92,6 @@ it('supports DOM menu navigation, disabled items, typeahead, replacement and ret
   expect(document.activeElement).toBe(trigger);
   expect(next.element.isConnected).toBe(false);
   trigger.remove();
-});
-
-it('owns mount/update/resize/visibility/dispose notifications for every host', () => {
-  let notify!: ResizeObserverCallback;
-  const disconnect = vi.fn();
-  const resize = vi.fn();
-  const visibility = vi.fn();
-  const update = vi.fn();
-  const dispose = vi.fn();
-  vi.stubGlobal(
-    'ResizeObserver',
-    class {
-      constructor(callback: ResizeObserverCallback) {
-        notify = callback;
-      }
-      observe() {}
-      disconnect = disconnect;
-    },
-  );
-  try {
-    const mount = vi.fn(() => ({ update, resize, visibility, dispose }));
-    const host = document.createElement('div');
-    const instance = mountContent({ mount }, host, { id: 1 }, false);
-    expect(mount).toHaveBeenCalledWith(host, { id: 1 });
-    expect(visibility).toHaveBeenCalledWith(false);
-    notify(
-      [{ contentRect: { width: 320, height: 200 } }] as ResizeObserverEntry[],
-      {} as ResizeObserver,
-    );
-    expect(resize).toHaveBeenCalledWith(320, 200);
-    instance.update({ id: 2 });
-    instance.setVisible(true);
-    expect(update).toHaveBeenCalledWith({ id: 2 });
-    expect(visibility).toHaveBeenLastCalledWith(true);
-    instance.dispose();
-    instance.dispose();
-    instance.update({ id: 3 });
-    expect(disconnect).toHaveBeenCalledTimes(1);
-    expect(dispose).toHaveBeenCalledTimes(1);
-    expect(update).toHaveBeenCalledTimes(1);
-  } finally {
-    vi.unstubAllGlobals();
-  }
-});
-
-it('updates a stable content ID when its module definition is registered again', () => {
-  const First = () => <span>First</span>;
-  const Current = () => <span>Current</span>;
-  defineDialog('hot-content-test', First);
-  expect(
-    render(React.createElement(dialogContent('hot-content-test'))).getByText('First'),
-  ).toBeTruthy();
-  defineDialog('hot-content-test', Current);
-  expect(
-    render(React.createElement(dialogContent('hot-content-test'))).getByText('Current'),
-  ).toBeTruthy();
-  expect(() => dialogContent('missing-content-test')).toThrow('Unknown dialog content');
 });
 
 it('dismisses the focused nonmodal window without trapping focus in a different window', async () => {
@@ -262,4 +203,63 @@ it('keeps explicit modal confirmations keyboard-modal without enabling the WinBo
   } finally {
     window.dispose();
   }
+});
+
+it('forwards real menu attributes and composes trigger handlers without losing cancellation', async () => {
+  const Menu = await import('@tensnap/web-common/components/ui/DropdownMenu');
+  const childClick = vi.fn(),
+    triggerClick = vi.fn(),
+    key = vi.fn(),
+    selected = vi.fn();
+  render(
+    <Menu.Root>
+      <Menu.Trigger asChild onClick={triggerClick}>
+        <button onClick={childClick}>Actions</button>
+      </Menu.Trigger>
+      <Menu.Content
+        id="actions-menu"
+        aria-label="Actions menu"
+        data-review="forwarded"
+        onKeyDown={key}
+      >
+        <Menu.Item disabled onSelect={selected}>
+          Disabled action
+        </Menu.Item>
+        <Menu.Item onSelect={selected}>Perform action</Menu.Item>
+      </Menu.Content>
+    </Menu.Root>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Actions' }));
+  expect(childClick).toHaveBeenCalledTimes(1);
+  expect(triggerClick).toHaveBeenCalledTimes(1);
+  const menu = screen.getByRole('menu', { name: 'Actions menu' });
+  expect(menu.id).toBe('actions-menu');
+  expect(menu.dataset.review).toBe('forwarded');
+  fireEvent.keyDown(menu, { key: 'F8' });
+  expect(key).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Disabled action' }));
+  expect(selected).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('menuitem', { name: 'Perform action' }));
+  expect(selected).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('menu')).toBeNull();
+});
+it('honors a child trigger cancellation and opens menus from the keyboard', async () => {
+  const Menu = await import('@tensnap/web-common/components/ui/DropdownMenu');
+  render(
+    <Menu.Root>
+      <Menu.Trigger asChild>
+        <button onClick={(event) => event.preventDefault()}>Keyboard actions</button>
+      </Menu.Trigger>
+      <Menu.Content>
+        <Menu.Item>Choice</Menu.Item>
+      </Menu.Content>
+    </Menu.Root>,
+  );
+  const trigger = screen.getByRole('button', { name: 'Keyboard actions' });
+  fireEvent.click(trigger);
+  expect(screen.queryByRole('menu')).toBeNull();
+  fireEvent.keyDown(trigger, { key: 'ArrowDown' });
+  await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Choice' })).toHaveFocus());
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(trigger).toHaveFocus();
 });

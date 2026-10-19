@@ -27,7 +27,7 @@ function ConfirmDialogContent({
       <Dialog.Description>{description}</Dialog.Description>
       <Dialog.Footer>
         <Dialog.Button onClick={() => onOpenChange(false)}>{cancelLabel}</Dialog.Button>
-        <Dialog.Button variant={confirmVariant} onClick={onConfirm}>
+        <Dialog.Button variant={confirmVariant} onClick={() => onConfirm()}>
           {confirmLabel}
         </Dialog.Button>
       </Dialog.Footer>

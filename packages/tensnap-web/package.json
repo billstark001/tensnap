@@ -10,6 +10,10 @@
     "./i18n": "./src/i18n.ts",
     "./store": "./src/store/index.ts",
     "./benchmark": "./src/benchmark.tsx",
+    "./auxiliary-owner": "./src/workbench/auxiliary-owner.ts",
+    "./auxiliary-content": "./src/workbench/auxiliary-content.tsx",
+    "./auxiliary-protocol": "./src/workbench/auxiliary-protocol.ts",
+    "./commands": "./src/workbench/commands.ts",
     "./file-operations": "./src/components/toolbar/useFileOperations.ts"
   },
   "scripts": {

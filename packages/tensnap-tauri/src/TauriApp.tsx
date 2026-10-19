@@ -2,6 +2,8 @@ import {
   configureSettingsPersistence,
   getSettingsPersistence,
 } from '@tensnap/web-common/settings-persistence';
+import { configureDialogHost } from '@tensnap/web-common/workbench/content';
+import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
 import { installNativeWindows, startNativeContent } from './workbench/native-windows';
 import { useTauriFileDrop } from './hooks/useTauriFileDrop';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -26,9 +28,12 @@ const TauriMenuEventsLoader = () => {
   return null;
 };
 
-configureSettingsPersistence(new TauriSettingsPersistence());
 const auxiliary = new URLSearchParams(location.search).has('content');
-installNativeWindows();
+if (!auxiliary) {
+  configureSettingsPersistence(new TauriSettingsPersistence());
+  configureDialogHost(createWinBoxHost());
+  installNativeWindows();
+}
 
 async function isDarkMode() {
   const theme = await getCurrentWindow().theme();
@@ -37,6 +42,10 @@ async function isDarkMode() {
 
 let initialization: Promise<string> | undefined;
 async function initializeTauriServices(): Promise<string> {
+  if (auxiliary) {
+    registerTauriLocaleCatalog();
+    return 'auxiliary';
+  }
   registerDefaultModels();
   registerTauriLocaleCatalog();
   const osName = await getOsName();
@@ -81,6 +90,7 @@ export const TauriApp: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (auxiliary) return;
     const window = getCurrentWindow();
     let disposed = false;
 
@@ -131,8 +141,8 @@ export const TauriApp: React.FC = () => {
     if (!isReady || error || !auxiliary) return;
     const controller = new AbortController();
     let stop: (() => void) | undefined;
-    void startNativeContent(document.getElementById('root')!, controller.signal, (content) => {
-      if (!controller.signal.aborted) setNativeContent(content);
+    void startNativeContent(controller.signal, (content) => {
+      if (content === null || !controller.signal.aborted) setNativeContent(content);
     }).then(
       (dispose) => {
         if (controller.signal.aborted) dispose();

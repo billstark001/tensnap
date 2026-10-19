@@ -1,81 +1,66 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useLayoutEffect,
-  StrictMode,
-  type ReactNode,
-} from 'react';
+import { Activity, createContext, useContext, useEffect, StrictMode, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as ReactDOMClient from 'react-dom/client';
 import { act, fireEvent, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
-import { reactContent } from '@tensnap/web-common/workbench/dialog-content';
-import { mountContent } from '@tensnap/web-common/workbench/content';
 
-vi.mock('react-dom/client', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('react-dom/client')>();
+vi.mock('react-dom/client', async (original) => {
+  const actual = await original<typeof import('react-dom/client')>();
   return { ...actual, createRoot: vi.fn(actual.createRoot) };
 });
 
-it('mounts, updates and disposes native business content through the existing root without losing context or drafts', () => {
-  const roots = vi.mocked(ReactDOMClient.createRoot);
-  roots.mockClear();
+it('keeps one root, inherited context and drafts while portals update and hidden panels pause effects', async () => {
   const Context = createContext('missing');
-  let publish!: (node: ReactNode) => void;
-  function Owner() {
-    const [content, setContent] = useState<ReactNode>(null);
-    useLayoutEffect(() => {
-      publish = setContent;
+  const effect = vi.fn(),
+    cleanup = vi.fn();
+  const host = document.createElement('div');
+  const container = document.createElement('div');
+  document.body.append(container, host);
+  function Business() {
+    const [draft, setDraft] = useState('initial');
+    useEffect(() => {
+      effect();
+      return cleanup;
     }, []);
     return (
-      <Context.Provider value="owner context">
-        <button>Bootstrap stays mounted</button>
-        {content}
-      </Context.Provider>
-    );
-  }
-  function Business({ title }: { title: string }) {
-    return (
       <>
-        <p>
-          {title}: {useContext(Context)}
-        </p>
-        <input aria-label="Draft" defaultValue="initial" />
+        <p>{useContext(Context)}</p>
+        <input
+          aria-label="Draft"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
       </>
     );
   }
-  const container = document.createElement('div');
-  document.body.append(container);
+  const createRoot = vi.mocked(ReactDOMClient.createRoot);
+  createRoot.mockClear();
   const root = ReactDOMClient.createRoot(container);
-  act(() =>
-    root.render(
-      <StrictMode>
-        <Owner />
-      </StrictMode>,
-    ),
+  const view = (visible: boolean, context: string) => (
+    <StrictMode>
+      <Context.Provider value={context}>
+        <Activity mode={visible ? 'visible' : 'hidden'}>
+          {createPortal(<Business />, host)}
+        </Activity>
+      </Context.Provider>
+    </StrictMode>
   );
-  let content!: ReturnType<typeof mountContent<{ title: string }>>;
   try {
-    const definition = reactContent(
-      Business,
-      (node) => node,
-      (node) => publish(node),
-    );
-    act(() => {
-      content = mountContent(definition, container, { title: 'First' });
-    });
+    await act(async () => root.render(view(true, 'first')));
     fireEvent.change(screen.getByRole('textbox', { name: 'Draft' }), {
       target: { value: 'unsaved' },
     });
-    act(() => content.update({ title: 'Second' }));
-    expect(screen.getByText('Second: owner context')).toBeTruthy();
+    await act(async () => root.render(view(false, 'second')));
+    const stopped = cleanup.mock.calls.length;
+    expect(stopped).toBeGreaterThan(0);
+    await act(async () => root.render(view(true, 'second')));
+    expect(screen.getByText('second')).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Draft' })).toHaveValue('unsaved');
-    expect(roots).toHaveBeenCalledTimes(1);
-    act(() => content.dispose());
-    expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.getByRole('button', { name: 'Bootstrap stays mounted' })).toBeTruthy();
+    expect(effect.mock.calls.length).toBeGreaterThan(stopped);
+    expect(createRoot).toHaveBeenCalledTimes(1);
   } finally {
     act(() => root.unmount());
+    host.remove();
     container.remove();
   }
 });

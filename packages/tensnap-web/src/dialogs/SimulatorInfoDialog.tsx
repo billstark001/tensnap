@@ -17,14 +17,12 @@ export interface SimulatorInfoDialogProps {
 }
 
 /** Immutable session identity and mutable scenario metadata in one safe view. */
-function SimulatorInfoDialogContent({
+function LocalSimulatorInfoDialog({
   open,
   onOpenChange,
   simulatorInfo,
   scenario,
 }: SimulatorInfoDialogProps) {
-  const { _ } = useLingui();
-
   const [metadataRevision, setMetadataRevision] = useState(0);
   useEffect(() => {
     if (!open || !scenario) return;
@@ -42,13 +40,31 @@ function SimulatorInfoDialogContent({
       scenario.removeEventListener('metadata:update', schedule);
     };
   }, [open, scenario]);
-  const info = simulatorInfo;
-  // The core session normalizes handshake data, while this guard also keeps
-  // this diagnostic dialog safe when it is rendered with externally supplied
-  // simulator info.
-  const capabilities = Array.isArray(info?.capabilities) ? info.capabilities : [];
   void metadataRevision;
-  const metadata = scenario?.metadata ?? {};
+  return (
+    <SimulatorInfoDialogContent
+      open={open}
+      onOpenChange={onOpenChange}
+      simulatorInfo={simulatorInfo}
+      metadata={scenario?.metadata ?? {}}
+    />
+  );
+}
+
+export function SimulatorInfoDialogContent({
+  open,
+  onOpenChange,
+  simulatorInfo,
+  metadata,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  simulatorInfo: SimulatorInfoPayload | null;
+  metadata: Scenario['metadata'];
+}) {
+  const { _ } = useLingui();
+  const info = simulatorInfo;
+  const capabilities = Array.isArray(info?.capabilities) ? info.capabilities : [];
   return (
     <Dialog.Root
       title={_(msg`Simulator information`)}
@@ -151,7 +167,7 @@ function SimulatorInfoDialogContent({
   );
 }
 
-export const SimulatorInfoDialog = defineDialog('SimulatorInfoDialog', SimulatorInfoDialogContent, {
+export const SimulatorInfoDialog = defineDialog('SimulatorInfoDialog', LocalSimulatorInfoDialog, {
   width: 680,
   height: 560,
   minWidth: 400,

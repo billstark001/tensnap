@@ -2,10 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
   "description": "Minimum desktop permissions for user-selected files, settings, and the application menu.",
-  "windows": [
-    "main",
-    "dialog-*"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:window:allow-theme",
     "core:event:allow-listen",
@@ -36,9 +33,5 @@
     "store:allow-keys",
     "core:window:allow-available-monitors"
   ],
-  "platforms": [
-    "linux",
-    "macOS",
-    "windows"
-  ]
+  "platforms": ["linux", "macOS", "windows"]
 }
