@@ -24,9 +24,18 @@ if __name__ == "__main__":
     parser.add_argument("--encoding", choices=("json", "msgpack"), default="json")
     parser.add_argument("--no-collect-data", action="store_true")
     args = parser.parse_args()
-    asyncio.run(run_schelling_server(
-        model_kwargs={"width": args.width, "height": args.height,
-                      "density": args.density, "balance": args.balance,
-                      "similarity_threshold": args.threshold, "rng": args.seed,
-                      "collect_data": not args.no_collect_data},
-        server_port=args.port, use_msgpack=args.encoding == "msgpack"))
+    asyncio.run(
+        run_schelling_server(
+            model_kwargs={
+                "width": args.width,
+                "height": args.height,
+                "density": args.density,
+                "balance": args.balance,
+                "similarity_threshold": args.threshold,
+                "rng": args.seed,
+                "collect_data": not args.no_collect_data,
+            },
+            server_port=args.port,
+            use_msgpack=args.encoding == "msgpack",
+        )
+    )

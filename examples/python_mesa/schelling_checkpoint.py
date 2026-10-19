@@ -19,21 +19,28 @@ def _tuples(value):
 
 def capture_checkpoint(model: SchellingModel) -> dict:
     return {
-        "width": model.width, "height": model.height,
-        "density": model.density, "balance": model.balance,
+        "width": model.width,
+        "height": model.height,
+        "density": model.density,
+        "balance": model.balance,
         "similarity_threshold": model.similarity_threshold,
         "collect_data": model.collect_data,
-        "time": model.tick, "running": model.running,
+        "time": model.tick,
+        "running": model.running,
         "last_swapped": model.last_swapped,
         "random_state": model.random.getstate(),
         # PCG64 has 128-bit integers, which MessagePack cannot encode directly.
         "numpy_state_json": json.dumps(model.rng.bit_generator.state),
-        "agents": [{"id": a.unique_id, "coordinate": list(a.cell.coordinate),
-                    "group": a.group} for a in model.agents],
+        "agents": [
+            {"id": a.unique_id, "coordinate": list(a.cell.coordinate), "group": a.group}
+            for a in model.agents
+        ],
         "collector": {
             "model_vars": copy.deepcopy(model.datacollector.model_vars),
             "collection_steps": list(model.datacollector._collection_steps),
-            "agent_records": {str(k): v for k, v in model.datacollector._agent_records.items()},
+            "agent_records": {
+                str(k): v for k, v in model.datacollector._agent_records.items()
+            },
         },
     }
 
@@ -52,10 +59,16 @@ def restore_checkpoint(model: SchellingModel, saved: dict) -> None:
         positions.add((x, y))
 
     cleanup_mesa_model_step(model)
-    type(model).__init__(model, width=width, height=height, density=0,
-                         balance=float(saved["balance"]),
-                         similarity_threshold=float(saved["similarity_threshold"]),
-                         collect_data=False, rng=0)
+    type(model).__init__(
+        model,
+        width=width,
+        height=height,
+        density=0,
+        balance=float(saved["balance"]),
+        similarity_threshold=float(saved["similarity_threshold"]),
+        collect_data=False,
+        rng=0,
+    )
     for agent in saved["agents"]:
         x, y = agent["coordinate"]
         SchellingAgent(model, model.grid[(x, y)], int(agent["group"]))
@@ -69,7 +82,11 @@ def restore_checkpoint(model: SchellingModel, saved: dict) -> None:
     model.last_swapped = int(saved["last_swapped"])
     model.running = bool(saved["running"])
     collector = saved["collector"]
-    model.datacollector.model_vars = {k: list(v) for k, v in collector["model_vars"].items()}
+    model.datacollector.model_vars = {
+        k: list(v) for k, v in collector["model_vars"].items()
+    }
     model.datacollector._collection_steps = list(collector["collection_steps"])
-    model.datacollector._agent_records = {float(k): [tuple(v) for v in records]
-                                          for k, records in collector["agent_records"].items()}
+    model.datacollector._agent_records = {
+        float(k): [tuple(v) for v in records]
+        for k, records in collector["agent_records"].items()
+    }

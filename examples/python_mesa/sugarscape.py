@@ -16,7 +16,6 @@ from tensnap import (
 
 @agent(x="cell.coordinate[0]", y="cell.coordinate[1]")
 class SugarAgent(CellAgent):
-
     model: "Sugarscape"
     cell: Cell
 
@@ -58,17 +57,17 @@ class SugarAgent(CellAgent):
             return False
 
         possible_moves = [
-            cell
-            for cell in neighbors
-            if cell in neighbors_sugar and cell.is_empty
+            cell for cell in neighbors if cell in neighbors_sugar and cell.is_empty
         ]
         np.random.shuffle(possible_moves)
         if not possible_moves:
             return False
         new_pos = min(
             possible_moves,
-            key=lambda cell: abs(cell.coordinate[0] - max_sugar.coordinate[0])
-            + abs(cell.coordinate[1] - max_sugar.coordinate[1]),
+            key=lambda cell: (
+                abs(cell.coordinate[0] - max_sugar.coordinate[0])
+                + abs(cell.coordinate[1] - max_sugar.coordinate[1])
+            ),
         )
         self.cell = new_pos
         return True
@@ -156,7 +155,6 @@ def sugar_field_circular(width: int, height: int):
 @bind_kwargs()
 @bind_datacollector()
 class Sugarscape(Model):
-
     z_agents = 50
     z_sugar = 0
     t_length = 2

@@ -79,7 +79,9 @@ class DiscreteHKModel:
             "color": (
                 "#E74C3C"
                 if opinion < -0.33
-                else "#2ECC71" if opinion > 0.33 else "#F1C40F"
+                else "#2ECC71"
+                if opinion > 0.33
+                else "#F1C40F"
             ),
             "size": 0.5 + abs(opinion) * 2,
         }

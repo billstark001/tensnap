@@ -106,40 +106,46 @@ def test_evidence_summary_is_derived_from_episode_rows() -> None:
     policies = ("dqn", "no-guide", "random", "safe-heuristic")
     for policy in policies:
         for index in range(100):
-            rows.append({
-                "cohort": "reference-100",
-                "policy": policy,
-                "trainingSeed": 7 if policy == "dqn" else None,
-                "reward": 1.0,
-                "evacuated": 20,
-                "dead": 3,
-                "unresolved": 5,
-                "steps": 50,
-            })
+            rows.append(
+                {
+                    "cohort": "reference-100",
+                    "policy": policy,
+                    "trainingSeed": 7 if policy == "dqn" else None,
+                    "reward": 1.0,
+                    "evacuated": 20,
+                    "dead": 3,
+                    "unresolved": 5,
+                    "steps": 50,
+                }
+            )
     for seed in (7, 11, 23, 37, 53):
         for _ in range(500):
-            rows.append({
-                "cohort": "stability-500",
-                "policy": "dqn",
-                "trainingSeed": seed,
-                "reward": 1.0,
-                "evacuated": seed,
-                "dead": 0,
-                "unresolved": 0,
-                "steps": 20,
-            })
+            rows.append(
+                {
+                    "cohort": "stability-500",
+                    "policy": "dqn",
+                    "trainingSeed": seed,
+                    "reward": 1.0,
+                    "evacuated": seed,
+                    "dead": 0,
+                    "unresolved": 0,
+                    "steps": 20,
+                }
+            )
     for policy in ("no-guide", "random", "safe-heuristic"):
         for _ in range(500):
-            rows.append({
-                "cohort": "stability-500",
-                "policy": policy,
-                "trainingSeed": None,
-                "reward": 1.0,
-                "evacuated": 20,
-                "dead": 3,
-                "unresolved": 5,
-                "steps": 50,
-            })
+            rows.append(
+                {
+                    "cohort": "stability-500",
+                    "policy": policy,
+                    "trainingSeed": None,
+                    "reward": 1.0,
+                    "evacuated": 20,
+                    "dead": 3,
+                    "unresolved": 5,
+                    "steps": 50,
+                }
+            )
 
     summary = _derive_summary(rows)
 

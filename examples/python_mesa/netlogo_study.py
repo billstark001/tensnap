@@ -72,17 +72,23 @@ def import_pynetlogo() -> Any:
 
             return pynetlogo
         except ImportError as exc:
-            raise SystemExit("PyNetLogo and NetLogo are required for this example.") from exc
+            raise SystemExit(
+                "PyNetLogo and NetLogo are required for this example."
+            ) from exc
 
 
 def parse_thresholds(raw: str) -> tuple[float, ...]:
     thresholds = tuple(float(item.strip()) for item in raw.split(",") if item.strip())
     if not thresholds or any(value < 0 or value > 1 for value in thresholds):
-        raise argparse.ArgumentTypeError("thresholds must contain values from 0 through 1")
+        raise argparse.ArgumentTypeError(
+            "thresholds must contain values from 0 through 1"
+        )
     return thresholds
 
 
-def add_study_arguments(parser: argparse.ArgumentParser, *, default_model_path: Path) -> None:
+def add_study_arguments(
+    parser: argparse.ArgumentParser, *, default_model_path: Path
+) -> None:
     parser.add_argument("--model-path", default=str(default_model_path))
     parser.add_argument("--netlogo-home", default=None)
     parser.add_argument("--density", type=float, default=DEFAULT_DENSITY)
@@ -91,13 +97,21 @@ def add_study_arguments(parser: argparse.ArgumentParser, *, default_model_path: 
     parser.add_argument("--warmup-steps", type=int, default=0)
     parser.add_argument("--seeds", type=int, default=8)
     parser.add_argument("--seed", type=int, default=7)
-    parser.add_argument("--thresholds", type=parse_thresholds, default=parse_thresholds(DEFAULT_THRESHOLDS))
-    parser.add_argument("--mode", choices=("steady", "convergence"), default="convergence")
+    parser.add_argument(
+        "--thresholds",
+        type=parse_thresholds,
+        default=parse_thresholds(DEFAULT_THRESHOLDS),
+    )
+    parser.add_argument(
+        "--mode", choices=("steady", "convergence"), default="convergence"
+    )
 
 
 def options_from_args(args: argparse.Namespace) -> NetLogoStudyOptions:
     if args.steps <= 0 or args.seeds <= 0 or args.warmup_steps < 0:
-        raise SystemExit("--steps and --seeds must be positive; --warmup-steps must be non-negative")
+        raise SystemExit(
+            "--steps and --seeds must be positive; --warmup-steps must be non-negative"
+        )
     if not 0 <= args.density <= 1 or not 0 <= args.balance <= 1:
         raise SystemExit("--density and --balance must be values from 0 through 1")
     return NetLogoStudyOptions(
@@ -128,12 +142,16 @@ def run_trial(
     balance: float,
     mode: str,
 ) -> TrialResult:
-    workspace.command(" ".join([
-        f"set density {netlogo_number(density)}",
-        f"set balance {netlogo_number(balance)}",
-        f"set similarity-threshold {netlogo_number(threshold)}",
-        f"set seed {seed}",
-    ]))
+    workspace.command(
+        " ".join(
+            [
+                f"set density {netlogo_number(density)}",
+                f"set balance {netlogo_number(balance)}",
+                f"set similarity-threshold {netlogo_number(threshold)}",
+                f"set seed {seed}",
+            ]
+        )
+    )
     workspace.command("setup")
     started_ns = time.perf_counter_ns()
     if mode == "steady":
@@ -168,24 +186,29 @@ def run_study(workspace: Any, options: NetLogoStudyOptions) -> StudyResult:
     rows: list[StudyRow] = []
     all_trials: list[TrialResult] = []
     for threshold in options.thresholds:
-        trials = [run_trial(
-            workspace,
-            threshold=threshold,
-            seed=options.seed + offset,
-            steps=options.steps,
-            density=options.density,
-            balance=options.balance,
-            mode=options.mode,
-        ) for offset in range(options.seeds)]
+        trials = [
+            run_trial(
+                workspace,
+                threshold=threshold,
+                seed=options.seed + offset,
+                steps=options.steps,
+                density=options.density,
+                balance=options.balance,
+                mode=options.mode,
+            )
+            for offset in range(options.seeds)
+        ]
         all_trials.extend(trials)
-        rows.append(StudyRow(
-            threshold=threshold,
-            mean_satisfied=mean(trial.satisfied for trial in trials),
-            mean_segregation=mean(trial.segregation for trial in trials),
-            mean_last_swapped=mean(trial.last_swapped for trial in trials),
-            mean_steps=mean(trial.steps_run for trial in trials),
-            converged_runs=sum(trial.converged for trial in trials),
-        ))
+        rows.append(
+            StudyRow(
+                threshold=threshold,
+                mean_satisfied=mean(trial.satisfied for trial in trials),
+                mean_segregation=mean(trial.segregation for trial in trials),
+                mean_last_swapped=mean(trial.last_swapped for trial in trials),
+                mean_steps=mean(trial.steps_run for trial in trials),
+                converged_runs=sum(trial.converged for trial in trials),
+            )
+        )
     total_ticks = sum(trial.steps_run for trial in all_trials)
     return StudyResult(
         options=options,
@@ -208,7 +231,9 @@ def create_workspace(py_netlogo: Any, options: NetLogoStudyOptions) -> Any:
 
 
 def format_study_csv(result: StudyResult) -> str:
-    lines = ["threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs"]
+    lines = [
+        "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs"
+    ]
     lines.extend(
         f"{row.threshold:.2f},{row.mean_satisfied:.4f},{row.mean_segregation:.4f},"
         f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.converged_runs}"
@@ -217,8 +242,10 @@ def format_study_csv(result: StudyResult) -> str:
     elapsed_ms = result.total_elapsed_ns / 1_000_000
     tpms = 0.0 if elapsed_ms == 0 else result.total_ticks / elapsed_ms
     mspt = 0.0 if result.total_ticks == 0 else elapsed_ms / result.total_ticks
-    lines.extend([
-        "performance_metric,total_ticks,elapsed_ms,tpms,mspt",
-        f"performance,{result.total_ticks},{elapsed_ms:.3f},{tpms:.6f},{mspt:.6f}",
-    ])
+    lines.extend(
+        [
+            "performance_metric,total_ticks,elapsed_ms,tpms,mspt",
+            f"performance,{result.total_ticks},{elapsed_ms:.3f},{tpms:.6f},{mspt:.6f}",
+        ]
+    )
     return "\n".join(lines)
