@@ -3,6 +3,8 @@
 Run from the repository root:
 
 ```sh
+pnpm check:versions
+pnpm --filter @tensnap/agent skills:check
 pnpm --filter @tensnap/core test
 pnpm --filter @tensnap/web test
 pnpm --filter @tensnap/web-adapter test
@@ -19,7 +21,7 @@ The recording workflow starts a real seeded Schelling WebSocket model and built 
 
 See [workbench infrastructure](workbench-infrastructure.md) for creation and synchronization contracts. Root-lifecycle tests verify one caller-owned root, inherited context and persistent drafts. Retarget tests verify that an already-open inspector switches agent without a full dump. Menu tests stub browser/native capabilities; they never open a real browser.
 
-Web tests cover both file encodings, batch import into an empty tab, destination capture across tab switches, project recording extraction without connecting a source, duplicate/corrupt-file isolation, and undo. The native integration test mocks only the Tauri SDK and canvas, and exercises real owner, protocol, receiver and UI content across JSON IPC. Lifecycle tests additionally cover listener-before-window ordering, initialization failure, cancellation and disposal. Protocol tests reject callbacks/services/events and preserve binary and tagged user data. Scope tests verify local confirmations and project-bound mutations after switching tabs. Inspection tests forbid full-scene dumps and compare payload size for 1,000 and 100,000 agents with the same visible region.
+Web tests cover both file encodings, batch import into an empty tab, destination capture across tab switches, project recording extraction without connecting a source, duplicate/corrupt-file isolation, and undo. The native integration test mocks only the Tauri SDK and canvas, and exercises real owner, protocol, receiver and UI content across JSON IPC. Lifecycle tests additionally cover listener-before-window ordering, initialization failure, malformed packets, cancellation/deadlines, coalescing during slow delivery, throwing close callbacks and disposal. Load-failure tests verify that revision acknowledgement follows successful scene loading and retries terminate. Protocol tests reject callbacks/services/events and preserve binary and tagged user data. Scope tests verify local confirmations and project-bound mutations after switching tabs. Inspection tests forbid full-scene dumps and compare payload size for 1,000 and 100,000 agents with the same visible region.
 
 For a local projection diagnostic:
 
@@ -31,7 +33,7 @@ This measures indexed owner-side inspection, projection, JSON encode/decode and 
 
 ## Local diagnostic result
 
-On 2026-10-19, macOS with Node 26.8.1, 100 samples after 20 warmups, a fixed 25-agent visible region produced:
+A pre-refactor local diagnostic on 2026-10-19, macOS with Node 26.8.1, 100 samples after 20 warmups, a fixed 25-agent visible region produced the following measurements (retained for context, not regenerated for the current implementation):
 
 | Total agents | Plain projection JSON | Initial index setup | Local inspect median | Projection/JSON/receive median | p95 |
 | --- | --- | --- | --- | --- | --- |

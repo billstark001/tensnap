@@ -12,7 +12,7 @@ The application has no custom Rust command that accepts a renderer-provided path
 
 For project Save As, the shared toolbar supplies a JSON or MessagePack filter and the proposed final filename to `save(...)`. The adapter writes exactly the path returned by that dialog. Do not append an extension after the dialog or create its parent directory speculatively: Tauri scopes the path the user actually selected, not a later rewritten sibling path.
 
-`src-tauri/capabilities/main.json` is the single capability declaration. Keep it minimal: dialog `open`/`save`, the fs operations used by the adapter, store `load`/`get`/`set`/`keys`/`delete`, and the existing window/event APIs. Do not add a wildcard filesystem scope or enable `withGlobalTauri`.
+`src-tauri/capabilities/main.json` grants the main Webview dialog `open`/`save`, the fs operations used by the adapter, store `load`/`get`/`set`/`keys`/`delete`, and the required window/event APIs. `src-tauri/capabilities/auxiliary.json` applies only to `dialog-*` tools and grants event listen/unlisten/emit-to and title updates. Keep these grants separate and minimal; do not add a wildcard filesystem scope or enable `withGlobalTauri`.
 
 ## Native menu localization
 

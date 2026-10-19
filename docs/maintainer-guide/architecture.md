@@ -294,6 +294,8 @@ Every replicate is journaled for resume/shard/merge. Complete artifacts include 
 
 `ScenarioInspector` resolves an `AgentRef` against current Scenario state for every inspection. Spatial inspections compute a viewport, target overlay, neighbors, edges, and trajectories from shared core semantics; graph inspections reuse a read-only layout and must not start another force simulation that writes agent positions.
 
+`createAgentInspectionView` projects a live inspection into an owned scene and referenced asset hashes without dumping the whole model. Spatial views include other agent layers within the viewport; graph views retain the selected ego graph. Grid/background payloads and selected trails can still be large, and unrecognized custom storage/layer families require an explicit projection extension. The native receiver owns its disposable rendering Scenario; transport encoding owns no renderer instances or Blob URLs. See the [core API contract](../../packages/core/README.md#persistence-and-owned-frames) and [workbench protocol](workbench-infrastructure.md).
+
 Trajectory layers declare lifecycle metadata: state-sync may preserve or clear trails, reset may preserve or clear them, and agent deletion may delete or retain an old segment. State-sync replay must never append movement points. When a retained id reappears, a new segment begins instead of drawing a line from the deleted agent to its replacement.
 
 ## Python Runtime Architecture

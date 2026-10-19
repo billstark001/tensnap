@@ -1,22 +1,20 @@
 # Versioning and release sources
 
-TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-18, the package versions are:
+TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. As of 2026-10-19, the package versions are:
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/web` | `0.3.6` | `packages/tensnap-web/package.json` |
-| `@tensnap/tauri` | `0.3.5` | `package.json`, `src-tauri/Cargo.toml` and `Cargo.lock` |
-| `@tensnap/core`, `@tensnap/agent` | `0.3.5` | Each package's `package.json` |
-| `@tensnap/benchmark` | `0.3.5` | `packages/benchmark/package.json` |
-| `@tensnap/protocol`, `@tensnap/js` | `0.3.3` | Each package's `package.json` |
+| `@tensnap/web` | `0.3.7` | `packages/tensnap-web/package.json` |
+| `@tensnap/tauri` | `0.3.6` | `packages/tensnap-tauri/package.json`, `src-tauri/Cargo.toml` and generated `Cargo.lock` |
+| `@tensnap/core`, `@tensnap/agent`, `@tensnap/benchmark` | `0.3.6` | Each package's `package.json` |
+| `@tensnap/js`, `@tensnap/examples-js`, `@tensnap/web-adapter` | `0.3.4` | Each package's `package.json` |
+| `@tensnap/protocol` | `0.3.3` | `packages/protocol/package.json` |
 | `@tensnap/network` | `0.3.0` | `packages/network/package.json` |
-| `@tensnap/examples-js` | `0.3.3` | `examples/js/package.json` |
 | `@tensnap/examples-julia` | `0.3.2` | `examples/julia/package.json` |
 | Go binding | `0.3.3` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
 | Python binding | `0.3.3` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |
 | Julia binding | `0.3.3` | `packages/tensnap-julia/Project.toml` |
-| `@tensnap/web-adapter` | `0.3.3` | `packages/web-adapter/package.json` |
-| `@tensnap/web-common`, workspace root `tensnap` | `0.3.2` | Each `package.json` |
+| `@tensnap/web-common`, workspace root `tensnap` | `0.3.3` | Each `package.json` |
 
 The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`, and `packages/tensnap-julia` have no npm version: they run native build and test commands, while their native sources above define release versions.
 
@@ -36,9 +34,9 @@ The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`
 3. Update `CHANGELOG.md` using its package-specific heading format, and update the dated version snapshot in this guide.
 4. Run `pnpm run check:versions` and the affected package tests before tagging.
 
-For a batch patch update, compare the release checkout with its upstream baseline and bump each changed package once, including changed examples and the workspace root. A wrapper without a version still uses its native binding source. The 2026-10-16 batch includes all twelve packages under `packages/`, the JavaScript examples, and the workspace root; the Julia examples retain `0.3.2` because that package has no changes relative to the baseline.
+For a batch patch update, compare the release checkout with its upstream baseline and bump each changed package once, including changed examples and the workspace root. A wrapper without a version still uses its native binding source. The 2026-10-19 workbench/recording branch bumps core, agent, Web, Tauri, web-common, web-adapter, benchmark, JS bindings, JS examples and the root once relative to main. The JS bindings/examples changes are type-import cleanup only. Protocol, network and native language bindings retain their versions because their sources are unchanged; the wire and persisted format versions also remain unchanged.
 
-Version changes can also affect environment metadata: keep the local TenSnap entry in the active Julia evaluation manifest aligned with `Project.toml`, and refresh active evaluation fingerprints for changed package manifests and locks. Recorded evaluation exports retain their original versions, profiles, checksums, and source identities. A version bump does not create new performance evidence.
+Version changes can also affect environment metadata: keep the local TenSnap entry in the active Julia evaluation manifest aligned with `Project.toml`, and refresh evaluation fingerprints only in the latest active profile version for changed package manifests and locks, without changing that profile version when scientific workloads and measurement semantics are unchanged. Leave superseded profile versions and their hashes untouched. A new profile version is required for scientific/measurement changes; see the [evaluation guide](../../benchmarks/evaluation/README.md#current-checkout-profiles). Recorded evaluation exports retain their original versions, profiles, checksums, and source identities. A version bump does not create new performance evidence.
 
 The version fields in this dated guide describe the current release state; the files in the table are the sources used by builds and runtime handshakes.
 

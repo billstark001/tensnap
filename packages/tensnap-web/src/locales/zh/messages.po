@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:376
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:377
 msgid "(No options available)"
 msgstr "（无可用选项）"
 
@@ -35,12 +35,12 @@ msgstr "{matchingAgentCount} / {totalAgentCount} 个智能体"
 msgid "© 2025 TenSnap Contributors"
 msgstr "© 2025 TenSnap 贡献者"
 
-#: src/dialogs/SettingsDialog.tsx:305
-#: src/dialogs/SettingsDialog.tsx:325
+#: src/dialogs/SettingsDialog.tsx:318
+#: src/dialogs/SettingsDialog.tsx:338
 msgid "0 means unlimited"
 msgstr "0 表示无限制"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:228
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:229
 msgid "2D Layer Metadata"
 msgstr "二维图层元数据"
 
@@ -61,15 +61,15 @@ msgstr "关于"
 msgid "About TenSnap"
 msgstr "关于 TenSnap"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:70
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:71
 msgid "Action"
 msgstr "动作"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:34
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:35
 msgid "Action ID"
 msgstr "动作 ID"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:73
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:74
 msgid "Action Label"
 msgstr "动作标签"
 
@@ -77,11 +77,11 @@ msgstr "动作标签"
 #~ msgid "Action Role"
 #~ msgstr "动作角色"
 
-#: src/dialogs/SettingsDialog.tsx:354
+#: src/dialogs/SettingsDialog.tsx:367
 msgid "Action Timeout"
 msgstr "动作超时时长"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:277
+#: src/dialogs/SnapshotDetailDialog.tsx:293
 msgid "Action:"
 msgstr "动作："
 
@@ -94,7 +94,7 @@ msgstr "调整模式"
 msgid "Agent Details"
 msgstr "智能体详情"
 
-#: src/workbench/useRemoteInspection.ts:60
+#: src/workbench/useRemoteInspection.ts:65
 msgid "Agent inspection failed"
 msgstr "Agent 检查失败"
 
@@ -102,7 +102,7 @@ msgstr "Agent 检查失败"
 #~ msgid "Agents:"
 #~ msgstr "智能体："
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:450
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:451
 msgid "Allow Runtime Change"
 msgstr "允许运行时更改"
 
@@ -115,7 +115,7 @@ msgid "An environment with this ID already exists."
 msgstr "具有此 ID 的环境已存在。"
 
 #: src/dialogs/edit-views/EditObjectIdDialog.tsx:77
-#: src/dialogs/SettingsDialog.tsx:536
+#: src/dialogs/SettingsDialog.tsx:549
 msgid "Apply"
 msgstr "应用"
 
@@ -127,8 +127,8 @@ msgstr "资源"
 msgid "Assets sent by adapters will appear here."
 msgstr "适配器发送的资源将显示在这里。"
 
-#: src/dialogs/SettingsDialog.tsx:211
-#: src/dialogs/SettingsDialog.tsx:283
+#: src/dialogs/SettingsDialog.tsx:224
+#: src/dialogs/SettingsDialog.tsx:296
 msgid "Auto"
 msgstr "自动"
 
@@ -137,19 +137,19 @@ msgid "Automatic"
 msgstr "自动"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:82
-#: src/dialogs/SettingsDialog.tsx:452
+#: src/dialogs/SettingsDialog.tsx:465
 msgid "Backend URL"
 msgstr "后端地址"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:111
+#: src/dialogs/SimulatorInfoDialog.tsx:127
 msgid "Binding"
 msgstr "绑定"
 
-#: src/dialogs/SettingsDialog.tsx:442
+#: src/dialogs/SettingsDialog.tsx:455
 msgid "Built-in browser model"
 msgstr "内置浏览器模型"
 
-#: src/dialogs/SettingsDialog.tsx:478
+#: src/dialogs/SettingsDialog.tsx:491
 msgid "Built-in model"
 msgstr "内置模型"
 
@@ -157,7 +157,7 @@ msgstr "内置模型"
 msgid "Button"
 msgstr "按钮"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:40
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:41
 msgid "Button Text"
 msgstr "按钮文本"
 
@@ -175,7 +175,7 @@ msgstr "画布已复制到剪贴板！"
 msgid "Canvas not found."
 msgstr "未找到画布。"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:124
+#: src/dialogs/SimulatorInfoDialog.tsx:140
 msgid "Capabilities"
 msgstr "能力"
 
@@ -183,7 +183,7 @@ msgstr "能力"
 msgid "Capturing…"
 msgstr "正在捕获…"
 
-#: src/dialogs/SettingsDialog.tsx:468
+#: src/dialogs/SettingsDialog.tsx:481
 msgid "Change the WebSocket server URL for the current project. The connection will be reestablished."
 msgstr "更改当前项目的 WebSocket 服务器 URL。连接将重新建立。"
 
@@ -195,15 +195,15 @@ msgstr "图表"
 #~ msgid "Chart Data"
 #~ msgstr "图表数据"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:342
+#: src/dialogs/edit-views/ChartViewEditor.tsx:343
 msgid "Chart Data Preview"
 msgstr "图表数据预览"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:272
+#: src/dialogs/edit-views/ChartViewEditor.tsx:273
 msgid "Chart Group ID"
 msgstr "图表组 ID"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:292
+#: src/dialogs/edit-views/ChartViewEditor.tsx:293
 msgid "Chart Group Label"
 msgstr "图表组标签"
 
@@ -211,7 +211,7 @@ msgstr "图表组标签"
 msgid "Chart policy"
 msgstr "图表策略"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:311
+#: src/dialogs/edit-views/ChartViewEditor.tsx:312
 msgid "Chart Series"
 msgstr "图表系列"
 
@@ -219,7 +219,7 @@ msgstr "图表系列"
 msgid "Clear All"
 msgstr "清空所有"
 
-#: src/dialogs/SettingsDialog.tsx:150
+#: src/dialogs/SettingsDialog.tsx:163
 msgid "Clear saved window positions"
 msgstr "清除所有窗口位置记忆"
 
@@ -232,7 +232,7 @@ msgstr "清除搜索"
 msgid "Click \"Take Snapshot\" to create one."
 msgstr "要拍摄快照，请点击“拍摄快照”按钮。"
 
-#: src/dialogs/SettingsDialog.tsx:225
+#: src/dialogs/SettingsDialog.tsx:238
 msgid "Client Message Validation"
 msgstr "客户端信息格式验证"
 
@@ -267,7 +267,7 @@ msgstr "条件运行…"
 msgid "Configure a bounded continuous run for action {actionId}."
 msgstr "为操作 {actionId} 配置有界连续执行。"
 
-#: src/dialogs/SettingsDialog.tsx:134
+#: src/dialogs/SettingsDialog.tsx:147
 msgid "Configure application and project settings."
 msgstr "配置应用程序和项目设置。"
 
@@ -279,7 +279,7 @@ msgstr "确认"
 #~ msgid "Confirm Changes"
 #~ msgstr "确认更改"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:433
+#: src/dialogs/edit-views/EditViewDialog.tsx:435
 msgid "Confirm Structural Change"
 msgstr "确认结构变更"
 
@@ -303,7 +303,7 @@ msgstr "连接失败，将自动重试"
 msgid "Container"
 msgstr "容器"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:49
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:50
 msgid "Continuous"
 msgstr "连续"
 
@@ -338,10 +338,10 @@ msgstr "创建"
 msgid "Create New Project"
 msgstr "创建新项目"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:65
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:80
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:102
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:110
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:66
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:81
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:103
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:111
 msgid "Current Value"
 msgstr "当前值"
 
@@ -361,11 +361,11 @@ msgstr "快照来源不可使用自定义模拟器动作。"
 msgid "Cut"
 msgstr "剪切"
 
-#: src/dialogs/SettingsDialog.tsx:167
+#: src/dialogs/SettingsDialog.tsx:180
 msgid "Dark"
 msgstr "深色"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:281
+#: src/dialogs/edit-views/ChartViewEditor.tsx:282
 msgid "Data Points"
 msgstr "数据点"
 
@@ -377,7 +377,7 @@ msgstr "默认"
 msgid "Delete"
 msgstr "删除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:436
+#: src/dialogs/SnapshotDetailDialog.tsx:452
 msgid "Delete recording"
 msgstr "删除录制"
 
@@ -413,7 +413,7 @@ msgstr "未连接"
 msgid "Display"
 msgstr "显示"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:213
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:214
 msgid "Display Type"
 msgstr "显示类型"
 
@@ -442,16 +442,16 @@ msgstr "编辑"
 msgid "Edit ID"
 msgstr "编辑 ID"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:419
+#: src/dialogs/edit-views/EditViewDialog.tsx:421
 msgid "Edit Object ID"
 msgstr "编辑对象 ID"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:400
+#: src/dialogs/edit-views/EditViewDialog.tsx:402
 msgid "Edit View"
 msgstr "编辑视图"
 
 #: src/dialogs/CreateNewProjectDialog.tsx:88
-#: src/dialogs/SettingsDialog.tsx:460
+#: src/dialogs/SettingsDialog.tsx:473
 msgid "Enter backend WebSocket server address"
 msgstr "输入后端 WebSocket 服务器地址"
 
@@ -463,7 +463,7 @@ msgstr "输入后端 WebSocket 服务器地址"
 #~ msgid "Enter file name"
 #~ msgstr "输入文件名"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:338
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:339
 msgid "Enum Options"
 msgstr "枚举选项"
 
@@ -471,7 +471,7 @@ msgstr "枚举选项"
 msgid "Environment"
 msgstr "环境"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:185
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:186
 msgid "Environment ID"
 msgstr "环境 ID"
 
@@ -479,7 +479,7 @@ msgstr "环境 ID"
 #~ msgid "Environment Label"
 #~ msgstr "环境标签"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:194
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:195
 msgid "Environment Type"
 msgstr "环境类型"
 
@@ -491,8 +491,8 @@ msgstr "环境类型"
 msgid "Environments:"
 msgstr "环境："
 
-#: src/dialogs/SettingsDialog.tsx:241
-#: src/dialogs/SettingsDialog.tsx:265
+#: src/dialogs/SettingsDialog.tsx:254
+#: src/dialogs/SettingsDialog.tsx:278
 msgid "Error"
 msgstr "错误"
 
@@ -520,13 +520,13 @@ msgstr "已展开"
 #~ msgid "Export Current Directory"
 #~ msgstr "导出当前目录"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:172
-#: src/dialogs/SnapshotDetailDialog.tsx:433
+#: src/dialogs/SnapshotDetailDialog.tsx:184
+#: src/dialogs/SnapshotDetailDialog.tsx:449
 msgid "Export current frame"
 msgstr "导出当前帧"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:172
-#: src/dialogs/SnapshotDetailDialog.tsx:430
+#: src/dialogs/SnapshotDetailDialog.tsx:184
+#: src/dialogs/SnapshotDetailDialog.tsx:446
 msgid "Export full recording"
 msgstr "导出完整录像"
 
@@ -547,7 +547,7 @@ msgstr "复制画布到剪贴板失败。"
 msgid "Failed to copy monitor data to clipboard."
 msgstr "无法将监视器数据复制到剪贴板。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:180
+#: src/dialogs/SnapshotDetailDialog.tsx:192
 msgid "Failed to export recording"
 msgstr "导出录像失败"
 
@@ -572,7 +572,7 @@ msgstr "重新连接失败"
 msgid "Failed to save file"
 msgstr "保存文件失败"
 
-#: src/dialogs/SettingsDialog.tsx:104
+#: src/dialogs/SettingsDialog.tsx:117
 msgid "Failed to update project source"
 msgstr "更新项目来源失败"
 
@@ -610,8 +610,8 @@ msgstr "文件导入失败"
 msgid "File saved"
 msgstr "文件已保存"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:302
-#: src/dialogs/SnapshotDetailDialog.tsx:303
+#: src/dialogs/SnapshotDetailDialog.tsx:318
+#: src/dialogs/SnapshotDetailDialog.tsx:319
 msgid "First frame"
 msgstr "第一帧"
 
@@ -635,11 +635,11 @@ msgstr "强制重新连接到服务器"
 #~ msgid "Force visible"
 #~ msgstr "强制显示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:271
+#: src/dialogs/SnapshotDetailDialog.tsx:287
 msgid "Frame updates:"
 msgstr "帧更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:257
+#: src/dialogs/SnapshotDetailDialog.tsx:273
 msgid "Frame:"
 msgstr "帧："
 
@@ -694,13 +694,13 @@ msgid "Icon:"
 msgstr "图标："
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:17
-#: src/dialogs/SimulatorInfoDialog.tsx:75
+#: src/dialogs/SimulatorInfoDialog.tsx:91
 msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
 #: src/dialogs/AgentDetailsDialog.tsx:335
-#: src/dialogs/SnapshotDetailDialog.tsx:245
+#: src/dialogs/SnapshotDetailDialog.tsx:261
 msgid "ID:"
 msgstr "ID："
 
@@ -709,7 +709,7 @@ msgstr "ID："
 msgid "Info"
 msgstr "信息"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:223
+#: src/dialogs/SnapshotDetailDialog.tsx:239
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "离线查看此录制。打开后将创建一个断开连接的副本。"
 
@@ -717,7 +717,7 @@ msgstr "离线查看此录制。打开后将创建一个断开连接的副本。
 msgid "Inspector"
 msgstr "检查器"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:103
+#: src/dialogs/SimulatorInfoDialog.tsx:119
 msgid "Instance"
 msgstr "实例"
 
@@ -725,27 +725,27 @@ msgstr "实例"
 msgid "Invalid ID"
 msgstr "无效的 ID"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:135
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:136
 msgid "Invalid JSON"
 msgstr "无效的 JSON"
 
-#: src/dialogs/SettingsDialog.tsx:122
+#: src/dialogs/SettingsDialog.tsx:135
 msgid "Invalid locale"
 msgstr "无效的语言区域"
 
-#: src/dialogs/SettingsDialog.tsx:202
+#: src/dialogs/SettingsDialog.tsx:215
 msgid "IP family"
 msgstr "IP 地址族"
 
-#: src/dialogs/SettingsDialog.tsx:371
+#: src/dialogs/SettingsDialog.tsx:384
 msgid "IP family applies to new connections and reconnects. Browsers can force it for IP addresses or local ws://localhost connections. Other domain names require Auto."
 msgstr "IP 地址族设置用于新连接和重连。浏览器只能对 IP 地址或本地 ws://localhost 连接强制选择地址族，其他域名需要使用“自动”。"
 
-#: src/dialogs/SettingsDialog.tsx:214
+#: src/dialogs/SettingsDialog.tsx:227
 msgid "IPv4 only"
 msgstr "仅 IPv4"
 
-#: src/dialogs/SettingsDialog.tsx:217
+#: src/dialogs/SettingsDialog.tsx:230
 msgid "IPv6 only"
 msgstr "仅 IPv6"
 
@@ -766,12 +766,12 @@ msgstr "快捷键"
 #~ msgid "Label"
 #~ msgstr "标签"
 
-#: src/dialogs/SettingsDialog.tsx:175
+#: src/dialogs/SettingsDialog.tsx:188
 msgid "Language"
 msgstr "语言"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:344
-#: src/dialogs/SnapshotDetailDialog.tsx:345
+#: src/dialogs/SnapshotDetailDialog.tsx:360
+#: src/dialogs/SnapshotDetailDialog.tsx:361
 msgid "Last frame"
 msgstr "末帧"
 
@@ -783,7 +783,7 @@ msgstr "左"
 msgid "License:"
 msgstr "许可证："
 
-#: src/dialogs/SettingsDialog.tsx:167
+#: src/dialogs/SettingsDialog.tsx:180
 msgid "Light"
 msgstr "浅色"
 
@@ -791,15 +791,15 @@ msgstr "浅色"
 #~ msgid "Loading..."
 #~ msgstr "加载中..."
 
-#: src/dialogs/SettingsDialog.tsx:313
+#: src/dialogs/SettingsDialog.tsx:326
 msgid "Max FPS"
 msgstr "最大 FPS"
 
-#: src/dialogs/SettingsDialog.tsx:293
+#: src/dialogs/SettingsDialog.tsx:306
 msgid "Max TPS"
 msgstr "最大 TPS"
 
-#: src/dialogs/SettingsDialog.tsx:346
+#: src/dialogs/SettingsDialog.tsx:359
 msgid "Maximum 120 FPS"
 msgstr "最高 120 FPS"
 
@@ -811,7 +811,7 @@ msgstr "最大步数"
 msgid "Maximum steps must be an integer from 1 to 1,000,000."
 msgstr "最大步数必须是介于 1 到 1,000,000 之间的整数。"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:141
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:142
 msgid "Maximum Value"
 msgstr "最大值"
 
@@ -819,11 +819,11 @@ msgstr "最大值"
 msgid "MIME:"
 msgstr "MIME："
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:131
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:132
 msgid "Minimum Value"
 msgstr "最小值"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:71
+#: src/dialogs/SimulatorInfoDialog.tsx:87
 msgid "Model"
 msgstr "模型"
 
@@ -848,7 +848,7 @@ msgstr "已将监视器数据复制到剪贴板。"
 msgid "Monitor not found."
 msgstr "未找到监视器。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:371
+#: src/dialogs/SnapshotDetailDialog.tsx:387
 msgid "Monitors"
 msgstr "监视器"
 
@@ -860,7 +860,7 @@ msgstr "更多操作"
 msgid "MSPT:"
 msgstr "MSPT："
 
-#: src/dialogs/SimulatorInfoDialog.tsx:81
+#: src/dialogs/SimulatorInfoDialog.tsx:97
 msgid "Name"
 msgstr "名称"
 
@@ -885,8 +885,8 @@ msgstr "新建标签页"
 msgid "New View"
 msgstr "新建视图"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:334
-#: src/dialogs/SnapshotDetailDialog.tsx:335
+#: src/dialogs/SnapshotDetailDialog.tsx:350
+#: src/dialogs/SnapshotDetailDialog.tsx:351
 msgid "Next frame"
 msgstr "下一帧"
 
@@ -902,7 +902,7 @@ msgstr "下一页数据行"
 msgid "No {itemName} available"
 msgstr "没有{itemName}"
 
-#: src/dialogs/SettingsDialog.tsx:90
+#: src/dialogs/SettingsDialog.tsx:103
 msgid "No active project"
 msgstr "没有活动项目"
 
@@ -918,8 +918,8 @@ msgstr "此环境中没有智能体"
 msgid "No assets registered."
 msgstr "没有注册的资源。"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:274
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:322
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:275
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:323
 msgid "No layers available."
 msgstr "没有可用的图层。"
 
@@ -927,12 +927,12 @@ msgstr "没有可用的图层。"
 msgid "No main view available."
 msgstr "没有主视图。"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:267
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:315
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:268
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:316
 msgid "No metadata on this layer."
 msgstr "此图层没有元数据。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:376
+#: src/dialogs/SnapshotDetailDialog.tsx:392
 msgid "No monitor data was recorded."
 msgstr "未记录任何监视器数据。"
 
@@ -956,7 +956,7 @@ msgstr "没有找到结果"
 #~ msgid "No scenario data loaded."
 #~ msgstr "未加载场景数据。"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:164
+#: src/dialogs/edit-views/ChartViewEditor.tsx:165
 msgid "No series available"
 msgstr "没有可用的系列"
 
@@ -988,12 +988,12 @@ msgstr "未定位"
 msgid "Object ID"
 msgstr "对象 ID"
 
-#: src/dialogs/SettingsDialog.tsx:235
-#: src/dialogs/SettingsDialog.tsx:259
+#: src/dialogs/SettingsDialog.tsx:248
+#: src/dialogs/SettingsDialog.tsx:272
 msgid "Off"
 msgstr "关"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:354
+#: src/dialogs/SnapshotDetailDialog.tsx:370
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "为符合录制预算，较早的帧已被移除。"
 
@@ -1001,7 +1001,7 @@ msgstr "为符合录制预算，较早的帧已被移除。"
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "快照来源仅提供开始、步进、停止和重置操作。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:445
+#: src/dialogs/SnapshotDetailDialog.tsx:461
 msgid "Open as offline copy"
 msgstr "作为离线副本打开"
 
@@ -1046,19 +1046,19 @@ msgstr "第 {pageNum} 页"
 msgid "Parameter"
 msgstr "参数"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:406
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:407
 msgid "Parameter ID"
 msgstr "参数 ID"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:425
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:426
 msgid "Parameter Label"
 msgstr "参数标签"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:33
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:34
 msgid "Parameter Type"
 msgstr "参数类型"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:359
+#: src/dialogs/SnapshotDetailDialog.tsx:375
 msgid "Parameters"
 msgstr "参数"
 
@@ -1070,8 +1070,8 @@ msgstr "参数："
 msgid "Paste"
 msgstr "粘贴"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:324
-#: src/dialogs/SnapshotDetailDialog.tsx:325
+#: src/dialogs/SnapshotDetailDialog.tsx:340
+#: src/dialogs/SnapshotDetailDialog.tsx:341
 msgid "Pause"
 msgstr "暂停"
 
@@ -1079,12 +1079,12 @@ msgstr "暂停"
 msgid "Pending"
 msgstr "待处理"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:324
-#: src/dialogs/SnapshotDetailDialog.tsx:325
+#: src/dialogs/SnapshotDetailDialog.tsx:340
+#: src/dialogs/SnapshotDetailDialog.tsx:341
 msgid "Play"
 msgstr "播放"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:295
+#: src/dialogs/SnapshotDetailDialog.tsx:311
 msgid "Playback controls"
 msgstr "播放控制"
 
@@ -1096,8 +1096,8 @@ msgstr "要开始，请新建或打开一个项目。"
 msgid "Position:"
 msgstr "位置："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:312
-#: src/dialogs/SnapshotDetailDialog.tsx:313
+#: src/dialogs/SnapshotDetailDialog.tsx:328
+#: src/dialogs/SnapshotDetailDialog.tsx:329
 msgid "Previous frame"
 msgstr "上一帧"
 
@@ -1109,7 +1109,7 @@ msgstr "上一页"
 msgid "Previous value rows"
 msgstr "上一页数据行"
 
-#: src/dialogs/SettingsDialog.tsx:391
+#: src/dialogs/SettingsDialog.tsx:404
 msgid "Project File"
 msgstr "项目文件"
 
@@ -1121,15 +1121,15 @@ msgstr "项目已恢复，但存在警告"
 msgid "Project saved successfully."
 msgstr "项目已成功保存。"
 
-#: src/dialogs/SettingsDialog.tsx:384
+#: src/dialogs/SettingsDialog.tsx:397
 msgid "Project Settings"
 msgstr "项目设置"
 
-#: src/dialogs/SettingsDialog.tsx:407
+#: src/dialogs/SettingsDialog.tsx:420
 msgid "Project Source"
 msgstr "项目来源"
 
-#: src/dialogs/SettingsDialog.tsx:96
+#: src/dialogs/SettingsDialog.tsx:109
 msgid "Project source updated successfully"
 msgstr "项目来源已更新"
 
@@ -1141,7 +1141,7 @@ msgstr "项目来源已更新"
 msgid "Projected scene"
 msgstr "投影场景"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:107
+#: src/dialogs/SimulatorInfoDialog.tsx:123
 msgid "Protocol"
 msgstr "协议"
 
@@ -1171,15 +1171,15 @@ msgstr "重新连接成功"
 msgid "Record this run"
 msgstr "记录此次运行"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:251
+#: src/dialogs/SnapshotDetailDialog.tsx:267
 msgid "Recorded:"
 msgstr "录制时间："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:178
+#: src/dialogs/SnapshotDetailDialog.tsx:190
 msgid "Recording exported"
 msgstr "录像已导出"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:286
+#: src/dialogs/SnapshotDetailDialog.tsx:302
 msgid "Recording frame"
 msgstr "录像帧"
 
@@ -1196,7 +1196,7 @@ msgstr "重做"
 #~ msgid "Refresh"
 #~ msgstr "刷新"
 
-#: src/dialogs/SettingsDialog.tsx:273
+#: src/dialogs/SettingsDialog.tsx:286
 msgid "Render Trigger"
 msgstr "渲染触发器"
 
@@ -1213,8 +1213,8 @@ msgid "Repository:"
 msgstr "代码仓库："
 
 #: src/components/toolbar/ToolGroups.tsx:177
-#: src/dialogs/edit-views/EditViewDialog.tsx:409
-#: src/dialogs/SettingsDialog.tsx:525
+#: src/dialogs/edit-views/EditViewDialog.tsx:411
+#: src/dialogs/SettingsDialog.tsx:538
 msgid "Reset"
 msgstr "重置"
 
@@ -1252,7 +1252,7 @@ msgstr "恢复快照"
 msgid "Restore snapshot to simulator"
 msgstr "将快照恢复到模拟器"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:442
+#: src/dialogs/SnapshotDetailDialog.tsx:458
 msgid "Restore to live simulator"
 msgstr "恢复到实时模拟器"
 
@@ -1286,7 +1286,7 @@ msgstr "运行状态"
 
 #: src/components/toolbar/MenuBar.tsx:102
 #: src/components/toolbar/ToolGroups.tsx:66
-#: src/dialogs/edit-views/EditViewDialog.tsx:412
+#: src/dialogs/edit-views/EditViewDialog.tsx:414
 msgid "Save"
 msgstr "保存"
 
@@ -1304,11 +1304,11 @@ msgstr "以CSV格式保存"
 msgid "Save As..."
 msgstr "另存为..."
 
-#: src/dialogs/SettingsDialog.tsx:190
+#: src/dialogs/SettingsDialog.tsx:203
 msgid "Save Format"
 msgstr "存储格式"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:145
+#: src/dialogs/SimulatorInfoDialog.tsx:161
 msgid "Scenario metadata"
 msgstr "场景元数据"
 
@@ -1332,16 +1332,16 @@ msgstr "全选"
 msgid "Select recording"
 msgstr "选择录像"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:216
-#: src/dialogs/edit-views/ChartViewEditor.tsx:245
+#: src/dialogs/edit-views/ChartViewEditor.tsx:217
+#: src/dialogs/edit-views/ChartViewEditor.tsx:246
 msgid "Series ID already exists."
 msgstr "序列 ID 已存在。"
 
-#: src/dialogs/SettingsDialog.tsx:249
+#: src/dialogs/SettingsDialog.tsx:262
 msgid "Server Message Validation"
 msgstr "服务器信息格式验证"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:60
+#: src/dialogs/SimulatorInfoDialog.tsx:76
 msgid "Session identity, capabilities, and current model metadata."
 msgstr "会话标识、能力和当前模型元数据。"
 
@@ -1350,7 +1350,7 @@ msgstr "会话标识、能力和当前模型元数据。"
 #: src/components/project/StatusBar.tsx:239
 #: src/components/toolbar/MenuBar.tsx:208
 #: src/components/toolbar/ToolGroups.tsx:320
-#: src/dialogs/SettingsDialog.tsx:132
+#: src/dialogs/SettingsDialog.tsx:145
 msgid "Settings"
 msgstr "设置"
 
@@ -1376,12 +1376,12 @@ msgstr "显示右侧面板"
 #~ msgid "Sim:"
 #~ msgstr "模拟："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:265
+#: src/dialogs/SnapshotDetailDialog.tsx:281
 msgid "Simulation time:"
 msgstr "模拟时间："
 
 #: src/components/project/StatusBar.tsx:224
-#: src/dialogs/SimulatorInfoDialog.tsx:54
+#: src/dialogs/SimulatorInfoDialog.tsx:70
 msgid "Simulator information"
 msgstr "模拟器信息"
 
@@ -1396,7 +1396,7 @@ msgstr "模拟器返回：{0}。"
 msgid "Size:"
 msgstr "大小："
 
-#: src/dialogs/SettingsDialog.tsx:500
+#: src/dialogs/SettingsDialog.tsx:513
 msgid "Snapshot"
 msgstr "快照"
 
@@ -1404,11 +1404,11 @@ msgstr "快照"
 #~ msgid "Snapshot Details"
 #~ msgstr "快照详情"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:229
+#: src/dialogs/SnapshotDetailDialog.tsx:245
 msgid "Snapshot name"
 msgstr "快照名称"
 
-#: src/dialogs/SettingsDialog.tsx:445
+#: src/dialogs/SettingsDialog.tsx:458
 #: src/hooks/useButtonControls.ts:64
 #: src/hooks/useButtonControls.ts:118
 #: src/hooks/useButtonControls.ts:176
@@ -1416,11 +1416,11 @@ msgstr "快照名称"
 msgid "Snapshot playback"
 msgstr "快照回放"
 
-#: src/dialogs/SettingsDialog.tsx:333
+#: src/dialogs/SettingsDialog.tsx:346
 msgid "Snapshot playback FPS"
 msgstr "快照播放帧率"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:217
+#: src/dialogs/SnapshotDetailDialog.tsx:233
 msgid "Snapshot replay"
 msgstr "快照回放"
 
@@ -1432,7 +1432,7 @@ msgstr "快照恢复失败"
 msgid "Snapshot restored"
 msgstr "快照已恢复"
 
-#: src/dialogs/SettingsDialog.tsx:515
+#: src/dialogs/SettingsDialog.tsx:528
 msgid "Snapshot sources are disconnected and permit playback controls only."
 msgstr "快照来源处于断开状态，仅允许回放控制。"
 
@@ -1464,12 +1464,12 @@ msgstr "开始录制"
 #~ msgid "Start/Stop"
 #~ msgstr "开始/停止"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:97
+#: src/dialogs/SimulatorInfoDialog.tsx:113
 msgid "State schema"
 msgstr "状态模式"
 
 #: src/components/toolbar/ToolGroups.tsx:171
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:151
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:152
 msgid "Step"
 msgstr "步进"
 
@@ -1497,7 +1497,7 @@ msgstr "结构化值检查器"
 msgid "Synchronize State"
 msgstr "同步状态"
 
-#: src/dialogs/SettingsDialog.tsx:141
+#: src/dialogs/SettingsDialog.tsx:154
 msgid "System Settings"
 msgstr "系统设置"
 
@@ -1522,7 +1522,7 @@ msgstr "文本"
 msgid "The action ID could not be changed."
 msgstr "无法更改动作 ID。"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:84
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:85
 msgid "The button can keep this binding, but there is no registered action to edit."
 msgstr "按钮可以保持此绑定，但没有可编辑的注册动作。"
 
@@ -1550,7 +1550,7 @@ msgstr "无法更改环境 ID。"
 msgid "The file contains no recordings."
 msgstr "此文件不包含录像。"
 
-#: src/dialogs/SettingsDialog.tsx:402
+#: src/dialogs/SettingsDialog.tsx:415
 msgid "The full path is shown here and is not editable."
 msgstr "完整路径显示在这里，且不可编辑。"
 
@@ -1570,7 +1570,7 @@ msgstr "模拟器将恢复此快照捕获时的精确检查点。"
 msgid "The view no longer exists."
 msgstr "该视图已不存在。"
 
-#: src/dialogs/SettingsDialog.tsx:155
+#: src/dialogs/SettingsDialog.tsx:168
 msgid "Theme"
 msgstr "主题模式"
 
@@ -1578,11 +1578,11 @@ msgstr "主题模式"
 #~ msgid "These values are local renderer overrides. They do not modify simulator metadata."
 #~ msgstr "这些值是本地渲染器覆盖设置。它们不会修改模拟器元数据。"
 
-#: src/dialogs/edit-views/ButtonViewEditor.tsx:60
+#: src/dialogs/edit-views/ButtonViewEditor.tsx:61
 msgid "This button’s continuous setting controls renderer scheduling and differs from the simulator action declaration. It is allowed, but verify the action is safe to repeat."
 msgstr "此按钮的连续设置控制渲染器调度，并且不同于模拟器动作声明。允许该设置，但请确认该动作可安全重复执行。"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:435
+#: src/dialogs/edit-views/EditViewDialog.tsx:437
 msgid "This change may alter how the object is interpreted. Existing data will be preserved where possible."
 msgstr "此更改可能会改变对象的解释方式。现有数据将尽可能保留。"
 
@@ -1595,15 +1595,15 @@ msgstr "此目录为空"
 msgid "This display preference is local to the view and does not modify the simulator monitor."
 msgstr "此显示偏好仅作用于本地视图，不会修改模拟器监视器。"
 
-#: src/dialogs/edit-views/EditViewDialog.tsx:257
+#: src/dialogs/edit-views/EditViewDialog.tsx:259
 msgid "This ID is already used by another registered object."
 msgstr "此 ID 已被另一个已注册对象使用。"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:134
+#: src/dialogs/SimulatorInfoDialog.tsx:150
 msgid "This model has not declared optional capabilities."
 msgstr "该模型未声明可选能力。"
 
-#: src/dialogs/SettingsDialog.tsx:493
+#: src/dialogs/SettingsDialog.tsx:506
 msgid "This project runs a local JavaScript simulator in the browser."
 msgstr "此项目在浏览器中运行本地 JavaScript 模拟器。"
 
@@ -1619,15 +1619,15 @@ msgstr "此快照不包含精确检查点。"
 msgid "This snapshot was created by a different model or state schema and cannot be restored to the connected simulator."
 msgstr "此快照由不同的模型或状态架构创建，无法恢复到当前连接的模拟器。"
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:354
+#: src/dialogs/edit-views/ChartViewEditor.tsx:355
 msgid "This view can keep its binding, but there is no registered chart group to edit."
 msgstr "视图可以保持此绑定，但没有可编辑的注册图表组。"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:330
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:331
 msgid "This view can keep its binding, but there is no registered environment to edit."
 msgstr "视图可以保持此绑定，但没有可编辑的注册环境。"
 
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:414
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:415
 msgid "This view can keep its binding, but there is no registered parameter to edit."
 msgstr "视图可以保持此绑定，但没有可编辑的注册参数。"
 
@@ -1640,11 +1640,11 @@ msgstr "时间步："
 #~ msgid "Timestamp:"
 #~ msgstr "时间戳："
 
-#: src/dialogs/edit-views/ChartViewEditor.tsx:262
-#: src/dialogs/edit-views/ContainerViewEditor.tsx:16
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:175
+#: src/dialogs/edit-views/ChartViewEditor.tsx:263
+#: src/dialogs/edit-views/ContainerViewEditor.tsx:17
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:176
 #: src/dialogs/edit-views/MonitorViewEditor.tsx:57
-#: src/dialogs/edit-views/ParameterViewEditor.tsx:396
+#: src/dialogs/edit-views/ParameterViewEditor.tsx:397
 msgid "Title"
 msgstr "标题"
 
@@ -1723,12 +1723,12 @@ msgstr "撤销"
 msgid "Uniform Environment"
 msgstr "统一环境"
 
-#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:284
+#: src/dialogs/edit-views/EnvironmentViewEditor.tsx:285
 msgid "Uniform Layer Metadata"
 msgstr "统一图层元数据"
 
-#: src/dialogs/SettingsDialog.tsx:398
-#: src/dialogs/SettingsDialog.tsx:399
+#: src/dialogs/SettingsDialog.tsx:411
+#: src/dialogs/SettingsDialog.tsx:412
 msgid "Unsaved project"
 msgstr "未保存的项目"
 
@@ -1749,7 +1749,7 @@ msgid "Value path"
 msgstr "值路径"
 
 #: src/dialogs/AboutDialog.tsx:22
-#: src/dialogs/SimulatorInfoDialog.tsx:89
+#: src/dialogs/SimulatorInfoDialog.tsx:105
 msgid "Version"
 msgstr "版本"
 
@@ -1769,7 +1769,7 @@ msgstr "查看所选智能体的详细信息"
 msgid "View Docs"
 msgstr "查看文档"
 
-#: src/dialogs/SimulatorInfoDialog.tsx:65
+#: src/dialogs/SimulatorInfoDialog.tsx:81
 msgid "Waiting for a simulator_info handshake."
 msgstr "正在等待 simulator_info 握手。"
 
@@ -1785,12 +1785,12 @@ msgstr "墙钟时间上限必须是正数毫秒。"
 msgid "Wall-clock limit, ms (optional)"
 msgstr "墙钟时间上限（毫秒，可选）"
 
-#: src/dialogs/SettingsDialog.tsx:238
-#: src/dialogs/SettingsDialog.tsx:262
+#: src/dialogs/SettingsDialog.tsx:251
+#: src/dialogs/SettingsDialog.tsx:275
 msgid "Warning"
 msgstr "警告"
 
-#: src/dialogs/SettingsDialog.tsx:439
+#: src/dialogs/SettingsDialog.tsx:452
 msgid "WebSocket simulator"
 msgstr "WebSocket 模拟器"
 
@@ -1805,7 +1805,7 @@ msgstr "宽度"
 msgid "Will restore {0} parameters and {1} environments{2}."
 msgstr "将恢复 {0} 个参数和 {1} 个环境{2}。"
 
-#: src/dialogs/SettingsDialog.tsx:147
+#: src/dialogs/SettingsDialog.tsx:160
 msgid "Window positions cleared"
 msgstr "已清除窗口位置记忆"
 

@@ -10,6 +10,25 @@ Only **AgentDetailsDialog** and **SimulatorInfoDialog** have native tool windows
 
 ## Explicit protocol
 
+### Import and host setup
+
+| Subpath | Responsibility |
+| --- | --- |
+| `@tensnap/web-common/workbench/content` | `DialogHost` / `ContentWindow`, configure one host before mounting dialogs |
+| `@tensnap/web-common/workbench/winbox-host` | `createWinBoxHost()` for Web and the desktop main Webview |
+| `@tensnap/web-common/workbench/layout` | DOM workbench shell and split controllers; callers render portals and dispose controllers |
+| `@tensnap/web-common/workbench/dialog-content` | `defineDialog`, captured `DialogScope` and the explicit native runtime interface |
+| `@tensnap/web-common/workbench/window-state` | Window dimensions, placement and reset-generation policy |
+| `@tensnap/web-common/settings-persistence` | `SettingsPersistence`, `configureSettingsPersistence`, `getSettingsPersistence`; formerly in web-adapter |
+| `@tensnap/web/auxiliary-protocol` | Wire schemas, command allowlist and data codec |
+| `@tensnap/web/auxiliary-owner` | Main-only project authority and operation lifetime |
+| `@tensnap/web/auxiliary-content` | Receiver presentation in its caller-owned root |
+| `@tensnap/web/commands` | Shared workbench command allowlist, registration and dispatch |
+
+The old `@tensnap/web-adapter/settings-persistence` export is removed; update imports to web-common. Dialog UI remains under `web-common/components/ui/*`. There is no public generic content registry or `mountContent`/`reactContent`/`portal-content` lifecycle. Adding a form needs a `defineDialog` component, not a new IPC codec.
+
+### Messages and data
+
 The protocol has a versioned, validated request union:
 
 | Message | Meaning |
@@ -31,6 +50,8 @@ State packets contain a monotonic revision, immutable content ID and project ID,
 The owner registers its request listener before creating the Webview. The receiver registers response/state listeners before initializing. Publication is coalesced at 100 ms and allows only one emit in flight. The receiver rejects ownership changes and ignores old/duplicate revisions.
 
 Each RPC has a deadline, optional AbortSignal, and owned timer/listener. Timeout, cancellation and teardown remove pending requests and notify the owner to abort. Each side limits outstanding requests to 32. Cancellation ends a pending read or reply; it does not roll back a menu command already dispatched to the main window. Closing the owner aborts its operations, releases subscriptions/indexes/listeners and destroys the native window. Listeners acquired after cancellation are immediately stopped. Main-window close destroys its tools; native tools cannot own descendants.
+
+Inspection deadlines are 10 seconds; initialization and menu replies have 30 seconds. Both sides validate version 1 and explicit request IDs, while response data is decoded before content-specific schema validation. Revision and asset acknowledgements advance only after the receiver successfully loads its view. A response/decoding/loading failure participates in the same bounded retry policy.
 
 The owner retains a spatial index only for the inspected layer when core inspection semantics require one; uniform and graph views do not build unnecessary spatial indexes. Structural changes and retargeting release the previous index. The receiver retains one inspection source per selected target. Unrelated appearance updates preserve controls and source identity. Retargeting cancels stale requests and resets asset acknowledgements. One read is in flight; successful polling waits 100 ms after completion. Transient failures retry with exponential backoff; five consecutive failures report an error and close the tool. Closure cancels all timers and reads. The receiver's small Scenario belongs to the inspection hook and resets on retarget/unmount, revoking Blob URLs. The codec never constructs Scenarios or owns image URLs.
 

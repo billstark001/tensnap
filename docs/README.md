@@ -20,7 +20,12 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 ### For Maintainers
 
 - **[Architecture Overview](./maintainer-guide/architecture.md)** - System architecture and design
-
+- **[Development Setup](./maintainer-guide/development-setup.md)** - Toolchain, lint and test commands
+- **[Versioning and Releases](./maintainer-guide/versioning.md)** - Package versions, release sources and publishing
+- **[Workbench Infrastructure](./maintainer-guide/workbench-infrastructure.md)** - Window hosts, state ownership and auxiliary protocols
+- **[Workbench Validation](./maintainer-guide/workbench-validation.md)** - Automated and platform interaction checks
+- **[Core Package](../packages/core/README.md)** - Renderer runtime, inspection projections and persistence APIs
+- **[Recording Storage](./api-reference/recording-storage.md)** - Portable evidence and incremental reader/writer contracts
 - **[Contributing Guidelines](./maintainer-guide/contributing.md)** - How to contribute to TenSnap
 - **[Network Package](../packages/network/README.md)** - Shared browser/Node networking policy and transport utilities
 - **[Protocol Package](../packages/protocol/README.md)** - Source of truth for protocol schemas, codecs, and generated Markdown documentation

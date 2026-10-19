@@ -1,6 +1,6 @@
 # TenSnap User Guide
 
-This guide describes the current protocol v0.3 user-facing workflow, with the Python 0.2.2 surface as the primary tutorial path.
+This guide describes the current protocol v0.3 user-facing workflow, with the Python 0.3 binding surface as the primary tutorial path. See the [versioning guide](../maintainer-guide/versioning.md) for current package patch versions.
 
 If you need runnable Python references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current Python release. Go, JavaScript/TypeScript, and Julia users should start from their API references and package READMEs.
 
@@ -112,7 +112,7 @@ These decorators describe how your own Python objects should be projected into p
 
 ## Environments and Layers
 
-TenSnap 0.2.2 uses canonical `uniform` and `2d` environments.
+Protocol 0.3 uses canonical `uniform` and `2d` environments.
 
 Rendering behavior comes from layers.
 
@@ -256,7 +256,7 @@ Drag files onto the workbench to open each in a new tab. Drag recordings onto th
 
 The browser and desktop use movable/resizable WinBox windows for settings, editing, confirmations and recording replay. These windows retain the project from which they opened when switching tabs. Desktop Agent Details and Simulator Info use read-only native tool windows. Closing a project closes its owned dialogs and tools.
 
-Window dialogs remember their position and size separately by type. The browser stores these preferences in localStorage; desktop stores them in its local settings cache. Use **Settings → Clear saved window positions** to reset all of them. Reopening a window fits its remembered geometry to the available screen. Close dialogs with their titlebar control or Escape; clicking the backdrop leaves them open.
+Window dialogs remember their position and size separately by type. The browser stores these preferences in localStorage; desktop stores them in its local settings cache. Use **Settings → Clear saved window positions** to reset all of them. Reopening a window fits its remembered geometry to the available screen. Close WinBox dialogs with their titlebar control or Escape; native tools use the operating system's close control or Escape. Clicking the backdrop leaves dialogs open. A pending operation can temporarily prevent dismissal.
 
 On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. The desktop native menu follows the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
 

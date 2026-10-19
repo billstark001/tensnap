@@ -27,9 +27,9 @@ msgstr "アクションメニュー"
 #~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 #~ msgstr "\"{0}\"を削除してもよろしいですか？配下の内容もすべて削除されます。"
 
-#: src/file-system/CreateDialog.tsx:74
-#: src/file-system/ExportDialog.tsx:160
-#: src/file-system/FilePickerProvider.tsx:225
+#: src/file-system/CreateDialog.tsx:75
+#: src/file-system/ExportDialog.tsx:161
+#: src/file-system/FilePickerProvider.tsx:227
 #: src/file-system/FileSystemBrowser.tsx:346
 msgid "Cancel"
 msgstr "キャンセル"
@@ -39,19 +39,19 @@ msgid "Clear search"
 msgstr "検索をクリア"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:231
+#: src/file-system/FilePickerProvider.tsx:233
 msgid "Confirm Selection ({0})"
 msgstr "選択を確定（{0}）"
 
-#: src/file-system/CreateDialog.tsx:77
+#: src/file-system/CreateDialog.tsx:78
 msgid "Create"
 msgstr "作成"
 
-#: src/file-system/CreateDialog.tsx:45
+#: src/file-system/CreateDialog.tsx:46
 msgid "Create New Item"
 msgstr "新規作成"
 
-#: src/file-system/FilePickerProvider.tsx:169
+#: src/file-system/FilePickerProvider.tsx:171
 msgid "Current directory: {currentDirectory}"
 msgstr "現在のディレクトリ: {currentDirectory}"
 
@@ -65,7 +65,7 @@ msgstr "削除"
 msgid "Delete \"{0}\"?"
 msgstr "「{0}」を削除しますか？"
 
-#: src/file-system/CreateDialog.tsx:58
+#: src/file-system/CreateDialog.tsx:59
 #: src/file-system/FileItem.tsx:44
 msgid "Directory"
 msgstr "フォルダー"
@@ -82,12 +82,12 @@ msgstr "ここにファイルをドラッグ"
 msgid "Drag files here to upload"
 msgstr "ここにファイルをドラッグしてアップロード"
 
-#: src/file-system/CreateDialog.tsx:67
+#: src/file-system/CreateDialog.tsx:68
 msgid "Enter directory name"
 msgstr "フォルダー名を入力"
 
-#: src/file-system/CreateDialog.tsx:67
-#: src/file-system/FilePickerProvider.tsx:217
+#: src/file-system/CreateDialog.tsx:68
+#: src/file-system/FilePickerProvider.tsx:219
 msgid "Enter file name"
 msgstr "ファイル名を入力"
 
@@ -95,23 +95,23 @@ msgstr "ファイル名を入力"
 msgid "Export"
 msgstr "エクスポート"
 
-#: src/file-system/ExportDialog.tsx:69
+#: src/file-system/ExportDialog.tsx:70
 msgid "Export as JSON file with all file contents and metadata"
 msgstr "すべてのファイル内容とメタデータを含む JSON としてエクスポート"
 
-#: src/file-system/ExportDialog.tsx:76
+#: src/file-system/ExportDialog.tsx:77
 msgid "Export as ZIP compressed file, preserving directory structure"
 msgstr "ディレクトリ構造を保持した ZIP 圧縮ファイルとしてエクスポート"
 
-#: src/file-system/ExportDialog.tsx:29
+#: src/file-system/ExportDialog.tsx:30
 msgid "Export Options"
 msgstr "エクスポートオプション"
 
-#: src/file-system/ExportDialog.tsx:101
+#: src/file-system/ExportDialog.tsx:102
 msgid "Export path"
 msgstr "エクスポートパス"
 
-#: src/file-system/ExportDialog.tsx:153
+#: src/file-system/ExportDialog.tsx:154
 msgid "Exporting, please wait..."
 msgstr "エクスポート中です。しばらくお待ちください..."
 
@@ -123,11 +123,11 @@ msgstr "項目の作成に失敗しました"
 msgid "Failed to delete item"
 msgstr "項目の削除に失敗しました"
 
-#: src/file-system/ExportDialog.tsx:92
+#: src/file-system/ExportDialog.tsx:93
 msgid "Failed to execute export option"
 msgstr "エクスポートオプションの実行に失敗しました"
 
-#: src/file-system/ExportDialog.tsx:57
+#: src/file-system/ExportDialog.tsx:58
 msgid "Failed to export"
 msgstr "エクスポートに失敗しました"
 
@@ -143,11 +143,11 @@ msgstr "ディレクトリの読み込みに失敗しました"
 msgid "Failed to upload files"
 msgstr "ファイルのアップロードに失敗しました"
 
-#: src/file-system/CreateDialog.tsx:57
+#: src/file-system/CreateDialog.tsx:58
 msgid "File"
 msgstr "ファイル"
 
-#: src/file-system/FilePickerProvider.tsx:210
+#: src/file-system/FilePickerProvider.tsx:212
 msgid "File name:"
 msgstr "ファイル名："
 
@@ -156,7 +156,7 @@ msgstr "ファイル名："
 msgid "Invalid name"
 msgstr "無効な名前です"
 
-#: src/file-system/ExportDialog.tsx:68
+#: src/file-system/ExportDialog.tsx:69
 msgid "JSON Format"
 msgstr "JSON 形式"
 
@@ -168,7 +168,7 @@ msgstr "読み込み中..."
 msgid "More Actions"
 msgstr "その他の操作"
 
-#: src/file-system/CreateDialog.tsx:62
+#: src/file-system/CreateDialog.tsx:63
 msgid "Name"
 msgstr "名前"
 
@@ -184,7 +184,7 @@ msgstr "次のページ"
 msgid "No {itemName} available"
 msgstr "利用可能な{itemName}がありません"
 
-#: src/file-system/FilePickerProvider.tsx:217
+#: src/file-system/FilePickerProvider.tsx:219
 msgid "No file selected"
 msgstr "ファイルが選択されていません"
 
@@ -192,11 +192,11 @@ msgstr "ファイルが選択されていません"
 msgid "No results found"
 msgstr "結果が見つかりませんでした"
 
-#: src/file-system/FilePickerProvider.tsx:232
+#: src/file-system/FilePickerProvider.tsx:234
 msgid "Open"
 msgstr "開く"
 
-#: src/file-system/FilePickerProvider.tsx:160
+#: src/file-system/FilePickerProvider.tsx:162
 msgid "Open File"
 msgstr "ファイルを開く"
 
@@ -225,28 +225,28 @@ msgstr "再試行"
 msgid "Root"
 msgstr "ルート"
 
-#: src/file-system/FilePickerProvider.tsx:229
+#: src/file-system/FilePickerProvider.tsx:231
 msgid "Save"
 msgstr "保存"
 
-#: src/file-system/FilePickerProvider.tsx:157
+#: src/file-system/FilePickerProvider.tsx:159
 msgid "Save File"
 msgstr "ファイルを保存"
 
-#: src/file-system/ExportDialog.tsx:120
+#: src/file-system/ExportDialog.tsx:121
 msgid "Select export format"
 msgstr "エクスポート形式を選択"
 
-#: src/file-system/FilePickerProvider.tsx:159
+#: src/file-system/FilePickerProvider.tsx:161
 msgid "Select Files"
 msgstr "ファイルを選択"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:171
+#: src/file-system/FilePickerProvider.tsx:173
 msgid "Selected {0} files"
 msgstr "{0} 件のファイルを選択済み"
 
-#: src/file-system/FilePickerProvider.tsx:210
+#: src/file-system/FilePickerProvider.tsx:212
 msgid "Selected file:"
 msgstr "選択したファイル："
 
@@ -267,7 +267,7 @@ msgstr "配下のすべての内容も削除されます。"
 msgid "Try adjusting your search criteria"
 msgstr "検索条件を調整してみてください"
 
-#: src/file-system/CreateDialog.tsx:52
+#: src/file-system/CreateDialog.tsx:53
 msgid "Type"
 msgstr "種類"
 
@@ -275,6 +275,6 @@ msgstr "種類"
 msgid "Upload Files"
 msgstr "ファイルをアップロード"
 
-#: src/file-system/ExportDialog.tsx:75
+#: src/file-system/ExportDialog.tsx:76
 msgid "ZIP Archive"
 msgstr "ZIP アーカイブ"

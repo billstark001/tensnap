@@ -27,9 +27,9 @@ msgstr "Action menu"
 #~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 #~ msgstr "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 
-#: src/file-system/CreateDialog.tsx:74
-#: src/file-system/ExportDialog.tsx:160
-#: src/file-system/FilePickerProvider.tsx:225
+#: src/file-system/CreateDialog.tsx:75
+#: src/file-system/ExportDialog.tsx:161
+#: src/file-system/FilePickerProvider.tsx:227
 #: src/file-system/FileSystemBrowser.tsx:346
 msgid "Cancel"
 msgstr "Cancel"
@@ -39,19 +39,19 @@ msgid "Clear search"
 msgstr "Clear search"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:231
+#: src/file-system/FilePickerProvider.tsx:233
 msgid "Confirm Selection ({0})"
 msgstr "Confirm Selection ({0})"
 
-#: src/file-system/CreateDialog.tsx:77
+#: src/file-system/CreateDialog.tsx:78
 msgid "Create"
 msgstr "Create"
 
-#: src/file-system/CreateDialog.tsx:45
+#: src/file-system/CreateDialog.tsx:46
 msgid "Create New Item"
 msgstr "Create New Item"
 
-#: src/file-system/FilePickerProvider.tsx:169
+#: src/file-system/FilePickerProvider.tsx:171
 msgid "Current directory: {currentDirectory}"
 msgstr "Current directory: {currentDirectory}"
 
@@ -65,7 +65,7 @@ msgstr "Delete"
 msgid "Delete \"{0}\"?"
 msgstr "Delete \"{0}\"?"
 
-#: src/file-system/CreateDialog.tsx:58
+#: src/file-system/CreateDialog.tsx:59
 #: src/file-system/FileItem.tsx:44
 msgid "Directory"
 msgstr "Directory"
@@ -82,12 +82,12 @@ msgstr "Drag files here"
 msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
-#: src/file-system/CreateDialog.tsx:67
+#: src/file-system/CreateDialog.tsx:68
 msgid "Enter directory name"
 msgstr "Enter directory name"
 
-#: src/file-system/CreateDialog.tsx:67
-#: src/file-system/FilePickerProvider.tsx:217
+#: src/file-system/CreateDialog.tsx:68
+#: src/file-system/FilePickerProvider.tsx:219
 msgid "Enter file name"
 msgstr "Enter file name"
 
@@ -95,23 +95,23 @@ msgstr "Enter file name"
 msgid "Export"
 msgstr "Export"
 
-#: src/file-system/ExportDialog.tsx:69
+#: src/file-system/ExportDialog.tsx:70
 msgid "Export as JSON file with all file contents and metadata"
 msgstr "Export as JSON file with all file contents and metadata"
 
-#: src/file-system/ExportDialog.tsx:76
+#: src/file-system/ExportDialog.tsx:77
 msgid "Export as ZIP compressed file, preserving directory structure"
 msgstr "Export as ZIP compressed file, preserving directory structure"
 
-#: src/file-system/ExportDialog.tsx:29
+#: src/file-system/ExportDialog.tsx:30
 msgid "Export Options"
 msgstr "Export Options"
 
-#: src/file-system/ExportDialog.tsx:101
+#: src/file-system/ExportDialog.tsx:102
 msgid "Export path"
 msgstr "Export path"
 
-#: src/file-system/ExportDialog.tsx:153
+#: src/file-system/ExportDialog.tsx:154
 msgid "Exporting, please wait..."
 msgstr "Exporting, please wait..."
 
@@ -123,11 +123,11 @@ msgstr "Failed to create item"
 msgid "Failed to delete item"
 msgstr "Failed to delete item"
 
-#: src/file-system/ExportDialog.tsx:92
+#: src/file-system/ExportDialog.tsx:93
 msgid "Failed to execute export option"
 msgstr "Failed to execute export option"
 
-#: src/file-system/ExportDialog.tsx:57
+#: src/file-system/ExportDialog.tsx:58
 msgid "Failed to export"
 msgstr "Failed to export"
 
@@ -143,11 +143,11 @@ msgstr "Failed to load directory"
 msgid "Failed to upload files"
 msgstr "Failed to upload files"
 
-#: src/file-system/CreateDialog.tsx:57
+#: src/file-system/CreateDialog.tsx:58
 msgid "File"
 msgstr "File"
 
-#: src/file-system/FilePickerProvider.tsx:210
+#: src/file-system/FilePickerProvider.tsx:212
 msgid "File name:"
 msgstr "File name:"
 
@@ -156,7 +156,7 @@ msgstr "File name:"
 msgid "Invalid name"
 msgstr "Invalid name"
 
-#: src/file-system/ExportDialog.tsx:68
+#: src/file-system/ExportDialog.tsx:69
 msgid "JSON Format"
 msgstr "JSON Format"
 
@@ -168,7 +168,7 @@ msgstr "Loading..."
 msgid "More Actions"
 msgstr "More Actions"
 
-#: src/file-system/CreateDialog.tsx:62
+#: src/file-system/CreateDialog.tsx:63
 msgid "Name"
 msgstr "Name"
 
@@ -184,7 +184,7 @@ msgstr "Next page"
 msgid "No {itemName} available"
 msgstr "No {itemName} available"
 
-#: src/file-system/FilePickerProvider.tsx:217
+#: src/file-system/FilePickerProvider.tsx:219
 msgid "No file selected"
 msgstr "No file selected"
 
@@ -192,11 +192,11 @@ msgstr "No file selected"
 msgid "No results found"
 msgstr "No results found"
 
-#: src/file-system/FilePickerProvider.tsx:232
+#: src/file-system/FilePickerProvider.tsx:234
 msgid "Open"
 msgstr "Open"
 
-#: src/file-system/FilePickerProvider.tsx:160
+#: src/file-system/FilePickerProvider.tsx:162
 msgid "Open File"
 msgstr "Open File"
 
@@ -225,28 +225,28 @@ msgstr "Retry"
 msgid "Root"
 msgstr "Root"
 
-#: src/file-system/FilePickerProvider.tsx:229
+#: src/file-system/FilePickerProvider.tsx:231
 msgid "Save"
 msgstr "Save"
 
-#: src/file-system/FilePickerProvider.tsx:157
+#: src/file-system/FilePickerProvider.tsx:159
 msgid "Save File"
 msgstr "Save File"
 
-#: src/file-system/ExportDialog.tsx:120
+#: src/file-system/ExportDialog.tsx:121
 msgid "Select export format"
 msgstr "Select export format"
 
-#: src/file-system/FilePickerProvider.tsx:159
+#: src/file-system/FilePickerProvider.tsx:161
 msgid "Select Files"
 msgstr "Select Files"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:171
+#: src/file-system/FilePickerProvider.tsx:173
 msgid "Selected {0} files"
 msgstr "Selected {0} files"
 
-#: src/file-system/FilePickerProvider.tsx:210
+#: src/file-system/FilePickerProvider.tsx:212
 msgid "Selected file:"
 msgstr "Selected file:"
 
@@ -267,7 +267,7 @@ msgstr "This will delete all nested content."
 msgid "Try adjusting your search criteria"
 msgstr "Try adjusting your search criteria"
 
-#: src/file-system/CreateDialog.tsx:52
+#: src/file-system/CreateDialog.tsx:53
 msgid "Type"
 msgstr "Type"
 
@@ -275,6 +275,6 @@ msgstr "Type"
 msgid "Upload Files"
 msgstr "Upload Files"
 
-#: src/file-system/ExportDialog.tsx:75
+#: src/file-system/ExportDialog.tsx:76
 msgid "ZIP Archive"
 msgstr "ZIP Archive"

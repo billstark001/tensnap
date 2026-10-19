@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/core",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "description": "Core scenario, runtime, and rendering primitives for TenSnap",
   "keywords": [
     "agent-based-modeling",

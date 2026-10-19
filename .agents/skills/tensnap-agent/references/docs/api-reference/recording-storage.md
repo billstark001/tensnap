@@ -2,6 +2,12 @@
 
 `@tensnap/core/persistence` exports `RecordingStoreBackend`, `RecordingStoreWriter`, `RecordingStoreReader`, `rebuildRecordingStoreIndex` and `RecordingPlayback`. The core entry point imports no filesystem or DOM host. Existing project files, `tensnap-recording` v1, SnapshotArchive, synchronous SnapshotPlayer and one-shot encoders keep their released contracts; the incremental store is a separate format.
 
+## Portable recordings and frame evidence
+
+Single-file recordings use `kind: "tensnap-recording", version: 1` in JSON or MessagePack. Known asset, screenshot and checkpoint fields normalize to owned bytes on import; user-defined strings are preserved. Content detection selects the decoder, including JSON received as bytes. `FrameManifestSchema.state.path` accepts `state.recording.json` or `state.recording.msgpack` with the file's SHA-256; restore/compare follow this path and accept mixed encodings. The manifest remains version 1.
+
+The agent's `--recording-format json|msgpack` selects this single-file encoding and defaults to JSON. It does not select image encoding, wire encoding, incremental store encoding or CLI result encoding. GUI recording/frame exports use the project's JSON/MessagePack preference. See the [runtime guide](../user-guide/agent-runtime.md#recording-and-fixed-frame-workflow) and [core persistence API](https://github.com/billstark001/tensnap/tree/main/packages/core#persistence-and-owned-frames) for ownership, validation and export contracts.
+
 ## Format and host ownership
 
 The root is MessagePack with `kind: "tensnap-recording-store"`, `version: 1`, a monotonically increasing generation, recording identity, retention mode, first/last/observed frame, count, status, model identity, encoded storage accounting, initial/latest segment references and an optional summary reference. Each immutable boundary contains an independently restorable current scene, stream chunk, previous-boundary reference, assets, optional original provenance/checkpoint, action/source metadata and annotations. Frame IDs are contiguous nonnegative integers within a store; exported ranges may begin above zero. Model time may be absent, repeated or decrease.
