@@ -1,41 +1,87 @@
 # Naming Game
 
-A deliberately small adaptation of pairwise convention formation, inspired by
-[Ashery, Aiello & Baronchelli (Science Advances, 2025)](https://www.lajello.com/papers/sciadv25emergent.pdf).
-It is not an exact reproduction of that study's prompts or theoretical baseline.
+A small pairwise coordination model inspired by [Ashery, Aiello & Baronchelli (Science Advances, 2025)](https://arxiv.org/abs/2410.08948). This implementation defines its own two-name game, prompts and rule baseline; it is not a replication of that study.
 
-- Default: 24 agents, two names Q/M, memory of five personal interactions.
-- Each tick selects a pair uniformly on a complete network, or a local pair on
-  a ring (`--topology ring`). Both choose before either observes the other answer.
-- Matching names give both +1; mismatches give both -1. There is no global
-  consensus instruction or global population statistic in an agent's prompt.
-- Rule mode repeats a successful name or adopts the other name after failure,
-  with 0.05 exploration probability. This is symmetric under Q/M relabeling.
-- LLM mode sees the same local interaction history and a shuffled name list;
-  a short optional note is displayed as a reported observation, not a causal
-  explanation of the model's internals.
+## Scientific purpose
+
+How do agents using only recent personal interactions coordinate on a shared convention? How do memory, contact topology and policy affect formation and persistence? Matching is individually rewarded, but agents receive no global consensus instruction or population statistics.
+
+The current model supports complete/ring topology, memory and rule/LLM comparisons. Inspecting individual histories connects aggregate choice shares to preceding interactions. Repeated independent runs are needed to study convention selection and persistence. Supplied metrics describe trajectories; they do not by themselves test collective bias or establish an LLM advantage.
+
+## Run the backend
+
+Choose a [Python environment](../README.md#choose-a-python-environment), then run from the repository root:
 
 ```bash
-# From repository root, in the environment described in ../README.md:
-python -m examples.python_llm.naming_game serve --policy rule
-python -m examples.python_llm.naming_game serve --policy llm \
-  --env-file /path/to/private.env --agents 8 --max-calls 12
-python -m examples.python_llm.naming_game batch --seeds 1,2,3 --steps 1000
+python -m examples.python_llm.naming_game serve --policy rule --port 8765
 ```
 
-Graph nodes start on a circle and use the renderer's graph layout. Colors are **blue Q**, **amber M**,
-and **gray not activated**. Edges show actual interactions from the last 12
-ticks, with the newest thicker; they are not the full permitted contact network.
-Inspect a node's personal history or set `selected_agent` to its numeric index.
+Connect the GUI to the printed URL or follow the [minimal agent CLI path](../README.md#connect-the-agent-cli-minimal-path). The backend waits for actions; stop it with Ctrl-C.
 
-The chart records last-name shares and cumulative pairwise success. The metric
-`last_choice_agreement` is the largest last-choice share, not a guarantee that
-agents will keep choosing that name. A single trajectory cannot establish a
-population-level convention bias. Use repeated runs to investigate whether this
-provider/prompt actually differs from the symmetric baseline.
+```bash
+# Headless rules: Python 3.10+, no binding installation or API access.
+python -m examples.python_llm.naming_game batch --policy rule \
+  --seeds 1,2,3 --agents 24 --memory 5 --topology ring --steps 1000
 
-`--exploration` configures the rule baseline and can be changed in the GUI.
-Population, memory length and topology are launch-time options. Pair selection
-uses a separate RNG from policy sampling/name-list ordering, so equal seeds have
-the same pair schedule across decision backends. See [shared workflows](../README.md)
-for budgets, checkpoint restoration, local recordings and offline replay.
+# Existing tape: configuration and prompts must match its original run.
+python -m examples.python_llm.naming_game serve --policy replay \
+  --agents 8 --seed 7 --memory 5 --topology complete \
+  --replay /path/to/naming-decisions.jsonl --port 8765
+
+# Live inference: actions can make paid requests, two per interaction.
+python -m examples.python_llm.naming_game serve --policy llm \
+  --env-file /path/to/private.env --agents 8 --max-calls 12
+```
+
+See [shared workflows](../README.md) for credentials, caps, recordings and restoration.
+
+## State and parameters
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `--agents` | 24 | Population, 2–200; stable IDs `agent_0`, … |
+| `--seed` | 7 | Initial seed for contact and policy RNG streams |
+| `--memory` | 5 | Each agent's last 1–12 personal interactions |
+| `--topology` | `complete` | Permitted contacts: `complete` or `ring` |
+| `--exploration` | 0.05 | Rule-only probability of a fresh uniform choice, in [0, 1] |
+
+Agents start without a name, at score zero, with empty history. State contains their last choice, cumulative score, recent interactions and last returned decision. Names are fixed to Q and M. There is no movement, population turnover, committed minority or changing contact network.
+
+Population, memory and topology are launch-time settings. `exploration` can be edited at runtime but affects rule mode only. `selected_agent` changes inspection, not behavior. Reset restarts the current seed; **Reset with next seed** starts the next seed.
+
+## One interaction, in order
+
+1. Select the first agent uniformly. On a complete network, select its partner uniformly from everyone else; on a ring, select its left or right neighbor with equal probability.
+2. Ask both agents for Q or M using their pre-interaction histories. LLM requests are sequential, but neither sees the other's new answer, so choices are simultaneous in information terms.
+3. Validate both answers before committing state. Matching gives both +1; different choices give both −1.
+4. Advance tick by one, set last choices/decisions, and append partner identity, own/other choices, success and payoff to each participant's bounded history.
+5. Update recent-contact edges and publish metrics, monitors and charts.
+
+One tick is **one pairwise interaction**, not a population round. Failed decisions restore stochastic cursors and leave state/tick unchanged; paid requests remain counted. Separate RNG streams control contacts and policy sampling. Equal seed, population and topology give the same pair schedule across decision backends; both RNG states are checkpointed.
+
+## Information and decision policies
+
+The LLM sees its ID, run seed, a shuffled Q/M option list and recent personal interactions. It receives no global choice shares, other agents' private memories or partner's next choice. The system prompt specifies payoffs and asks it to maximize score. It returns `{"name":"Q or M","note":"..."}`. The optional note is a public reported observation, limited to 160 characters. It is displayed for inspection, not added as a separate field to subsequent interaction histories or treated as internal reasoning.
+
+The rule chooses uniformly with empty history or during exploration. Otherwise it repeats its previous choice after success and adopts its partner's previous choice after failure. The rule is symmetric under Q/M relabeling. Shuffling the LLM observation's option list does not demonstrate absence of bias: the fixed system prompt still names Q/M.
+
+## Measurements and visualization
+
+These are researcher observations, not global information given to policies:
+
+| Metric | Definition | Interpretation |
+| --- | --- | --- |
+| `q_share`, `m_share` | Agents last choosing Q/M, divided by population | Current last-choice shares |
+| `unseen_share` | Fraction without any choice yet | Agents not yet activated |
+| `coordination_rate` | Successful / completed interactions; zero initially | Cumulative pairwise success |
+| `last_choice_agreement` | Larger of Q/M last-choice shares | Instantaneous agreement, not persistence |
+
+Charts `names` and `coordination_rate` show those series. Monitors include `metrics`, `selected_agent`, `last_interaction` and `inference`. Set `selected_agent` to the numeric index or inspect a node for its history/decision.
+
+Nodes start on a circle and use the renderer's graph layout. Blue is Q, amber is M, gray is not yet activated. Edges show actual contacts from the last twelve ticks, retaining the latest per pair; the newest is thicker. They do not show the full permitted network. Display layout is separate from fixed projected model coordinates.
+
+## Interpreting an experiment
+
+Agreement of one means all last choices align at that instant. Stable convention formation requires a stated persistence window or further analysis. Cumulative success can hide recent instability, so inspect the event sequence too.
+
+Convention-bias experiments need independent runs, recorded provider/prompt settings, initial individual-preference measurements and label/order controls. One converged trajectory cannot establish collective bias. Replaying a tape checks reproducibility and adds no independent sample. See [replay and restoration](../README.md#standard-recording-historical-frames-and-restoration).
