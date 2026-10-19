@@ -62,16 +62,14 @@ export const treeRow = style({
   selectors: { 'body[data-theme="dark"] &': { borderBottomColor: vars.color.darkInputBorder } },
 });
 export const treeKey = style({
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere',
   fontFamily: 'monospace',
   fontWeight: 600,
 });
 export const treeValue = style({
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere',
   fontFamily: 'monospace',
 });
 export const expandButton = style({
@@ -84,73 +82,45 @@ export const expandButton = style({
   background: 'transparent',
   color: vars.color.primary,
   cursor: 'pointer',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere',
   fontFamily: 'monospace',
   fontSize: 'inherit',
 });
 
 export const tableScroll = style({ maxHeight: '320px', overflow: 'auto' });
-export const virtualTable = style({ position: 'relative', minWidth: '100%' });
+export const virtualTable = style({
+  minWidth: '100%',
+  fontFamily: 'monospace',
+  fontSize: 'inherit',
+});
 export const virtualHeader = style({
+  display: 'grid',
   position: 'sticky',
   top: 0,
   zIndex: 2,
-  height: '28px',
   background: vars.color.inputBackground,
   selectors: { 'body[data-theme="dark"] &': { background: vars.color.darkInputBackground } },
 });
 export const virtualHeaderCell = style({
-  position: 'absolute',
-  top: 0,
-  height: '28px',
   padding: vars.space.xs,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  minWidth: 0,
+  whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere',
   fontWeight: 600,
 });
 export const virtualRow = style({
-  position: 'absolute',
-  left: 0,
-  width: '100%',
-  height: '28px',
+  display: 'grid',
+  minHeight: '28px',
   borderTop: `1px solid ${vars.color.inputBorder}`,
   selectors: { 'body[data-theme="dark"] &': { borderTopColor: vars.color.darkInputBorder } },
 });
 export const virtualCell = style({
-  position: 'absolute',
-  top: 0,
-  height: '28px',
   padding: vars.space.xs,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
+  minWidth: 0,
+  whiteSpace: 'pre-wrap',
+  overflowWrap: 'anywhere',
 });
-export const table = style({
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontFamily: 'monospace',
-  fontSize: 'inherit',
-});
-globalStyle(`${table} th`, {
-  position: 'sticky',
-  top: 0,
-  background: vars.color.inputBackground,
-  textAlign: 'left',
-  padding: vars.space.xs,
-});
-globalStyle(`${table} td`, {
-  maxWidth: '240px',
-  padding: vars.space.xs,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  borderTop: `1px solid ${vars.color.inputBorder}`,
-});
-globalStyle(`body[data-theme="dark"] ${table} th`, { background: vars.color.darkInputBackground });
-globalStyle(`body[data-theme="dark"] ${table} td`, { borderTopColor: vars.color.darkInputBorder });
 
 export const pagination = style({
   display: 'flex',

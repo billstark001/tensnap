@@ -22,6 +22,10 @@ Go subjects use the evaluation `go.mod` through `-modfile` with `-mod=readonly`.
 
 Source checks exclude `benchmark-results/`, `evaluation-results/`, the selected batch output, and configured work/cache directories, even when Git can track their contents. Creating or updating these generated files does not invalidate the running batch. Benchmark child processes and the Fire/DQN entry point use the same exclusions. Changes to tracked or untracked source outside those directories still invalidate the batch; committing any change during a run also changes its recorded revision. Use dedicated generated directories, never a source directory, for output, work or cache paths.
 
+## Current checkout profiles
+
+The current experiment specification continues to select `evaluation-2026-schelling-ui-js-v2.json`, with refreshed package/lock fingerprints for the 2026-10-19 checkout. `schelling-ui-js-v2.json` is its standalone counterpart. Package-version or dependency-lock changes alone do not require a new profile version: update `environmentLocks` hashes in place only in the latest active profile version, verify them, and run into a fresh output directory. Leave superseded versions such as v1 unchanged, including their existing hashes. Add a new profile version when scientific workloads, conditions, measurement semantics, metrics or comparison interpretation change. A hash refresh is not new performance evidence. Recorded batches retain their embedded profiles and original checksums.
+
 ## Commands
 
 From the repository root:
@@ -125,6 +129,6 @@ pnpm evaluation extract --input benchmark-results/evaluation-full-2026-10-09 \
 
 Offline verification uses recorded evidence and does not require the current checkout revision to equal the measured source. Resume does require the original commit, source bytes and environment; it cannot append a changed implementation to the same batch. After source changes, review and commit the new implementation, use a fresh output, and let the runner record its actual revision. Do not edit old manifests, exports, or their checksums. A documentation-only source change still changes source identity on a new publication run.
 
-Change a profile only if its workload, metric, repetition plan or environment changes; a source commit alone does not require inserting a SHA into profile JSON. If a profile/lock changes, add a clearly named new profile, update the experiment specification and table selectors when run IDs/metrics change, and run `plan`/`doctor` before fresh execution. The immutable earlier profiles and companion paper archives retain their original interpretation.
+Change a profile only if its workload, metric, repetition plan or environment changes; a source commit alone does not require inserting a SHA into profile JSON. For package/lock fingerprint updates alone, retain the latest active profile version and refresh only its hashes; leave superseded profile versions unchanged. For scientific workload or measurement changes, add a clearly named new profile and update the experiment specification and table selectors when run IDs/metrics change. Run `plan`/`doctor` before fresh execution in either case. Archived profiles and companion paper evidence retain their original interpretation and checksums.
 
 Protocol/core P95 pools 1,500 actions per condition; GUI P95 pools 7,425. Kernel P95/P99 are maxima of 15 total-duration samples, not step percentiles. No percentile is a bound on rare pauses. All measured samples remain in the checked archives.

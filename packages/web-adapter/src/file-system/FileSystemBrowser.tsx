@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { t } from '@lingui/core/macro';
-import { DirectoryEntry, FileSystemAdapter } from '@tensnap/web-common/types/file';
+import type { DirectoryEntry, FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { Breadcrumbs } from './Breadcrumbs';
 import { ActionButtons } from './ActionButtons';
 import { FileItem } from './FileItem';
@@ -257,6 +257,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       className={clsx(styles.browserContainer, className)}
       onDragOver={allowUpload ? handleDragOver : undefined}
       onDragLeave={allowUpload ? handleDragLeave : undefined}
+      data-file-picker
       onDrop={allowUpload ? handleDrop : undefined}
     >
       <div className={styles.browserHeader}>

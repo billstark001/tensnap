@@ -1,7 +1,7 @@
 /** Exercise live hosts through the same Node transport and RendererSession used by the agent. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { RendererSession } from '../packages/core/src/runtime/RendererSession.ts';
+import type { RendererSession } from '../packages/core/src/runtime/RendererSession.ts';
 import { RendererClient } from '../packages/core/src/runtime/RendererClient.ts';
 import { NodeWebSocketTransport } from '../packages/tensnap-agent/src/session/NodeWebSocketTransport.ts';
 import type {

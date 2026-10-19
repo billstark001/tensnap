@@ -1,15 +1,16 @@
 /* eslint-disable no-redeclare */
 import { useCallback, useRef, useState, useEffect } from 'react';
-import { DragEndEvent, DragStartEvent, DragMoveEvent, Active, Over } from '@dnd-kit/core';
-import { ContainerView, AnyView } from '@tensnap/core/persistence';
+import type { DragEndEvent, DragStartEvent, DragMoveEvent, Active, Over } from '@dnd-kit/core';
+import type { ContainerView, AnyView } from '@tensnap/core/persistence';
 import { useCallbackRef, useThrottled } from '@tensnap/web-common/react';
-import { Coordinates } from '@dnd-kit/core/dist/types';
-import { GuideLine, GuideLineMatcher, ViewBox } from '@/utils/layout/guideline';
+import type { Coordinates } from '@dnd-kit/core/dist/types';
+import type { GuideLine, ViewBox } from '@/utils/layout/guideline';
+import { GuideLineMatcher } from '@/utils/layout/guideline';
 import { SNAP_THRESHOLD } from './constants';
 import { getEffectiveViewBox } from '@/utils/view/geometry';
 import { moveViewInPlace, updateViewInPlace } from '@/utils/view/mutation';
-import { ViewUpdateHandler } from './useViewContext';
-import { DraggableViewData, DroppableViewData } from './types';
+import type { ViewUpdateHandler } from './useViewContext';
+import type { DraggableViewData, DroppableViewData } from './types';
 import { useRecordViewHistory } from '@/store/view-history';
 
 type DragContent = {

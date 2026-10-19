@@ -1,4 +1,4 @@
-import { z, ZodType } from 'zod';
+import type { z, ZodType } from 'zod';
 import type { AssetStore } from '../asset';
 import {
   resolveTrajectoryLifecycle,

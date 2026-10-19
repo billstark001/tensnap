@@ -26,7 +26,7 @@
         "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/kernel.ts", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.80", "--warmup-steps", "25", "--steps", "500", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
         "cwd": "examples/js",
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b", "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf" },
+        "environmentLocks": { "examples/js/package.json": "083bd47a0b465a43b3e0a480340201e239d05a778ffb13466aaa4c307c497327", "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7" },
         "seed": 20260718,
         "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 500, "max": 500 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 500, "max": 500 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
       }
@@ -60,7 +60,7 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b", "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf" },
+        "environmentLocks": { "examples/js/package.json": "083bd47a0b465a43b3e0a480340201e239d05a778ffb13466aaa4c307c497327", "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7" },
         "seed": 20260718
       }
     },
@@ -93,7 +93,7 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b", "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf" },
+        "environmentLocks": { "examples/js/package.json": "083bd47a0b465a43b3e0a480340201e239d05a778ffb13466aaa4c307c497327", "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7" },
         "seed": 20260718
       }
     }

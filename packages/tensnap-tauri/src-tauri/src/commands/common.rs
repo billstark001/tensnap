@@ -1,4 +1,5 @@
 use tauri::AppHandle;
+use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 pub fn get_os_name_handler() -> String {
@@ -13,4 +14,14 @@ pub fn set_menu_locale_handler(app: AppHandle, locale: String) -> Result<(), Str
 #[tauri::command]
 pub fn exit_application_handler(app: AppHandle) {
     app.exit(0);
+}
+
+#[tauri::command]
+pub fn open_documentation_handler(app: AppHandle) -> Result<(), String> {
+    app.opener()
+        .open_url(
+            "https://github.com/billstark001/tensnap/tree/main/docs",
+            None::<&str>,
+        )
+        .map_err(|error| error.to_string())
 }

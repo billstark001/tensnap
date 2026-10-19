@@ -32,6 +32,8 @@ The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed
 
 `pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. Oxlint warnings fail the check; use `pnpm lint:js` for the focused zero-warning check. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
 
+Oxlint enforces `typescript/consistent-type-imports` globally, including tests. Use static `import type` declarations (or named `type` specifiers) for types. Type-position `import('module').Type` and `typeof import('module')` are forbidden; use a top-level type namespace import for module type queries. Runtime dynamic `import()` remains available for lazy loading.
+
 Use paired `// #region Name` / `// #endregion` comments for foldable source sections. Oxlint's existing `no-warning-comments` rule warns about decorative dash/equal-sign separators in package source; it does not prohibit TODO/FIXME notes, and test fixtures are excluded from this style rule.
 
 Oxfmt excludes generated Lingui modules, Tauri schemas, the conformance matrix, and all `benchmark-results/` evidence, including published reports whose bytes are hashed. Regenerate these files with their owning tools.

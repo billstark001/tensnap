@@ -1,7 +1,7 @@
 import { generateUniqueId } from '@/utils/common';
-import { ContainerView, AnchoredView, ButtonView } from '@tensnap/core/persistence';
-import { Parameter, Action, BooleanParameter } from '@/types/model';
-import {
+import type { ContainerView, AnchoredView, ButtonView } from '@tensnap/core/persistence';
+import type { Parameter, Action, BooleanParameter } from '@/types/model';
+import type {
   ObjectWithEnvironmentMetadata,
   ObjectWithChartMetadata,
   Point,

@@ -14,31 +14,23 @@
  * Registered storages: AgentStorage (required), GridEnvStorage (optional)
  */
 
+import type { UI, Text } from '@leafer-ui/core';
 import {
   Ellipse,
   Group,
-  UI,
-  Text,
   PointerEvent as LeaferPointerEvent,
   DragEvent as LeaferDragEvent,
 } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
-import {
+import type {
   AgentDelta,
   AgentStorage,
   AgentStorageData,
   AgentRenderState,
 } from '../storages/AgentStorage';
-import {
-  Viewport,
-  GridCoordOffset,
-  SceneBounds,
-  OriginMode,
-  getAssetIdFromIcon,
-  IBoundedLayer,
-  isBuiltinAgentIcon,
-} from '../types';
+import type { Viewport, GridCoordOffset, SceneBounds, OriginMode, IBoundedLayer } from '../types';
+import { getAssetIdFromIcon, isBuiltinAgentIcon } from '../types';
 import type { AgentIcon, AgentId, BuiltinAgentIcon } from '@tensnap/protocol/layers';
 import { getCoordOffsetValue, resolveAgentSize } from '../utils';
 import { SHAPE_CONFIGS, SHAPE_CLASSES, createAgentLabel } from '../utils/shape';

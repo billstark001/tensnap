@@ -7,7 +7,7 @@
 
 import JSZip from 'jszip';
 import { encodeBytesAsBase64 } from '@tensnap/protocol/binary';
-import { FileSystemAdapter } from '@tensnap/web-common/types/file';
+import type { FileSystemAdapter } from '@tensnap/web-common/types/file';
 
 export interface ExportOptions {
   format: 'json' | 'zip';

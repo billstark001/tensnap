@@ -1,10 +1,11 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
-import { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { ButtonViewEditor } from './ButtonViewEditor';
 import { ContainerViewEditor } from './ContainerViewEditor';
 import { EnvironmentViewEditor } from './EnvironmentViewEditor';
@@ -12,20 +13,22 @@ import { ParameterViewEditor } from './ParameterViewEditor';
 import { ChartViewEditor } from './ChartViewEditor';
 import { MonitorViewEditor } from './MonitorViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
-import { Action, Parameter, ChartGroup, ParameterType } from '@/types/model';
+import type { Action, Parameter, ChartGroup, ParameterType } from '@/types/model';
 import { EditObjectIdDialog } from './EditObjectIdDialog';
 import { ConfirmEditDialog } from './ConfirmEditDialog';
 import { useToast } from '@/store';
-import {
+import type {
   EditableObjectData,
   EditableObjectKind,
+  ScenarioDataSources,
+} from './edit-view-model';
+import {
   getBoundObjectId,
   getEditableObjectData,
   getEditableObjectKind,
   getObjectIdConflict,
   normalizeEnvironmentForType,
   normalizeParameterForType,
-  ScenarioDataSources,
   withBoundObjectId,
   withObjectDataId,
 } from './edit-view-model';
@@ -36,7 +39,11 @@ interface EditViewDialogProps extends DialogOpenProps {
   onSave: (
     updatedView: AnyView,
     objectData?: any,
-  ) => void | boolean | { ok: boolean; message?: string };
+  ) =>
+    | void
+    | boolean
+    | { ok: boolean; message?: string }
+    | Promise<void | boolean | { ok: boolean; message?: string }>;
 }
 
 type ObjectIdDialogState = {
@@ -165,7 +172,7 @@ const getObjectDataForSave = (
 ): EditableObjectData | undefined =>
   getEditableObjectKind(view) ? (objectData ?? undefined) : undefined;
 
-export const EditViewDialog: React.FC<EditViewDialogProps> = ({
+const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
   open,
   onOpenChange,
   view,
@@ -320,8 +327,14 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     setEditorRevision((revision) => revision + 1);
   }, [structuralEdit, toast.warning]);
 
-  const handleSave = useCallback(() => {
-    const result = onSave(localView, getObjectDataForSave(localView, localObjectData));
+  const handleSave = useCallback(async () => {
+    let result: Awaited<ReturnType<typeof onSave>>;
+    try {
+      result = await onSave(localView, getObjectDataForSave(localView, localObjectData));
+    } catch (error) {
+      toast.error(String(error));
+      return;
+    }
     if (typeof result === 'object' && result && 'ok' in result && !result.ok) {
       return;
     }
@@ -330,7 +343,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     }
     setHasChanges(false);
     onOpenChange?.(false);
-  }, [localView, localObjectData, onSave, onOpenChange]);
+  }, [localView, localObjectData, onSave, onOpenChange, toast]);
 
   const renderEditor = () => {
     switch (localView.type) {
@@ -386,11 +399,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
-      <Dialog.CloseButton />
-      <Dialog.Title>
-        <Trans>Edit View</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Edit View`)} open={open} onOpenChange={onOpenChange} size="xl">
       <Dialog.Description />
 
       <Dialog.Body>
@@ -404,17 +413,12 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
         <Dialog.Button variant="primary" onClick={handleSave} disabled={!hasChanges}>
           <Trans>Save</Trans>
         </Dialog.Button>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
       </Dialog.Footer>
 
       <EditObjectIdDialog
         key={objectIdDialog ? `${objectIdDialog.kind}:${objectIdDialog.currentId}` : 'closed'}
         open={Boolean(objectIdDialog)}
-        title={<Trans>Edit Object ID</Trans>}
+        title={_(msg`Edit Object ID`)}
         currentId={objectIdDialog?.currentId ?? ''}
         objectExists={objectIdDialog?.objectExists ?? false}
         validateId={validateObjectId}
@@ -428,7 +432,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
 
       <ConfirmEditDialog
         open={Boolean(structuralEdit)}
-        title={<Trans>Confirm Structural Change</Trans>}
+        title={_(msg`Confirm Structural Change`)}
         description={
           <Trans>
             This change may alter how the object is interpreted. Existing data will be preserved
@@ -445,3 +449,10 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     </Dialog.Root>
   );
 };
+
+export const EditViewDialog = defineDialog('EditViewDialog', EditViewDialogContent, {
+  width: 1060,
+  height: 700,
+  minWidth: 640,
+  minHeight: 420,
+});

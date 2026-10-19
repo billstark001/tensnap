@@ -194,6 +194,7 @@ export async function exportRecordingFrame(
   output: string,
   options: {
     snapshotId?: string;
+    recordingFormat?: 'json' | 'msgpack';
     envIds?: string[];
     chartIds?: string[];
     renderOptions?: SceneRenderOptions;

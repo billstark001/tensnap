@@ -827,6 +827,9 @@ export function createProgram(
       'positive',
     ),
     new Option('--record', 'Record this run.').conflicts('collection'),
+    new Option('--recording-format <format>', 'Recording format (default: json).')
+      .choices(['json', 'msgpack'])
+      .conflicts('collection'),
     new Option('--collection <file>', 'Strict trigger/storage collection config.').conflicts(
       'record',
     ),
@@ -846,6 +849,8 @@ export function createProgram(
     if (options.maxActions === undefined && options.maxSteps === undefined) {
       throw new CliInputError('run start requires --max-actions <n> (or --max-steps <n>).');
     }
+    if (options.recordingFormat && !options.record)
+      throw new CliInputError('--recording-format requires --record.');
     if (options.until === 'persisted' && !options.record && !options.collection)
       throw new CliInputError('--until persisted requires --record or --collection.');
     if (Boolean(options.collection) !== Boolean(options.store))
@@ -879,7 +884,7 @@ export function createProgram(
       body: JSON.stringify(
         collection
           ? { spec, config: collection, output: options.store }
-          : { ...spec, record: options.record === true },
+          : { ...spec, record: options.record === true, recordingFormat: options.recordingFormat },
       ),
     })) as { run: { id: string } };
     printJson(
@@ -964,6 +969,10 @@ export function createProgram(
     .command('start')
     .description('Start a manual context recording.');
   addOptions(recordingStart, [
+    new Option('--recording-format <format>', 'Recording format (default: json).').choices([
+      'json',
+      'msgpack',
+    ]),
     numericOption('--max-frames <count>', 'Retained frame budget (default: 10000).', 'integer'),
     numericOption('--max-bytes <bytes>', 'Retained byte budget (default: 64 MiB).', 'positive'),
     numericOption('--max-duration-ms <ms>', 'Retained duration budget.', 'positive'),
@@ -983,6 +992,7 @@ export function createProgram(
           maxSteps: options.maxFrames,
           maxBytes: options.maxBytes,
           maxDurationMs: options.maxDurationMs,
+          recordingFormat: options.recordingFormat,
           ringBuffer: options.retention !== 'bounded',
           label: options.label,
         }),
@@ -1017,6 +1027,10 @@ export function createProgram(
     .description('Export a persisted context recording.');
   addOptions(recordingExport, [
     new Option('--output <path>', 'Recording output file.').makeOptionMandatory(),
+    new Option('--recording-format <format>', 'Recording format (default: json).').choices([
+      'json',
+      'msgpack',
+    ]),
   ]);
   handle(recordingExport, async (options, [id]) => {
     const { baseUrl } = await requireRuntime(options);
@@ -1024,7 +1038,7 @@ export function createProgram(
       { outputVersion: '1' },
       await requestJson(baseUrl, `/v1/recordings/${encodeURIComponent(id)}/export`, {
         method: 'POST',
-        body: JSON.stringify({ output: options.output }),
+        body: JSON.stringify({ output: options.output, recordingFormat: options.recordingFormat }),
       }),
     );
   });
@@ -1062,6 +1076,13 @@ export function createProgram(
       .command(`${verb} <file>`)
       .description(`${verb} a saved recording at an explicit retained frame or model time.`);
     addOptions(command, selectionOptions());
+    if (verb === 'export-frame')
+      addOptions(command, [
+        new Option(
+          '--recording-format <format>',
+          'State recording format (default: json).',
+        ).choices(['json', 'msgpack']),
+      ]);
     if (verb === 'inspect')
       addOptions(command, [jsonOption('--query <json>', 'Bounded historical query.', 'object')]);
     if (verb === 'render' || verb === 'export-frame')
@@ -1090,6 +1111,7 @@ export function createProgram(
           { outputVersion: '1' },
           await exportRecordingFrame(file, selection, options.output!, {
             snapshotId: options.snapshotId,
+            recordingFormat: options.recordingFormat,
             envIds: options.env ? [options.env] : [],
             chartIds: options.chart ? [options.chart] : [],
             renderOptions: sceneRenderOptions(options),
@@ -1317,6 +1339,10 @@ export function createProgram(
     .command('save')
     .description('Save a fixed online frame and optional images into an evidence directory.');
   addOptions(frameSave, [
+    new Option('--recording-format <format>', 'State recording format (default: json).').choices([
+      'json',
+      'msgpack',
+    ]),
     ...imageOptions(false),
     new Option('--checkpoint <policy>', 'Checkpoint capture policy (default: none).').choices([
       'none',
@@ -1336,6 +1362,7 @@ export function createProgram(
         method: 'POST',
         body: JSON.stringify({
           output: options.output,
+          recordingFormat: options.recordingFormat,
           checkpoint: options.checkpoint,
           envIds: options.env ? [options.env] : [],
           chartIds: options.chart ? [options.chart] : [],

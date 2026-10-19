@@ -1,3 +1,4 @@
+import { useDialogContainer } from './Dialog';
 import * as RadixSelect from '@radix-ui/react-select';
 import * as styles from './Select.css';
 import { Check, ChevronDownIcon } from 'lucide-react';
@@ -12,6 +13,7 @@ export interface SelectProps extends RadixSelect.SelectProps {
 }
 
 export const Root = (props: SelectProps) => {
+  const portalContainer = useDialogContainer();
   const { triggerProps, contentProps, triggerClassName, contentClassName, children, ...rest } =
     props;
   return (
@@ -25,7 +27,7 @@ export const Root = (props: SelectProps) => {
           <ChevronDownIcon size={16} />
         </RadixSelect.Icon>
       </RadixSelect.Trigger>
-      <RadixSelect.Portal>
+      <RadixSelect.Portal container={portalContainer}>
         <RadixSelect.Content
           className={clsx(styles.selectContent, contentClassName)}
           position="popper"

@@ -1,4 +1,4 @@
-import { DialogProps } from '@radix-ui/react-dialog';
+import type { DialogProps } from './components/ui/Dialog';
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 /**

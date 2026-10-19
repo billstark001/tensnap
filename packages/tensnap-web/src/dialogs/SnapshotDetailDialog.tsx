@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { encodeRecordingFile } from '@tensnap/core/persistence';
 import { frameFromRecording, snapshotFromFrame } from '@tensnap/core/snapshot';
 import { useFileSystem } from '@/store/file-system/provider';
@@ -5,7 +6,7 @@ import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -15,7 +16,16 @@ import type { ChartGroup } from '@tensnap/core/chart';
 import { exportToCSV } from '@tensnap/core/chart/browser';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { SnapshotPlaybackSource, type Snapshot } from '@tensnap/core/snapshot';
-import { ClipboardCopy, Pause, Play, Sheet, SkipBack } from 'lucide-react';
+import {
+  ClipboardCopy,
+  Pause,
+  Play,
+  Sheet,
+  SkipBack,
+  SkipForward,
+  StepBack,
+  StepForward,
+} from 'lucide-react';
 import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import { Environment2DView } from '../components/scenario/Environment2DView';
@@ -122,7 +132,7 @@ export interface SnapshotDetailDialogProps extends DialogOpenProps {
 }
 
 /** Offline replay UI. It never writes a replayed state into a live renderer. */
-export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
+const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
   open,
   onOpenChange,
   snapshot,
@@ -135,27 +145,45 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const { _ } = useLingui();
   const firstFrame = snapshot?.initial.frame ?? 0;
   const lastFrame = snapshot?.frames[snapshot.frames.length - 1]?.index ?? firstFrame;
-  const player = useMemo(
-    () => (snapshot ? new SnapshotPlaybackSource(snapshot) : null),
-    [snapshot],
-  );
   const [frame, setFrame] = useState(firstFrame);
   const [playing, setPlaying] = useState(false);
+  const [player, setPlayer] = useState<SnapshotPlaybackSource | null>(null);
+  const cursor = useRef({ id: snapshot?.metadata.id, frame: firstFrame });
+  useEffect(() => {
+    if (!open || !snapshot) return;
+    const source = new SnapshotPlaybackSource(snapshot);
+    const desired = cursor.current.id === snapshot.metadata.id ? cursor.current.frame : firstFrame;
+    const retained = [firstFrame, ...snapshot.frames.map((entry) => entry.index)];
+    source.seek(retained.includes(desired) ? desired : firstFrame);
+    cursor.current = { id: snapshot.metadata.id, frame: source.frame };
+    // Resource acquisition belongs to the effect: an abandoned render must not allocate Blob URLs.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlayer(source);
+    setFrame(source.frame);
+    setPlaying(false);
+    return () => source.close();
+  }, [snapshot, open, firstFrame]);
+  const retainedFrames = useMemo(
+    () =>
+      snapshot ? [snapshot.initial.frame, ...snapshot.frames.map((frame) => frame.index)] : [],
+    [snapshot],
+  );
   const [label, setLabel] = useState(snapshot?.metadata.label ?? '');
   const [restoreOpen, setRestoreOpen] = useState(false);
   const { saveFileAs, writeFile } = useFileSystem();
   const toast = useToast();
+  const saveFormat = useSettingsStore((state) => state.saveFormat);
   const exportRecording = async (singleFrame: boolean) => {
     if (!snapshot) return;
     try {
       const target = singleFrame
         ? snapshotFromFrame(frameFromRecording(snapshot, frame))
         : snapshot;
-      const bytes = encodeRecordingFile(target);
+      const bytes = encodeRecordingFile(target, { format: saveFormat });
       const file = await saveFileAs({
         title: singleFrame ? t`Export current frame` : t`Export full recording`,
-        defaultPath: `${target.metadata.id}.tensnap-recording.json`,
-        filters: [{ name: 'TenSnap recording', extensions: ['json'] }],
+        defaultPath: `${target.metadata.id}.tensnap-recording.${saveFormat}`,
+        filters: [{ name: 'TenSnap recording', extensions: [saveFormat] }],
       });
       if (!file) return;
       await writeFile(file.path, uint8ArrayToArrayBuffer(bytes));
@@ -168,22 +196,31 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const isStatic = !snapshot || snapshot.frames.length === 0;
 
   useEffect(() => {
-    if (!playing || !snapshot || !player || isStatic) return;
+    if (!open || !playing || !snapshot || !player || isStatic) return;
     const handle = window.setInterval(() => {
-      setFrame((current) => {
-        const next = player.stepFrame();
-        if (!next) {
-          setPlaying(false);
-          return current;
-        }
-        return next.index;
-      });
+      const next = player.stepFrame();
+      if (next) {
+        cursor.current.frame = next.index;
+        setFrame(next.index);
+      }
+      if (!next || next.index === lastFrame) setPlaying(false);
     }, 1_000 / playbackFps);
     return () => window.clearInterval(handle);
-  }, [isStatic, playbackFps, player, playing, snapshot]);
+  }, [isStatic, playbackFps, player, playing, snapshot, open, lastFrame]);
 
-  if (!snapshot || !player) return null;
+  if (!open || !snapshot || !player) return null;
 
+  const seekFrame = (next: number) => {
+    setPlaying(false);
+    player.seek(next);
+    cursor.current.frame = player.frame;
+    setFrame(player.frame);
+  };
+  const stepFrame = (direction: -1 | 1) => {
+    const position = retainedFrames.indexOf(player.frame);
+    const next = retainedFrames[position + direction];
+    if (next !== undefined) seekFrame(next);
+  };
   const identity = getSnapshotIdentity(snapshot);
   const currentFrame = snapshot.frames.find((candidate) => candidate.index === frame);
   const replay = player.scenario;
@@ -192,11 +229,12 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
 
   return (
     <>
-      <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
-        <Dialog.CloseButton />
-        <Dialog.Title>
-          <Trans>Snapshot replay</Trans>
-        </Dialog.Title>
+      <Dialog.Root
+        title={_(msg`Snapshot replay`)}
+        open={open}
+        onOpenChange={onOpenChange}
+        size="xl"
+      >
         <Dialog.Description>
           <Trans>Inspect this recording offline. Opening it creates a disconnected copy.</Trans>
         </Dialog.Description>
@@ -258,40 +296,73 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
             </div>
             {!isStatic && (
               <div className={styles.timelineControls}>
-                <button
-                  type="button"
-                  className={styles.timelineButton}
-                  onClick={() => {
-                    player.reset();
-                    setFrame(firstFrame);
-                  }}
-                  title={_(msg`First frame`)}
-                  aria-label={_(msg`First frame`)}
-                >
-                  <SkipBack size={15} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.timelineButton}
-                  onClick={() => setPlaying((value) => !value)}
-                  title={playing ? _(msg`Pause`) : _(msg`Play`)}
-                  aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}
-                >
-                  {playing ? <Pause size={15} /> : <Play size={15} />}
-                </button>
                 <input
                   className={styles.timelineRange}
                   type="range"
+                  aria-label={_(msg`Recording frame`)}
                   min={firstFrame}
                   max={lastFrame}
                   value={frame}
-                  onChange={(event) => {
-                    setPlaying(false);
-                    const next = Number(event.target.value);
-                    player.seek(next);
-                    setFrame(player.frame);
-                  }}
+                  onChange={(event) => seekFrame(Number(event.target.value))}
                 />
+                <div
+                  className={styles.timelineButtons}
+                  role="group"
+                  aria-label={_(msg`Playback controls`)}
+                >
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === firstFrame}
+                    onClick={() => seekFrame(firstFrame)}
+                    title={_(msg`First frame`)}
+                    aria-label={_(msg`First frame`)}
+                  >
+                    <SkipBack size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === firstFrame}
+                    onClick={() => stepFrame(-1)}
+                    title={_(msg`Previous frame`)}
+                    aria-label={_(msg`Previous frame`)}
+                  >
+                    <StepBack size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    onClick={() => {
+                      if (!playing && frame === lastFrame) seekFrame(firstFrame);
+                      setPlaying((value) => !value);
+                    }}
+                    title={playing ? _(msg`Pause`) : _(msg`Play`)}
+                    aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}
+                  >
+                    {playing ? <Pause size={15} /> : <Play size={15} />}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === lastFrame}
+                    onClick={() => stepFrame(1)}
+                    title={_(msg`Next frame`)}
+                    aria-label={_(msg`Next frame`)}
+                  >
+                    <StepForward size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === lastFrame}
+                    onClick={() => seekFrame(lastFrame)}
+                    title={_(msg`Last frame`)}
+                    aria-label={_(msg`Last frame`)}
+                  >
+                    <SkipForward size={15} />
+                  </button>
+                </div>
               </div>
             )}
             {snapshot.truncated && (
@@ -377,7 +448,7 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
           <Dialog.Button onClick={() => void exportRecording(true)}>
             <Trans>Export current frame</Trans>
           </Dialog.Button>
-          <Dialog.Button variant="danger" onClick={onDelete} disabled={deleteDisabled}>
+          <Dialog.Button variant="danger" onClick={() => onDelete()} disabled={deleteDisabled}>
             <Trans>Delete recording</Trans>
           </Dialog.Button>
           <Dialog.Button
@@ -400,3 +471,9 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
     </>
   );
 };
+
+export const SnapshotDetailDialog = defineDialog(
+  'SnapshotDetailDialog',
+  SnapshotDetailDialogContent,
+  { width: 1080, height: 740, minWidth: 640, minHeight: 420 },
+);

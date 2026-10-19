@@ -21,10 +21,8 @@ export interface ValueInspectorProps {
 }
 
 const PAGE_SIZE = 100;
-const ROW_HEIGHT = 28;
 const COLUMN_WIDTH = 160;
 const OVERSCAN = 2;
-const FALLBACK_VIEWPORT_HEIGHT = 320;
 const FALLBACK_VIEWPORT_WIDTH = 640;
 
 type InspectorState = {
@@ -61,12 +59,17 @@ function visibleRange(
   total: number,
 ): [number, number] {
   if (total === 0) return [0, 0];
-  const start = Math.max(0, Math.floor(offset / itemSize) - OVERSCAN);
+  const start = Math.min(total - 1, Math.max(0, Math.floor(offset / itemSize) - OVERSCAN));
   const end = Math.min(total, Math.ceil((offset + viewport) / itemSize) + OVERSCAN);
   return [start, Math.max(start + 1, end)];
 }
 
-function VirtualizedTable({
+function displayValue(value: unknown): string {
+  return typeof value === 'string' ? value : valueInspectorText(value, 512).text;
+}
+
+/** Pages bound the row count; columns stay virtualized while rows grow to fit full strings. */
+function ColumnWindowTable({
   columns,
   rows,
   rowOffset,
@@ -75,13 +78,17 @@ function VirtualizedTable({
   rows: readonly Readonly<Record<string, ProtocolData>>[];
   rowOffset: number;
 }) {
-  const [scroll, setScroll] = useState({
-    top: 0,
-    left: 0,
-    height: FALLBACK_VIEWPORT_HEIGHT,
-    width: FALLBACK_VIEWPORT_WIDTH,
-  });
-  const [rowStart, rowEnd] = visibleRange(scroll.top, scroll.height, ROW_HEIGHT, rows.length);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+  const [scroll, setScroll] = useState({ left: 0, width: FALLBACK_VIEWPORT_WIDTH });
+  useEffect(() => {
+    if (!viewport) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width > 0)
+        setScroll((current) => ({ ...current, width: entry.contentRect.width }));
+    });
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [viewport]);
   const [columnStart, columnEnd] = visibleRange(
     scroll.left,
     scroll.width,
@@ -89,19 +96,19 @@ function VirtualizedTable({
     columns.length,
   );
   const visibleColumns = columns.slice(columnStart, columnEnd);
-  const visibleRows = rows.slice(rowStart, rowEnd);
-
+  const grid = {
+    gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(${COLUMN_WIDTH}px, 1fr))`,
+  };
   return (
     <div
+      ref={setViewport}
       className={styles.tableScroll}
       role="region"
       aria-label="Structured value table"
       onScroll={(event) => {
         const target = event.currentTarget;
         setScroll({
-          top: target.scrollTop,
           left: target.scrollLeft,
-          height: target.clientHeight || FALLBACK_VIEWPORT_HEIGHT,
           width: target.clientWidth || FALLBACK_VIEWPORT_WIDTH,
         });
       }}
@@ -109,53 +116,34 @@ function VirtualizedTable({
       <div
         className={styles.virtualTable}
         role="table"
-        style={{
-          height: (rows.length + 1) * ROW_HEIGHT,
-          // Keep a short table at least as wide as its viewport while still
-          // allowing horizontal scrolling for a large column set.
-          width: `max(100%, ${Math.max(COLUMN_WIDTH, columns.length * COLUMN_WIDTH)}px)`,
-        }}
+        style={{ width: `max(100%, ${Math.max(COLUMN_WIDTH, columns.length * COLUMN_WIDTH)}px)` }}
       >
-        <div className={styles.virtualHeader} role="row">
-          {visibleColumns.map((column, index) => {
-            const columnIndex = columnStart + index;
-            return (
-              <div
-                className={styles.virtualHeaderCell}
-                role="columnheader"
-                key={column}
-                style={{ left: columnIndex * COLUMN_WIDTH, width: COLUMN_WIDTH }}
-              >
-                {column}
-              </div>
-            );
-          })}
-        </div>
-        {visibleRows.map((row, rowIndex) => {
-          const absoluteRowIndex = rowStart + rowIndex;
-          return (
+        <div className={styles.virtualHeader} role="row" style={grid}>
+          {visibleColumns.map((column, index) => (
             <div
-              className={styles.virtualRow}
-              role="row"
-              key={rowOffset + absoluteRowIndex}
-              style={{ top: (absoluteRowIndex + 1) * ROW_HEIGHT }}
+              className={styles.virtualHeaderCell}
+              role="columnheader"
+              key={column}
+              style={{ gridColumn: columnStart + index + 1 }}
             >
-              {visibleColumns.map((column, columnIndex) => {
-                const absoluteColumnIndex = columnStart + columnIndex;
-                return (
-                  <div
-                    className={styles.virtualCell}
-                    role="cell"
-                    key={column}
-                    style={{ left: absoluteColumnIndex * COLUMN_WIDTH, width: COLUMN_WIDTH }}
-                  >
-                    {valueInspectorText(row[column] ?? null, 512).text}
-                  </div>
-                );
-              })}
+              {column}
             </div>
-          );
-        })}
+          ))}
+        </div>
+        {rows.map((row, rowIndex) => (
+          <div className={styles.virtualRow} role="row" key={rowOffset + rowIndex} style={grid}>
+            {visibleColumns.map((column, index) => (
+              <div
+                className={styles.virtualCell}
+                role="cell"
+                key={column}
+                style={{ gridColumn: columnStart + index + 1 }}
+              >
+                {displayValue(row[column] ?? null)}
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -224,7 +212,13 @@ const InspectorContent = memo(function InspectorContent({
           ))}
         </nav>
       )}
-      {content.kind === 'text' && <pre className={styles.raw}>{content.text}</pre>}
+      {content.kind === 'text' && (
+        <pre className={styles.raw}>
+          {typeof inspector.valueAt(path) === 'string'
+            ? (inspector.valueAt(path) as string)
+            : content.text}
+        </pre>
+      )}
       {content.kind === 'tree' && (
         <div className={styles.tree}>
           {content.entries.map((entry) => (
@@ -240,14 +234,16 @@ const InspectorContent = memo(function InspectorContent({
                   <ChevronRight size={14} />
                 </button>
               ) : (
-                <span className={styles.treeValue}>{entry.summary}</span>
+                <span className={styles.treeValue}>
+                  {typeof entry.value === 'string' ? entry.value : entry.summary}
+                </span>
               )}
             </div>
           ))}
         </div>
       )}
       {content.kind === 'table' && (
-        <VirtualizedTable columns={content.columns} rows={content.rows} rowOffset={offset} />
+        <ColumnWindowTable columns={content.columns} rows={content.rows} rowOffset={offset} />
       )}
       {showPagination && (
         <footer className={styles.pagination}>

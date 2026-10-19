@@ -1,13 +1,14 @@
 import { useCallback, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Move } from 'lucide-react';
-import { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
 import { ResizeHandles } from './ResizeHandles';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import * as styles from './styles.css';
 import { ButtonViewComponent } from './ButtonViewComponent';
 import { AnchoredViewComponent } from './AnchoredViewComponent';
-import { DraggableViewData, getViewType, ViewProps } from './types';
+import type { DraggableViewData, ViewProps } from './types';
+import { getViewType } from './types';
 import clsx from 'clsx';
 import { useViewContext } from './useViewContext';
 

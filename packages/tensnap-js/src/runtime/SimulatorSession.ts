@@ -11,7 +11,8 @@ import type {
   SimulatorInfoPayload,
   StateSyncRequest,
 } from '@tensnap/protocol';
-import { createSimulatorEmitter, SimulatorEmitter } from './SimulatorEmitter';
+import type { SimulatorEmitter } from './SimulatorEmitter';
+import { createSimulatorEmitter } from './SimulatorEmitter';
 
 export interface SimulatorSessionHandlers {
   /** Immutable identity emitted before every other simulator message. */

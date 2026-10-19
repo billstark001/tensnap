@@ -3,7 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FilePickerProvider } from './FilePickerProvider';
 import { useFilePicker } from './FilePickerContext';
-import { DirectoryMetadata, FileSystemAdapter, FileMetadata } from '@tensnap/web-common/types/file';
+import type { DirectoryMetadata, FileMetadata } from '@tensnap/web-common/types/file';
+import { FileSystemAdapter } from '@tensnap/web-common/types/file';
 
 vi.mock('./FileSystemBrowser.css', () => ({
   selectionBar: 'selectionBar',

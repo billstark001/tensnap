@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useState, useRef, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Dialog } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import {
+import type {
   FileMetadata,
   DirectoryEntry,
   FilePickerOptions,
   FileSystemAdapter,
 } from '@tensnap/web-common/types/file';
-import { FilePickerContext, FilePickerContextValue } from './FilePickerContext';
+import type { FilePickerContextValue } from './FilePickerContext';
+import { FilePickerContext } from './FilePickerContext';
 import { joinPath, validateName } from './utils';
 import * as styles from './FileSystemBrowser.css';
 
@@ -182,11 +184,12 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       {children}
 
       <Dialog.Root
+        type="FilePickerProvider"
+        title={dialogTitle}
         open={pickerState.isOpen}
         onOpenChange={(open) => !open && handleCancel()}
         size="full"
       >
-        <Dialog.Title>{dialogTitle}</Dialog.Title>
         <Dialog.Description>{dialogDescription}</Dialog.Description>
 
         <Dialog.Body>
@@ -232,8 +235,6 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
             </Dialog.Button>
           </div>
         </Dialog.Footer>
-
-        <Dialog.CloseButton />
       </Dialog.Root>
     </FilePickerContext.Provider>
   );

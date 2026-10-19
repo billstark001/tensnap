@@ -13,14 +13,8 @@
 //   - Partisan sorting psi measures alignment of dynamic attributes with party.
 // ============================================================
 
-import {
-  Agent,
-  AxelrodConfig,
-  AxelrodState,
-  getMooreNeighbors,
-  initializeAxelrod,
-  randomInt,
-} from './axelrod';
+import type { Agent, AxelrodConfig, AxelrodState } from './axelrod';
+import { getMooreNeighbors, initializeAxelrod, randomInt } from './axelrod';
 
 // #region Types
 

@@ -44,7 +44,12 @@ export const FrameManifestSchema = z
       'inconsistent',
     ]),
     checkpointReason: z.string().optional(),
-    state: z.object({ path: z.literal('state.recording.json'), sha256: HashSchema }).strict(),
+    state: z
+      .object({
+        path: z.enum(['state.recording.json', 'state.recording.msgpack']),
+        sha256: HashSchema,
+      })
+      .strict(),
     renderOptions: z.record(z.string(), z.unknown()),
     artifacts: z.array(ArtifactSchema),
   })

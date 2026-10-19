@@ -1,8 +1,6 @@
 import { enumField, modelBuilder, numberField } from '@tensnap/js/bindings';
+import type { AxelrodConfig, AxelrodMetrics, AxelrodState } from '../models/axelrod';
 import {
-  AxelrodConfig,
-  AxelrodMetrics,
-  AxelrodState,
   type Agent,
   computeAxelrodMetrics,
   initializeAxelrod,

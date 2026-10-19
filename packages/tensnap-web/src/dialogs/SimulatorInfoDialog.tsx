@@ -1,3 +1,6 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { Scenario } from '@tensnap/core';
 import type { SimulatorInfoPayload } from '@tensnap/protocol';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -14,7 +17,7 @@ export interface SimulatorInfoDialogProps {
 }
 
 /** Immutable session identity and mutable scenario metadata in one safe view. */
-export function SimulatorInfoDialog({
+function LocalSimulatorInfoDialog({
   open,
   onOpenChange,
   simulatorInfo,
@@ -37,19 +40,38 @@ export function SimulatorInfoDialog({
       scenario.removeEventListener('metadata:update', schedule);
     };
   }, [open, scenario]);
-  const info = simulatorInfo;
-  // The core session normalizes handshake data, while this guard also keeps
-  // this diagnostic dialog safe when it is rendered with externally supplied
-  // simulator info.
-  const capabilities = Array.isArray(info?.capabilities) ? info.capabilities : [];
   void metadataRevision;
-  const metadata = scenario?.metadata ?? {};
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="lg">
-      <Dialog.CloseButton />
-      <Dialog.Title>
-        <Trans>Simulator information</Trans>
-      </Dialog.Title>
+    <SimulatorInfoDialogContent
+      open={open}
+      onOpenChange={onOpenChange}
+      simulatorInfo={simulatorInfo}
+      metadata={scenario?.metadata ?? {}}
+    />
+  );
+}
+
+export function SimulatorInfoDialogContent({
+  open,
+  onOpenChange,
+  simulatorInfo,
+  metadata,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  simulatorInfo: SimulatorInfoPayload | null;
+  metadata: Scenario['metadata'];
+}) {
+  const { _ } = useLingui();
+  const info = simulatorInfo;
+  const capabilities = Array.isArray(info?.capabilities) ? info.capabilities : [];
+  return (
+    <Dialog.Root
+      title={_(msg`Simulator information`)}
+      open={open}
+      onOpenChange={onOpenChange}
+      size="lg"
+    >
       <Dialog.Description>
         <Trans>Session identity, capabilities, and current model metadata.</Trans>
       </Dialog.Description>
@@ -144,3 +166,10 @@ export function SimulatorInfoDialog({
     </Dialog.Root>
   );
 }
+
+export const SimulatorInfoDialog = defineDialog('SimulatorInfoDialog', LocalSimulatorInfoDialog, {
+  width: 680,
+  height: 560,
+  minWidth: 400,
+  minHeight: 280,
+});

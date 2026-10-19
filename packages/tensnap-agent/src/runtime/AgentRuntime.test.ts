@@ -2,12 +2,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, type WebSocket } from 'ws';
 import { decodeProtocolMessage, encodeProtocolMessage } from '@tensnap/protocol';
 import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
-import type { RendererSession } from '@tensnap/core/runtime';
+import type { RendererSession, RendererClient } from '@tensnap/core/runtime';
 import { readCapturedFrame } from './frame-files';
 
 const temporaryRoots: string[] = [];
@@ -512,9 +512,7 @@ it.each([false, true])(
       },
     });
     await runtime.initialize();
-    const renderer = (
-      runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
-    ).renderer;
+    const renderer = (runtime as unknown as { renderer: RendererSession }).renderer;
     renderer.attachTransport({
       connectionId: 'test',
       transportKind: 'inmemory',
@@ -529,7 +527,10 @@ it.each([false, true])(
       send(message) {
         if (message.type === 'action_invoke') {
           const payload = message.payload as { id: string; request_id: string };
-          renderer.handleIncoming({ type: 'action_result', payload });
+          renderer.handleIncoming({
+            type: 'action_result',
+            payload: { id: payload.id, request_id: payload.request_id },
+          });
         }
       },
     });
@@ -588,12 +589,9 @@ it('preserves rendered artifacts when the required scene checkpoint cannot be wr
 });
 
 function attachReviewTransport(runtime: AgentRuntime) {
-  const renderer = (
-    runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
-  ).renderer;
+  const renderer = (runtime as unknown as { renderer: RendererSession }).renderer;
   let dispatched = 0;
-  const client = (runtime as unknown as { client: import('@tensnap/core/runtime').RendererClient })
-    .client;
+  const client = (runtime as unknown as { client: RendererClient }).client;
   client.attachTransport({
     connectionId: 'review',
     transportKind: 'inmemory',
@@ -610,7 +608,10 @@ function attachReviewTransport(runtime: AgentRuntime) {
         dispatched++;
         const payload = message.payload as { id: string; request_id: string };
         renderer.handleIncoming({ type: 'metadata_update', payload: { time: dispatched } });
-        renderer.handleIncoming({ type: 'action_result', payload });
+        renderer.handleIncoming({
+          type: 'action_result',
+          payload: { id: payload.id, request_id: payload.request_id },
+        });
       }
     },
   });
@@ -1111,7 +1112,7 @@ it.each(['status-write', 'handshake'] as const)(
         capabilities: [],
       },
     });
-    let connectedSocket: import('ws').WebSocket | undefined;
+    let connectedSocket: WebSocket | undefined;
     let accepted!: () => void;
     const acceptedConnection = new Promise<void>((resolve) => {
       accepted = resolve;
@@ -1237,7 +1238,9 @@ it('keeps callable recording policies out of serializable owned status', async (
       layerCodecs: { agents: 'delta' as const },
       layerCodecImplementations: { delta: { id: 'delta' as const, retainItemDelta: () => true } },
     };
+    expect(() => runtime.startRecording({ id: 'custom-policy', maxBytes: 1 }, 'msgpack')).toThrow();
     const status = runtime.startRecording(options);
+    expect(status.format).toBe('json');
     expect(status.options).not.toHaveProperty('layerCodecImplementations');
     expect(renderer.recorder.active).toBe(true);
     status.options!.layerCodecs!.agents = 'keyframe';
@@ -1326,6 +1329,160 @@ it('a persistence wait timeout leaves the run and recording intact for a later w
     expect(runtime.getRun(run.id)?.recording?.status).toBe('pending');
     release();
     expect((await runtime.waitRun(run.id, 'persisted')).recording?.status).toBe('persisted');
+  } finally {
+    release();
+    await runtime.stop();
+  }
+});
+
+it('discovers MessagePack recordings and preserves JSON as the default export format', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot } = await import('@tensnap/core/snapshot');
+  const { encodeRecordingFile, decodeRecordingFile } = await import('@tensnap/core/persistence');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-binary-recordings-'));
+  temporaryRoots.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  const runtime = new AgentRuntime(context);
+  await runtime.initialize();
+  try {
+    await mkdir(context.recordingsDir, { recursive: true });
+    await writeFile(
+      join(context.recordingsDir, 'binary.tensnap-recording.msgpack'),
+      encodeRecordingFile(createSingleSnapshot(new Scenario().dump(), { id: 'binary' }), {
+        format: 'msgpack',
+      }),
+    );
+    expect(await runtime.listRecordings()).toMatchObject([{ id: 'binary', status: 'persisted' }]);
+    const json = join(rootDir, 'default.json');
+    const binary = join(rootDir, 'export.msgpack');
+    await runtime.exportRecording('binary', json);
+    await runtime.exportRecording('binary', binary, 'msgpack');
+    expect((await readFile(json, 'utf8')).startsWith('{')).toBe(true);
+    expect((await readFile(binary))[0]).not.toBe(123);
+    expect(decodeRecordingFile(await readFile(binary)).snapshot.metadata.id).toBe('binary');
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('restores recording admission across restarts and preserves existing bytes for both formats', async () => {
+  const { decodeRecordingFile } = await import('@tensnap/core/persistence');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-restart-'));
+  temporaryRoots.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  const first = new AgentRuntime(context);
+  await first.initialize();
+  attachReviewTransport(first);
+  first.startRecording({ id: 'same/id' }, 'msgpack');
+  const saved = await first.stopRecording();
+  const original = await readFile(saved.path!);
+  await first.stop();
+  const second = new AgentRuntime(context);
+  await second.initialize();
+  attachReviewTransport(second);
+  try {
+    for (const format of ['json', 'msgpack'] as const) {
+      expect(() => second.startRecording({ id: 'same/id' }, format)).toThrow('ID already exists');
+      expect(() =>
+        second.startRun(
+          { mode: 'bounded', actionId: 'step', maxSteps: 1, record: { id: 'same/id' } },
+          format,
+        ),
+      ).toThrow('ID already exists');
+    }
+    expect(await readFile(saved.path!)).toEqual(original);
+    expect(decodeRecordingFile(original).snapshot.metadata.id).toBe('same/id');
+  } finally {
+    await second.stop();
+  }
+});
+
+it('does not change the active recording format when recorded-run admission fails', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-admission-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  attachReviewTransport(runtime);
+  try {
+    runtime.startRecording({ id: 'active' }, 'msgpack');
+    expect(() =>
+      runtime.startRun(
+        { mode: 'bounded', actionId: 'step', maxSteps: 1, record: { id: 'active' } },
+        'msgpack',
+      ),
+    ).toThrow('already active');
+    const result = await runtime.stopRecording();
+    expect(result.path).toMatch(/\.msgpack$/);
+    expect((await readFile(result.path!))[0]).not.toBe(123);
+  } finally {
+    await runtime.stop();
+  }
+});
+
+it('settles manual actions, finalizes recordings and joins repeated shutdowns', async () => {
+  const { decodeRecordingFile } = await import('@tensnap/core/persistence');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-stop-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  runtime.startRecording({ id: 'shutdown' }, 'msgpack');
+  await runtime.runAction('step');
+  const stop = runtime.stop();
+  expect(runtime.stop()).toBe(stop);
+  expect(() => runtime.startRecording()).toThrow('shutting down');
+  await stop;
+  expect(renderer.recorder.active).toBe(false);
+  const entry = (await runtime.listRecordings()).find((entry) => entry.id === 'shutdown')!;
+  expect(entry.error).toBeUndefined();
+  expect(entry.status).toBe('persisted');
+  expect(decodeRecordingFile(await readFile(entry.path!)).snapshot.frames.length).toBeGreaterThan(
+    0,
+  );
+});
+
+it('finalizes on disconnect and still drains writes if checkpointing fails', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-disconnect-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    checkpointWriter: async () => {
+      throw new Error('checkpoint failed');
+    },
+  });
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  runtime.startRecording({ id: 'disconnect' });
+  renderer.handleIncoming({ type: 'metadata_update', payload: { time: 2 } });
+  await expect(runtime.stop()).rejects.toThrow('checkpoint failed');
+  expect(runtime.getStatus().phase).toBe('stopped');
+  expect(renderer.recorder.active).toBe(false);
+  expect(await runtime.listRecordings()).toMatchObject([{ id: 'disconnect', status: 'persisted' }]);
+});
+
+it('applies the same pending-write admission rule to manual and bounded recordings', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-recording-pending-'));
+  temporaryRoots.push(rootDir);
+  let release!: () => void;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }), {
+    recordingWriter: async () => {
+      await gate;
+      return '/recording';
+    },
+  });
+  await runtime.initialize();
+  attachReviewTransport(runtime);
+  try {
+    runtime.startRecording({ id: 'manual' }, 'msgpack');
+    const stopping = runtime.stopRecording();
+    expect(() => runtime.startRecording({ id: 'next' })).toThrow('pending recording');
+    expect(() =>
+      runtime.startRun({ mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} }),
+    ).toThrow('pending recording');
+    release();
+    expect((await stopping).status).toBe('persisted');
   } finally {
     release();
     await runtime.stop();

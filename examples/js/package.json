@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/examples-js",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "description": "JavaScript example manifest and example entrypoints for TenSnap",
   "type": "module",

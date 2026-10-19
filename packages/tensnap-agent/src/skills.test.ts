@@ -1,3 +1,4 @@
+import type * as FileSystem from 'node:fs/promises';
 import {
   chmod,
   lstat,
@@ -16,7 +17,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { installSkills, loadSkillBundleFrom, readSkillTree, type SkillBundle } from './skills';
 
 vi.mock('node:fs/promises', async (importOriginal) => {
-  const original = await importOriginal<typeof import('node:fs/promises')>();
+  const original = await importOriginal<typeof FileSystem>();
   return {
     ...original,
     writeFile: vi.fn(original.writeFile),
@@ -24,7 +25,7 @@ vi.mock('node:fs/promises', async (importOriginal) => {
     rm: vi.fn(original.rm),
   };
 });
-const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+const original = await vi.importActual<typeof FileSystem>('node:fs/promises');
 const roots: string[] = [];
 afterEach(async () => {
   vi.mocked(writeFile).mockReset().mockImplementation(original.writeFile);

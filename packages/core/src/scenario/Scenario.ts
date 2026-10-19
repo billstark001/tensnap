@@ -47,12 +47,12 @@ import type {
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '@tensnap/protocol';
+import type { LayerRegistryClass } from './layer-registry';
 import {
   type ItemLayerController,
   type LayerControllerContext,
   type LayerDependencyChange,
   layerRegistry,
-  LayerRegistryClass,
 } from './layer-registry';
 import { createStateSyncInventory, createStateSyncRequest } from './state-sync-inventory';
 import type {
@@ -520,10 +520,10 @@ export class Scenario extends LazyEventTarget {
     };
   }
 
-  load(snapshot: ScenarioSnapshot): void {
+  load(snapshot: ScenarioSnapshot, options: { reuseAssets?: boolean } = {}): void {
     // Loading a persisted snapshot is a replacement operation, not a model
     // reset. Never carry over lifecycle-preserved live layers into it.
-    this.reset({ preserveTrajectoryLayers: false });
+    this.clearScene({ preserveTrajectoryLayers: false }, options.reuseAssets ?? false);
     this.metadataState = cloneValue(snapshot.metadata);
     this.metadataRevisionState += 1;
 
@@ -565,7 +565,7 @@ export class Scenario extends LazyEventTarget {
     this.monitorState.load(snapshot.monitors ?? []);
 
     for (const log of snapshot.logs) this.logsState.push(cloneValue(log));
-    this.assetState.load(snapshot.assets);
+    this.assetState.load(snapshot.assets, { reuseMatching: options.reuseAssets });
     for (const asset of snapshot.assets) {
       if (this.assetState.getUrl(asset.meta.id))
         this.refreshBackgroundLayersForAsset(asset.meta.id);
@@ -573,6 +573,10 @@ export class Scenario extends LazyEventTarget {
   }
 
   reset(options: { preserveTrajectoryLayers?: boolean } = {}): void {
+    this.clearScene(options, false);
+  }
+
+  private clearScene(options: { preserveTrajectoryLayers?: boolean }, reuseAssets: boolean): void {
     this.metadataState = {};
     this.actionsState.clear();
     this.parametersState.clear();
@@ -616,7 +620,7 @@ export class Scenario extends LazyEventTarget {
     this.logsState.splice(0, this.logsState.length);
     this.chartState.load([]);
     this.monitorState.clear();
-    this.assetState.clear();
+    if (!reuseAssets) this.assetState.clear();
     this.emit('reset', undefined);
   }
 

@@ -1,7 +1,7 @@
+import { listRecordingFiles } from './recording-catalog';
 import { NodeRecordingStore } from './NodeRecordingStore';
 import { saveCapturedFrame, readCapturedFrame } from './frame-files';
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import {
   RecordingStoreWriter,
   decodeRecordingFile,
@@ -29,6 +29,7 @@ import type {
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
 import { validateIPFamily, parseIPFamily, type IPFamily } from '@tensnap/network';
+import type { RendererSession, RestoreChartPolicy } from '@tensnap/core/runtime';
 import {
   ActionRenderError,
   RecordingCollection,
@@ -37,12 +38,10 @@ import {
   compileRunCondition,
   type CollectionConfig,
   RendererClient,
-  RendererSession,
   type BoundedRunSpec,
   type RunStatus,
   type RendererSessionRecordingDetail,
   type SceneRestoreOptions,
-  RestoreChartPolicy,
 } from '@tensnap/core/runtime';
 import { ScenarioInspector, type ScenarioQuery } from '@tensnap/core/scenario';
 import type {
@@ -117,6 +116,7 @@ export interface RecordingStatus {
   error?: string;
   report?: RecordingReport;
   options?: Omit<RecordingOptions, 'layerCodecImplementations'>;
+  format?: 'json' | 'msgpack';
 }
 
 export interface ActionSettlement {
@@ -153,6 +153,9 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['enviro
 export class AgentRuntime extends EventEmitter {
   private readonly client: RendererClient;
   private readonly renderer: RendererSession;
+  private disconnecting?: Promise<void>;
+  private stopping?: Promise<void>;
+  private initialized = false;
   private readonly recordingEntries = new Map<string, RecordingStatus>();
   private collectionStarting = false;
   private activeCollection?: RecordingCollection;
@@ -236,6 +239,8 @@ export class AgentRuntime extends EventEmitter {
 
   async initialize(): Promise<void> {
     await ensureRuntimeContext(this.context);
+    await this.restoreRecordingCatalog();
+    this.initialized = true;
     await this.persistStatus();
     await this.log('info', 'runtime', 'Runtime initialized.', {
       context: this.context.contextName,
@@ -244,6 +249,7 @@ export class AgentRuntime extends EventEmitter {
 
   /** Connect to a simulator and start its initial sync; call waitUntilReady before reading the scene. */
   async connect(options: ConnectOptions): Promise<RuntimeStatus> {
+    if (this.stopping || this.disconnecting) throw new Error('Runtime is shutting down.');
     // Own scalar options and resolved defaults before status persistence suspends.
     const connection = {
       ...options,
@@ -255,6 +261,8 @@ export class AgentRuntime extends EventEmitter {
         options.serverMessageValidation ?? this.control.serverMessageValidation,
     };
     validateIPFamily(new URL(connection.simulatorUrl).hostname, connection.ip_family);
+    if (this.renderer.isConnected || this.renderer.recorder.active) await this.disconnect();
+    if (this.stopping || this.disconnecting) throw new Error('Runtime is shutting down.');
     const generation = ++this.connectionGeneration;
     const assertCurrent = () => {
       if (generation !== this.connectionGeneration)
@@ -302,27 +310,52 @@ export class AgentRuntime extends EventEmitter {
     }
   }
 
-  async disconnect(): Promise<void> {
+  disconnect(): Promise<void> {
+    if (this.disconnecting) return this.disconnecting;
+    const operation = this.disconnectInternal();
+    this.disconnecting = operation;
+    void operation
+      .finally(() => {
+        if (this.disconnecting === operation) this.disconnecting = undefined;
+      })
+      .catch(() => {});
+    return operation;
+  }
+
+  private async disconnectInternal(): Promise<void> {
     const generation = ++this.connectionGeneration;
     const wasConnected = this.renderer.isConnected;
     if (wasConnected) this.setPhase('stopping');
-    // Cancel pending handshakes even before the renderer has an installed transport.
-    this.client.disconnect();
-    await this.checkpointScene();
-    if (generation !== this.connectionGeneration) return;
-    this.setPhase('idle');
+    try {
+      if (this.renderer.run.hasInFlightAction) await this.renderer.settleActions();
+      else this.renderer.run.stop();
+    } finally {
+      // Even a timed-out action must release transport ownership and finalize recordings.
+      this.client.disconnect();
+      this.renderer.stopRecording();
+      this.manualRecordingId = null;
+      await Promise.all(this.recordingWrites);
+      await this.checkpointScene();
+      if (generation === this.connectionGeneration && !this.stopping) this.setPhase('idle');
+    }
     if (wasConnected) await this.log('info', 'runtime', 'Disconnected from simulator.');
   }
 
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    if (this.stopping) return this.stopping;
     this.setPhase('stopping');
-    await this.disconnect();
-    await this.checkpointScene();
-    await Promise.all(this.recordingWrites);
-    this.control.pid = null;
-    this.control.controlPort = null;
-    this.setPhase('stopped');
-    await this.persistStatus();
+    this.stopping = Promise.resolve().then(async () => {
+      try {
+        await this.disconnect();
+      } finally {
+        await Promise.all(this.recordingWrites);
+        this.control.pid = null;
+        this.control.controlPort = null;
+        this.setPhase('stopped');
+        await this.persistStatus();
+      }
+    });
+    return this.stopping;
   }
 
   getStatus(): RuntimeStatus {
@@ -667,6 +700,7 @@ export class AgentRuntime extends EventEmitter {
   async saveFrame(
     output: string,
     options: {
+      recordingFormat?: 'json' | 'msgpack';
       checkpoint?: 'none' | 'if-supported' | 'required';
       envIds?: string[];
       chartIds?: string[];
@@ -704,7 +738,10 @@ export class AgentRuntime extends EventEmitter {
     return this.renderer.restoreFrame(frame, { ...options, signal });
   }
 
-  startRecording(options: RecordingOptions = {}): RecordingStatus {
+  startRecording(
+    options: RecordingOptions = {},
+    format: 'json' | 'msgpack' = 'json',
+  ): RecordingStatus {
     this.assertCollectionAvailable();
     this.assertConnected();
     if (
@@ -712,15 +749,13 @@ export class AgentRuntime extends EventEmitter {
       (this.renderer.run.status && !this.renderer.run.status.settled)
     )
       throw new Error('Settle the current action/run before starting a manual recording.');
-    if ([...this.recordingEntries.values()].some((entry) => entry.status === 'pending'))
-      throw new Error('A recording write is pending.');
     const actual = { maxSteps: 10_000, maxBytes: 64 * 1024 * 1024, ringBuffer: true, ...options };
-    if (actual.id && this.recordingEntries.has(actual.id))
-      throw new Error('Recording ID already exists.');
     // Status is serializable data; callable codec policies belong to the recorder.
     const { layerCodecImplementations: _policies, ...values } = actual;
     const statusOptions = structuredClone(values);
-    const snapshot = this.renderer.startRecording(actual);
+    const snapshot = this.admitRecording(actual, format, (owned) =>
+      this.renderer.startRecording(owned),
+    );
     this.manualRecordingId = snapshot.metadata.id;
     const entry = this.recordingEntries.get(snapshot.metadata.id)!;
     entry.options = statusOptions;
@@ -739,29 +774,29 @@ export class AgentRuntime extends EventEmitter {
     return structuredClone(this.recordingEntries.get(id)!);
   }
 
-  async listRecordings(): Promise<RecordingStatus[]> {
-    let files: string[] = [];
-    try {
-      files = await readdir(this.context.recordingsDir);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  /** Admission needs filenames only; do not decode every historical payload at startup. */
+  private async restoreRecordingCatalog(): Promise<void> {
+    for (const { id, path } of await listRecordingFiles(this.context.recordingsDir)) {
+      if (!this.recordingEntries.has(id))
+        this.recordingEntries.set(id, {
+          id,
+          status: 'persisted',
+          path,
+          format: path.endsWith('.msgpack') ? 'msgpack' : 'json',
+        });
     }
-    for (const name of files.filter((file) => file.endsWith('.tensnap-recording.json'))) {
-      const path = join(this.context.recordingsDir, name);
-      const encodedId = name.slice(0, -'.tensnap-recording.json'.length);
-      let id: string;
+  }
+
+  async listRecordings(): Promise<RecordingStatus[]> {
+    await this.restoreRecordingCatalog();
+    for (const entry of this.recordingEntries.values()) {
+      if (entry.status !== 'persisted' || !entry.path || entry.report) continue;
       try {
-        id = decodeURIComponent(encodedId);
-      } catch {
-        // A malformed external filename must not hide the rest of the catalog.
-        continue;
-      }
-      if (this.recordingEntries.has(id)) continue;
-      try {
-        const document = decodeRecordingFile(await readFile(path));
-        this.recordingEntries.set(id, { id, status: 'persisted', path, report: document.report });
+        const document = decodeRecordingFile(await readFile(entry.path));
+        entry.report = document.report;
       } catch (error) {
-        this.recordingEntries.set(id, { id, status: 'failed', path, error: String(error) });
+        entry.status = 'failed';
+        entry.error = String(error);
       }
     }
     const active = this.renderer.recorder.inspect();
@@ -772,7 +807,11 @@ export class AgentRuntime extends EventEmitter {
     return structuredClone([...this.recordingEntries.values()]);
   }
 
-  async exportRecording(id: string, outputPath: string): Promise<RecordingStatus> {
+  async exportRecording(
+    id: string,
+    outputPath: string,
+    format: 'json' | 'msgpack' = 'json',
+  ): Promise<RecordingStatus> {
     await this.listRecordings();
     const entry = this.recordingEntries.get(id);
     if (!entry || entry.status !== 'persisted' || !entry.path)
@@ -780,9 +819,40 @@ export class AgentRuntime extends EventEmitter {
     const document = decodeRecordingFile(await readFile(entry.path));
     await writeFileAtomically(
       outputPath,
-      encodeRecordingFile(document.snapshot, { origin: document.origin }),
+      encodeRecordingFile(document.snapshot, { origin: document.origin, format }),
     );
     return { ...structuredClone(entry), path: outputPath };
+  }
+
+  /** The entry reserves the ID and owns format before synchronous renderer events fire.
+   * Failed validation only releases this unpublished admission; an already-started
+   * recording retains its entry and completes through recording:complete. */
+  private admitRecording<T>(
+    options: RecordingOptions,
+    format: 'json' | 'msgpack',
+    start: (owned: RecordingOptions) => T,
+  ): T {
+    this.assertRecordingAvailable(options.id);
+    const id = options.id ?? `snapshot-${crypto.randomUUID()}`;
+    const entry: RecordingStatus = { id, status: 'recording', format };
+    this.recordingEntries.set(id, entry);
+    try {
+      return start({ ...options, id });
+    } catch (error) {
+      if (!entry.report && this.recordingEntries.get(id) === entry)
+        this.recordingEntries.delete(id);
+      throw error;
+    }
+  }
+
+  private assertRecordingAvailable(id?: string): void {
+    if (this.renderer.recorder.active) throw new Error('A recording is already active.');
+    if (id !== undefined && this.recordingEntries.has(id))
+      throw new Error('Recording ID already exists.');
+    if ([...this.recordingEntries.values()].some((entry) => entry.status === 'pending'))
+      throw new Error(
+        'Wait for the pending recording to persist before starting another recording.',
+      );
   }
 
   private assertCollectionAvailable() {
@@ -811,6 +881,7 @@ export class AgentRuntime extends EventEmitter {
     if (spec.stopWhen) compileRunCondition(spec.stopWhen);
     if (spec.record || this.renderer.recorder.active || this.activeCollection)
       throw new Error('Collection cannot share a recording session.');
+    this.assertRecordingAvailable();
     if (
       this.renderer.run.hasInFlightAction ||
       (this.renderer.run.status && !this.renderer.run.status.settled)
@@ -902,26 +973,24 @@ export class AgentRuntime extends EventEmitter {
     return entry ? { path: entry.path, ...(entry.collection?.status ?? entry.status) } : undefined;
   }
 
-  startRun(spec: BoundedRunSpec) {
+  startRun(spec: BoundedRunSpec, format: 'json' | 'msgpack' = 'json') {
     this.assertCollectionAvailable();
-    return this.startRunInternal(spec);
+    return this.startRunInternal(spec, format);
   }
 
-  private startRunInternal(spec: BoundedRunSpec) {
+  private startRunInternal(spec: BoundedRunSpec, format: 'json' | 'msgpack' = 'json') {
     this.assertConnected();
     if (spec.record) {
-      if (this.renderer.recorder.active) throw new Error('A recording is already active.');
-      if (spec.record.id && this.recordingEntries.has(spec.record.id))
-        throw new Error('Recording ID already exists.');
       if (this.renderer.run.hasInFlightAction)
         throw new Error('Settle the current action before starting a recorded run.');
-      for (const result of this.recordingResults.values()) {
-        if (result.status === 'pending')
-          throw new Error(
-            'Wait for the pending recording to persist before starting another recorded run.',
-          );
-      }
+      return this.admitRecording(spec.record, format, (record) =>
+        this.dispatchRun({ ...spec, record }),
+      );
     }
+    return this.dispatchRun(spec);
+  }
+
+  private dispatchRun(spec: BoundedRunSpec) {
     const status = this.renderer.run.start(spec);
     const boundedSpec = status.spec.mode === 'bounded' ? status.spec : null;
     this.logInBackground('info', 'run', 'Bounded run started.', {
@@ -1066,11 +1135,15 @@ export class AgentRuntime extends EventEmitter {
 
     this.renderer.addEventListener('recording:start', (event) => {
       const { snapshot } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
-      this.recordingEntries.set(snapshot.metadata.id, {
-        id: snapshot.metadata.id,
-        status: 'recording',
-        report: inspectRecording(snapshot),
-      });
+      const id = snapshot.metadata.id;
+      const entry = this.recordingEntries.get(id) ?? {
+        id,
+        status: 'recording' as const,
+        format: 'json' as const,
+      };
+      entry.status = 'recording';
+      entry.report = inspectRecording(snapshot);
+      this.recordingEntries.set(id, entry);
     });
     this.renderer.addEventListener('recording:complete', (event) => {
       const { snapshot, runId } = (event as CustomEvent<RendererSessionRecordingDetail>).detail;
@@ -1093,7 +1166,7 @@ export class AgentRuntime extends EventEmitter {
         this.recordingCompletionByRun.delete(removable[0]);
       }
       const write = Promise.resolve()
-        .then(() => this.recordingWriter(this.context, id, snapshot))
+        .then(() => this.recordingWriter(this.context, id, snapshot, entry.format ?? 'json'))
         .then(
           (path) => {
             entry.status = 'persisted';
@@ -1336,6 +1409,8 @@ export class AgentRuntime extends EventEmitter {
   }
 
   private assertConnected(): void {
+    if (!this.initialized) throw new Error('Runtime is not initialized.');
+    if (this.stopping || this.disconnecting) throw new Error('Runtime is shutting down.');
     if (!this.renderer.isConnected) {
       throw new Error('Runtime is not connected to a simulator.');
     }

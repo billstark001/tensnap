@@ -26,9 +26,16 @@ export const replayContent = style({
 
 export const timelineControls = style({
   display: 'flex',
-  alignItems: 'center',
+  flexDirection: 'column',
   gap: vars.space.xs,
   margin: `${vars.space.md} 0`,
+});
+
+export const timelineButtons = style({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: vars.space.xs,
 });
 
 export const timelineButton = style({
@@ -42,6 +49,7 @@ export const timelineButton = style({
   background: vars.color.inputBackground,
   color: vars.color.foreground,
   cursor: 'pointer',
+  ':disabled': { opacity: 0.45, cursor: 'not-allowed' },
   selectors: {
     'body[data-theme="dark"] &': {
       borderColor: vars.color.darkInputBorder,
@@ -52,7 +60,7 @@ export const timelineButton = style({
 });
 
 export const timelineRange = style({
-  flex: 1,
+  width: '100%',
   minWidth: 0,
 });
 

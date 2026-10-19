@@ -106,3 +106,17 @@ describe('AssetStore binary string decoding', () => {
     );
   });
 });
+
+it('retains binary resource bytes when the input was created in another JavaScript realm', async () => {
+  const data = structuredClone(Uint8Array.of(1, 2, 3));
+  expect(data instanceof Uint8Array).toBe(false);
+  const store = new AssetStore();
+  await store.receiveData('foreign', 'hash', 'application/x-test', data);
+  const snapshot = store.dump();
+  expect(snapshot[0].data).toBe('data:application/x-test;base64,AQID');
+  const restored = new AssetStore();
+  restored.load(snapshot);
+  expect(Array.from(restored.get('foreign')!.source as Uint8Array)).toEqual([1, 2, 3]);
+  store.destroy();
+  restored.destroy();
+});

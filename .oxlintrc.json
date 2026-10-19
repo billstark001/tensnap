@@ -9,6 +9,14 @@
   "rules": {
     "no-undef": "off",
     "typescript/no-explicit-any": "off",
+    "typescript/consistent-type-imports": [
+      "error",
+      {
+        "disallowTypeAnnotations": true,
+        "prefer": "type-imports",
+        "fixStyle": "separate-type-imports"
+      }
+    ],
     "react-hooks/rules-of-hooks": "off",
     "react-hooks/exhaustive-deps": "off"
   },
@@ -19,7 +27,8 @@
         "react/only-export-components": [
           "warn",
           {
-            "allowConstantExport": true
+            "allowConstantExport": true,
+            "customHOCs": ["defineDialog"]
           }
         ],
         "react-hooks/rules-of-hooks": "error",

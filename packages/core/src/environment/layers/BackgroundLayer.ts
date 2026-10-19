@@ -12,8 +12,8 @@
 import { Rect } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
-import { BackgroundStorage, BackgroundData } from '../storages/BackgroundStorage';
-import { Viewport, SceneBounds, OriginMode, IBoundedLayer } from '../types';
+import type { BackgroundStorage, BackgroundData } from '../storages/BackgroundStorage';
+import type { Viewport, SceneBounds, OriginMode, IBoundedLayer } from '../types';
 
 export interface BackgroundLayerConfig {
   /**

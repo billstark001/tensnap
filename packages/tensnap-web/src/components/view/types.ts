@@ -1,5 +1,5 @@
-import { AnchoredView, AnyView, ContainerView } from '@tensnap/core/persistence';
-import { ComponentType, PropsWithChildren } from 'react';
+import type { AnchoredView, AnyView, ContainerView } from '@tensnap/core/persistence';
+import type { ComponentType, PropsWithChildren } from 'react';
 
 /**
  * Point type for positioning

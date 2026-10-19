@@ -1,6 +1,10 @@
+import { getSettingsPersistence } from '@tensnap/web-common/settings-persistence';
+import { configureDialogHost } from '@tensnap/web-common/workbench/content';
+import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
 import './runtime/leafer-runtime';
 
-import React, { PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Providers } from './Providers';
 import { App } from './App';
@@ -8,23 +12,16 @@ import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 import '@tensnap/web-common/styles/global.css';
 import { InBrowserFilePicker, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
-import { getJsExampleEntries } from '@tensnap/examples-js';
 import { initI18n, detectLocale, i18n, registerLocaleCatalog } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
-import { getSettingsPersistence, hydrateSettings, useSettingsStore } from './store';
+import { hydrateSettings, useSettingsStore } from './store';
 import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
-import { registerBuiltinModels } from './transport';
+import { registerDefaultModels } from './transport';
 
-registerBuiltinModels(
-  getJsExampleEntries().map((entry) => ({
-    id: entry.id,
-    name: entry.name,
-    description: entry.description,
-    protocolVersion: entry.protocolVersion,
-    create: entry.createTransport,
-  })),
-);
+configureDialogHost(createWinBoxHost());
+
+registerDefaultModels();
 
 function isDarkMode() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches;

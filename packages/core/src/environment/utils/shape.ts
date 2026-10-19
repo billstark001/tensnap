@@ -4,7 +4,8 @@
  * Leafer-UI shape factories shared between AgentLayer and EdgeLayer.
  */
 
-import { Rect, Ellipse, Polygon, Line, Text, UI } from '@leafer-ui/core';
+import type { UI } from '@leafer-ui/core';
+import { Rect, Ellipse, Polygon, Line, Text } from '@leafer-ui/core';
 import type { BuiltinAgentIcon } from '@tensnap/protocol/layers';
 
 const polygonPoints = (sides: number, radius: number, startDeg = -90): number[] => {

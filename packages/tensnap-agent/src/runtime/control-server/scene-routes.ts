@@ -1,3 +1,4 @@
+import type { ChartGroup } from '@tensnap/core/chart';
 import { ScenarioQuerySchema, AgentInspectionRequestSchema } from '@tensnap/core/scenario';
 import { ScenarioSnapshotSchema } from '@tensnap/core/persistence';
 // #region Imports
@@ -102,9 +103,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       const result = await runtime.restoreScene(input, {
         chartPolicy: chartPolicy as RestoreChartPolicy | undefined,
         historyTime: historyTime as number | undefined,
-        replacementCharts: replacementCharts as
-          | import('@tensnap/core/chart').ChartGroup[]
-          | undefined,
+        replacementCharts: replacementCharts as ChartGroup[] | undefined,
       });
       return c.json(result, result.status === 'ok' ? 200 : 409);
     } catch (error) {

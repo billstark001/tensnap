@@ -1,9 +1,13 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { ConfirmDialog } from '@tensnap/web-common/components/ui/AlertDialog';
 import { Trans } from '@lingui/react/macro';
 import { useProjectStore } from '@/store/project';
 
 /** App-level policy for closing a dirty project; the generic dialog lives in web-common. */
 export function DiscardProjectChangesDialog() {
+  const { _ } = useLingui();
+
   const pendingCloseProjectId = useProjectStore((store) => store.pendingCloseProjectId);
   const confirmClose = useProjectStore((store) => store.confirmClose);
   const cancelClose = useProjectStore((store) => store.cancelClose);
@@ -14,7 +18,7 @@ export function DiscardProjectChangesDialog() {
       onOpenChange={(open) => {
         if (!open) cancelClose();
       }}
-      title={<Trans>Discard unsaved changes?</Trans>}
+      title={_(msg`Discard unsaved changes?`)}
       description={
         <Trans>Close this project and discard renderer edits that have not been saved?</Trans>
       }

@@ -64,10 +64,25 @@ describe('ValueInspector', () => {
       });
 
       expect(screen.getByText('120')).toBeInTheDocument();
-      expect(screen.queryByText(largeCustomData)).toBeNull();
+      expect(screen.getAllByRole('cell').some((cell) => cell.textContent === largeCustomData)).toBe(
+        true,
+      );
       expect(screen.getAllByRole('cell').length).toBeLessThan(8);
     } finally {
       vi.useRealTimers();
     }
   });
+});
+
+it('shows complete multiline strings in tree leaves, table cells and the text view', () => {
+  const note =
+    'Recent partners all played Q and I succeeded.\n  ' + 'continued '.repeat(400) + '\nEnd';
+  const tree = render(<ValueInspector value={{ note }} compact />);
+  expect(screen.getByText('note').nextElementSibling?.textContent).toBe(note);
+  tree.unmount();
+  const table = render(<ValueInspector value={[{ note }]} renderHint="table" compact />);
+  expect(screen.getByRole('cell').textContent).toBe(note);
+  table.unmount();
+  const text = render(<ValueInspector value={note.repeat(10)} />);
+  expect(text.container.querySelector('pre')?.textContent).toBe(note.repeat(10));
 });

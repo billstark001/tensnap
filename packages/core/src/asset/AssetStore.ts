@@ -68,6 +68,7 @@ export class AssetStore {
     if (existing?.hash === meta.hash && existing.mime === meta.mime) {
       // Already up-to-date — just refresh metadata label etc.
       this._meta.set(meta.id, { ...meta });
+      this._resolved.set(meta.id, { ...existing, ...meta });
       return false;
     }
     this._meta.set(meta.id, { ...meta });
@@ -120,6 +121,10 @@ export class AssetStore {
     mime: string,
     raw: string | Uint8Array,
   ): Promise<void> {
+    this.resolveData(id, hash, mime, raw);
+  }
+
+  private resolveData(id: AssetId, hash: string, mime: string, raw: string | Uint8Array): void {
     const announced = this._meta.get(id);
     if (this._announced.has(id) && announced?.hash !== hash) return;
     // Decode JSON-side base64/data-URL strings into bytes before resolving by mime.
@@ -210,7 +215,7 @@ export class AssetStore {
         data:
           typeof source === 'string'
             ? encodeBytesAsDataUrl(new TextEncoder().encode(source), meta.mime)
-            : source instanceof Uint8Array
+            : source !== undefined
               ? encodeBytesAsDataUrl(source, meta.mime)
               : undefined,
       };
@@ -218,14 +223,15 @@ export class AssetStore {
   }
 
   /** Replace the asset cache from a persisted/offline capture. */
-  load(snapshot: AssetSnapshot[]): void {
-    this.clear();
+  load(snapshot: AssetSnapshot[], options: { reuseMatching?: boolean } = {}): void {
+    if (options.reuseMatching) {
+      const ids = new Set(snapshot.map((entry) => entry.meta.id));
+      for (const id of this._meta.keys()) if (!ids.has(id)) this.delete(id);
+    } else this.clear();
     for (const entry of snapshot) {
-      this.receiveMeta(structuredClone(entry.meta));
-      if (entry.data !== undefined) {
-        // receiveData is async only for its public contract; its state mutation
-        // is synchronous, so Scenario.load keeps its synchronous semantics.
-        void this.receiveData(
+      const missing = this.receiveMeta(structuredClone(entry.meta));
+      if (entry.data !== undefined && (!options.reuseMatching || missing)) {
+        this.resolveData(
           entry.meta.id,
           entry.meta.hash,
           entry.meta.mime,

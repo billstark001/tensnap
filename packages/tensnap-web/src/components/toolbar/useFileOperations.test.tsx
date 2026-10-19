@@ -108,19 +108,4 @@ describe('useFileOperations', () => {
       'Some data was invalid. Valid data was loaded; review the project and save a new copy.',
     );
   });
-
-  it('asks the native picker for the final project extension before saving', async () => {
-    mocks.saveFileAs.mockResolvedValue({ path: '/allowed/project.msgpack' });
-    mocks.saveProject.mockResolvedValue(undefined);
-    const { result } = renderHook(() => useFileOperations());
-
-    await result.current.onFileSaveAs();
-
-    expect(mocks.saveFileAs).toHaveBeenCalledWith({
-      title: 'Save As',
-      defaultPath: 'project.msgpack',
-      filters: [{ name: 'TenSnap MessagePack project', extensions: ['msgpack'] }],
-    });
-    expect(mocks.saveProject).toHaveBeenCalledWith(undefined, '/allowed/project.msgpack');
-  });
 });

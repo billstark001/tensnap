@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { Dialog, Form } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
-import { DialogOpenProps, useCallbackRef } from '@tensnap/web-common/react';
-import { FileSystemAdapter } from '@tensnap/web-common/types/file';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
+import { useCallbackRef } from '@tensnap/web-common/react';
+import type { FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { exportDirectory } from './export-utils';
 
 export interface ExportOption {
@@ -96,8 +97,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   );
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root type="ExportDialog" title={title} open={isOpen} onOpenChange={onOpenChange}>
       <Dialog.Description>
         {t`Export path`}: {currentPath}
       </Dialog.Description>

@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -9,15 +10,15 @@ import * as styles from './EditViews.css';
 
 interface EditObjectIdDialogProps {
   open: boolean;
-  title: React.ReactNode;
+  title: string;
   currentId: string;
   objectExists: boolean;
-  validateId: (nextId: string) => string | null;
+  validateId: (nextId: string) => string | null | Promise<string | null>;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (nextId: string) => void;
+  onSubmit: (nextId: string) => void | Promise<void>;
 }
 
-export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
+const EditObjectIdDialogContent: React.FC<EditObjectIdDialogProps> = ({
   open,
   title,
   currentId,
@@ -30,20 +31,22 @@ export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
   const toast = useToast();
   const [draftId, setDraftId] = useState(currentId);
 
-  const handleSubmit = () => {
-    const validationError = validateId(draftId);
-    if (validationError) {
-      toast.warning(_(msg`Invalid ID`), validationError);
-      // return;
+  const handleSubmit = async () => {
+    try {
+      const validationError = await validateId(draftId);
+      if (validationError) {
+        toast.warning(_(msg`Invalid ID`), validationError);
+        return;
+      }
+      await onSubmit(draftId);
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(String(error));
     }
-    onSubmit(draftId);
-    onOpenChange(false);
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="md" closeOnInteractOutside={false}>
-      <Dialog.CloseButton />
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root title={title} open={open} onOpenChange={onOpenChange} size="md">
       <Dialog.Description>
         <Trans>Update the object ID used by this view.</Trans>
       </Dialog.Description>
@@ -73,12 +76,14 @@ export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
         <Dialog.Button variant="primary" onClick={handleSubmit}>
           <Trans>Apply</Trans>
         </Dialog.Button>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
       </Dialog.Footer>
     </Dialog.Root>
   );
 };
+
+export const EditObjectIdDialog = defineDialog('EditObjectIdDialog', EditObjectIdDialogContent, {
+  width: 480,
+  height: 300,
+  minWidth: 320,
+  minHeight: 200,
+});

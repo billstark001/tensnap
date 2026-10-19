@@ -26,6 +26,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/web [0.3.7] - 2026-10-20
+
+### Added
+
+- Movable/resizable WinBox dialogs, keyboard-accessible split panels and menus, per-window placement memory and a settings reset action. Keep drafts and project ownership across tab switches.
+- Workbench file drops open JSON/MessagePack projects and recordings; Snapshots drops import complete timelines into the captured project with per-file undo and isolated errors.
+
+### Changed
+
+- Keep editing, confirmation, settings and replay in the owning Webview with real providers and callbacks. Use direct React portals and Activity for retained hidden panels.
+- Route desktop read-only Agent Details and Simulator Info through explicit versioned projections and command schemas. Remove generic callback/store proxies and synthetic content lifecycles.
+- Improve replay navigation, value-inspector formatting, compact status controls and system-browser documentation access.
+
+### Fixed
+
+- Bind rendered/native Save and Settings to an explicit originating project; capture save format before awaited pickers and stop commands when their owner closes.
+- Unify project/playback disposal across closure, source replacement and initialization failure; retain the old source and restore its scene after failed candidate initialization. Reuse acknowledged inspection image resources; apply metadata/MIME changes and suppress unchanged cloned information packets.
+- Preserve replay cursor and release rendering assets across refresh, StrictMode and closure. Subscribe recording selectors to their actual owner.
+- Poll bounded agent views with cancellation, deadlines and backoff; acknowledge revisions only after successful load and revoke receiver Blob URLs on teardown. Avoid full-scene information packets and unnecessary spatial indexes.
+
+## @tensnap/tauri [0.3.6] - 2026-10-20
+
+### Added
+
+- Native read-only inspector/information windows with main-owned state, validated request/response protocols, monotonic projections, bounded pending requests and coalesced publication.
+- Native file drops, persisted dialog-granted file scopes, localized menus, system-browser documentation access and shared window geometry policy.
+
+### Changed
+
+- Separate main and auxiliary capabilities; initialize filesystem, persistence and simulator services only in the main Webview. Release listeners, operations and windows with their owner.
+- Share main-only project menu command handlers, including original-project Settings and Save ownership, and remove unimplemented zoom/grid/shortcut items. Retain overlay titlebar/fullscreen behavior.
+
+## @tensnap/core [0.3.6] - 2026-10-20
+
+### Added
+
+- Export `createAgentInspectionView` and `AgentInspectionView` from `core/scenario` for owned viewport/ego-graph projections and acknowledged referenced assets without a full model dump.
+- Accept MessagePack state recordings in version-1 frame evidence manifests.
+
+### Fixed
+
+- Normalize optional undefined properties before archive segment encoding so valid recordings round-trip in both file formats.
+- Add idempotent playback closure with scene URL release, cancelled reads and joined reader/backend cleanup; cancel stale Step index lookups when a newer selection starts. Preserve asset bytes across realms when dumping scenes; offer explicit resource reuse for scene replacement.
+- Finalize manual recordings on transport retirement/loss and expose an action-settlement boundary for graceful host shutdown. Notify owned tools when simulator identity is reset.
+- Normalize known asset, screenshot and checkpoint binary fields across JSON/MessagePack extraction and hydration; deduplicate equivalent binary representations without interpreting user strings.
+
+## @tensnap/agent [0.3.6] - 2026-10-20
+
+### Added
+
+- `--recording-format json|msgpack` for run/manual recordings, recording exports and frame evidence, with matching HTTP `recordingFormat` options. JSON remains the default independently of image format and wire encoding.
+
+### Fixed
+
+- Restore recording ID admission at startup without decoding historical payloads; atomically publish complete ID directories to prevent duplicate/cross-format/concurrent overwrites, while retaining legacy file discovery.
+- Own persistence format with recording status, share manual/run pending-write admission, and finalize/drain active recordings during disconnect/shutdown even when checkpoint cleanup fails.
+- Discover both recording encodings in catalogs and restore/compare evidence through its declared state path, including mixed encodings. Extend public CLI acceptance coverage and bundled offline references.
+
+## @tensnap/web-common [0.3.3] - 2026-10-19
+
+### Changed
+
+- Replace dialog/menu geometry with shared DOM controllers and WinBox, direct portal rendering, focus handling, project scopes and per-type placement persistence.
+- Move settings persistence to `@tensnap/web-common/settings-persistence`; remove the former web-adapter subpath and unused content-registry/mount facades. Host setup and imports are documented in the workbench guide.
+
+## @tensnap/web-adapter [0.3.4] - 2026-10-19
+
+### Changed
+
+- Use the shared dialog host for filesystem UI, preserve actual HTML/menu handlers and mark the picker upload area as its own drop destination.
+- Import shared settings persistence from web-common and remove the obsolete adapter export.
+
+## @tensnap/benchmark [0.3.6] - 2026-10-19
+
+### Changed
+
+- Refresh maintained JS profile package/lock fingerprints in place, retaining v2 scientific workload definitions. Document that fingerprint-only updates do not require a new profile version; preserve all archived evidence.
+- Use static type namespace imports in mocked module annotations.
+
+## @tensnap/js [0.3.4] - 2026-10-19
+
+### Changed
+
+- Mark type-only runtime imports explicitly; runtime behavior and protocol remain unchanged.
+
+## @tensnap/examples-js [0.3.4] - 2026-10-19
+
+### Changed
+
+- Mark model/renderer type-only imports explicitly; scientific model behavior remains unchanged.
+
+## tensnap [0.3.3] - 2026-10-19
+
+### Changed
+
+- Enforce Oxlint `typescript/consistent-type-imports` globally, including tests: forbid type-position `import()` expressions while retaining runtime dynamic imports.
+- Align maintained guides, API/ownership contracts, release metadata and offline skill references with the workbench and recording changes. Wire protocol remains 0.3.
+
 ## @tensnap/benchmark [0.3.5] - 2026-10-18
 
 ### Changed

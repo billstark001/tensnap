@@ -155,3 +155,28 @@ it('uses the standard option terminator for literal parameter values', async () 
     options: {},
   });
 });
+
+it.each([
+  ['recording', 'export', 'id', '--output', 'run.msgpack', '--recording-format', 'msgpack'],
+  ['recording', 'start', '--recording-format', 'msgpack'],
+  [
+    'recording',
+    'export-frame',
+    'run.msgpack',
+    '--frame',
+    '0',
+    '--output',
+    'evidence',
+    '--recording-format',
+    'msgpack',
+    '--format',
+    'jpeg',
+  ],
+  ['frame', 'save', '--output', 'evidence', '--recording-format', 'msgpack', '--format', 'png'],
+  ['run', 'start', 'step', '--max-actions', '2', '--record', '--recording-format', 'msgpack'],
+])('parses recording encoding independently of image format: %j', async (...argv) => {
+  const result = await invocation(argv);
+  expect(result.options.recordingFormat).toBe('msgpack');
+  if (argv.includes('--format'))
+    expect(result.options.format).toBe(argv[argv.indexOf('--format') + 1]);
+});

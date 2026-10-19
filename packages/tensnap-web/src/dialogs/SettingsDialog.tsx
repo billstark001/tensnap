@@ -1,28 +1,34 @@
+import { clearWindowPlacements } from '@tensnap/web-common/workbench/window-state';
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { IPFamily } from '@tensnap/network';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useSyncExternalStore } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import {
   ACTION_TIMEOUT_SECONDS_OPTIONS,
   MAX_SNAPSHOT_PLAYBACK_FPS,
   useSettingsStore,
 } from '@/store/settings';
 import { useProjectStore } from '@/store/project';
+import { useDialogProject } from '../store/project-context';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
 import { useToast } from '@/store/toast';
-import type { ProjectSource } from '@tensnap/core/snapshot';
+import type { ProjectSource, Snapshot } from '@tensnap/core/snapshot';
 import { listBuiltinModels } from '@/transport';
 
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { ipFamilyError } from '@/utils/network';
 
-export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
+const NO_SNAPSHOTS: Snapshot[] = [];
+const subscribeNone = () => () => {};
+
+const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   const { _ } = useLingui();
   const toast = useToast();
 
@@ -51,14 +57,22 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
     setActionTimeoutSeconds,
   } = useSettingsStore();
 
-  const { activeProject, activeIndex, changeSource } = useProjectStore();
+  const activeProject = useDialogProject();
+  const projectStore = useProjectStore();
+  const activeIndex = activeProject
+    ? projectStore.projects.findIndex((entry) => entry.id === activeProject.id)
+    : null;
+  const changeSource = projectStore.changeSource;
   const activeProjectId = activeProject?.id ?? null;
   const currentProjectSource = useMemo<ProjectSource>(
     () => activeProject?.source ?? { kind: 'websocket', url: 'ws://localhost:8765' },
     [activeProject?.source],
   );
   const builtinModels = useMemo(() => listBuiltinModels(), []);
-  const snapshots = activeProject?.useScenarioStore.getState().snapshots ?? [];
+  const snapshots = useSyncExternalStore(
+    activeProject?.useScenarioStore.subscribe ?? subscribeNone,
+    () => activeProject?.useScenarioStore.getState().snapshots ?? NO_SNAPSHOTS,
+  );
 
   // Project settings local state
   const [projectDraft, setProjectDraft] = useState(() => ({
@@ -127,10 +141,7 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="lg">
-      <Dialog.Title>
-        <Trans>Settings</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Settings`)} open={open} onOpenChange={onOpenChange} size="lg">
       <Dialog.Description className={styles.visuallyHidden}>
         <Trans>Configure application and project settings.</Trans>
       </Dialog.Description>
@@ -142,6 +153,14 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
             <Trans>System Settings</Trans>
           </h3>
 
+          <Dialog.Button
+            onClick={async () => {
+              await clearWindowPlacements();
+              toast.success(_(msg`Window positions cleared`));
+            }}
+          >
+            <Trans>Clear saved window positions</Trans>
+          </Dialog.Button>
           <div className={styles.systemSettingsGrid}>
             <div className={styles.settingItem}>
               <label className={styles.settingLabel}>
@@ -533,14 +552,13 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
           </div>
         )}
       </div>
-
-      <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Close</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
-      </Dialog.Footer>
     </Dialog.Root>
   );
 };
+
+export const SettingsDialog = defineDialog('SettingsDialog', SettingsDialogContent, {
+  width: 720,
+  height: 680,
+  minWidth: 440,
+  minHeight: 320,
+});

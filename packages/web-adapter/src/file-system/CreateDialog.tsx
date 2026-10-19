@@ -2,7 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { Dialog, Form } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
 
-import { DialogOpenProps, useCallbackRef } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
+import { useCallbackRef } from '@tensnap/web-common/react';
 
 export interface CreateDialogProps extends DialogOpenProps {
   onCreateItem: (name: string, type: 'file' | 'directory') => Promise<void>;
@@ -40,8 +41,12 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
   );
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Title>{t`Create New Item`}</Dialog.Title>
+    <Dialog.Root
+      type="CreateDialog"
+      title={t`Create New Item`}
+      open={isOpen}
+      onOpenChange={onOpenChange}
+    >
       <Dialog.Description></Dialog.Description>
       <div>
         <Form.FieldSet>

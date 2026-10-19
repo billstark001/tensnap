@@ -56,8 +56,8 @@
         "cwd": "examples/js",
         "timeoutMs": 120000,
         "environmentLocks": {
-          "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b",
-          "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf"
+          "examples/js/package.json": "083bd47a0b465a43b3e0a480340201e239d05a778ffb13466aaa4c307c497327",
+          "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7"
         },
         "seed": 20260718,
         "expected": {
@@ -127,8 +127,8 @@
         "height": 700,
         "timeoutMs": 120000,
         "environmentLocks": {
-          "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b",
-          "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf"
+          "examples/js/package.json": "083bd47a0b465a43b3e0a480340201e239d05a778ffb13466aaa4c307c497327",
+          "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7"
         },
         "seed": 20260718
       }
@@ -170,8 +170,8 @@
         "height": 700,
         "timeoutMs": 120000,
         "environmentLocks": {
-          "examples/js/package.json": "db425515379f4239c64950a780801f4cc7ecbacd6165812f356d877c759f291b",
-          "pnpm-lock.yaml": "66afcba7a3c8fd348a523e52545948ab414db9484d43af8e9cbf943a0c6741bf"
+          "examples/js/package.json": "083bd47a0b465a43b3e0a480340201e239d05a778ffb13466aaa4c307c497327",
+          "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7"
         },
         "seed": 20260718
       }

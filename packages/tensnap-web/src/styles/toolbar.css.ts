@@ -27,9 +27,6 @@ export const menuBar = style({
       backgroundColor: vars.color.darkBackground,
       borderBottomColor: vars.color.darkGridLine,
     },
-    '&.mac': {
-      paddingLeft: '70px',
-    },
   },
 });
 
@@ -326,10 +323,12 @@ export const dropdownContent = style({
   boxShadow: vars.shadow.sm,
   padding: vars.space.xs,
   minWidth: '160px',
+  color: vars.color.foreground,
 
   selectors: {
     'body[data-theme="dark"] &': {
       backgroundColor: vars.color.darkBackground,
+      color: vars.color.darkForeground,
       borderColor: vars.color.darkGridLine,
       boxShadow: vars.shadow.sm,
     },
@@ -353,6 +352,11 @@ export const dropdownItem = style({
   },
 
   selectors: {
+    'body[data-theme="dark"] &': { color: vars.color.darkForeground },
+    'body[data-theme="dark"] &:hover, body[data-theme="dark"] &:focus': {
+      backgroundColor: vars.color.darkGridBackground,
+      color: vars.color.darkForeground,
+    },
     '&[data-disabled]': {
       opacity: 0.5,
       cursor: 'not-allowed',

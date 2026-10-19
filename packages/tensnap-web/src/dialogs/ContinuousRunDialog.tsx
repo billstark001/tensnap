@@ -1,3 +1,6 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -9,17 +12,19 @@ export interface ContinuousRunDialogProps {
   actionId: string;
   profile?: ContinuousRunProfile;
   onOpenChange: (open: boolean) => void;
-  onRun: (profile: ContinuousRunProfile) => void;
+  onRun: (profile: ContinuousRunProfile) => void | Promise<void>;
 }
 
 /** Configure a bounded run without bypassing the view context menu. */
-export const ContinuousRunDialog = ({
+const ContinuousRunDialogContent = ({
   open,
   actionId,
   profile,
   onOpenChange,
   onRun,
 }: ContinuousRunDialogProps) => {
+  const { _ } = useLingui();
+
   const [maxSteps, setMaxSteps] = useState(String(profile?.maxSteps ?? 1000));
   const [stopWhen, setStopWhen] = useState(profile?.stopWhen ?? '');
   const [maxWallTimeMs, setMaxWallTimeMs] = useState(
@@ -28,7 +33,8 @@ export const ContinuousRunDialog = ({
   const [record, setRecord] = useState(profile?.record ?? false);
   const [error, setError] = useState<'max-steps' | 'wall-time' | null>(null);
 
-  const submit = () => {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const submit = async () => {
     const steps = Number(maxSteps);
     const wallTime = maxWallTimeMs.trim() ? Number(maxWallTimeMs) : undefined;
     if (!Number.isInteger(steps) || steps < 1 || steps > 1_000_000) {
@@ -40,24 +46,24 @@ export const ContinuousRunDialog = ({
       return;
     }
 
-    onRun({
-      maxSteps: steps,
-      stopWhen: stopWhen.trim() || undefined,
-      maxWallTimeMs: wallTime,
-      record,
-    });
-    onOpenChange(false);
+    try {
+      await onRun({
+        maxSteps: steps,
+        stopWhen: stopWhen.trim() || undefined,
+        maxWallTimeMs: wallTime,
+        record,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      setSubmitError(String(error));
+    }
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Title>
-        <Trans>Continuous run</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Continuous run`)} open={open} onOpenChange={onOpenChange}>
       <Dialog.Description>
         <Trans>Configure a bounded continuous run for action {actionId}.</Trans>
       </Dialog.Description>
-      <Dialog.CloseButton />
 
       <Form.Root
         onSubmit={(event) => {
@@ -114,6 +120,7 @@ export const ContinuousRunDialog = ({
               <Trans>Record this run</Trans>
             </Form.Label>
           </Form.FieldSet>
+          {submitError && <p role="alert">{submitError}</p>}
           {error === 'max-steps' && (
             <p role="alert">
               <Trans>Maximum steps must be an integer from 1 to 1,000,000.</Trans>
@@ -139,3 +146,10 @@ export const ContinuousRunDialog = ({
     </Dialog.Root>
   );
 };
+
+export const ContinuousRunDialog = defineDialog('ContinuousRunDialog', ContinuousRunDialogContent, {
+  width: 520,
+  height: 480,
+  minWidth: 360,
+  minHeight: 260,
+});

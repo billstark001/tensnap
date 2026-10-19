@@ -1,10 +1,15 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import type { AgentInspectionSource } from '../workbench/agent-inspection-source';
+import { useRemoteInspection } from '../workbench/useRemoteInspection';
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import Form from '@tensnap/web-common/components/ui/Form';
 import * as styles from './AgentDetailsDialog.css';
 import { Trans } from '@lingui/react/macro';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Scenario, ScenarioInspector } from '@tensnap/core';
-import type { AgentRef, LiveAgentInspection } from '@tensnap/core';
+import { ScenarioInspector } from '@tensnap/core';
+import type { AgentRef, LiveAgentInspection, Scenario } from '@tensnap/core';
 import type { AgentRenderState } from '@tensnap/core/environment';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { EnvironmentRendererController } from '@tensnap/core/scenario/browser';
@@ -13,7 +18,8 @@ import { ValueInspector } from '../components/value-inspector';
 
 // Union type for all agent types
 
-interface AgentDetailsDialogProps {
+export interface AgentDetailsDialogProps {
+  inspectionSource?: AgentInspectionSource;
   agent: AgentRenderState | null;
   /** Stable identity used to resolve live data while the inspector is open. */
   agentRef?: AgentRef | null;
@@ -127,11 +133,24 @@ function AgentInspectionCanvas({
     controllerRef.current?.render(environment);
   }, [environment, inspection.ref.agentId, inspection.ref.layerId]);
 
+  const previousTarget = useRef<string | null>(null);
   useEffect(() => {
-    if (follow && inspection.viewport) {
+    const target = JSON.stringify([
+      inspection.environmentId,
+      inspection.layerId,
+      inspection.ref.agentId,
+    ]);
+    if ((follow || target !== previousTarget.current) && inspection.viewport) {
       controllerRef.current?.setViewport(inspection.viewport);
     }
-  }, [follow, inspection.viewport]);
+    previousTarget.current = target;
+  }, [
+    follow,
+    inspection.viewport,
+    inspection.environmentId,
+    inspection.layerId,
+    inspection.ref.agentId,
+  ]);
 
   return (
     <div ref={containerRef} className={styles.inspectionCanvas} aria-label="Agent neighbourhood" />
@@ -172,7 +191,9 @@ const PositionInfo = ({
   return null;
 };
 
-export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
+export function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
+  const { _ } = useLingui();
+
   const {
     agent,
     onClose,
@@ -181,6 +202,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     resolveAssetUrl,
     agentRef,
     scenario,
+    inspectionSource,
   } = props;
 
   const isOpen = open ?? !!agent;
@@ -188,11 +210,22 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const [radius, setRadius] = useState(3);
   const [radiusInput, setRadiusInput] = useState('3');
   const [follow, setFollow] = useState(true);
-  const inspection = useLiveInspection(scenario, agentRef, radius, isOpen);
-  const liveAgent = scenario && agentRef ? inspection?.agent : agent;
+  const localInspection = useLiveInspection(
+    scenario,
+    agentRef,
+    radius,
+    isOpen && !inspectionSource,
+  );
+  const remote = useRemoteInspection(inspectionSource, radius, isOpen, onClose);
+  const inspection = inspectionSource ? remote.inspection : localInspection;
+  const liveAgent = inspectionSource
+    ? inspection?.agent
+    : scenario && agentRef
+      ? inspection?.agent
+      : agent;
   const inspectionEnvironment =
     inspection && inspection.kind !== 'none'
-      ? scenario?.getEnvironment(inspection.environmentId)
+      ? (inspectionSource ? remote.scenario : scenario)?.getEnvironment(inspection.environmentId)
       : undefined;
 
   useEffect(() => {
@@ -201,14 +234,29 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     }
   }, [agentRef, inspection, onClose, scenario]);
 
-  if (!liveAgent) return null;
+  if (!liveAgent)
+    return inspectionSource && isOpen ? (
+      <Dialog.Root
+        title={_(msg`Agent Details`)}
+        open
+        onOpenChange={(open) => !open && onClose()}
+        size="lg"
+      >
+        <Dialog.Body aria-busy="true">
+          <progress />
+        </Dialog.Body>
+      </Dialog.Root>
+    ) : null;
 
   const size = liveAgent.size || 16;
   const color = liveAgent.color || '#666666';
   const assetId = liveAgent.icon?.startsWith('asset:')
     ? liveAgent.icon.slice('asset:'.length)
     : null;
-  const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
+  const assetResolver = inspectionSource
+    ? (id: string) => remote.scenario.assets.getUrl(id)
+    : resolveAssetUrl;
+  const assetUrl = assetId ? assetResolver?.(assetId) : undefined;
   const hasCustomData = liveAgent.data !== undefined && Object.keys(liveAgent.data).length > 0;
   const showUnavailableSpatialContext = agentType !== 'uniform' && inspection?.kind === 'none';
 
@@ -228,10 +276,12 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()} size="lg">
-      <Dialog.Title>
-        <Trans>Agent Details</Trans>
-      </Dialog.Title>
+    <Dialog.Root
+      title={_(msg`Agent Details`)}
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="lg"
+    >
       <Dialog.Description>
         <Trans>View detailed information about the selected agent</Trans>
       </Dialog.Description>
@@ -242,7 +292,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             <AgentInspectionCanvas
               inspection={inspection}
               environment={inspectionEnvironment}
-              resolveAssetUrl={resolveAssetUrl}
+              resolveAssetUrl={assetResolver}
               follow={follow}
             />
             <div className={styles.inspectionControls}>
@@ -330,16 +380,13 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
           )}
         </div>
       </Dialog.Body>
-
-      <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Close</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
-      </Dialog.Footer>
-
-      <Dialog.CloseButton />
     </Dialog.Root>
   );
 }
+
+export const AgentDetailsDialog = defineDialog('AgentDetailsDialog', AgentDetailsDialogContent, {
+  width: 760,
+  height: 640,
+  minWidth: 440,
+  minHeight: 320,
+});

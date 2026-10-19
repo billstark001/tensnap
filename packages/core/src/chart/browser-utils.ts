@@ -1,4 +1,4 @@
-import { ChartGroup } from './types';
+import type { ChartGroup } from './types';
 import { createCsvContent } from './utils';
 
 const DOWNLOAD_URL_LIFETIME_MS = 1_000;

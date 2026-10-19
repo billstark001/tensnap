@@ -1,4 +1,4 @@
-import { Scenario } from '../scenario';
+import type { Scenario } from '../scenario';
 import { SnapshotPlayer } from './SnapshotRecorder';
 import type { Snapshot, SnapshotFrame } from './types';
 
@@ -31,6 +31,7 @@ export const SNAPSHOT_PLAYBACK_ACTIONS = ['start', 'step', 'stop', 'reset'] as c
 export class SnapshotPlaybackSource {
   readonly player: SnapshotPlayer;
   private state: SnapshotPlaybackState = 'paused';
+  private closed = false;
   /** Monotonic replay cursor; avoids scanning the full recording per tick. */
   private frameCursor = 0;
 
@@ -51,12 +52,25 @@ export class SnapshotPlaybackSource {
     return this.player.scenario;
   }
 
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.state = 'paused';
+    this.player.close();
+  }
+
+  private assertOpen(): void {
+    if (this.closed) throw new Error('Snapshot playback is closed.');
+  }
+
   start(): Scenario {
+    this.assertOpen();
     this.state = 'playing';
     return this.scenario;
   }
 
   stop(): Scenario {
+    this.assertOpen();
     this.state = 'paused';
     return this.scenario;
   }
@@ -67,6 +81,7 @@ export class SnapshotPlaybackSource {
    * for the explicitly non-hot paths.
    */
   stepFrame(): SnapshotFrame | null {
+    this.assertOpen();
     // `player` is public for inspection/explicit seeking. Recompute only if a
     // caller moved it backwards; normal playback advances this cursor O(1).
     if (

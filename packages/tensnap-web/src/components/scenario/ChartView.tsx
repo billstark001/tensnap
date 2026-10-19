@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import * as styles from './ChartView.css';
-import { ChartGroup, ChartSeriesPoint } from '@/types/model';
+import type { ChartGroup, ChartSeriesPoint } from '@/types/model';
 import { CanvasChartView } from '@/components/chart/CanvasChartView';
 import type { CanvasChartViewRef } from '@/components/chart/CanvasChartView';
 import type { ChartConfig } from '@tensnap/core/chart';

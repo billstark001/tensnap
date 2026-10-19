@@ -1,3 +1,4 @@
+import type * as Transport from '@tensnap/js/transport';
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProtocolBenchmarkWorkload } from '../harness/types';
@@ -5,7 +6,7 @@ import { runProtocolBrowserReplicate } from './runner';
 
 const mocks = vi.hoisted(() => ({ createHost: vi.fn(), launch: vi.fn() }));
 vi.mock('@tensnap/js/transport', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@tensnap/js/transport')>()),
+  ...(await importOriginal<typeof Transport>()),
   createWebSocketTransportHost: mocks.createHost,
 }));
 vi.mock('playwright', () => ({ chromium: { launch: mocks.launch } }));

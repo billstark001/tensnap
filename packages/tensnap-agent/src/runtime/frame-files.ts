@@ -74,6 +74,7 @@ export async function saveCapturedFrame(
   frameInput: CapturedFrame,
   output: string,
   options: {
+    recordingFormat?: 'json' | 'msgpack';
     envIds?: string[];
     chartIds?: string[];
     renderOptions?: SceneRenderOptions;
@@ -86,7 +87,10 @@ export async function saveCapturedFrame(
   const envIds = [...new Set(options.envIds ?? [])];
   const chartIds = [...new Set(options.chartIds ?? [])];
   const render = options.render;
+  const statePath =
+    options.recordingFormat === 'msgpack' ? 'state.recording.msgpack' : 'state.recording.json';
   const state = encodeRecordingFile(snapshotFromFrame(frame), {
+    format: options.recordingFormat,
     origin:
       frame.source.kind === 'recording'
         ? {
@@ -104,7 +108,7 @@ export async function saveCapturedFrame(
   const artifacts: RenderArtifact[] = [];
   try {
     temporary = await mkdtemp(join(dirname(target), '.tensnap-frame-'));
-    await writeFile(join(temporary, 'state.recording.json'), state);
+    await writeFile(join(temporary, statePath), state);
     const saved: FrameManifest['artifacts'] = [];
     for (const [kind, ids] of [
       ['environment', envIds],
@@ -173,7 +177,7 @@ export async function saveCapturedFrame(
       consistency: frame.consistency,
       checkpointStatus: frame.checkpointStatus,
       checkpointReason: frame.checkpointReason,
-      state: { path: 'state.recording.json', sha256: digest(state) },
+      state: { path: statePath, sha256: digest(state) },
       renderOptions: settings,
       artifacts: saved,
     });

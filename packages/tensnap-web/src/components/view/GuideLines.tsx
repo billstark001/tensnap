@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlignType, GuideLine } from '@/utils/layout/guideline';
+import type { AlignType, GuideLine } from '@/utils/layout/guideline';
 import * as styles from './GuideLines.css';
 import clsx from 'clsx';
 

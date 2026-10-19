@@ -37,8 +37,8 @@
 import { Line } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
-import { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';
-import { Viewport } from '../types';
+import type { GridEnvStorage, GridEnvData } from '../storages/GridEnvStorage';
+import type { Viewport } from '../types';
 
 // #region LOD pixel-step thresholds
 

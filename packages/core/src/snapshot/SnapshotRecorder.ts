@@ -810,20 +810,33 @@ export function snapshotFrameAt(snapshot: Snapshot, frame: number): SnapshotFram
 export class SnapshotPlayer {
   readonly scenario: Scenario;
   private currentFrame: number;
+  private closed = false;
 
   constructor(readonly snapshot: Snapshot) {
     this.scenario = new Scenario({
       mutationRules: snapshot.metadata.legacy_create_replacement ? 'legacy' : 'strict',
     });
     this.currentFrame = snapshot.initial.frame;
-    loadKeyframe(this.scenario, snapshot, snapshot.initial);
+    try {
+      loadKeyframe(this.scenario, snapshot, snapshot.initial);
+    } catch (error) {
+      this.close();
+      throw error;
+    }
   }
 
   get frame(): number {
     return this.currentFrame;
   }
 
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    this.scenario.reset({ preserveTrajectoryLayers: false });
+  }
+
   seek(frame: number): Scenario {
+    if (this.closed) throw new Error('Snapshot playback is closed.');
     const lastFrame =
       this.snapshot.frames[this.snapshot.frames.length - 1]?.index ?? this.snapshot.initial.frame;
     const target = Math.max(this.snapshot.initial.frame, Math.min(frame, lastFrame));

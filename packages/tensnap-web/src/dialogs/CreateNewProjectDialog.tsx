@@ -1,6 +1,7 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState, useCallback, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
@@ -32,10 +33,10 @@ const FakeModelCard: React.FC<{
 );
 
 export interface CreateNewDialogProps extends DialogOpenProps {
-  onCreateItem: (source: ProjectSource) => void;
+  onCreateItem: (source: ProjectSource) => void | Promise<void>;
 }
 
-export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
+const CreateNewProjectDialogContent: React.FC<CreateNewDialogProps> = ({
   open: isOpen,
   onOpenChange,
   onCreateItem,
@@ -45,11 +46,11 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
   const ipFamily = useSettingsStore((state) => state.ip_family);
   const connectionError = ipFamilyError(newItemName.trim(), ipFamily);
 
-  const handleCreateItem = useCallback(() => {
+  const handleCreateItem = useCallback(async () => {
     if (!newItemName.trim() || connectionError) return;
 
     try {
-      onCreateItem({ kind: 'websocket', url: newItemName.trim() });
+      await onCreateItem({ kind: 'websocket', url: newItemName.trim() });
       onOpenChange?.(false);
     } catch (error) {
       console.error('Failed to create item:', error);
@@ -68,10 +69,12 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
   const fakeModels = useMemo(() => listBuiltinModels(), []);
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange} size="lg">
-      <Dialog.Title>
-        <Trans>Create New Project</Trans>
-      </Dialog.Title>
+    <Dialog.Root
+      title={_(msg`Create New Project`)}
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      size="lg"
+    >
       <Dialog.Description></Dialog.Description>
       <Dialog.Body>
         <Form.FieldSet>
@@ -100,9 +103,13 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
               <FakeModelCard
                 key={model.id}
                 model={model}
-                onSelect={() => {
-                  onCreateItem({ kind: 'inmemory', model_id: model.id });
-                  onOpenChange?.(false);
+                onSelect={async () => {
+                  try {
+                    await onCreateItem({ kind: 'inmemory', model_id: model.id });
+                    onOpenChange?.(false);
+                  } catch (error) {
+                    console.error('Failed to create item:', error);
+                  }
                 }}
               />
             ))}
@@ -111,11 +118,6 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
         <Dialog.Button
           variant="primary"
           onClick={handleCreateItem}
@@ -127,3 +129,9 @@ export const CreateNewProjectDialog: React.FC<CreateNewDialogProps> = ({
     </Dialog.Root>
   );
 };
+
+export const CreateNewProjectDialog = defineDialog(
+  'CreateNewProjectDialog',
+  CreateNewProjectDialogContent,
+  { width: 680, height: 610, minWidth: 440, minHeight: 320 },
+);

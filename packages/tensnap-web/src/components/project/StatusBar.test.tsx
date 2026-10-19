@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StatusBar } from './StatusBar';
 
 const mockScenarioStore = {
   connected: false,
   currentTime: null as number | null,
-  session: null,
+  session: null as any,
   isRecording: false,
   actionMetrics: null,
   runRevision: 0,
@@ -71,6 +71,7 @@ vi.mock('@lingui/react', () => ({
 
 describe('StatusBar', () => {
   beforeEach(() => {
+    mockScenarioStore.session = null;
     mockSettingsStore.setSettingsDialogOpen.mockReset();
     mockTransportStore.reconnect.mockReset();
     mockTransportStore.isConnected.mockReset();
@@ -92,4 +93,38 @@ describe('StatusBar', () => {
 
     expect(screen.getByText('Model:')).toBeInTheDocument();
   });
+});
+
+it('keeps long run details in the scrollable status region and buttons outside it with accessible names', () => {
+  const actionId = 'long-running-action-'.repeat(30);
+  mockScenarioStore.session = {
+    run: {
+      status: {
+        spec: { actionId, mode: 'manual' },
+        completedActions: 2774,
+        succeededActions: 2774,
+        failedActions: 0,
+        settled: true,
+        state: 'stopped',
+        stopReason: 'stopped',
+      },
+    },
+  };
+  const toggleRight = vi.fn();
+  const toggleBottom = vi.fn();
+  render(<StatusBar onToggleRightPanel={toggleRight} onToggleBottomPanel={toggleBottom} />);
+  const metrics = screen.getByRole('group', { name: 'Runtime status' });
+  expect(metrics).toHaveAttribute('tabindex', '0');
+  expect(metrics.textContent).toContain(actionId);
+  for (const name of ['Reconnect', 'Info', 'Settings']) {
+    const button = screen.getByRole('button', { name });
+    expect(button).toHaveAttribute('aria-label', name);
+    expect(metrics.contains(button)).toBe(false);
+  }
+  fireEvent.click(screen.getByRole('button', { name: 'Hide Right Panel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Hide Bottom Panel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
+  expect(toggleRight).toHaveBeenCalledOnce();
+  expect(toggleBottom).toHaveBeenCalledOnce();
+  expect(mockSettingsStore.setSettingsDialogOpen).toHaveBeenCalledWith(true, null);
 });

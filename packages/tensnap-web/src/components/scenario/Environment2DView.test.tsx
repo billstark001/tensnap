@@ -1,3 +1,4 @@
+import type * as LinguiReact from '@lingui/react';
 // @vitest-environment jsdom
 
 import React from 'react';
@@ -102,7 +103,7 @@ vi.mock('@/store/toast', () => ({
 }));
 
 vi.mock('@lingui/react', async () => {
-  const actual = await vi.importActual<typeof import('@lingui/react')>('@lingui/react');
+  const actual = await vi.importActual<typeof LinguiReact>('@lingui/react');
   return {
     ...actual,
     Trans: ({ children }: { children?: React.ReactNode }) => <>{children}</>,

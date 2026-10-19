@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { RendererSession, RestoreChartPolicy } from '@tensnap/core/runtime';
 import {
   materializeSnapshot,
@@ -211,10 +212,6 @@ function SceneRestoreDialogContent({
 
   return (
     <>
-      <Dialog.CloseButton disabled={Boolean(requestId)} />
-      <Dialog.Title>
-        <Trans>Restore snapshot to simulator</Trans>
-      </Dialog.Title>
       <Dialog.Description>
         <Trans>
           Restore an exact checkpoint or projected parameters, environments, and time. Chart history
@@ -315,12 +312,14 @@ function SceneRestoreDialogContent({
   );
 }
 
-export function SceneRestoreDialog({
+function SceneRestoreDialogWindow({
   open,
   onOpenChange,
   snapshot,
   session,
 }: SceneRestoreDialogProps) {
+  const { _ } = useLingui();
+
   const firstFrame = snapshot?.initial.frame ?? 0;
   const lastFrame = snapshot?.frames[snapshot.frames.length - 1]?.index ?? firstFrame;
   const [isRestoring, setIsRestoring] = useState(false);
@@ -335,10 +334,11 @@ export function SceneRestoreDialog({
   };
   return (
     <Dialog.Root
+      title={_(msg`Restore snapshot to simulator`)}
       open={open}
       onOpenChange={handleOpenChange}
       size="md"
-      closeOnInteractOutside={!isRestoring}
+      dismissible={!isRestoring}
     >
       {open && (
         <SceneRestoreDialogContent
@@ -354,3 +354,10 @@ export function SceneRestoreDialog({
     </Dialog.Root>
   );
 }
+
+export const SceneRestoreDialog = defineDialog('SceneRestoreDialog', SceneRestoreDialogWindow, {
+  width: 600,
+  height: 640,
+  minWidth: 400,
+  minHeight: 300,
+});

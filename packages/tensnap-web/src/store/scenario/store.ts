@@ -1,21 +1,20 @@
+import { validateRecording } from '@tensnap/core/persistence';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
 import { createAutoLayout } from '@/utils/view/pack';
 import { createDefaultRootLayout } from '@tensnap/core/persistence';
 
-import { AnyView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { useSettingsStore } from '../settings';
-import {
+import { GridEnvStorage, RendererSession, sanitizeParameter } from '@tensnap/core';
+import type {
+  DiagnosticEvent,
   ChartStorage,
-  GridEnvStorage,
-  RendererSession,
   Scenario,
   ScenarioEnvironmentState,
   ScenarioSnapshot,
-  sanitizeParameter,
 } from '@tensnap/core';
-import type { DiagnosticEvent } from '@tensnap/core';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type { RendererSessionActionMetricsDetail } from '@tensnap/core/runtime';
 import {
@@ -36,7 +35,7 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
-import {
+import type {
   EditableEnvironmentDraft,
   ProjectDiagnostic,
   ScenarioStore,
@@ -696,7 +695,7 @@ export const createScenarioStore = (
       },
 
       clearAll: () => {
-        scenario.reset();
+        scenario.reset({ preserveTrajectoryLayers: false });
         resetTimeCorrection(timeCorrection);
         set((state) => ({
           connected: false,
@@ -1000,6 +999,23 @@ export const createScenarioStore = (
 
       getScreenshotCapture: (id: string) => {
         return screenshotCaptures.get(id);
+      },
+
+      importSnapshots: (inputs) => {
+        const before = get().snapshots;
+        const ids = new Set(before.map((snapshot) => snapshot.metadata.id));
+        const incoming = inputs.map((snapshot) => {
+          validateRecording(snapshot);
+          if (ids.has(snapshot.metadata.id))
+            throw new Error(`Recording ID already exists: ${snapshot.metadata.id}`);
+          ids.add(snapshot.metadata.id);
+          return structuredClone(snapshot);
+        });
+        if (!incoming.length) throw new Error('The file contains no recordings.');
+        const after = [...before, ...incoming];
+        policies.assertSnapshotSetAllowed?.(after);
+        set({ snapshots: after });
+        recordSnapshotChange('Import recordings', before, after);
       },
 
       addSnapshot: (draft) => {

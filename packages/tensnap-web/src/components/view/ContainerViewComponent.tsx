@@ -10,12 +10,12 @@ import {
   ChartArea,
   Activity,
 } from 'lucide-react';
-import { ContainerView, AnyView } from '@tensnap/core/persistence';
+import type { ContainerView, AnyView } from '@tensnap/core/persistence';
 import { DraggableView } from './DraggableView';
 import * as styles from './styles.css';
 import { viewConstants } from './constants';
 import cx from 'clsx';
-import { ViewProps } from './types';
+import type { ViewProps } from './types';
 import { useViewContext } from './useViewContext';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import { Trans } from '@lingui/react/macro';

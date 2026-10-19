@@ -1,5 +1,5 @@
-import { ContainerView, AnyView } from '@tensnap/core/persistence';
-import {
+import type { ContainerView, AnyView } from '@tensnap/core/persistence';
+import type {
   Parameter,
   Action,
   NumberParameter,
@@ -16,7 +16,10 @@ import {
   WINDOW_Y_DELTA,
   preservedViewIds,
 } from '@/components/view/constants';
-import { ObjectWithEnvironmentMetadata, ObjectWithChartMetadata } from '@/components/view/types';
+import type {
+  ObjectWithEnvironmentMetadata,
+  ObjectWithChartMetadata,
+} from '@/components/view/types';
 import type { MonitorMetadata } from '@tensnap/protocol';
 import { getEffectiveViewBox } from './geometry';
 import { assertValidViewTree, iterateViews } from './container';

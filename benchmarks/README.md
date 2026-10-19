@@ -145,13 +145,13 @@ Current profiles use `.evaluation-venv`, `benchmarks/environments/python-evaluat
 
 The `paper-v0.3` workload and its current `evaluation-2026-*` profile predeclare stable workload IDs, dimensions, feature levels, and a primary metric for every run. Its renderer comparisons use `browserMutationMs`, with Canvas as the baseline and direct Leafer/TenSnap as treatments for each agent-count/change-rate tuple. Protocol and core workloads remain separate from these renderer-only comparisons.
 
-The Schelling profiles separate model, framework UI, and TenSnap layers. The immutable `v1` profiles retain the original 0.7-threshold evidence. The `v2` workload definitions, including their current `evaluation-2026-*` variants, use a 0.8 similarity threshold and end every scientific or UI trajectory at tick 500 (5 warm-up actions plus 495 measured UI actions):
+The Schelling profiles separate model, framework UI, and TenSnap layers. The `v1` profiles retain the original 0.7-threshold conditions and their existing lock hashes; only the latest active profile version receives fingerprint refreshes. Archived evidence retains the exact profiles and locks used for each recorded run. The `v2` workload definitions, including their `evaluation-2026-*` variants, use a 0.8 similarity threshold and end every scientific or UI trajectory at tick 500 (5 warm-up actions plus 495 measured UI actions):
 
 - `schelling-kernel-v2`: Mesa, Go, Agents.jl, and descriptive NetLogo kernels;
 - `schelling-ui-mesa-v2`: Mesa kernel, Solara, and Mesa + TenSnap;
 - `schelling-ui-julia-v2`: Agents.jl kernel, WGLMakie, and Agents.jl + TenSnap;
 - `schelling-ui-go-v2`: Go kernel and Go + TenSnap;
-- `schelling-ui-js-v2`: JavaScript kernel and JavaScript + TenSnap.
+- `schelling-ui-js-v2`: JavaScript kernel and JavaScript + TenSnap. The maintained profile uses the current package/lock fingerprints; a fingerprint-only refresh does not change its scientific version.
 
 After installing the current evaluation locks, select its Python interpreter for standalone profile commands (the full `pnpm evaluation` runner sets this environment itself). Run from the repository root:
 

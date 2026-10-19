@@ -104,7 +104,7 @@ describe('ViewContextMenuRenderer', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Continuous run…' }));
 
-    expect(screen.getByRole('dialog')).toHaveTextContent('Continuous run');
+    expect(screen.getByRole('dialog', { name: 'Continuous run' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Start continuous run' }));
 
     expect(onButtonAction).toHaveBeenCalledWith('start', true, {

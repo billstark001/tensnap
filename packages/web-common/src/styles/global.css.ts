@@ -114,6 +114,7 @@ globalStyle('*, *::before, *::after', {
 });
 
 globalStyle('html, body', {
+  minHeight: '100%',
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontSize: vars.fontSize.md,
   lineHeight: 1.5,
@@ -134,3 +135,5 @@ globalStyle('a', {
 globalStyle('a:hover', {
   textDecoration: 'underline',
 });
+
+globalStyle('body', { minHeight: '100vh' });

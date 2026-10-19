@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { hydrateSettings, MAX_SNAPSHOT_PLAYBACK_FPS, useSettingsStore } from './settings';
-import { configureSettingsPersistence, getSettingsPersistence } from './settings-persistence';
+import {
+  configureSettingsPersistence,
+  getSettingsPersistence,
+} from '@tensnap/web-common/settings-persistence';
 
 describe('snapshot playback settings', () => {
   const original = useSettingsStore.getState().snapshotPlaybackFps;
@@ -23,6 +26,8 @@ describe('continuous run profile persistence', () => {
     const persistence = getSettingsPersistence();
     const original = useSettingsStore.getState().continuousRunProfiles;
     configureSettingsPersistence({
+      keys: async () => [],
+      remove: async () => {},
       get: async (key) =>
         key === 'continuousRunProfiles'
           ? JSON.stringify({
@@ -62,6 +67,8 @@ describe('IP-family system settings', () => {
       const persistence = getSettingsPersistence();
       const set = vi.fn(async () => {});
       configureSettingsPersistence({
+        keys: async () => [],
+        remove: async () => {},
         get: async (key) => (key === 'ip_family' ? value : null),
         set,
       });

@@ -44,6 +44,10 @@ tensnap-agent frame compare saved evidence
 
 Offline commands need no simulator or daemon and select actual retained frames. Model time requires an explicit matching rule. Evidence directories own their scene, optional checkpoint and images, with a verified manifest committed after all requested artifacts succeed. Existing evidence is never overwritten. Independent recordings open directly in an empty GUI. See the [runtime guide](../../docs/user-guide/agent-runtime.md) for format, capability, retention and failure semantics.
 
+Published automatic recording IDs are immutable within a runtime context, including after restart and across JSON/MessagePack. Files publish under `recordings/id-<URI-encoded-id>/recording.tensnap-recording.<format>`; use the returned path. Legacy flat files remain readable and reserve their IDs. Manual and bounded recording writes share admission and format ownership. Disconnect/runtime shutdown settle actions, finalize manual/run recordings and drain writes before finishing; repeated shutdown calls join the same operation. See [runtime persistence guarantees](../../docs/user-guide/agent-runtime.md#library-ownership-and-file-commits) for temporary-directory cleanup and crash limitations.
+
+Recording files default to JSON. Use `--recording-format msgpack` with `run start --record`, `recording start`, `recording export`, `frame save`, or `recording export-frame` to select MessagePack. This flag is independent of image `--format png|jpeg`, and filename extensions do not select encoding. Catalogs, offline readers and evidence restore/compare accept both encodings; evidence manifests identify either `state.recording.json` or `state.recording.msgpack`. CLI result output remains JSON.
+
 ## Install the bundled skills offline
 
 The package includes two stable skill names and their reference files, matched to the CLI version:

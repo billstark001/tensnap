@@ -9,7 +9,7 @@
  *   store.update(d => ({ ...d, count: d.count + 1 }));
  */
 
-import { StorageListener, IMutableStorage, Unsubscribe } from '../types';
+import type { StorageListener, IMutableStorage, Unsubscribe } from '../types';
 
 export class BaseStorage<T, TDelta = never> implements IMutableStorage<T, TDelta> {
   protected _data: T;

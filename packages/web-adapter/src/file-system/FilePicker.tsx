@@ -1,11 +1,11 @@
-import { ComponentType, PropsWithChildren } from 'react';
+import type { ComponentType, PropsWithChildren } from 'react';
 import ReactDOM from 'react-dom/client';
-import {
+import type {
   FileMetadata,
   FilePickerOptions,
   FileSystemAdapter,
-  FileSystemPicker,
 } from '@tensnap/web-common/types/file';
+import { FileSystemPicker } from '@tensnap/web-common/types/file';
 import { FilePickerProvider } from './FilePickerProvider';
 import { FilePickerBridge } from './FilePickerBridge';
 

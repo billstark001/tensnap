@@ -20,14 +20,9 @@ struct MenuLabels {
     copy: &'static str,
     paste: &'static str,
     select_all: &'static str,
-    zoom_in: &'static str,
-    zoom_out: &'static str,
-    reset_zoom: &'static str,
-    show_grid: &'static str,
     fullscreen: &'static str,
     settings: &'static str,
     documentation: &'static str,
-    keyboard_shortcuts: &'static str,
     about: &'static str,
 }
 
@@ -52,14 +47,9 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             copy: "Copy",
             paste: "Paste",
             select_all: "Select All",
-            zoom_in: "Zoom In",
-            zoom_out: "Zoom Out",
-            reset_zoom: "Reset Zoom",
-            show_grid: "Show Grid",
             fullscreen: "Fullscreen",
             settings: "Settings",
             documentation: "Documentation",
-            keyboard_shortcuts: "Keyboard Shortcuts",
             about: "About TenSnap",
         }),
         "zh" => Some(MenuLabels {
@@ -81,14 +71,9 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             copy: "复制",
             paste: "粘贴",
             select_all: "全选",
-            zoom_in: "放大",
-            zoom_out: "缩小",
-            reset_zoom: "重置缩放",
-            show_grid: "显示网格",
             fullscreen: "全屏",
             settings: "设置",
             documentation: "文档",
-            keyboard_shortcuts: "键盘快捷键",
             about: "关于 TenSnap",
         }),
         "ja" => Some(MenuLabels {
@@ -110,14 +95,9 @@ fn labels(locale: &str) -> Option<MenuLabels> {
             copy: "コピー",
             paste: "貼り付け",
             select_all: "すべて選択",
-            zoom_in: "拡大",
-            zoom_out: "縮小",
-            reset_zoom: "ズームをリセット",
-            show_grid: "グリッドを表示",
             fullscreen: "フルスクリーン",
             settings: "設定",
             documentation: "ドキュメント",
-            keyboard_shortcuts: "キーボードショートカット",
             about: "TenSnapについて",
         }),
         _ => None,
@@ -171,17 +151,11 @@ fn create_menu_for_locale(app: &AppHandle, locale: &str) -> Result<Menu<tauri::W
             &MenuItem::with_id(app, "undo", labels.undo, true, Some("CmdOrCtrl+Z"))?,
             &MenuItem::with_id(app, "redo", labels.redo, true, Some("CmdOrCtrl+Shift+Z"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "cut", labels.cut, true, Some("CmdOrCtrl+X"))?,
-            &MenuItem::with_id(app, "copy", labels.copy, true, Some("CmdOrCtrl+C"))?,
-            &MenuItem::with_id(app, "paste", labels.paste, true, Some("CmdOrCtrl+V"))?,
+            &PredefinedMenuItem::cut(app, Some(labels.cut))?,
+            &PredefinedMenuItem::copy(app, Some(labels.copy))?,
+            &PredefinedMenuItem::paste(app, Some(labels.paste))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "select_all",
-                labels.select_all,
-                true,
-                Some("CmdOrCtrl+A"),
-            )?,
+            &PredefinedMenuItem::select_all(app, Some(labels.select_all))?,
         ],
     )?;
 
@@ -190,26 +164,13 @@ fn create_menu_for_locale(app: &AppHandle, locale: &str) -> Result<Menu<tauri::W
         app,
         labels.view,
         true,
-        &[
-            &MenuItem::with_id(app, "zoom_in", labels.zoom_in, true, Some("CmdOrCtrl+Plus"))?,
-            &MenuItem::with_id(
-                app,
-                "zoom_out",
-                labels.zoom_out,
-                true,
-                Some("CmdOrCtrl+Minus"),
-            )?,
-            &MenuItem::with_id(
-                app,
-                "reset_zoom",
-                labels.reset_zoom,
-                true,
-                Some("CmdOrCtrl+0"),
-            )?,
-            &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "show_grid", labels.show_grid, true, None::<&str>)?,
-            &MenuItem::with_id(app, "fullscreen", labels.fullscreen, true, Some("F11"))?,
-        ],
+        &[&MenuItem::with_id(
+            app,
+            "fullscreen",
+            labels.fullscreen,
+            true,
+            Some("F11"),
+        )?],
     )?;
 
     // Tools Menu
@@ -239,13 +200,6 @@ fn create_menu_for_locale(app: &AppHandle, locale: &str) -> Result<Menu<tauri::W
                 true,
                 None::<&str>,
             )?,
-            &MenuItem::with_id(
-                app,
-                "keyboard_shortcuts",
-                labels.keyboard_shortcuts,
-                true,
-                None::<&str>,
-            )?,
             &PredefinedMenuItem::separator(app)?,
             &MenuItem::with_id(app, "about", labels.about, true, None::<&str>)?,
         ],
@@ -272,7 +226,10 @@ pub fn set_menu_locale(app: &AppHandle, locale: &str) -> Result<(), String> {
 }
 
 pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
-    let window = app.get_webview_window("main");
+    let window = app
+        .webview_windows()
+        .into_values()
+        .find(|window| window.is_focused().unwrap_or(false));
 
     if let Some(window) = window {
         match event.id().as_ref() {
@@ -289,16 +246,8 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             // Edit menu
             "undo" => emit_event(&window, "menu:undo"),
             "redo" => emit_event(&window, "menu:redo"),
-            "cut" => emit_event(&window, "menu:cut"),
-            "copy" => emit_event(&window, "menu:copy"),
-            "paste" => emit_event(&window, "menu:paste"),
-            "select_all" => emit_event(&window, "menu:select-all"),
 
             // View menu
-            "zoom_in" => emit_event(&window, "menu:zoom-in"),
-            "zoom_out" => emit_event(&window, "menu:zoom-out"),
-            "reset_zoom" => emit_event(&window, "menu:reset-zoom"),
-            "show_grid" => emit_event(&window, "menu:show-grid"),
             "fullscreen" => {
                 if let Ok(is_fullscreen) = window.is_fullscreen() {
                     let _ = window.set_fullscreen(!is_fullscreen);
@@ -310,7 +259,6 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
 
             // Help menu
             "documentation" => emit_event(&window, "menu:documentation"),
-            "keyboard_shortcuts" => emit_event(&window, "menu:keyboard-shortcuts"),
             "about" => emit_event(&window, "menu:about"),
 
             _ => {}

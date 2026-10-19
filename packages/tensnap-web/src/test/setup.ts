@@ -48,3 +48,14 @@ HTMLCanvasElement.prototype.getContext = vi.fn().mockImplementation(() => ({
 
 global.TextEncoder = TextEncoder as any;
 global.TextDecoder = TextDecoder as any;
+
+import { configureDialogHost } from '@tensnap/web-common/workbench/content';
+import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
+configureDialogHost(createWinBoxHost());
+
+// Browser layout observation is driven explicitly by controller tests in jsdom.
+global.ResizeObserver = class ResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};

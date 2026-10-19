@@ -1,4 +1,5 @@
-import { create, StoreApi, UseBoundStore } from 'zustand';
+import type { StoreApi, UseBoundStore } from 'zustand';
+import { create } from 'zustand';
 import type { ScenarioStore } from './scenario/types';
 import { generateUniqueId } from '@/utils/common';
 import { createStoreContext } from '@/utils/zustand';

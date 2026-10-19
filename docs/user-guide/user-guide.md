@@ -1,6 +1,6 @@
 # TenSnap User Guide
 
-This guide describes the current protocol v0.3 user-facing workflow, with the Python 0.2.2 surface as the primary tutorial path.
+This guide describes the current protocol v0.3 user-facing workflow, with the Python 0.3 binding surface as the primary tutorial path. See the [versioning guide](../maintainer-guide/versioning.md) for current package patch versions.
 
 If you need runnable Python references, start with `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md`. Tutorials 1-4 are backed by runnable examples, but the examples and Python API reference remain the authoritative source for the current Python release. Go, JavaScript/TypeScript, and Julia users should start from their API references and package READMEs.
 
@@ -112,7 +112,7 @@ These decorators describe how your own Python objects should be projected into p
 
 ## Environments and Layers
 
-TenSnap 0.2.2 uses canonical `uniform` and `2d` environments.
+Protocol 0.3 uses canonical `uniform` and `2d` environments.
 
 Rendering behavior comes from layers.
 
@@ -250,13 +250,29 @@ You can record a configured continuous run, or start/stop recording from the sna
 
 Saved projects deduplicate resolved image/data assets across the live scenario and every recording. MessagePack is the compact default; JSON remains useful for inspecting a project by hand. Both preserve the same project semantics.
 
+Recording exports use the same JSON/MessagePack setting, for both full timelines and individual frames. Older JSON projects and recordings remain readable; file contents determine their format.
+
+Drag files onto the workbench to open each in a new tab. Drag recordings onto the Snapshots panel to append their full timelines to that tab, with one undo operation per file. If no tab exists, the first recording creates an offline tab and the remainder join it. Dropping a project on Snapshots extracts its recordings without connecting its source. Duplicate recording IDs and corrupt files report errors; other files in the batch continue. A local recording-store link opens its own offline tab because its timeline remains in its owning local store. The file picker's upload area continues to import files into its filesystem.
+
+The browser and desktop use movable/resizable WinBox windows for settings, editing, confirmations and recording replay. These windows retain the project from which they opened when switching tabs. Desktop Agent Details and Simulator Info use read-only native tool windows. Closing a project closes its owned dialogs and tools.
+
+Window dialogs remember their position and size separately by type. The browser stores these preferences in localStorage; desktop stores them in its local settings cache. Use **Settings → Clear saved window positions** to reset all of them. Reopening a window fits its remembered geometry to the available screen. Close WinBox dialogs with their titlebar control or Escape; native tools use the operating system's close control or Escape. Clicking the backdrop leaves dialogs open. A pending operation can temporarily prevent dismissal.
+
 On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. The desktop native menu follows the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
 
+Recording replay places navigation buttons below its timeline: first frame, previous frame, play/pause, next frame and last frame. Stepping moves between retained frames, including recordings whose first frame is not zero. Manual navigation pauses playback; reaching the last frame stops playback, and Play from the end restarts at the first frame.
+
+The status bar stays on one line. Scroll its left section to read long run details; narrow windows keep the right buttons as named icons. Help → Documentation opens the GitHub documentation, using your system browser on desktop.
+
 ## Inspecting Agents and Trails
+
+Click another agent in the originating view to retarget an open inspector. Its position and inspection controls are preserved, and the preview centers on the newly selected agent even if Follow is disabled. Web windows have no dimming backdrop, so the workbench remains available.
 
 Selecting an agent opens a live inspection view. Spatial environments show the target, nearby agents, edges, and trajectory context; non-spatial environments explicitly report that there is no spatial viewport. Follow and radius controls change only the inspection view, not the simulation state.
 
 Trajectory behavior is configured by its layer. Reconnect, reset, and agent deletion may preserve or clear trails depending on layer metadata. A preserved trail for a deleted agent is displayed as a closed historical segment; if the same id later returns, its new path starts separately.
+
+Custom Data and monitor string values display in full, preserving spaces and line breaks. Tree and table views keep their pagination, and wide tables virtualize columns; table rows grow to fit multiline values.
 
 ## Low-Level Python API
 

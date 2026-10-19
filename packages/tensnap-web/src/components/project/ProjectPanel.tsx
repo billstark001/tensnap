@@ -1,11 +1,13 @@
-import Split from 'react-split';
+import { createSplit } from '@tensnap/web-common/workbench/layout';
+import { createPortal } from 'react-dom';
+import { Activity } from 'react';
 import * as styles from './ProjectPanel.css';
 import { MainViewRenderer } from './MainViewRenderer';
 import { StatusBar } from './StatusBar';
 import { ProjectTerminal } from './ProjectTerminal';
 import { RightPanel } from './RightPanel';
-import { useState, useCallback, useEffect } from 'react';
-import { getSettingsPersistence } from '@/store/settings-persistence';
+import { useState, useCallback, useEffect, useLayoutEffect } from 'react';
+import { getSettingsPersistence } from '@tensnap/web-common/settings-persistence';
 
 const RIGHT_PANEL_KEY = 'tensnap:panel:right';
 const BOTTOM_PANEL_KEY = 'tensnap:panel:bottom';
@@ -38,53 +40,25 @@ export const ProjectPanel = () => {
     void getSettingsPersistence().set(BOTTOM_PANEL_KEY, String(bottomPanelVisible));
   }, [bottomPanelVisible, panelStateLoaded]);
 
-  const mainContent = (
-    <div className={styles.panelWrapper}>
-      <MainViewRenderer />
-    </div>
-  );
-
-  const rightPanelContent = (
-    <div className={styles.panelWrapper} style={{ display: rightPanelVisible ? 'flex' : 'none' }}>
-      {rightPanelVisible ? <RightPanel /> : null}
-    </div>
-  );
-
-  const terminalContent = (
-    <div className={styles.panelWrapper} style={{ display: bottomPanelVisible ? 'flex' : 'none' }}>
-      {bottomPanelVisible ? <ProjectTerminal /> : null}
-    </div>
-  );
-
-  const horizontalSizes = rightPanelVisible ? [70, 30] : [100, 0];
-
-  const horizontalSplit = (
-    <Split
-      direction="horizontal"
-      sizes={horizontalSizes}
-      minSize={[0, 0]}
-      gutterSize={rightPanelVisible ? 4 : 0}
-      className="split-horizontal"
-    >
-      {mainContent}
-      {rightPanelContent}
-    </Split>
-  );
-
-  const verticalSizes = bottomPanelVisible ? [75, 25] : [100, 0];
-
-  const verticalSplit = (
-    <Split
-      direction="vertical"
-      sizes={verticalSizes}
-      minSize={[0, 0]}
-      gutterSize={bottomPanelVisible ? 4 : 0}
-      className="split-vertical"
-    >
-      {horizontalSplit}
-      {terminalContent}
-    </Split>
-  );
+  const [panels] = useState(() => {
+    const horizontal = createSplit('horizontal', 0.7);
+    const vertical = createSplit('vertical', 0.75);
+    vertical.first.append(horizontal.element);
+    return { horizontal, vertical };
+  });
+  useLayoutEffect(() => {
+    panels.horizontal.setVisible(rightPanelVisible);
+  }, [panels, rightPanelVisible]);
+  useLayoutEffect(() => {
+    panels.vertical.setVisible(bottomPanelVisible);
+  }, [panels, bottomPanelVisible]);
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    host?.append(panels.vertical.element);
+    return () => {
+      panels.vertical.element.remove();
+    };
+  }, [host, panels]);
 
   const toggleRightPanel = useCallback(() => {
     setRightPanelVisible((prev) => !prev);
@@ -102,7 +76,14 @@ export const ProjectPanel = () => {
         rightPanelVisible={rightPanelVisible}
         bottomPanelVisible={bottomPanelVisible}
       />
-      <div className={styles.mainContent}>{verticalSplit}</div>
+      <div className={styles.mainContent} ref={setHost} />
+      {createPortal(<MainViewRenderer />, panels.horizontal.first)}
+      <Activity mode={rightPanelVisible ? 'visible' : 'hidden'}>
+        {createPortal(<RightPanel />, panels.horizontal.second)}
+      </Activity>
+      <Activity mode={bottomPanelVisible ? 'visible' : 'hidden'}>
+        {createPortal(<ProjectTerminal />, panels.vertical.second)}
+      </Activity>
     </main>
   );
 };

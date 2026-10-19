@@ -4,14 +4,15 @@ import type { ActionResultPayload, SimulatorToRendererMessage } from '@tensnap/p
 import { exactValueEqual } from '../snapshot/diff/equality';
 import type { CapturedFrame, SnapshotFrame } from '../snapshot';
 import { ScenarioQuerySchema, queryScenario, type ScenarioQuery } from '../scenario/query';
-import { RecordingStoreWriter, type RecordingStoreRoot } from '../persistence/recording-store';
+import type { RecordingStoreWriter } from '../persistence/recording-store';
+import { type RecordingStoreRoot } from '../persistence/recording-store';
 import {
   compileRunCondition,
   createRunConditionScope,
   type CompiledRunCondition,
 } from './ScenarioConditionScope';
+import type { RendererSession } from './RendererSession';
 import {
-  RendererSession,
   type RendererSessionCommitDetail,
   type RendererSessionMessageDetail,
 } from './RendererSession';

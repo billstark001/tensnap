@@ -40,7 +40,7 @@ export const fakeModelDescription = style({
 
 export const fakeModelSection = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))',
   gap: '16px',
   padding: '8px',
 });

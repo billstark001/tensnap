@@ -15,9 +15,10 @@
  * Coordinate system: +x right, +y up (origin at bottom-left).
  */
 
-import { Group, Leafer } from '@leafer-ui/core';
+import type { Leafer } from '@leafer-ui/core';
+import { Group } from '@leafer-ui/core';
 import type { EnvironmentLayerHost, EnvironmentViewFitMode, IResizableLayer } from '../host';
-import { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
+import type { Viewport, Unsubscribe, IStorage, StorageListener } from '../types';
 
 const DEFAULT_VIEWPORT: Viewport = { x: 0, y: 0, width: 1, height: 1 };
 

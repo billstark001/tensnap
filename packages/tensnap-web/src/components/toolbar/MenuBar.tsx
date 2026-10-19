@@ -1,5 +1,6 @@
+import { DialogScopeContext } from '@tensnap/web-common/workbench/dialog-content';
 import { useContext, useEffect } from 'react';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as DropdownMenu from '@tensnap/web-common/components/ui/DropdownMenu';
 import { useFileOperations } from './useFileOperations';
 import * as styles from '@/styles/toolbar.css';
 import { useSettingsStore } from '@/store/settings';
@@ -16,6 +17,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
   const { canSaveFile, onNewFile, onFileOpen, onRecordingOpen, onFileSave, onFileSaveAs } =
     useFileOperations();
 
+  const settingsProjectId = useContext(DialogScopeContext).id;
   const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
   const history = useScenarioUndoRedoStore();
@@ -46,14 +48,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [history]);
 
-  const { environment, system, isFullscreen, onExit, onToggleFullscreen } =
+  const { environment, onExit, onToggleFullscreen, onOpenDocumentation } =
     useContext(MenuBarContext);
 
   const handleDocumentation = () => {
-    window.open(
-      'https://github.com/billstark001/tensnap/tree/main/docs',
-      '_blank',
-      'noopener,noreferrer',
+    void Promise.resolve(onOpenDocumentation()).catch((error) =>
+      console.error('Unable to open documentation:', error),
     );
   };
 
@@ -74,12 +74,9 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
   return (
     <>
       <div
-        className={clsx(
-          styles.menuBar,
-          environment === 'tauri' && system === 'mac' && !isFullscreen && 'mac',
-          className,
-        )}
+        data-workbench-menubar
         data-tauri-drag-region
+        className={clsx(styles.menuBar, className)}
       >
         {/* File Menu */}
         <DropdownMenu.Root>
@@ -88,42 +85,41 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
               <Trans>File</Trans>
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              <DropdownMenu.Item className={styles.dropdownItem} onClick={onNewFile}>
-                <Trans>New</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem} onClick={onFileOpen}>
-                <Trans>Open File</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem} onClick={onRecordingOpen}>
-                <Trans>Open recording</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={canSaveFile ? onFileSave : undefined}
-                disabled={!canSaveFile}
-              >
-                <Trans>Save</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={canSaveFile ? onFileSaveAs : undefined}
-                disabled={!canSaveFile}
-              >
-                <Trans>Save As...</Trans>
-              </DropdownMenu.Item>
 
-              {environment === 'tauri' && (
-                <>
-                  <DropdownMenu.Separator className={styles.dropdownSeparator} />
-                  <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleExit}>
-                    <Trans>Exit</Trans>
-                  </DropdownMenu.Item>
-                </>
-              )}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+          <DropdownMenu.Content className={styles.dropdownContent}>
+            <DropdownMenu.Item className={styles.dropdownItem} onClick={onNewFile}>
+              <Trans>New</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem} onClick={onFileOpen}>
+              <Trans>Open File</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem} onClick={onRecordingOpen}>
+              <Trans>Open recording</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={styles.dropdownItem}
+              onClick={canSaveFile ? onFileSave : undefined}
+              disabled={!canSaveFile}
+            >
+              <Trans>Save</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={styles.dropdownItem}
+              onClick={canSaveFile ? onFileSaveAs : undefined}
+              disabled={!canSaveFile}
+            >
+              <Trans>Save As...</Trans>
+            </DropdownMenu.Item>
+
+            {environment === 'tauri' && (
+              <>
+                <DropdownMenu.Separator className={styles.dropdownSeparator} />
+                <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleExit}>
+                  <Trans>Exit</Trans>
+                </DropdownMenu.Item>
+              </>
+            )}
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
 
         {/* Edit Menu */}
@@ -133,42 +129,41 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
               <Trans>Edit</Trans>
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                disabled={!history?.canUndo()}
-                onSelect={() => {
-                  void history?.undo();
-                }}
-              >
-                <Trans>Undo</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                disabled={!history?.canRedo()}
-                onSelect={() => {
-                  void history?.redo();
-                }}
-              >
-                <Trans>Redo</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Cut</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Copy</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Paste</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Select All</Trans>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+
+          <DropdownMenu.Content className={styles.dropdownContent}>
+            <DropdownMenu.Item
+              className={styles.dropdownItem}
+              disabled={!history?.canUndo()}
+              onSelect={() => {
+                void history?.undo();
+              }}
+            >
+              <Trans>Undo</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className={styles.dropdownItem}
+              disabled={!history?.canRedo()}
+              onSelect={() => {
+                void history?.redo();
+              }}
+            >
+              <Trans>Redo</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className={styles.dropdownSeparator} />
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Cut</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Copy</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Paste</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className={styles.dropdownSeparator} />
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Select All</Trans>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
 
         {/* View Menu */}
@@ -178,26 +173,25 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
               <Trans>View</Trans>
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Zoom In</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Zoom Out</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Reset Zoom</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Show Grid</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleFullscreen}>
-                <Trans>Fullscreen</Trans>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+
+          <DropdownMenu.Content className={styles.dropdownContent}>
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Zoom In</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Zoom Out</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Reset Zoom</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className={styles.dropdownSeparator} />
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Show Grid</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleFullscreen}>
+              <Trans>Fullscreen</Trans>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
 
         {/* Tools Menu */}
@@ -207,17 +201,16 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
               <Trans>Tools</Trans>
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={() => setSettingsDialogOpen(true)}
-              >
-                <Trans>Settings</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+
+          <DropdownMenu.Content className={styles.dropdownContent}>
+            <DropdownMenu.Item
+              className={styles.dropdownItem}
+              onClick={() => setSettingsDialogOpen(true, settingsProjectId)}
+            >
+              <Trans>Settings</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className={styles.dropdownSeparator} />
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
 
         {/* Help Menu */}
@@ -227,23 +220,22 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
               <Trans>Help</Trans>
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleDocumentation}>
-                <Trans>Documentation</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Item className={styles.dropdownItem}>
-                <Trans>Keyboard Shortcuts</Trans>
-              </DropdownMenu.Item>
-              <DropdownMenu.Separator className={styles.dropdownSeparator} />
-              <DropdownMenu.Item
-                className={styles.dropdownItem}
-                onClick={() => setAboutDialogOpen(true)}
-              >
-                <Trans>About TenSnap</Trans>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+
+          <DropdownMenu.Content className={styles.dropdownContent}>
+            <DropdownMenu.Item className={styles.dropdownItem} onSelect={handleDocumentation}>
+              <Trans>Documentation</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.dropdownItem}>
+              <Trans>Keyboard Shortcuts</Trans>
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className={styles.dropdownSeparator} />
+            <DropdownMenu.Item
+              className={styles.dropdownItem}
+              onClick={() => setAboutDialogOpen(true)}
+            >
+              <Trans>About TenSnap</Trans>
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
       </div>
     </>

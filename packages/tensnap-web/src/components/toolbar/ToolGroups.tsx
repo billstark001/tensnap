@@ -1,3 +1,4 @@
+import { DialogScopeContext } from '@tensnap/web-common/workbench/dialog-content';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   FileText,
@@ -22,7 +23,7 @@ import {
   Timer,
   MoreHorizontal,
 } from 'lucide-react';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as DropdownMenu from '@tensnap/web-common/components/ui/DropdownMenu';
 import * as styles from '@/styles/toolbar.css';
 import { useButtonControls } from '../../hooks/useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
@@ -36,7 +37,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
 import { useProjectStore } from '@/store/project';
 import { useToast } from '@/store/toast';
@@ -193,19 +194,18 @@ export function SimulationControlTools() {
               <MoreHorizontal size={16} />
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              {overflowActions.map((action) => (
-                <DropdownMenu.Item
-                  key={action.id}
-                  className={styles.dropdownItem}
-                  onSelect={() => requestModelAction(action.id)}
-                >
-                  {`Model action: ${action.label}`}
-                </DropdownMenu.Item>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+
+          <DropdownMenu.Content className={styles.dropdownContent}>
+            {overflowActions.map((action) => (
+              <DropdownMenu.Item
+                key={action.id}
+                className={styles.dropdownItem}
+                onSelect={() => requestModelAction(action.id)}
+              >
+                {`Model action: ${action.label}`}
+              </DropdownMenu.Item>
+            ))}
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
       </ToolGroupContainer>
       {runActionId && !isSnapshotSource && (
@@ -289,6 +289,7 @@ export function ViewTools() {
 }
 
 export function SettingTools() {
+  const settingsProjectId = useContext(DialogScopeContext).id;
   const { setSettingsDialogOpen, aboutDialogOpen, setAboutDialogOpen, theme, toggleTheme } =
     useSettingsStore();
   const { _ } = useLingui();
@@ -319,7 +320,7 @@ export function SettingTools() {
       <ToolButton
         icon={<Wrench size={16} />}
         tooltip={_(msg`Settings`)}
-        onClick={() => setSettingsDialogOpen(true)}
+        onClick={() => setSettingsDialogOpen(true, settingsProjectId)}
       />
 
       <AboutDialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen} />

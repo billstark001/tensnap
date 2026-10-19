@@ -1,16 +1,15 @@
+import { registerProjectWorkbenchCommands } from '@tensnap/web/project-commands';
+import { useProjectStore } from '@tensnap/web';
+import { WORKBENCH_COMMANDS, runWorkbenchCommand } from '@tensnap/web/commands';
 import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useFileOperations } from '@tensnap/web/file-operations';
 import { useSettingsStore } from '@tensnap/web/store';
-import { setNativeMenuLocale } from '../adapters/common';
-
-const DOCUMENTATION_URL = 'https://github.com/billstark001/tensnap/tree/main/docs';
+import { setNativeMenuLocale, openDocumentation } from '../adapters/common';
 
 export const useTauriMenuEvents = () => {
-  const { onNewFile, onFileOpen, onRecordingOpen, onFileSave, onFileSaveAs } = useFileOperations();
+  const { onNewFile, onFileOpen, onRecordingOpen } = useFileOperations();
 
-  const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
-  const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
   const locale = useSettingsStore((x) => x.locale);
 
   useEffect(() => {
@@ -20,56 +19,35 @@ export const useTauriMenuEvents = () => {
   }, [locale]);
 
   useEffect(() => {
-    const unlistenPromises: Promise<() => void>[] = [];
+    return registerProjectWorkbenchCommands({
+      new: onNewFile,
+      open: onFileOpen,
+      'open-recording': onRecordingOpen,
+      documentation: openDocumentation,
+    });
+  }, [onNewFile, onFileOpen, onRecordingOpen]);
 
-    // File menu events
-    unlistenPromises.push(listen('menu:new', () => onNewFile()));
-    unlistenPromises.push(listen('menu:open', () => onFileOpen()));
-    unlistenPromises.push(listen('menu:open-recording', () => onRecordingOpen()));
-    unlistenPromises.push(listen('menu:save', () => onFileSave()));
-    unlistenPromises.push(listen('menu:save-as', () => onFileSaveAs()));
-
-    // Edit menu events (placeholder for future implementation)
-    unlistenPromises.push(listen('menu:undo', () => console.log('Undo')));
-    unlistenPromises.push(listen('menu:redo', () => console.log('Redo')));
-    unlistenPromises.push(listen('menu:cut', () => console.log('Cut')));
-    unlistenPromises.push(listen('menu:copy', () => console.log('Copy')));
-    unlistenPromises.push(listen('menu:paste', () => console.log('Paste')));
-    unlistenPromises.push(listen('menu:select-all', () => console.log('Select All')));
-
-    // View menu events (placeholder for future implementation)
-    unlistenPromises.push(listen('menu:zoom-in', () => console.log('Zoom In')));
-    unlistenPromises.push(listen('menu:zoom-out', () => console.log('Zoom Out')));
-    unlistenPromises.push(listen('menu:reset-zoom', () => console.log('Reset Zoom')));
-    unlistenPromises.push(listen('menu:show-grid', () => console.log('Show Grid')));
-
-    // Tools menu events
-    unlistenPromises.push(listen('menu:settings', () => setSettingsDialogOpen(true)));
-
-    // Help menu events
-    unlistenPromises.push(
-      listen('menu:documentation', () => {
-        window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer');
-      }),
-    );
-    unlistenPromises.push(
-      listen('menu:keyboard-shortcuts', () => console.log('Keyboard Shortcuts')),
-    );
-    unlistenPromises.push(listen('menu:about', () => setAboutDialogOpen(true)));
-
-    // Cleanup
+  useEffect(() => {
+    const window = getCurrentWebviewWindow();
+    let disposed = false;
+    const stops: (() => void)[] = [];
+    for (const command of WORKBENCH_COMMANDS) {
+      void window
+        .listen(`menu:${command}`, () => {
+          void runWorkbenchCommand(
+            command,
+            useProjectStore.getState().activeProject?.id ?? null,
+          ).catch((error) => console.error('Workbench command failed:', error));
+        })
+        .then((stop) => {
+          if (disposed) stop();
+          else stops.push(stop);
+        })
+        .catch((error) => console.error('Unable to register native menu listener:', error));
+    }
     return () => {
-      Promise.all(unlistenPromises).then((unlisteners) => {
-        unlisteners.forEach((unlisten) => unlisten());
-      });
+      disposed = true;
+      stops.splice(0).forEach((stop) => stop());
     };
-  }, [
-    onNewFile,
-    onFileOpen,
-    onRecordingOpen,
-    onFileSave,
-    onFileSaveAs,
-    setSettingsDialogOpen,
-    setAboutDialogOpen,
-  ]);
+  }, []);
 };

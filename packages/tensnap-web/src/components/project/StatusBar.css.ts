@@ -2,6 +2,10 @@ import { vars } from '@tensnap/web-common/styles/global.css';
 import { style } from '@vanilla-extract/css';
 
 export const statusBar = style({
+  containerType: 'inline-size',
+  containerName: 'statusbar',
+  minWidth: 0,
+  whiteSpace: 'nowrap',
   padding: vars.space.sm,
   display: 'flex',
   alignItems: 'center',
@@ -22,6 +26,8 @@ export const statusBadge = style({
   fontSize: vars.fontSize.xs,
   fontWeight: 600,
   textTransform: 'uppercase',
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
 });
 
 export const statusConnected = style([
@@ -57,7 +63,8 @@ export const statusRejected = style([
 ]);
 
 export const statusMeta = style({
-  marginLeft: vars.space.md,
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
   fontSize: vars.fontSize.sm,
   color: vars.color.foreground,
   display: 'inline-flex',
@@ -73,12 +80,14 @@ export const statusMeta = style({
 
 export const metricValue = style({
   display: 'inline-block',
-  minWidth: '6ch',
+  minWidth: '4ch',
   textAlign: 'right',
   fontVariantNumeric: 'tabular-nums',
 });
 
 export const toggleButton = style({
+  flexShrink: 0,
+  whiteSpace: 'nowrap',
   padding: '4px 8px',
   cursor: 'pointer',
   background: 'transparent',
@@ -112,7 +121,22 @@ export const toggleButton = style({
 });
 
 export const buttonGroup = style({
+  flexShrink: 0,
   marginLeft: 'auto',
   display: 'flex',
   gap: vars.space.xs,
+});
+
+export const statusMetrics = style({
+  display: 'flex',
+  alignItems: 'center',
+  gap: vars.space.sm,
+  flex: '1 1 0',
+  minWidth: 0,
+  overflowX: 'auto',
+  whiteSpace: 'nowrap',
+  scrollbarWidth: 'thin',
+});
+export const buttonText = style({
+  '@container': { 'statusbar (max-width: 1000px)': { display: 'none' } },
 });
