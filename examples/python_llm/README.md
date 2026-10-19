@@ -265,9 +265,9 @@ python -m pytest examples/python_llm/tests -q -o addopts=''
 
 Tests use an in-memory HTTP transport, never a paid API. They cover seeded continuation, replay, immutable projections, local observations, resource conservation, invalid operations, budgets and TenSnap clocks/monitors.
 
-Check the example source with Ruff; the local configuration keeps checks compatible with Python 3.10:
+Lint this model and check formatting across all Python examples. The shared [examples configuration](../ruff.toml) targets Python 3.10:
 
 ```bash
 python -m ruff check examples/python_llm
-python -m ruff format --check examples/python_llm
+python -m ruff format --check examples
 ```

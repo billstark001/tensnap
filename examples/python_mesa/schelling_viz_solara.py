@@ -31,7 +31,12 @@ model_params = {
     "density": Slider("Density", 0.8, 0.01, 1.0, 0.01, dtype=float),  # type: ignore
     "balance": Slider("Balance", 0.5, 0.0, 1.0, 0.01, dtype=float),  # type: ignore
     "similarity_threshold": Slider(
-        "Similarity threshold", 0.7, 0.0, 1.0, 0.01, dtype=float  # type: ignore
+        "Similarity threshold",
+        0.7,
+        0.0,
+        1.0,
+        0.01,
+        dtype=float,  # type: ignore
     ),
     "rng": {"type": "InputText", "value": 42, "label": "Random seed"},
 }

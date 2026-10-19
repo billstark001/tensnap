@@ -30,7 +30,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--seeds", type=int, default=DEFAULT_SCIENTIFIC_SEEDS)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--thresholds", default=DEFAULT_SCIENTIFIC_THRESHOLDS)
-    parser.add_argument("--mode", choices=["steady", "convergence"], default="convergence")
+    parser.add_argument(
+        "--mode", choices=["steady", "convergence"], default="convergence"
+    )
     parser.add_argument(
         "--collect-data",
         action=argparse.BooleanOptionalAction,

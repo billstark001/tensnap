@@ -16,8 +16,12 @@ from netlogo_study import (
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Headless NetLogo Schelling threshold sweep.")
-    add_study_arguments(parser, default_model_path=Path(__file__).with_name("schelling.nlogox"))
+    parser = argparse.ArgumentParser(
+        description="Headless NetLogo Schelling threshold sweep."
+    )
+    add_study_arguments(
+        parser, default_model_path=Path(__file__).with_name("schelling.nlogox")
+    )
     options = options_from_args(parser.parse_args())
     py_netlogo = import_pynetlogo()
     workspace = create_workspace(py_netlogo, options)

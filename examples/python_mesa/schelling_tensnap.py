@@ -85,9 +85,12 @@ class SeededModelReinitializer(BoundModelReinitializer):
                 scenario._time_step = int(data["time"])
                 if self._audit_write is not None:
                     self._audit_write(self.model)
-            scenario.configure_scene_restore(None,
+
+            scenario.configure_scene_restore(
+                None,
                 checkpoint_capture=lambda: capture_checkpoint(self.model),
-                checkpoint_restore=restore)
+                checkpoint_restore=restore,
+            )
         return changes
 
 
@@ -103,6 +106,7 @@ async def run_schelling_server(
     audit_write = None
     if audit_path:
         from schelling_audit import audit_writer  # publication-only injection
+
         audit_write = audit_writer(audit_path)
         audit_write(model)
     seed = kwargs.get("rng")
@@ -112,17 +116,23 @@ async def run_schelling_server(
         collect_data=bool(kwargs.get("collect_data", True)),
         audit_write=audit_write,
     )
-    scenario = SimulationScenario(port=server_port, use_msgpack=use_msgpack,
-                                  model_id="examples.schelling", state_schema_version="2")
+    scenario = SimulationScenario(
+        port=server_port,
+        use_msgpack=use_msgpack,
+        model_id="examples.schelling",
+        state_schema_version="2",
+    )
     reinitializer.register_model(scenario)
     reinitializer.configure_reinit(scenario)
     if audit_write is None:
         model_step = model.step
     else:
+
         def model_step():
             result = model.step()
             audit_write(model)
             return result
+
     await scenario.register_model_handler(
         model_init=reinitializer.model_init,
         model_step=model_step,

@@ -129,14 +129,22 @@ def run_sweep(
     if mode not in ("steady", "convergence"):
         raise ValueError("mode must be steady or convergence")
     if seeds <= 0 or steps <= 0 or warmup_steps < 0:
-        raise ValueError("seeds and steps must be positive and warmup_steps non-negative")
+        raise ValueError(
+            "seeds and steps must be positive and warmup_steps non-negative"
+        )
     if not thresholds:
         raise ValueError("at least one threshold is required")
     if warmup_steps:
         run_trial(
-            threshold=thresholds[0], seed=seed, steps=warmup_steps,
-            width=width, height=height, density=density, balance=balance,
-            mode="steady", collect_data=collect_data,
+            threshold=thresholds[0],
+            seed=seed,
+            steps=warmup_steps,
+            width=width,
+            height=height,
+            density=density,
+            balance=balance,
+            mode="steady",
+            collect_data=collect_data,
         )
 
     rows: list[SweepRow] = []
@@ -145,31 +153,42 @@ def run_sweep(
     for threshold in thresholds:
         trials = tuple(
             run_trial(
-                threshold=threshold, seed=seed + offset, steps=steps,
-                width=width, height=height, density=density, balance=balance,
-                mode=mode, collect_data=collect_data,
+                threshold=threshold,
+                seed=seed + offset,
+                steps=steps,
+                width=width,
+                height=height,
+                density=density,
+                balance=balance,
+                mode=mode,
+                collect_data=collect_data,
             )
             for offset in range(seeds)
         )
         total_ticks += sum(trial.steps_run for trial in trials)
         total_elapsed_ns += sum(trial.elapsed_ns for trial in trials)
-        rows.append(SweepRow(
-            threshold=threshold,
-            mean_satisfied_pct=sum(trial.satisfied_pct for trial in trials) / seeds,
-            mean_segregation_index=sum(trial.segregation_index for trial in trials) / seeds,
-            mean_last_swapped=sum(trial.last_swapped for trial in trials) / seeds,
-            mean_steps=sum(trial.steps_run for trial in trials) / seeds,
-            converged_runs=sum(1 for trial in trials if trial.converged),
-        ))
+        rows.append(
+            SweepRow(
+                threshold=threshold,
+                mean_satisfied_pct=sum(trial.satisfied_pct for trial in trials) / seeds,
+                mean_segregation_index=sum(trial.segregation_index for trial in trials)
+                / seeds,
+                mean_last_swapped=sum(trial.last_swapped for trial in trials) / seeds,
+                mean_steps=sum(trial.steps_run for trial in trials) / seeds,
+                converged_runs=sum(1 for trial in trials if trial.converged),
+            )
+        )
     return SweepResult(tuple(rows), total_ticks, total_elapsed_ns)
 
 
 def format_sweep_csv(result: SweepResult) -> str:
     rows = [
         "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs",
-        *(f"{row.threshold:.2f},{row.mean_satisfied_pct:.4f},{row.mean_segregation_index:.4f},"
-          f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.converged_runs}"
-          for row in result.rows),
+        *(
+            f"{row.threshold:.2f},{row.mean_satisfied_pct:.4f},{row.mean_segregation_index:.4f},"
+            f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.converged_runs}"
+            for row in result.rows
+        ),
         "performance_metric,total_ticks,elapsed_ms,tpms,mspt",
         f"performance,{result.total_ticks},{result.elapsed_ms:.3f},"
         f"{result.ticks_per_ms:.6f},{result.ms_per_tick:.6f}",
