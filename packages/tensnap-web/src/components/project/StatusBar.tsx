@@ -1,3 +1,4 @@
+import { DialogScopeContext } from '@tensnap/web-common/workbench/dialog-content';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { useToast } from '@/store/toast';
@@ -14,7 +15,7 @@ import {
   Wrench,
   Info,
 } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useContext } from 'react';
 
 import * as styles from './StatusBar.css';
 import { SimulatorInfoDialog } from '@/dialogs/SimulatorInfoDialog';
@@ -32,6 +33,7 @@ export function StatusBar({
   rightPanelVisible = true,
   bottomPanelVisible = true,
 }: StatusBarProps) {
+  const settingsProjectId = useContext(DialogScopeContext).id;
   const { _ } = useLingui();
   const toast = useToast();
   const connected = useScenarioStore((store) => store.connected);
@@ -229,7 +231,7 @@ export function StatusBar({
           </span>
         </button>
         <button
-          onClick={() => setSettingsDialogOpen(true)}
+          onClick={() => setSettingsDialogOpen(true, settingsProjectId)}
           className={styles.toggleButton}
           aria-label={_(msg`Settings`)}
           title={_(msg`Settings`)}

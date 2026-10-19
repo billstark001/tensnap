@@ -1,11 +1,11 @@
 import { useSelectRecordingStore } from '@/dialogs/SelectRecordingDialogStore';
 import { useCallback } from 'react';
 import { getFileSystemState, useFileSystem } from '@/store/file-system/provider';
-import { useWithLoading } from '@/store/loading';
+import { useLoadingStore, useWithLoading } from '@/store/loading';
 import { readRecordingSources, useProjectStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
 import { useCreateNewProjectStore } from '@/dialogs/CreateNewProjectDialogStore';
-import { useToast } from '@/store/toast';
+import { getToastState, useToast } from '@/store/toast';
 import { t } from '@lingui/core/macro';
 
 export interface FileOperationsContextValue {
@@ -18,21 +18,19 @@ export interface FileOperationsContextValue {
 }
 
 export const useFileOperations = (): FileOperationsContextValue => {
-  const { openFile, saveFileAs } = useFileSystem();
+  const { openFile } = useFileSystem();
 
   const withLoading = useWithLoading();
   const toast = useToast();
 
   const activeTabId = useProjectStore((store) => store.activeProject?.id);
   const activeFilepath = useProjectStore((store) => store.activeFilepath);
-  const saveFormat = useSettingsStore((store) => store.saveFormat);
 
   const createNewProject = useProjectStore((store) => store.new);
   const open = useProjectStore((store) => store.open);
   const openRecordingStore = useProjectStore((store) => store.openRecordingStore);
   const openOfflineSnapshot = useProjectStore((store) => store.openOfflineSnapshot);
   const selectRecording = useSelectRecordingStore((store) => store.invoke);
-  const save = useProjectStore((store) => store.save);
 
   const canSaveFile = activeTabId != null;
   const requiresSaveAs = !activeFilepath;
@@ -46,14 +44,14 @@ export const useFileOperations = (): FileOperationsContextValue => {
     }
   }, [createNewProject, invoke]);
 
-  const onFileSave = useCallback(async () => {
-    try {
-      await withLoading(() => save(undefined));
-      toast.success(t`File saved`, activeFilepath ?? t`Project saved successfully.`);
-    } catch (error) {
-      toast.error(t`Failed to save file`, String(error));
-    }
-  }, [withLoading, save, toast, activeFilepath]);
+  const saveOwnedProject = useCallback(
+    async (saveAs: boolean) => {
+      if (!activeTabId) return;
+      await saveProject(activeTabId, saveAs).catch(() => {});
+    },
+    [activeTabId],
+  );
+  const onFileSave = useCallback(() => saveOwnedProject(false), [saveOwnedProject]);
 
   const onFileOpen = useCallback(async () => {
     try {
@@ -93,27 +91,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
     }
   }, [openFile, withLoading, selectRecording, openOfflineSnapshot, openRecordingStore, toast]);
 
-  const onFileSaveAs = useCallback(async () => {
-    try {
-      const extension = saveFormat === 'msgpack' ? 'msgpack' : 'json';
-      const file = await saveFileAs({
-        title: t`Save As`,
-        defaultPath: `project.${extension}`,
-        filters: [
-          {
-            name: saveFormat === 'msgpack' ? 'TenSnap MessagePack project' : 'TenSnap JSON project',
-            extensions: [extension],
-          },
-        ],
-      });
-      if (file) {
-        await withLoading(() => save(undefined, file.path));
-        toast.success(t`File saved`, file.path);
-      }
-    } catch (error) {
-      toast.error(t`Failed to save file`, String(error));
-    }
-  }, [withLoading, saveFileAs, save, saveFormat, toast]);
+  const onFileSaveAs = useCallback(() => saveOwnedProject(true), [saveOwnedProject]);
 
   const contextValue: FileOperationsContextValue = {
     canSaveFile,
@@ -127,17 +105,40 @@ export const useFileOperations = (): FileOperationsContextValue => {
   return contextValue;
 };
 
-/** Resolve the original tab after the save dialog, even if another tab was selected. */
-export async function saveProjectAs(projectId: string): Promise<void> {
+/** One command path for rendered and native menus. Capture ID and format before the picker. */
+export async function saveProject(projectId: string, saveAs = false): Promise<void> {
+  const toast = getToastState();
+  try {
+    const path = await useLoadingStore
+      .getState()
+      .withLoading(() => saveProjectFile(projectId, saveAs));
+    if (path) toast.success(t`File saved`, path);
+  } catch (error) {
+    toast.error(t`Failed to save file`, String(error));
+    throw error;
+  }
+}
+
+export async function saveProjectFile(
+  projectId: string,
+  saveAs = false,
+): Promise<string | undefined> {
   const format = useSettingsStore.getState().saveFormat;
-  const file = await getFileSystemState().saveFileAs({
-    title: t`Save As`,
-    defaultPath: `project.${format}`,
-    filters: [{ name: 'TenSnap project', extensions: [format] }],
-  });
-  if (!file) return;
+  const original = useProjectStore.getState().projects.find((project) => project.id === projectId);
+  if (!original) throw new Error('The destination project was closed.');
+  let path = original.filepath;
+  if (saveAs || !path) {
+    const file = await getFileSystemState().saveFileAs({
+      title: t`Save As`,
+      defaultPath: `project.${format}`,
+      filters: [{ name: 'TenSnap project', extensions: [format] }],
+    });
+    if (!file) return;
+    path = file.path;
+  }
   const store = useProjectStore.getState();
   const index = store.projects.findIndex((project) => project.id === projectId);
   if (index < 0) throw new Error('The destination project was closed.');
-  await store.save(index, file.path);
+  await store.save(index, path, format);
+  return path;
 }

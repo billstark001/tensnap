@@ -1,3 +1,4 @@
+import { DialogScopeContext } from '@tensnap/web-common/workbench/dialog-content';
 import { useContext, useEffect } from 'react';
 import * as DropdownMenu from '@tensnap/web-common/components/ui/DropdownMenu';
 import { useFileOperations } from './useFileOperations';
@@ -16,6 +17,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
   const { canSaveFile, onNewFile, onFileOpen, onRecordingOpen, onFileSave, onFileSaveAs } =
     useFileOperations();
 
+  const settingsProjectId = useContext(DialogScopeContext).id;
   const setSettingsDialogOpen = useSettingsStore((x) => x.setSettingsDialogOpen);
   const setAboutDialogOpen = useSettingsStore((x) => x.setAboutDialogOpen);
   const history = useScenarioUndoRedoStore();
@@ -203,7 +205,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
           <DropdownMenu.Content className={styles.dropdownContent}>
             <DropdownMenu.Item
               className={styles.dropdownItem}
-              onClick={() => setSettingsDialogOpen(true)}
+              onClick={() => setSettingsDialogOpen(true, settingsProjectId)}
             >
               <Trans>Settings</Trans>
             </DropdownMenu.Item>

@@ -127,7 +127,9 @@ export async function hydrateSettings(): Promise<void> {
 
 interface SettingsStore {
   settingsDialogOpen: boolean;
-  setSettingsDialogOpen: (open: boolean) => void;
+  settingsDialogProjectId: string | null;
+  settingsDialogRequest: number;
+  setSettingsDialogOpen: (open: boolean, projectId?: string | null) => void;
 
   aboutDialogOpen: boolean;
   setAboutDialogOpen: (open: boolean) => void;
@@ -170,8 +172,21 @@ export const useSettingsStore = create<SettingsStore>()(
   subscribeWithSelector((set, get) => ({
     settingsDialogOpen: false,
 
-    setSettingsDialogOpen: (open: boolean) => {
-      set({ settingsDialogOpen: open });
+    settingsDialogRequest: 0,
+    settingsDialogProjectId: null,
+    setSettingsDialogOpen: (open, projectId) => {
+      const before = get();
+      if (
+        open &&
+        (!before.settingsDialogOpen ||
+          (projectId !== undefined && projectId !== before.settingsDialogProjectId))
+      ) {
+        set({
+          settingsDialogOpen: true,
+          settingsDialogProjectId: projectId ?? null,
+          settingsDialogRequest: before.settingsDialogRequest + 1,
+        });
+      } else set({ settingsDialogOpen: open });
     },
 
     aboutDialogOpen: false,

@@ -229,3 +229,58 @@ it('mounts real inspector content through JSON IPC in the caller root, retargets
     vi.unstubAllGlobals();
   }
 });
+
+it('deduplicates real session getter clones and observes owned identity changes and reset', () => {
+  useProjectStore.getState().openOfflineSnapshot(createSingleSnapshot(fixture().dump()));
+  const project = useProjectStore.getState().activeProject!;
+  const { session, scenario } = project.useScenarioStore.getState();
+  const info = {
+    protocol_version: '0.3' as const,
+    binding: { name: 'test', version: '1' },
+    model: { id: 'test' },
+    instance_id: 'instance',
+    capabilities: [],
+  };
+  session.handleIncoming({ type: 'simulator_info', payload: info });
+  const props = {
+    scenario,
+    simulatorInfo: session.simulatorInfo,
+    open: true,
+    onOpenChange: vi.fn(),
+  };
+  const owned = createAuxiliaryWindowOwner('SimulatorInfoDialog', props, project.id);
+  const fallback = createAuxiliaryWindowOwner('SimulatorInfoDialog', props, null);
+  const ownedChanged = vi.fn(),
+    fallbackChanged = vi.fn();
+  owned.subscribe(ownedChanged);
+  fallback.subscribe(fallbackChanged);
+  try {
+    for (let index = 0; index < 20; index++) {
+      owned.update({ ...props, simulatorInfo: session.simulatorInfo });
+      fallback.update({ ...props, simulatorInfo: session.simulatorInfo });
+    }
+    expect(ownedChanged).not.toHaveBeenCalled();
+    expect(fallbackChanged).not.toHaveBeenCalled();
+    session.handleIncoming({
+      type: 'simulator_info',
+      payload: { ...info, model: { id: 'changed' } },
+    });
+    expect(ownedChanged).toHaveBeenCalledOnce();
+    owned.update({ ...props, simulatorInfo: session.simulatorInfo });
+    expect(ownedChanged).toHaveBeenCalledOnce();
+    fallback.update({ ...props, simulatorInfo: session.simulatorInfo });
+    expect(fallbackChanged).toHaveBeenCalledOnce();
+    session.resetSimulatorIdentity();
+    expect(ownedChanged).toHaveBeenCalledTimes(2);
+    expect(owned.state().content).toMatchObject({ simulatorInfo: null });
+    scenario.load({ ...scenario.dump(), metadata: { label: 'loaded' } });
+    expect(ownedChanged).toHaveBeenCalledTimes(3);
+    expect(owned.state().content).toMatchObject({ metadata: { label: 'loaded' } });
+    scenario.reset();
+    expect(ownedChanged).toHaveBeenCalledTimes(4);
+    expect(owned.state().content).toMatchObject({ metadata: {} });
+  } finally {
+    owned.dispose();
+    fallback.dispose();
+  }
+});

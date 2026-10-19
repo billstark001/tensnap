@@ -39,6 +39,9 @@ export function createAuxiliaryWindowOwner<K extends AuxiliaryWindowId>(
     project?.useScenarioStore.getState().scenario === scenario
       ? project.useScenarioStore.getState().session
       : undefined;
+  let infoSignature = JSON.stringify(
+    session ? session.simulatorInfo : (props as SimulatorInfoDialogProps).simulatorInfo,
+  );
   let disposed = false;
   let revision = 0;
   const listeners = new Set<() => void>();
@@ -56,7 +59,18 @@ export function createAuxiliaryWindowOwner<K extends AuxiliaryWindowId>(
   });
   if (!inspection) {
     scenario.addEventListener('metadata:update', changed);
-    session?.addEventListener('simulator:info', changed);
+    scenario.addEventListener('reset', changed);
+    session?.addEventListener('simulator:info', infoChanged);
+    session?.addEventListener('simulator:identity-reset', infoChanged);
+  }
+  function infoChanged() {
+    const signature = JSON.stringify(
+      session ? session.simulatorInfo : (props as SimulatorInfoDialogProps).simulatorInfo,
+    );
+    if (signature === infoSignature) return false;
+    infoSignature = signature;
+    changed();
+    return true;
   }
   function isAlive() {
     return (
@@ -90,13 +104,7 @@ export function createAuxiliaryWindowOwner<K extends AuxiliaryWindowId>(
           changed();
           return true;
         }
-      } else if (
-        (next as SimulatorInfoDialogProps).simulatorInfo !==
-        (previous as SimulatorInfoDialogProps).simulatorInfo
-      ) {
-        changed();
-        return true;
-      }
+      } else if (!session) return infoChanged();
       return false;
     },
     state(): AuxiliaryState {
@@ -110,8 +118,9 @@ export function createAuxiliaryWindowOwner<K extends AuxiliaryWindowId>(
           }
         : {
             id: 'SimulatorInfoDialog',
-            simulatorInfo:
-              session?.simulatorInfo ?? (props as SimulatorInfoDialogProps).simulatorInfo,
+            simulatorInfo: session
+              ? session.simulatorInfo
+              : (props as SimulatorInfoDialogProps).simulatorInfo,
             metadata: structuredClone(scenario.metadata),
           };
       return {
@@ -145,7 +154,9 @@ export function createAuxiliaryWindowOwner<K extends AuxiliaryWindowId>(
       listeners.clear();
       inspection?.dispose();
       scenario.removeEventListener('metadata:update', changed);
-      session?.removeEventListener('simulator:info', changed);
+      scenario.removeEventListener('reset', changed);
+      session?.removeEventListener('simulator:info', infoChanged);
+      session?.removeEventListener('simulator:identity-reset', infoChanged);
     },
   };
 }

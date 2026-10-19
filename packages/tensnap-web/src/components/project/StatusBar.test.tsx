@@ -126,5 +126,5 @@ it('keeps long run details in the scrollable status region and buttons outside i
   fireEvent.click(screen.getByRole('button', { name: 'Settings' }));
   expect(toggleRight).toHaveBeenCalledOnce();
   expect(toggleBottom).toHaveBeenCalledOnce();
-  expect(mockSettingsStore.setSettingsDialogOpen).toHaveBeenCalledWith(true);
+  expect(mockSettingsStore.setSettingsDialogOpen).toHaveBeenCalledWith(true, null);
 });

@@ -13,8 +13,7 @@ import {
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { ProjectPanel } from './components/project/ProjectPanel';
-import { SettingsDialog } from './dialogs/SettingsDialog';
-import { useSettingsStore } from './store/settings';
+import { SettingsDialogAnchor } from './dialogs/SettingsDialogAnchor';
 import { useCallback, useEffect, useState, useLayoutEffect } from 'react';
 
 export function App(props: Partial<MenuBarConfig>) {
@@ -65,9 +64,6 @@ export function App(props: Partial<MenuBarConfig>) {
   const isFullscreen =
     environment === 'tauri' ? (controlledFullscreen ?? false) : browserFullscreen;
 
-  const settingsDialogOpen = useSettingsStore((store) => store.settingsDialogOpen);
-  const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
-
   const [shell] = useState(createWorkbenchShell);
   useLayoutEffect(() => {
     document.getElementById('root')!.append(shell.element);
@@ -93,7 +89,7 @@ export function App(props: Partial<MenuBarConfig>) {
 
       {createPortal(<ProjectPanel />, shell.workspace)}
 
-      <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
+      <SettingsDialogAnchor />
 
       {/* Loading Spinner Overlay */}
       {(fileSystemLoading || counterLoading) && (

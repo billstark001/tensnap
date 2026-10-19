@@ -1,3 +1,4 @@
+import { ProjectScope } from '../ProjectScope';
 import type * as Transport from '@/transport';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@lingui/react';
@@ -64,7 +65,9 @@ it('updates recording choices when the owning project renames or imports recordi
   try {
     render(
       <I18nProvider i18n={i18n}>
-        <SettingsDialog open onOpenChange={vi.fn()} />
+        <ProjectScope project={project}>
+          <SettingsDialog open onOpenChange={vi.fn()} />
+        </ProjectScope>
       </I18nProvider>,
     );
     expect(screen.getAllByText('Original recording').length).toBeGreaterThan(0);

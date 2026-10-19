@@ -57,9 +57,8 @@ const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }
     setActionTimeoutSeconds,
   } = useSettingsStore();
 
-  const ownedProject = useDialogProject();
+  const activeProject = useDialogProject();
   const projectStore = useProjectStore();
-  const activeProject = ownedProject ?? projectStore.activeProject;
   const activeIndex = activeProject
     ? projectStore.projects.findIndex((entry) => entry.id === activeProject.id)
     : null;

@@ -1,3 +1,4 @@
+import { DialogScopeContext } from '@tensnap/web-common/workbench/dialog-content';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import {
   FileText,
@@ -36,7 +37,7 @@ import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import { ContinuousRunDialog } from '@/dialogs/ContinuousRunDialog';
 import { useProjectStore } from '@/store/project';
 import { useToast } from '@/store/toast';
@@ -288,6 +289,7 @@ export function ViewTools() {
 }
 
 export function SettingTools() {
+  const settingsProjectId = useContext(DialogScopeContext).id;
   const { setSettingsDialogOpen, aboutDialogOpen, setAboutDialogOpen, theme, toggleTheme } =
     useSettingsStore();
   const { _ } = useLingui();
@@ -318,7 +320,7 @@ export function SettingTools() {
       <ToolButton
         icon={<Wrench size={16} />}
         tooltip={_(msg`Settings`)}
-        onClick={() => setSettingsDialogOpen(true)}
+        onClick={() => setSettingsDialogOpen(true, settingsProjectId)}
       />
 
       <AboutDialog open={aboutDialogOpen} onOpenChange={setAboutDialogOpen} />
