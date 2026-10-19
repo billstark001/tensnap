@@ -169,7 +169,7 @@ export interface ProjectStore {
     bytes: Uint8Array,
     options?: { filepath?: string; name?: string; indexHint?: number },
   ) => Promise<ProjectOpenResult>;
-  save: (index?: number, saveAsPath?: string) => Promise<void>;
+  save: (index?: number, saveAsPath?: string, format?: 'json' | 'msgpack') => Promise<void>;
   close: (index: number) => void;
   confirmClose: () => void;
   cancelClose: () => void;
@@ -294,16 +294,21 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const targetIndex = projectInsertionIndex(indexHint, projects.length);
 
     const newProject = createProject(source, filepath ?? null, model_identity);
-    newProject.displayName = name;
-    newProject.useScenarioStore.setState({ mainView, snapshots });
-    if (source.kind === 'snapshot') {
-      const snapshot = snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
-      if (!snapshot)
-        throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
-      newProject.snapshotPlayback = new SnapshotPlaybackSource(snapshot);
-      newProject.useScenarioStore.getState().load(newProject.snapshotPlayback.scenario.dump());
-    } else {
-      newProject.useScenarioStore.getState().load(scenario);
+    try {
+      newProject.displayName = name;
+      newProject.useScenarioStore.setState({ mainView, snapshots });
+      if (source.kind === 'snapshot') {
+        const snapshot = snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
+        if (!snapshot)
+          throw new Error(`Snapshot source ${source.snapshot_id} was not found in this project.`);
+        newProject.snapshotPlayback = new SnapshotPlaybackSource(snapshot);
+        newProject.useScenarioStore.getState().load(newProject.snapshotPlayback.scenario.dump());
+      } else {
+        newProject.useScenarioStore.getState().load(scenario);
+      }
+    } catch (error) {
+      disposeProject(newProject);
+      throw error;
     }
     for (const warning of warnings) {
       newProject.useScenarioStore.getState().appendDiagnostic({
@@ -330,7 +335,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     return { recovered: warnings.length > 0, warnings };
   },
 
-  async save(index, saveAsPath) {
+  async save(index, saveAsPath, format) {
     const { projects, activeIndex, refreshActiveProject } = get();
     const targetIndex = index ?? activeIndex;
 
@@ -371,7 +376,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error('No file path specified for saving the project');
     }
 
-    const saveFormat = useSettingsStore.getState().saveFormat;
+    const saveFormat = format ?? useSettingsStore.getState().saveFormat;
     // Save dialogs return the exact path whose fs scope they authorize. The
     // extension/filter is supplied before the dialog opens; never rewrite it
     // after selection or write through a separately-authorized parent path.
@@ -414,6 +419,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw error;
     });
     const playback = new RecordingPlayback(reader, () => backend.close());
+    let openingProject: ProjectContextScheme | undefined;
     try {
       await playback.seek(reader.root.firstFrame);
       const { projects, setActive } = get();
@@ -423,6 +429,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         null,
         reader.root.modelIdentity,
       );
+      openingProject = project;
       project.recordingPlayback = playback;
       project.recordingStoreLink = {
         kind: 'tensnap-recording-store-link',
@@ -457,6 +464,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set({ projects: next });
       setActive(index);
     } catch (error) {
+      if (openingProject) disposeProject(openingProject);
       await playback.close();
       throw error;
     }
@@ -477,33 +485,38 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const identity = sourceSnapshot.metadata.id;
     const source: ProjectSource = { kind: 'snapshot', snapshot_id: identity };
     const project = createProject(source, null, sourceSnapshot.metadata.model_identity);
-    project.snapshotPlayback = new SnapshotPlaybackSource(sourceSnapshot);
-    if (frame !== undefined) project.snapshotPlayback.seek(frame);
-    project.useScenarioStore.getState().load(project.snapshotPlayback.scenario.dump());
-    const scenario = project.useScenarioStore.getState().scenario;
-    project.useScenarioStore.setState({
-      mainView: layout
-        ? structuredClone(layout)
-        : createAutoLayout(
-            undefined,
-            [...scenario.environments.values()].map((env) => ({
-              id: env.id,
-              type: env.type,
-              label: env.id,
-            })),
-            [...scenario.parameters.values()],
-            scenario.charts.getGroupList(),
-            {},
-            SNAPSHOT_PLAYBACK_ACTIONS.map((id) => ({
-              id,
-              label: id,
-              scope: 'model' as const,
-              continuous: id === 'start',
-            })),
-            [...scenario.monitors.all.values()],
-          ),
-    });
-    project.useScenarioStore.setState({ snapshots: [sourceSnapshot] });
+    try {
+      project.snapshotPlayback = new SnapshotPlaybackSource(sourceSnapshot);
+      if (frame !== undefined) project.snapshotPlayback.seek(frame);
+      project.useScenarioStore.getState().load(project.snapshotPlayback.scenario.dump());
+      const scenario = project.useScenarioStore.getState().scenario;
+      project.useScenarioStore.setState({
+        mainView: layout
+          ? structuredClone(layout)
+          : createAutoLayout(
+              undefined,
+              [...scenario.environments.values()].map((env) => ({
+                id: env.id,
+                type: env.type,
+                label: env.id,
+              })),
+              [...scenario.parameters.values()],
+              scenario.charts.getGroupList(),
+              {},
+              SNAPSHOT_PLAYBACK_ACTIONS.map((id) => ({
+                id,
+                label: id,
+                scope: 'model' as const,
+                continuous: id === 'start',
+              })),
+              [...scenario.monitors.all.values()],
+            ),
+      });
+      project.useScenarioStore.setState({ snapshots: [sourceSnapshot] });
+    } catch (error) {
+      disposeProject(project);
+      throw error;
+    }
     const nextProjects = [...projects];
     nextProjects.splice(targetIndex, 0, project);
     set({ projects: nextProjects });
@@ -564,6 +577,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return;
     }
     const scenarioStore = project.useScenarioStore.getState();
+    let released: Promise<void>;
 
     if (source.kind === 'snapshot') {
       const snapshot = scenarioStore.snapshots.find(
@@ -574,13 +588,32 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       // Fully materialize the candidate before destroying the current source.
       // From here on every operation consumes a validated in-memory snapshot.
       const playback = new SnapshotPlaybackSource(snapshot);
-      const nextScenario = playback.scenario.dump();
-      await project.recordingPlayback?.close();
-      project.recordingPlayback = undefined;
-      project.recordingStoreLink = undefined;
+      let nextScenario;
+      let previousScene;
+      try {
+        nextScenario = playback.scenario.dump();
+        previousScene = scenarioStore.dump();
+      } catch (error) {
+        playback.close();
+        throw error;
+      }
+      try {
+        scenarioStore.load(nextScenario);
+      } catch (error) {
+        playback.close();
+        try {
+          scenarioStore.load(previousScene);
+        } catch (rollbackError) {
+          throw Object.assign(new Error('Project source replacement and scene rollback failed.'), {
+            errors: [error, rollbackError],
+          });
+        }
+        throw error;
+      }
+      // Retire the old source only after the renderer has accepted the candidate.
       project.useTransportStore.getState().destroy();
       scenarioStore.session.resetSimulatorIdentity();
-      scenarioStore.load(nextScenario);
+      released = releaseProjectPlayback(project);
       project.snapshotPlayback = playback;
     } else {
       const connectionId = projectSourceConnectionId(source);
@@ -590,17 +623,38 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       await project.useTransportStore
         .getState()
         .changeTransport(connectionId, undefined, { resetSimulatorIdentity: true });
-      await project.recordingPlayback?.close();
-      project.recordingPlayback = undefined;
-      project.recordingStoreLink = undefined;
-      project.snapshotPlayback = undefined;
+      released = releaseProjectPlayback(project);
     }
 
     project.modelIdentity = undefined;
     project.source = source;
     get().refreshActiveProject();
+    await released;
   },
 }));
+
+/** Playback objects own their scenes/readers; project Scene and transport have separate owners. */
+function releaseProjectPlayback(project: ProjectContextScheme): Promise<void> {
+  project.snapshotPlayback?.close();
+  project.snapshotPlayback = undefined;
+  const playback = project.recordingPlayback;
+  project.recordingPlayback = undefined;
+  project.recordingStoreLink = undefined;
+  return (
+    playback
+      ?.close()
+      .catch((error) => console.error('Recording playback cleanup failed.', error)) ??
+    Promise.resolve()
+  );
+}
+
+function disposeProject(project: ProjectContextScheme): void {
+  void releaseProjectPlayback(project);
+  project.useTransportStore.getState().destroy();
+  const scenario = project.useScenarioStore.getState();
+  scenario.clearAll();
+  scenario.session.destroy();
+}
 
 function closeProject(
   index: number,
@@ -611,11 +665,7 @@ function closeProject(
   const project = projects[index];
   if (!project) return;
 
-  void project.recordingPlayback
-    ?.close()
-    .catch((error) => console.error('Recording playback cleanup failed.', error));
-  project.useTransportStore.getState().destroy();
-  project.useScenarioStore.getState().clearAll();
+  disposeProject(project);
   const nextProjects = [...projects];
   nextProjects.splice(index, 1);
 

@@ -100,6 +100,6 @@ it('projects an owned ego graph with only its edges, trajectories and referenced
   expect(
     createAgentInspectionView(scenario, inspection, new Map([['background', 'svg-hash']])).scene
       .assets,
-  ).toEqual([]);
+  ).toEqual([{ meta: scenario.assets.getMeta('background') }]);
   expect(dump).not.toHaveBeenCalled();
 });

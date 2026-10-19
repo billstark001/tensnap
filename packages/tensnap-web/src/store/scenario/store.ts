@@ -695,7 +695,7 @@ export const createScenarioStore = (
       },
 
       clearAll: () => {
-        scenario.reset();
+        scenario.reset({ preserveTrajectoryLayers: false });
         resetTimeCorrection(timeCorrection);
         set((state) => ({
           connected: false,

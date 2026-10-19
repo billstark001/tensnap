@@ -48,6 +48,15 @@ it('keeps one request in flight, cancels stale radius requests and clears acknow
 
 it('acknowledges received bytes only and removes superseded or deleted resources', async () => {
   vi.useFakeTimers();
+  const create = vi.fn(() => `blob:${Math.random()}`),
+    revoke = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = create;
+      static revokeObjectURL = revoke;
+    },
+  );
   const { Scenario } = await import('@tensnap/core');
   const { createAgentInspectionSource } = await import('./agent-inspection-source');
   const scenario = new Scenario();
@@ -64,7 +73,7 @@ it('acknowledges received bytes only and removes superseded or deleted resources
       items: [{ id: 1, x: 0, y: 0, icon: 'asset:icon' }],
     },
   });
-  await scenario.assets.receiveData('icon', 'v1', 'text/plain', Uint8Array.of(65));
+  await scenario.assets.receiveData('icon', 'v1', 'image/png', Uint8Array.of(65));
   const owner = createAgentInspectionSource(scenario, {
     environmentId: 'world',
     layerId: 'agents',
@@ -76,9 +85,32 @@ it('acknowledges received bytes only and removes superseded or deleted resources
   try {
     await act(async () => {});
     expect(hook.result.current.scenario.assets.getHeldHashes()).toEqual({ icon: 'v1' });
+    const firstURL = hook.result.current.scenario.assets.getUrl('icon');
+    expect(create).toHaveBeenCalledTimes(2);
+    for (let x = 1; x <= 3; x++) {
+      scenario.apply({
+        type: 'item_update',
+        payload: { env_id: 'world', layer_id: 'agents', items: [{ id: 1, x }] },
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      expect(hook.result.current.scenario.assets.getUrl('icon')).toBe(firstURL);
+      expect(create).toHaveBeenCalledTimes(2);
+    }
     scenario.apply({
       type: 'asset_metadata',
-      payload: { assets: [{ id: 'icon', hash: 'v2', mime: 'text/plain', size: 1 }] },
+      payload: { assets: [{ id: 'icon', hash: 'v1', mime: 'application/octet-stream', size: 1 }] },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(hook.result.current.scenario.assets.get('icon')?.mime).toBe('application/octet-stream');
+    expect(hook.result.current.scenario.assets.getHeldHashes()).toEqual({ icon: 'v1' });
+    expect(create).toHaveBeenCalledTimes(3);
+    scenario.apply({
+      type: 'asset_metadata',
+      payload: { assets: [{ id: 'icon', hash: 'v2', mime: 'image/png', size: 1 }] },
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
@@ -86,7 +118,7 @@ it('acknowledges received bytes only and removes superseded or deleted resources
     expect(hook.result.current.scenario.assets.getHeldHashes()).toEqual({});
     scenario.apply({
       type: 'asset_data',
-      payload: { id: 'icon', hash: 'v2', mime: 'text/plain', data: Uint8Array.of(66) },
+      payload: { id: 'icon', hash: 'v2', mime: 'image/png', data: Uint8Array.of(66) },
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100);
@@ -101,6 +133,9 @@ it('acknowledges received bytes only and removes superseded or deleted resources
   } finally {
     hook.unmount();
     owner.dispose();
+    scenario.reset({ preserveTrajectoryLayers: false });
+    expect(revoke.mock.calls.length).toBe(create.mock.calls.length);
+    vi.unstubAllGlobals();
   }
 });
 

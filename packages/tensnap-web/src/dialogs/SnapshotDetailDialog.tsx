@@ -161,7 +161,7 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
     setPlayer(source);
     setFrame(source.frame);
     setPlaying(false);
-    return () => source.scenario.reset({ preserveTrajectoryLayers: false });
+    return () => source.close();
   }, [snapshot, open, firstFrame]);
   const retainedFrames = useMemo(
     () =>

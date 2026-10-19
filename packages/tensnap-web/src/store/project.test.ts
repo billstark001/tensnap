@@ -906,3 +906,117 @@ it('releases store playback and its save link when selecting a different project
   expect(project.snapshotPlayback?.snapshot.metadata.id).toBe('next');
   useProjectStore.getState().close(0);
 });
+
+it('releases portable playback resources on source replacement and project closure', async () => {
+  useProjectStore.setState({ projects: [], activeIndex: null, activeProject: null });
+  const create = vi.fn(() => `blob:${Math.random()}`),
+    revoke = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = create;
+      static revokeObjectURL = revoke;
+    },
+  );
+  const scene = emptyScenario();
+  const first = createSingleSnapshot(scene, { id: 'first' });
+  first.initial.scenario.assets.push({
+    meta: { id: 'sprite', hash: 'one', mime: 'image/png', size: 1 },
+    data: Uint8Array.of(1),
+  });
+  const next = structuredClone(first);
+  next.metadata.id = 'next';
+  try {
+    useProjectStore.getState().openOfflineSnapshot(first);
+    const project = useProjectStore.getState().activeProject!;
+    const previous = project.snapshotPlayback!;
+    project.useScenarioStore.setState({ snapshots: [first, next] });
+    await useProjectStore.getState().changeSource(0, { kind: 'snapshot', snapshot_id: 'next' });
+    expect(() => previous.start()).toThrow('closed');
+    expect(previous.scenario.assets.listMeta()).toEqual([]);
+    const current = project.snapshotPlayback!;
+    useProjectStore.getState().close(0);
+    expect(() => current.start()).toThrow('closed');
+    expect(revoke.mock.calls.length).toBe(create.mock.calls.length);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('cleans both scenes when offline project initialization fails before publication', () => {
+  useProjectStore.setState({ projects: [], activeIndex: null, activeProject: null });
+  const create = vi
+    .fn()
+    .mockReturnValueOnce('blob:candidate')
+    .mockImplementationOnce(() => {
+      throw new Error('URL allocation failed');
+    });
+  const revoke = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = create;
+      static revokeObjectURL = revoke;
+    },
+  );
+  const snapshot = createSingleSnapshot(emptyScenario());
+  snapshot.initial.scenario.assets.push({
+    meta: { id: 'sprite', hash: 'one', mime: 'image/png', size: 1 },
+    data: Uint8Array.of(1),
+  });
+  try {
+    expect(() => useProjectStore.getState().openOfflineSnapshot(snapshot)).toThrow(
+      'URL allocation failed',
+    );
+    expect(useProjectStore.getState().projects).toHaveLength(0);
+    expect(revoke).toHaveBeenCalledExactlyOnceWith('blob:candidate');
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
+it('keeps the original source and transport if candidate renderer initialization fails', async () => {
+  useProjectStore.setState({ projects: [], activeIndex: null, activeProject: null });
+  let allocations = 0;
+  const create = vi.fn(() => {
+    allocations++;
+    if (allocations === 4) throw new Error('candidate renderer failed');
+    return `blob:${allocations}`;
+  });
+  const revoke = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = create;
+      static revokeObjectURL = revoke;
+    },
+  );
+  const initial = createSingleSnapshot(emptyScenario(), { id: 'original' });
+  initial.initial.scenario.assets.push({
+    meta: { id: 'sprite', hash: 'one', mime: 'image/png', size: 1 },
+    data: Uint8Array.of(1),
+  });
+  const candidate = structuredClone(initial);
+  candidate.metadata.id = 'candidate';
+  try {
+    useProjectStore.getState().openOfflineSnapshot(initial);
+    const project = useProjectStore.getState().activeProject!;
+    const original = project.snapshotPlayback;
+    const destroy = vi.spyOn(project.useTransportStore.getState(), 'destroy');
+    project.useScenarioStore.setState({ snapshots: [initial, candidate] });
+    await expect(
+      useProjectStore.getState().changeSource(0, { kind: 'snapshot', snapshot_id: 'candidate' }),
+    ).rejects.toThrow('candidate renderer failed');
+    expect(destroy).not.toHaveBeenCalled();
+    expect(project.source).toEqual({ kind: 'snapshot', snapshot_id: 'original' });
+    expect(project.snapshotPlayback).toBe(original);
+    expect(project.useScenarioStore.getState().scenario.assets.getHeldHashes()).toEqual({
+      sprite: 'one',
+    });
+    useProjectStore.getState().close(0);
+    expect(revoke).toHaveBeenCalledTimes(allocations - 1);
+  } finally {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  }
+});

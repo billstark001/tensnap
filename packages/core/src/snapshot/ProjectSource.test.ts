@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Scenario } from '../scenario';
-import { SnapshotRecorder } from './SnapshotRecorder';
+import { SnapshotRecorder, createSingleSnapshot } from './SnapshotRecorder';
 import { SNAPSHOT_PLAYBACK_ACTIONS, SnapshotPlaybackSource } from './ProjectSource';
 
 describe('SnapshotPlaybackSource', () => {
@@ -73,4 +73,41 @@ describe('SnapshotPlaybackSource', () => {
     expect(source.stepFrame()?.index).toBe(1);
     expect(source.scenario.metadata.time).toBe(1);
   });
+});
+
+it('releases playback image URLs exactly once and forbids reuse after closing', () => {
+  const create = vi.fn(() => 'blob:playback');
+  const revoke = vi.fn();
+  vi.stubGlobal(
+    'URL',
+    class extends URL {
+      static createObjectURL = create;
+      static revokeObjectURL = revoke;
+    },
+  );
+  const scene = new Scenario().dump();
+  scene.assets.push({
+    meta: { id: 'sprite', hash: 'one', mime: 'image/png', size: 1 },
+    data: Uint8Array.of(1),
+  });
+  try {
+    const playback = new SnapshotPlaybackSource(createSingleSnapshot(scene));
+    expect(create).toHaveBeenCalledOnce();
+    playback.close();
+    playback.close();
+    expect(revoke).toHaveBeenCalledOnce();
+    expect(playback.scenario.assets.listMeta()).toEqual([]);
+    for (const operation of [
+      () => playback.start(),
+      () => playback.stop(),
+      () => playback.step(),
+      () => playback.reset(),
+      () => playback.seek(0),
+      () => playback.player.seek(0),
+    ]) {
+      expect(operation).toThrow('closed');
+    }
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

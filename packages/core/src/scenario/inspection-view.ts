@@ -125,8 +125,8 @@ export function createAgentInspectionView(
     environments: [{ id: environment.id, type: environment.type, layers }],
     assets: [...assets].flatMap((id) => {
       const meta = scenario.assets.getMeta(id);
-      if (!meta || heldAssets.get(id) === meta.hash) return [];
-      const source = scenario.assets.get(id)?.source;
+      if (!meta) return [];
+      const source = heldAssets.get(id) === meta.hash ? undefined : scenario.assets.get(id)?.source;
       const data = typeof source === 'string' ? new TextEncoder().encode(source) : source;
       return [{ meta: { ...meta }, ...(data ? { data: data.slice() } : {}) }];
     }),

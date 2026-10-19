@@ -24,7 +24,7 @@ export function useRemoteInspection(
     return () => {
       scenario.reset({ preserveTrajectoryLayers: false });
     };
-  }, [source, scenario]);
+  }, [source, scenario, open]);
   useEffect(() => {
     if (!source || !open) return;
     const controller = new AbortController();
@@ -48,8 +48,18 @@ export function useRemoteInspection(
           }
           for (const [id, asset] of assets.current)
             if (response.view.assetHashes[id] !== asset.meta.hash) assets.current.delete(id);
-          response.view.scene.assets.forEach((asset) => assets.current.set(asset.meta.id, asset));
-          scenario.load({ ...response.view.scene, assets: [...assets.current.values()] });
+          response.view.scene.assets.forEach((asset) => {
+            const previous = assets.current.get(asset.meta.id);
+            assets.current.set(asset.meta.id, {
+              ...asset,
+              data:
+                asset.data ?? (previous?.meta.hash === asset.meta.hash ? previous.data : undefined),
+            });
+          });
+          scenario.load(
+            { ...response.view.scene, assets: [...assets.current.values()] },
+            { reuseAssets: true },
+          );
           setInspection(response.view.inspection);
           token.current = response.token;
         }

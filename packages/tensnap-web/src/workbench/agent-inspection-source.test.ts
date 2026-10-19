@@ -102,7 +102,9 @@ it('sends assets only when the receiving window has not acknowledged their curre
     { radius: 4, assets: { icon: 'image-v1' } },
     new AbortController().signal,
   );
-  expect('view' in next && next.view?.scene.assets).toEqual([]);
+  expect('view' in next && next.view?.scene.assets).toEqual([
+    { meta: scenario.assets.getMeta('icon') },
+  ]);
   source.dispose();
 });
 
