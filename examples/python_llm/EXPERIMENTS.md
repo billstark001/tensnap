@@ -1,332 +1,92 @@
 # Network interventions and environmental shocks
 
-The `factorial-v1` protocol adds two paired factorial experiments. It is an
-exploratory ABM protocol, not a replication of a published benchmark. Run the
-rule controls before considering paid inference. The factorial runner imports
-no provider configuration and cannot make an LLM request.
+These paired factorial experiments ask how contact structure changes convention adoption and how local communication changes resilience to a resource shock. They are exploratory agent-based models with explicit mechanisms, controls and endpoints. The runner uses rule policies and never loads provider configuration or makes an inference request.
 
 ```bash
-# From the repository root, Python 3.10+. Each output directory must be new.
+# From the repository root, Python 3.10+ and NetworkX. Each output must be new.
 python -m examples.python_llm.experiments naming --seeds 1,2,3,4,5,6,7,8,9,10,11,12 \
   --output examples/python_llm/artifacts/my-naming-controls
 python -m examples.python_llm.experiments commons --seeds 1,2,3,4,5,6,7,8,9,10,11,12 \
   --output examples/python_llm/artifacts/my-commons-controls
 ```
 
-The environment routes in [README](README.md#choose-a-python-environment) apply.
-Headless rules require only the standard library. Use `--help` for horizons and
-treatment parameters. These commands create compact time series and checkpoints,
-not recordings or image sequences. For visual inspection, use a backend and the
-standard [agent recording workflow](README.md#standard-recording-historical-frames-and-restoration).
+Use the environment routes in [README](README.md#choose-a-python-environment) and `--help` for horizons and treatment parameters. The runner saves time series and checkpoints. For visual inspection, start a backend and use the [agent recording workflow](README.md#standard-recording-historical-frames-and-restoration).
 
 ## Naming: network structure × fixed minority
 
-**Question.** When an alternative convention is advocated by a fixed minority,
-does a community network protect the incumbent convention, slow population-wide
-replacement, or sustain different local conventions? A different outcome under
-the same minority size would identify a dependence on the contact network in
-this model; it would not establish a universal tipping threshold.
+**Scientific question.** When a fixed minority advocates an alternative convention, does community structure protect the incumbent convention, slow replacement, or sustain different local conventions? The experiment estimates dependence on the specified contact network; it does not identify a universal tipping threshold.
 
 | Factor | Control | Treatment |
 | --- | --- | --- |
-| Contact graph | `mixed`: randomized connected regular graph | `community`: two regular communities with two cross-community edges |
+| Contact graph | `mixed`: randomized connected regular graph | `community`: two regular communities joined by two edges |
 | Fixed alternative advocates | 0 | 4 of 24 existing agents |
 
-Both graphs have 24 nodes, degree 4 and 48 undirected edges. A seeded permutation
-defines the same two communities in both graphs. The mixed graph starts as a
-regular ring and undergoes 20 × N × degree double-edge-swap proposals, rejecting
-self-loops, duplicate edges and disconnected proposals. The community graph
-joins two degree-4 rings by swapping one edge from each community into two
-bridges. These are specified graph families, not uniform samples from all regular
-graphs; clustering and path lengths can also differ. Each run saves its full
-adjacency, degree sequence, partition and cross-community edge count.
+**Graphs.** Both graphs have 24 nodes, degree 4 and 48 undirected edges. The same seeded permutation defines community membership in both conditions. Mixed contacts start as a regular ring and undergo 20 × N × degree double-edge-swap proposals, rejecting self-loops, duplicate edges and disconnected proposals. Community contacts join two regular rings by replacing one edge in each with two bridges. These are specified graph families rather than uniform samples from all regular graphs. Clustering and path lengths may differ too. Each run saves the adjacency, degree sequence, partition and number of cross-community edges.
 
-**Shared prefix.** For every seed and each of the `QM`/`MQ` orders, start without
-names or fabricated memories on the mixed graph with no fixed agents. Warm up
-until last-choice agreement and rolling coordination both reach 90%, with a
-full 4N-interaction measurement window, every agent having acted, and the same
-majority label satisfying this criterion for N consecutive interactions. The
-cutoff is 10,000 interactions. Failure is saved as `no_stable_prefix`; it is not
-replaced with another seed. Effects report their number of eligible seeds.
+**Shared prefix.** For every seed and each `QM`/`MQ` label order, begin on the mixed graph without fixed agents, assigned names or fabricated histories. Warm up until last-choice agreement and rolling coordination both reach 90%, the measurement window contains 4N interactions, every agent has acted, and the same majority label satisfies these conditions for N consecutive interactions. The cutoff is 10,000 interactions. Save a failure as `no_stable_prefix`; do not replace its seed. Report how many seeds satisfy the prefix criterion.
 
-Clone that exact checkpoint into all four conditions. The alternative label is
-the opposite of its incumbent convention. Select the same seeded random subset
-of existing IDs for both minority treatments. Rewire contacts and replace only
-those IDs' decision policy with an always-alternative rule. Population size,
-scores, individual memories, current last choices and both RNG cursors remain
-intact. Fixed agents earn the same payoffs and remember contacts; they make no
-LLM calls and can incur persistent losses. Their assignment is exogenous, not
-an agent's inferred commitment. Placement is random, without selecting bridges.
+Clone the exact stable checkpoint into all four conditions. The alternative name is the opposite of the incumbent. A separate seeded permutation selects the same existing IDs for both minority treatments, without selecting bridge agents. Change their policy to always choose the alternative and change the contact network as assigned. Population size, scores, personal histories, current last choices and both RNG cursors remain intact. Fixed agents receive ordinary payoffs and remember contacts, but do not call an LLM. Their assignment is an exogenous intervention.
 
-The default ordinary rule is `frequency`: choose the most frequent partner name
-in the last five personal interactions; break ties uniformly, and explore with
-probability 0.01. It is a local estimate of which name will match the next
-partner. The original `wsls` rule remains available through `--naming-rule wsls`.
-With simultaneous decisions, WSLS can exchange two mismatched labels and mix
-slowly; report prefix failures rather than assuming convergence. These rules
-have no population observations and receive no special persuasion instruction.
+**Rule policies.** The default `frequency` policy chooses the most frequent partner name in the last five personal interactions, breaks ties uniformly and explores with probability 0.01. It estimates the name likely to match the next local partner. `--naming-rule wsls` uses win-stay / lose-switch instead. Simultaneous WSLS decisions can exchange mismatched labels and converge slowly; prefix failures are part of the result. Neither rule sees population statistics or receives a persuasion instruction.
 
-**Outcomes.** The last 4N actual interactions form a rolling window. Measure the
-alternative's share of **ordinary agents' actual choices**, their last-choice
-share, rolling matching rate, and the absolute gap between the two communities'
-ordinary choice shares. Exclude fixed agents from both shares; otherwise adding
-four fixed advocates would mechanically look like conversion. Communities with
-no recent ordinary choices report `null`, not zero.
+**Measurements.** The last 4N actual interactions form a researcher measurement window, separate from personal memory. Measure the alternative's share of ordinary agents' actual choices, their last-choice share, the rolling matching rate and the absolute gap between community choice shares. Exclude fixed agents from adoption shares so the intervention does not mechanically count its assigned advocates as conversions. A community with no recent ordinary choices reports `null`.
 
-Sustained reversal requires a full window, at least one recent activation of
-every ordinary agent, and both ordinary alternative shares at least 90%, for
-4N consecutive interactions. Save the **confirmation** time and right censoring
-at the 2,400-interaction horizon. This is a prespecified endpoint, not the first
-transient majority. Series are sampled every N interactions; detection uses
-every interaction. Ordinary choices after treatment can legitimately depend on
-their retained pre-treatment personal memories.
+Sustained reversal requires a full window, at least one recent activation of every ordinary agent, and both ordinary alternative shares at least 90% for 4N consecutive interactions. Save the confirmation time, rather than inferring an onset, and right censor at the default 2,400-interaction horizon. Detection uses every interaction; stored series are sampled every N interactions.
 
-The report gives minority effects separately in each network and the interaction
-`(community,k4 − community,k0) − (mixed,k4 − mixed,k0)`. Both label orders change
-system-prompt option order, observation option order and random rule label order;
-their effects are averaged **within each seed** before summarizing independent
-seeds. They are paired checks, not extra independent samples. The rule is label
-symmetric; future LLM runs need not be. No tipping-point claim follows from a
-single minority size; varying size, placement, memory and graph realizations
-would be follow-up experiments.
+**Paired estimates.** Report the minority effect within each network and the interaction `(community,k4 − community,k0) − (mixed,k4 − mixed,k0)`. Both label orders change system-prompt order, observation option order and rule sampling order. Average their effects within each seed before summarizing seeds. Label orders and branches are paired observations, not independent populations. One minority size does not establish a tipping threshold; size, placement, memory and graph realizations are distinct follow-up factors.
 
 ## Commons: message delivery × temporary drought
 
-**Question.** Does access to local advice change yield and resource resilience
-during a temporary regeneration shock? Does it help preserve seed-bearing
-components, or merely shift harvest between agents or phases?
+**Scientific question.** Does local advice change yield and resource resilience during a temporary regeneration shock? Does it preserve seed-bearing components or shift harvest between agents and periods?
 
 | Factor | Control | Treatment |
 | --- | --- | --- |
-| Incoming message delivery | `off`: observations receive an empty list | `on`: nearby recent messages delivered |
-| Weather | Baseline regeneration throughout | Multiplier 0.1 during completed rounds 40–79, baseline restored at round 80 |
+| Incoming message delivery | `off`: observation contains an empty message list | `on`: nearby recent messages are delivered |
+| Weather | Baseline regeneration throughout | Multiplier 0.1 during completed rounds 40–79; baseline returns at round 80 |
 
-Use six agents, the same initial positions and full stock, fixed round-robin
-activation, baseline regrowth 0.35, and 240 rounds. One round has N activations.
-Drought scales the existing regeneration probability; it neither removes stock
-directly nor changes capacity, movement, seed requirements or policy objectives.
-It is unannounced to agents. Each regeneration event at the end of a round uses
-that completed round's weather.
+Use six agents, identical initial positions and full stock, fixed round-robin activation, baseline regrowth 0.35 and a 240-round horizon. One round contains N activations. Drought scales regeneration probability without directly removing stock or changing capacity, movement, seed requirements or policy objectives. Weather is not announced to agents. End-of-round regeneration uses that completed round's weather.
 
-In `factorial-v1`, a separate random field is keyed by seed and completed round.
-It supplies one uniform draw for **every grid cell**, including full and barren
-cells. Thus changes in harvest or weather never shift another cell's random
-test. Initial placement and policy exploration use separate streams. This is
-common environmental noise across paired branches, not a promise that their
-resources or policy random consumption remain equal after behavior diverges.
-The legacy protocol retains its original conditional draw sequence.
+**Matched environmental noise.** A random field keyed by seed and completed round supplies a draw for every grid cell, including full and barren cells. Resource-dependent eligibility therefore never shifts another cell's draw. Initial placement and policy exploration have separate streams. Paired conditions share environmental noise; their states and policy random consumption may diverge after different decisions.
 
-Delivery gates only the receiving observation. Both treatments retain the same
-JSON action/message schema, message generation, expiration, publication and
-researcher message monitor. The `factorial-v1` system prompt uniformly requires
-an exact legal-action token from the first activation; no treatment receives a
-cooperation instruction. The LLM's objective remains personal long-run harvest.
-Messages enforce no quota, sanction, role or reservation.
+**Delivery intervention.** Gate incoming observations only. Both conditions retain the same action/message schema, message generation, expiration, publication and researcher monitor. Agents hear other agents' recent messages within Manhattan distance three of the sending position, for two rounds. The prompt requires an exact legal action from the first activation and gives no cooperation instruction. The objective is personal long-run harvest. Messages enforce no quota, sanction, role or reservation.
 
-Three separately analyzed rule controls are included:
+Analyze three rule controls separately:
 
-- `greedy`: harvest whenever possible; emit no messages.
-- `conserve`: leave one unit in each cell; emit no messages.
-- `signal`: otherwise greedy, but honor another agent's recent local
-  `reserve x y` warning by leaving one unit at that coordinate. When standing on
-  a fertile cell with at most two units, emit a warning in both delivery
-  conditions. Warnings describe the pre-action cell; publication/hearing uses
-  the sender's post-action position, as for all messages. Other targets and
-  exploration obey the same temporary reserve. Peers' warnings expire after
-  two rounds and are audible within Manhattan distance three of publication.
+- `greedy`: harvest whenever possible and emit no messages.
+- `conserve`: leave one unit in each cell and emit no messages.
+- `signal`: otherwise greedy, but honor another agent's recent `reserve x y` warning by leaving one unit at that coordinate. Emit a warning when the current fertile cell contains at most two units. Other targets and exploration respect the same reserve. Warnings describe the pre-action cell; publication and hearing use the sender's post-action position, as for all messages.
 
-Signal is a deliberately specified message-using policy. A delivery effect here
-validates the mechanism; it is not evidence of learned cooperation, truthful LLM
-communication or optimal harvesting. Greedy/conserve must give **identical**
-delivery-on/off trajectories under matched weather; the runner asserts this
-negative control. It also asserts identical initial physical state and identical
-paired drought/no-drought state through round 39 for every delivery/policy pair.
+Signal is a deliberately scripted receiver, so its delivery effect checks the mechanism rather than demonstrating learned cooperation or truthful communication. Greedy and conserve must give identical delivery-on/off trajectories under matched weather; the runner asserts this negative control. It also asserts equal initial physical state and equal paired drought/no-drought state through round 39 for every delivery/policy pair.
 
-**Outcomes.** Save per-round stock, yield, Gini, live cells and stock in each
-connected component of the fertile habitat. A component becomes irreversibly
-extinct only when **all** its seed stock is zero; individual depleted cells can
-recover from neighbors. Components are calculated from actual habitat, so
-overlapping patches on small grids count as one component.
+**Measurements.** Save per-round stock, yield, Gini, live cells and stock in each connected fertile component. A component becomes irreversibly extinct when all its seed stock reaches zero; individual cells may recover from neighbors. Components are computed from the actual habitat, including patch overlaps on smaller grids.
 
-The report includes final and mean stock, minimum stock, total yield, yield in
-rounds 40–79 and 80–240, first component extinction, and final extinct-component
-count. Recovery is confirmation of five consecutive post-shock round snapshots
-at or above 90% of that branch's mean stock over the ten pre-shock snapshots.
-Save confirmation delay from round 80 and censoring; a zero reference is marked
-undefined. Also report whether the reference is positive. Equal Gini alone says
-nothing about sustainability. Off/on effects are calculated within each weather
-condition; the interaction is `(on,drought − off,drought) − (on,normal − off,normal)`.
-Policies are summarized separately, not pooled as interchangeable populations.
+Report final, mean and minimum stock, total yield, yield during rounds 40–79 and 80–240, first component extinction and final extinct-component count. Recovery requires five consecutive post-shock snapshots at or above 90% of that branch's mean stock over the ten pre-shock snapshots. Save confirmation delay from round 80 and right censoring. A zero reference makes recovery undefined. Equal Gini does not establish sustainability.
 
-## Evidence, checkpoints and limits
+Calculate delivery effects within each weather condition and the interaction `(on,drought − off,drought) − (on,normal − off,normal)`. Summarize each policy separately.
 
-`report.json` indexes all runs and contains settings, source SHA-256 values,
-the repository HEAD, timestamp, descriptive seed-level paired effects, failed
-prefixes, and the zero-call/zero-cost rule budget. Each run contains its initial
-or branch checkpoint, exact final checkpoint, configuration and sampled series.
-Each continuation is also checked by restoring a JSON-round-tripped checkpoint
-before the final N actions and comparing the exact final state after repeating
-those actions. Summaries give mean, standard deviation and range, not significance
-claims from twelve populations. Do not treat per-tick observations, mirrored
-labels, replay or restored continuations as independent samples.
+## Decisions, evidence and reproducibility
 
-The model CLI defaults remain `legacy`, preserving old decision inputs and
-trajectories. Existing version-1 checkpoints without new config fields load
-with legacy defaults. The extended checkpoint fields are additive; factorial
-Naming checkpoints additionally retain the treatment boundary and researcher
-window. Graphs, minority IDs, habitat components and weather are deterministic
-from configuration, seed and tick. Changing observations or prompt protocols
-requires a new LLM decision branch; an old tape cannot answer a new treatment.
+The pure models accept either their built-in rule or a `DecisionTape` provider. For an LLM extension, retain the same four treatments, seed pairing, observations, prompt, model settings and endpoint definitions. Save the complete decisions and generation settings, specify request limits before collection, and distinguish policy randomness from environmental randomness. A tape reuses a response only when its logical index and complete request fingerprint match. Replayed calls and restored continuations are not new samples.
 
-The `experiments` runner remains rule-only. The individual model CLIs support
-the new mechanisms with `--protocol factorial-v1` in rule, replay and LLM modes.
-Request/token caps alone are not a currency budget. Slides are outside these
-experiments.
+Illegal actions are rejected before world state changes. If using the optional `LegalActionPolicy`, prescribe the same correction limit in every condition and save rejected responses and correction requests. Correction is an additional policy step at unchanged world state, not a rule fallback. Report corrected runs under that decision policy. Long Naming notes remain intact in checkpoints and tapes; only presentation is shortened.
 
-## Small live LLM pilot
+`report.json` indexes settings, source hashes, repository HEAD, timestamps, failed prefixes and descriptive paired effects. Runs retain their initial or treatment checkpoint, final checkpoint, configuration and sampled series. The runner round-trips a saved checkpoint through JSON and repeats the final N actions to check exact continuation. Means, standard deviations and ranges are descriptive summaries; repeated time points, mirrored labels and restored futures do not increase the number of independent seeds.
 
-`llm_experiments` runs one seed with four conditions per model. It reads an
-explicit dotenv file as data, requires the official DeepSeek endpoint with
-`deepseek-flash` and thinking disabled, and never records credentials. Use a
-fresh output directory:
+Current checkpoints and TenSnap state use schema version 2. Version-1 checkpoints and older decision protocols use the Git snapshot documented in [HISTORY](HISTORY.md); saved recordings can still be viewed without running a model.
 
-```bash
-# Paid requests. The combined guard covers BOTH models, all branches and failures.
-python -m examples.python_llm.llm_experiments run \
-  --env-file /path/to/private.env \
-  --output examples/python_llm/artifacts/my-llm-pilot
+## Implementation choices and alternatives
 
-# Verify completed trajectories and checkpoints without credentials or live access.
-python -m examples.python_llm.llm_experiments verify \
-  --input examples/python_llm/artifacts/my-llm-pilot
-```
+Read the examples in this order: model `Config` and agent records; `observation()`; `rule_decision()`; `step()`; measurements and checkpoint validation; then `viz.py`. The model controls transitions, the policy proposes a decision and the view projects state. `experiments.py` adds paired branching and endpoint detection around those components.
 
-The default pilot keeps Naming at N=24, degree=4 and minority 0/4. It uses a new
-LLM warmup on the mixed network, with the same stability criterion and a cutoff
-of 384 interactions, then follows each of four branches for 384 interactions.
-If the prefix fails, its failure is retained; seeds and memories are not replaced.
-Commons keeps N=6 and follows all four conditions for 48 rounds, with drought
-at completed rounds 12–23 and baseline regeneration restored at round 24. It
-also runs free rule controls at these shorter horizons in `rule-matched/`;
-the earlier 12-seed rule study is preserved separately.
+| Function | Current choice | Other implementations and their implications |
+| --- | --- | --- |
+| Complete and nearest-neighbor contacts | `nx.complete_graph`, `nx.cycle_graph` | Both directly express these graph definitions. |
+| Degree-controlled mixed contacts | Regular ring plus explicit connected edge swaps | [`nx.random_regular_graph`](https://networkx.org/documentation/stable/reference/generated/networkx.generators.random_graphs.random_regular_graph.html) generates a simple regular graph; check connectivity and record the realized adjacency. [`nx.connected_double_edge_swap`](https://networkx.org/documentation/stable/reference/algorithms/generated/networkx.algorithms.swap.connected_double_edge_swap.html) preserves connectivity and degrees but uses a different sampler. Neither reproduces the same graph from the same seed. |
+| Regular ring and small-world contacts | Explicit ring edges before mixing | [`nx.watts_strogatz_graph(n, d, 0)`](https://networkx.org/documentation/stable/reference/generated/networkx.generators.random_graphs.watts_strogatz_graph.html) constructs the even-degree ring. Positive rewiring probability creates a different network family whose individual degrees need not stay fixed. |
+| Community contacts | Two regular rings and exactly two bridges | [`nx.stochastic_block_model`](https://networkx.org/documentation/stable/reference/generated/networkx.generators.community.stochastic_block_model.html) controls within/between-block edge probabilities; it does not enforce the same exact degree or bridge count. |
+| Fertile components | A small flood-fill over four-neighbor cells | `nx.connected_components` on a habitat graph gives the same partition. A raster connected-component routine is suitable for larger grids if it uses four-neighbor connectivity. |
+| Spatial resources | Python lists and explicit synchronous loops | NumPy arrays can express the same update, provided the old grid is read throughout and every cell consumes its prescribed draw in the same order. |
+| Agent scheduling | Explicit pair sampling or round-robin activation | Mesa or another ABM scheduler can own agents and activation. Match the simultaneous-information and end-of-round regeneration boundaries before treating results as equivalent. |
+| Decision policy | Small rule functions or a replayable JSON provider | A learned policy can use the same observation/action boundary. Its training, memory and correction policy become additional experimental assumptions. |
 
-This is **one independent seed per model, with QM order only**. It checks live
-behavior and experiment plumbing, not statistical significance, tipping points,
-or label bias. Short-horizon reversal/recovery is censored as specified; a
-failure or unchanged outcome is a result, not a reason to change prompts.
-
-Each branch has its own logical decision cursor. A shared tape pool coalesces
-responses only when logical index, system prompt and full observation fingerprint
-are identical. This couples identical pre-intervention policy draws across
-paired conditions, including the Commons prefix before drought. Changed
-observations need fresh responses. Reused responses are marked in decision
-traces and do not add independent samples. At most four HTTP calls are active.
-
-Before each HTTP dispatch, the shared spending guard reserves a conservative
-input bound (UTF-8 content bytes plus 1,024 framing tokens for two text messages)
-and the output cap of 192 tokens. It uses the verified peak Flash prices of
-¥2/million input tokens and ¥8/million output tokens, ignoring cache/time
-discounts and applying a further factor of 1.25. Reported usage releases unused
-reservations; absent usage or uncertain failed requests consume the full
-reservation. Paid usage never rewinds on restore. The internal combined limit
-is **¥9.50**, below the authorized ¥10, with at most 5,000 requests and no automatic
-retry or rule fallback. A missing/malformed result stops its branch. Model/price
-metadata and balance snapshots are kept for audit. See [official pricing](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)
-and the [balance API](https://api-docs.deepseek.com/api/get-user-balance/).
-
-`plan.json` freezes source hashes and settings before paid collection.
-`budget.jsonl` journals every reservation and settlement; `budget-summary.json`
-reports the cost upper bound and safety-adjusted debit. `balance.json` keeps
-before/after account snapshots, which may include unrelated account activity.
-Each model has a portable branched `decisions.jsonl`; each condition retains its
-initial/final checkpoint, actions/interactions, time series and decision trace.
-All completed model steps are verified by replay against the exact final state.
-
-For native multi-frame recording without new calls, serve an individual recorded
-case and use the standard bounded agent recording workflow:
-
-```bash
-python -m examples.python_llm.llm_experiments serve-case \
-  --input examples/python_llm/artifacts/my-llm-pilot \
-  --case naming/mixed-k0 --port 8765
-```
-
-Other cases are `naming/mixed-k4`, `naming/community-k0`, `naming/community-k4`,
-and `commons/{off,on}-{normal,drought}`. Bound the agent run to that result's
-`completed_steps`; beyond the recorded branch, replay fails rather than calling
-a provider. Initial Naming scene time is its shared prefix's tick, not zero.
-
-### If the live warmup does not stabilize
-
-The original protocol records failed convention formation and does not silently
-replace its seed or histories. To still inspect the four intended treatments,
-`naming_pilot_continuation` can make a separately labeled exploratory comparison
-from that exact capped, unmodified population:
-
-```bash
-python -m examples.python_llm.naming_pilot_continuation \
-  --input examples/python_llm/artifacts/my-llm-pilot \
-  --env-file /path/to/private.env
-```
-
-It requires the original process to have settled, no existing Naming branches,
-and a warmup that reached its cutoff without an API/decision error. It writes
-`naming-unstable-prefix/`, preserving the original failure and report. The new
-ledger subtracts all previous spending and calls from the **same** original
-¥9.50/5,000-request limits. It does not grant another budget. Both stages' source
-hashes, balances and separate journals remain available. The comparison concerns
-target adoption and community differences in an unsettled naming population;
-it cannot establish replacement of a mature convention, even if a later adoption
-threshold is crossed. Document this conditional supplement before observing any
-treatment outcomes. A failed individual decision is never retried or substituted.
-
-### Explicit repair of the two failed pilot cases (2026-10-19)
-
-The original pilot and its no-retry failures remain immutable. `repair_pilot`
-resumes only Naming `community-k4` and Commons `on-drought`, from their final
-valid checkpoints, at the original horizons of 384 branch interactions and
-48 rounds. Its plan freezes the modified source and original result hashes
-before new inference. All previous requests and spending count toward the new
-cumulative authorization of ¥12; the guard stops at ¥11.50 including its 25%
-safety factor, and retains the original combined 5,000-request cap.
-
-Naming failed on a valid name with a 165-character note. Full notes are now
-retained; display alone is shortened to 160 characters. Its previously paid
-answer can be reused exactly. The graph refactor to `ContactNetwork` uses
-NetworkX but preserves the original sampler, partition and contact RNG.
-`legacy` remains necessary for historical checkpoint/tape replays, particularly
-Commons' older conditional regeneration and message-delivery semantics.
-
-Commons failed at activation tick 260: agent_2 was at (9,3), all 13 visible
-cells had zero stock, and `legal_actions` excluded `harvest`. The JSON answer
-nevertheless selected `harvest`, saying it would take one unit. Recent messages
-and the agent's own history described a rotating harvest plan. This supports a
-hypothesis of stale-plan following, not an environment accounting or legal-list
-bug; a single answer cannot establish the model's internal cause. The strict
-rejection correctly left state, RNG and decision cursor unchanged.
-
-For this diagnostic continuation, `LegalActionPolicy` retains that rejected
-answer and permits one correction with explicit current-cell and legal-action
-feedback, without advancing the world. It never picks a rule action. Corrections
-are recorded separately and counted toward the same spending cap. This is a
-changed decision protocol after the failure boundary: report it alongside the
-original no-retry result, not as a clean replacement or independent replicate.
-Naming's unstable warmup and the single-seed limitations remain unchanged.
-
-```bash
-python -m examples.python_llm.repair_pilot run \
-  --input examples/python_llm/artifacts/factorial-llm-pilot-20261019 \
-  --output examples/python_llm/artifacts/factorial-llm-repair-20261019 \
-  --env-file /path/to/private.env
-python -m examples.python_llm.repair_pilot verify \
-  --input examples/python_llm/artifacts/factorial-llm-repair-20261019
-```
-
-The repair directory stores new responses only. Original tapes are referenced
-read-only and merged by exact index/fingerprint; conflicting records are
-rejected. Offline verification checks both the complete trajectory from the
-original treatment checkpoint and the continuation from the failure checkpoint.
-`serve-case --input ... --case naming/community-k4` (or `commons/on-drought`)
-serves the repaired complete trajectory with no credentials. Add `--suffix` to
-record just the continuation; otherwise use the standard multi-frame recording
-workflow over its complete original horizon. Original recordings are preserved.
+Changing a graph sampler, activation order or random-number schedule can implement a related model while changing individual trajectories. Record that choice as a new design and rerun matched controls rather than expecting an old tape to fit it.

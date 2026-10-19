@@ -34,7 +34,7 @@ python -m examples.python_llm.mini_commons_harvest serve --policy llm \
   --env-file /path/to/private.env --agents 4 --max-calls 8 --port 8766
 ```
 
-A historical tape made with a prompt clarification needs that same clarification at its original activation boundary; the stock command above does not read a manifest or alter the prompt. See [shared workflows](../README.md) for replay matching, budgets, recordings and restoration.
+A replay tape must match the current observations and prompt. For older experiments and prompt branches, use the [historical Git snapshot](../HISTORY.md). See [shared workflows](../README.md) for replay matching, budgets, recordings and restoration.
 
 ## State and parameters
 
@@ -45,8 +45,7 @@ A historical tape made with a prompt clarification needs that same clarification
 | `--width`, `--height` | 12, 9 | Dimensions, each 6–40; no wraparound |
 | `--memory` | 4 | Each agent's last 1–8 personal activations |
 | `--regrowth` | 0.35 | Regeneration multiplier in [0, 1] |
-| `--rule` | `greedy` | Rule strategy: `greedy`, `conserve` or factorial-only `signal` |
-| `--protocol` | `legacy` | Use `factorial-v1` for common random fields, uniform legal-action clarification and extended metrics |
+| `--rule` | `greedy` | Rule strategy: `greedy`, `conserve` or `signal` |
 | `--message-delivery` | `on` | `off` suppresses incoming observations while retaining generation/publication |
 | `--drought-start` | 0 | First affected completed round; positive when drought is enabled |
 | `--drought-duration` | 0 | Number of affected rounds; zero disables the shock |
@@ -78,7 +77,7 @@ p(regrowth at cell) = regrowth * s / 5
 
 Full/barren cells do not grow. Growth tests use the same previous grid, so a new unit cannot seed another cell during that event. A depleted cell can recover from a stocked neighbor; an isolated fertile patch without seeds cannot recover spontaneously. Harvesting one cell's last unit does not by itself prove irreversible patch collapse.
 
-Environmental initialization and rule exploration use separate RNG streams, both checkpointed. The legacy protocol retains conditional regeneration draws for historical tapes. In `factorial-v1`, a seed/round-keyed field assigns a draw to every cell, independent of resource eligibility; paired treatments therefore share cell/round noise. Temporary drought scales `regrowth` during `[drought_start, drought_start + drought_duration)` completed rounds. Weather is researcher-visible and not announced in agent observations.
+Environmental initialization and rule exploration use separate RNG streams, both checkpointed. A seed/round-keyed field assigns a draw to every cell, independent of resource eligibility; paired treatments therefore share cell/round noise. Temporary drought scales `regrowth` during `[drought_start, drought_start + drought_duration)` completed rounds. Weather is researcher-visible and not announced in agent observations.
 
 ## Information, messages and policies
 
@@ -95,11 +94,11 @@ Messages are cheap talk: they enter local observations but enforce no reserve, q
 
 `greedy` harvests whenever its current cell has stock. `conserve` harvests only above one unit. Otherwise both approach a nearest visible cell above their reserve, randomizing ties; without a target they explore legal nonharvest actions. Those two rules send no messages and serve as delivery negative controls.
 
-The factorial-only `signal` rule emits `reserve x y` while on a fertile cell containing at most two units. It is otherwise greedy but leaves one unit at coordinates warned about by another nearby agent. Incoming advice expires after two rounds; own warnings are excluded from reception. The action/message schema and sender behavior are identical with delivery on/off. This is a scripted receiver for testing the channel, not evidence that cooperation emerges. Rules, local messages and LLM objectives receive no knowledge of the drought schedule.
+The `signal` rule emits `reserve x y` while on a fertile cell containing at most two units. It is otherwise greedy but leaves one unit at coordinates warned about by another nearby agent. Incoming advice expires after two rounds; own warnings are excluded from reception. The action/message schema and sender behavior are identical with delivery on/off. This is a scripted receiver for testing the channel, not evidence that cooperation emerges. Rules, local messages and LLM objectives receive no knowledge of the drought schedule.
 
 ```bash
 python -m examples.python_llm.mini_commons_harvest serve --policy rule \
-  --protocol factorial-v1 --rule signal --message-delivery on \
+  --rule signal --message-delivery on \
   --drought-start 40 --drought-duration 40 --drought-multiplier .1 --port 8766
 ```
 
@@ -132,5 +131,10 @@ answer is illegal, the second request adds the rejected answer, the current
 cell's observed resource and the legal action list, explaining that past plans
 and messages cannot override available actions. Both answers remain on tape and
 both live requests consume the budget. Exhaustion stops the branch atomically;
-there is no rule fallback. This adapter is used by `repair_pilot`, not silently
-activated in the original no-retry experiment or historical replay CLI.
+there is no rule fallback. Choose this adapter explicitly when constructing a provider, and specify the same correction limit in all compared conditions. The ordinary CLI uses strict validation without automatic correction.
+
+For a first reading, follow `observation()` → `rule_decision()` → `step()` → `regrow()`. The first method defines the information boundary; decisions are validated before movement or harvest, and regrowth reads the previous grid synchronously. `_explore_without_harvesting()` makes the resource reserve apply to exploration as well as directed harvesting. Read `viz.py` after the transition rules.
+
+A habitat graph plus `nx.connected_components` can replace the small flood-fill. NumPy can replace grid loops if old/new grids, boundary conditions and random draw order remain explicit. Mesa can replace the agent container or scheduler if it retains one round-robin activation per tick and regeneration only at round end. These alternatives and their assumptions are summarized in [EXPERIMENTS](../EXPERIMENTS.md#implementation-choices-and-alternatives).
+
+Checkpoints use schema version 2; historical execution is documented in [HISTORY](../HISTORY.md).

@@ -46,7 +46,6 @@ See [shared workflows](../README.md) for credentials, caps, recordings and resto
 | `--memory` | 5 | Each agent's last 1–12 personal interactions |
 | `--topology` | `complete` | Permitted contacts: `complete` or `ring` |
 | `--exploration` | 0.05 | Rule-only probability of a fresh uniform choice, in [0, 1] |
-| `--protocol` | `legacy` | Use `factorial-v1` for extended mechanisms and measurements |
 | `--degree` | 4 | Mixed/community degree; even and below N/2, with even N |
 | `--committed` | 0 | Existing agents assigned an exogenous fixed-name policy |
 | `--committed-name` | `M` | The fixed choice; no LLM requests for fixed agents |
@@ -71,13 +70,13 @@ One tick is **one pairwise interaction**, not a population round. Failed decisio
 
 The LLM sees its ID, run seed, a shuffled Q/M option list and recent personal interactions. It receives no global choice shares, other agents' private memories or partner's next choice. The system prompt specifies payoffs and asks it to maximize score. It returns `{"name":"Q or M","note":"..."}`. The prompt requests a short optional note, but a longer string does not invalidate the name or stop the experiment. The full text remains in the model, checkpoint and decision tape; the node/selected-agent display shortens it to 160 characters with an ellipsis. Notes are not added to subsequent interaction histories or treated as internal reasoning.
 
-The original rule chooses uniformly with empty history or during exploration. Otherwise it repeats its previous choice after success and adopts its partner's previous choice after failure. `frequency` chooses the most frequent partner name in personal memory and breaks ties uniformly, with the same exploration mechanism. Both are symmetric under Q/M relabeling. Legacy mode retains the original fixed system-prompt order; factorial mode changes that order too. Counterbalancing does not by itself demonstrate absence of LLM bias.
+The original rule chooses uniformly with empty history or during exploration. Otherwise it repeats its previous choice after success and adopts its partner's previous choice after failure. `frequency` chooses the most frequent partner name in personal memory and breaks ties uniformly, with the same exploration mechanism. Both are symmetric under Q/M relabeling. The label order changes the system-prompt order as well as observation and rule sampling order. Counterbalancing does not by itself demonstrate absence of LLM bias.
 
 For an inspectable new-mechanism backend (minority active from launch):
 
 ```bash
 python -m examples.python_llm.naming_game serve --policy rule \
-  --protocol factorial-v1 --topology community --degree 4 --agents 24 \
+  --topology community --degree 4 --agents 24 \
   --rule frequency --exploration .01 --committed 4 --committed-name M
 ```
 
@@ -94,9 +93,9 @@ These are researcher observations, not global information given to policies:
 
 Charts `names` and `coordination_rate` show those series. Monitors include `metrics`, `selected_agent`, `last_interaction` and `inference`. Set `selected_agent` to the numeric index or inspect a node for its history/decision.
 
-`contact_network` reports actual allowed adjacency, community membership and fixed IDs. `factorial-v1` adds ordinary-agent recent choice/last-choice shares, rolling coordination, community shares/gap and the treatment boundary to `metrics`, plus the `ordinary_target_share` chart. Its 4N-interaction window is researcher state, separate from each agent's bounded personal memory. Undefined recent shares are `null`; the factorial runner evaluates the sustained reversal criterion on every step.
+`contact_network` reports actual allowed adjacency, community membership and fixed IDs. The metrics monitor reports ordinary-agent recent choice/last-choice shares, rolling coordination, community shares/gap and the treatment boundary; the `ordinary_target_share` chart tracks recent adoption. Its 4N-interaction window is researcher state, separate from each agent's bounded personal memory. Undefined recent shares are `null`; the factorial runner evaluates the sustained reversal criterion on every step.
 
-The share chart uses zero before any ordinary choice is observed (and in legacy mode); check `ordinary_recent_choices` and the nullable metric to distinguish an empty window from an observed zero share.
+The share chart uses zero before any ordinary choice is observed; check `ordinary_recent_choices` and the nullable metric to distinguish an empty window from an observed zero share.
 
 Nodes start on a circle and use the renderer's graph layout. Blue is Q, amber is M, gray is not yet activated. Edges show actual contacts from the last twelve ticks, retaining the latest per pair; the newest is thicker. They do not show the full permitted network. Display layout is separate from fixed projected model coordinates.
 
@@ -106,9 +105,8 @@ Agreement of one means all last choices align at that instant. Stable convention
 
 Convention-bias experiments need independent runs, recorded provider/prompt settings, initial individual-preference measurements and label/order controls. One converged trajectory cannot establish collective bias. Replaying a tape checks reproducibility and adds no independent sample. See [replay and restoration](../README.md#standard-recording-historical-frames-and-restoration).
 
-`ContactNetwork` in `network.py` owns the graph, seeded community partition,
-regular-ring construction and degree-preserving mixing. It uses NetworkX for
-simple graph operations and connectivity. The sampler retains the original
-sorted edge proposals and graph-only RNG, rather than replacing them with
-NetworkX's differently sampled swap routine. The refactor therefore preserves
-existing factorial-v1 adjacency and contact schedules exactly.
+`ContactNetwork` in `network.py` owns the graph, seeded community partition, regular-ring construction and degree-preserving mixing. It uses `nx.complete_graph` and `nx.cycle_graph` directly for the simple topologies, and NetworkX graph operations/connectivity for the paired networks. The explicit swap loop fixes edge ordering and random consumption. `nx.random_regular_graph` and `nx.connected_double_edge_swap` offer shorter alternative generators; changing the sampler changes the realized graph, and positive-probability Watts–Strogatz rewiring does not preserve every node's degree. See the [implementation alternatives](../EXPERIMENTS.md#implementation-choices-and-alternatives) for the assumptions each choice preserves.
+
+For a first reading, follow `observation()` → `rule_decision()` → `step()` → `_apply_interaction()`. The frequency rule's tie handling lives in `_most_frequent_partner_name()`; researcher metrics are kept separate from policy input. After understanding the pure model, read `viz.py` for the projection and `experiments.py` for paired checkpoint branching.
+
+Checkpoints use schema version 2. Historical tapes and version-1 checkpoints use the [historical Git snapshot](../HISTORY.md).

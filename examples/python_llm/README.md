@@ -9,9 +9,9 @@ These examples explore how bounded local decisions produce population-level outc
 
 These are exploratory models, separate from the evaluation harness. They do not reproduce published benchmarks. The model pages define their mechanisms, assumptions, observations and metrics.
 
-The [paired factorial protocol](EXPERIMENTS.md) supplies reusable rule-only control experiments, sustained-convention criteria, message-delivery negative controls, common environmental random fields, extinction/recovery measurements and checkpoint verification. The original CLI defaults retain the `legacy` protocol for historical tapes; choose `--protocol factorial-v1` for the new mechanisms. No paid inference is needed to run the controls.
+The [paired factorial protocol](EXPERIMENTS.md) supplies reusable rule-only control experiments, sustained-convention criteria, message-delivery negative controls, common environmental random fields, extinction/recovery measurements and checkpoint verification. No paid inference is needed to run the controls.
 
-For a small paid four-condition run per model, [the LLM pilot](EXPERIMENTS.md#small-live-llm-pilot) uses a shared CNY spending guard, records branched decision tapes, preserves failures, and verifies every completed trajectory through offline replay. Its one-seed results are exploratory and kept separately from the rule controls.
+The maintained models use one mechanism definition and checkpoint schema version 2. Older implementations and collection/replay entry points are retained in a Git snapshot; see [historical execution](HISTORY.md) for the commit and restoration commands.
 
 ## Choose a Python environment
 
@@ -264,3 +264,10 @@ python -m pytest examples/python_llm/tests -q -o addopts=''
 ```
 
 Tests use an in-memory HTTP transport, never a paid API. They cover seeded continuation, replay, immutable projections, local observations, resource conservation, invalid operations, budgets and TenSnap clocks/monitors.
+
+Check the example source with Ruff; the local configuration keeps checks compatible with Python 3.10:
+
+```bash
+python -m ruff check examples/python_llm
+python -m ruff format --check examples/python_llm
+```
