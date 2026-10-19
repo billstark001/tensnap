@@ -209,6 +209,8 @@ export class RendererSession extends LazyEventTarget {
   };
   private readonly transportOpenHandler = () => this.dispatch('transport:open', undefined);
   private readonly transportCloseHandler = () => {
+    this.run.reset('disconnected');
+    this.stopRecording();
     this.failActiveRequest(
       'transaction_disconnected',
       'The simulator connection closed before the protocol transaction completed.',
@@ -419,6 +421,16 @@ export class RendererSession extends LazyEventTarget {
     transport.on('codec-warning', this.transportCodecWarningHandler);
   }
 
+  /** Stop scheduling actions and await the last committed action/render boundary. */
+  async settleActions(options: SceneOperationOptions = {}): Promise<void> {
+    const run = this.run.status;
+    if (run && !run.settled) {
+      this.run.stop('stopped');
+      await this.run.waitForSettled(run.id, options.timeoutMs, options.signal);
+    }
+    if (this.run.hasInFlightAction) await this.waitForActionBoundary(options);
+  }
+
   /** Stop observing the current transport and cancel any in-flight protocol transaction. */
   detachTransport(): void {
     const transport = this.transport;
@@ -434,6 +446,7 @@ export class RendererSession extends LazyEventTarget {
       this.cancelActiveRequest('The renderer session detached from its transport.');
       this.run.reset('disconnected');
     }
+    this.stopRecording();
     this.clearActionMetrics();
   }
 
@@ -455,6 +468,7 @@ export class RendererSession extends LazyEventTarget {
     this.expectedIdentity = null;
     this.legacySession = false;
     this.identityStatusState = 'awaiting-info';
+    this.dispatch('simulator:identity-reset', undefined);
     this.clearActionMetrics();
   }
 

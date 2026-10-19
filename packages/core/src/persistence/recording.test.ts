@@ -370,3 +370,22 @@ describe('binary recording persistence', () => {
     expect(decodeRecordingFile(encoded).snapshot.frames).toEqual(fromJson.frames);
   });
 });
+
+it('omits optional undefined fields before segment encoding for both portable formats', () => {
+  const scene = new Scenario();
+  scene.apply({
+    type: 'action_create',
+    payload: { id: 'step', label: 'Step', scope: 'model', continuous: undefined },
+  });
+  const snapshot = createSingleSnapshot(scene.dump());
+  for (const format of ['json', 'msgpack'] as const) {
+    const decoded = decodeRecordingFile(encodeRecordingFile(snapshot, { format }));
+    expect(decoded.snapshot.initial.scenario.actions[0]).toEqual({
+      id: 'step',
+      label: 'Step',
+      scope: 'model',
+    });
+    expect(decoded.snapshot.initial.scenario.actions[0]).not.toHaveProperty('continuous');
+  }
+  expect(snapshot.initial.scenario.actions[0]).toHaveProperty('continuous', undefined);
+});

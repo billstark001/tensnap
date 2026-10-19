@@ -1204,3 +1204,22 @@ it('cancels a held boundary capture without resuming automatic actions or accept
   expect(sent.filter((m) => m.type === 'action_invoke')).toHaveLength(1);
   session.destroy();
 });
+
+it('finalizes manual recording once on connection loss and never carries it into a new transport', () => {
+  const session = new RendererSession();
+  let close!: () => void;
+  const transport = createTransport([]);
+  transport.on = (type, handler) => {
+    if (type === 'close') close = handler as () => void;
+  };
+  session.attachTransport(transport);
+  session.startRecording({ id: 'disconnect' });
+  const complete = vi.fn();
+  session.addEventListener('recording:complete', complete);
+  close();
+  expect(session.recorder.active).toBe(false);
+  expect(complete).toHaveBeenCalledOnce();
+  session.detachTransport();
+  session.destroy();
+  expect(complete).toHaveBeenCalledOnce();
+});

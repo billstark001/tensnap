@@ -4,6 +4,7 @@ import {
   encodeBytesAsDataUrl,
   encodeMessagePack,
 } from '@tensnap/protocol';
+import { omitUndefinedObjectProperties } from '../persistence/serialization';
 import type { Keyframe, Snapshot, SnapshotArchive, SnapshotFrame, SnapshotSegment } from './types';
 
 type SegmentPayload = {
@@ -73,7 +74,7 @@ function jsonSafeMetadata(metadata: SnapshotArchive['metadata']): SnapshotArchiv
 function encodeSegment(
   payload: SegmentPayload,
 ): Pick<SnapshotSegment, 'encoding' | 'compression' | 'data' | 'byteLength'> {
-  const raw = encodeMessagePack(payload);
+  const raw = encodeMessagePack(omitUndefinedObjectProperties(payload));
   const compressed = compressRle(raw);
   const useCompressed = compressed.byteLength < raw.byteLength;
   const data = useCompressed ? compressed : raw;
@@ -183,12 +184,14 @@ export function encodeSnapshotArchive(snapshot: Snapshot, segmentFrames = 120): 
     frameOffset = end;
   }
 
-  const headerBytes = encodeMessagePack({
-    version: snapshot.version,
-    metadata: snapshot.metadata,
-    layerCodecs: snapshot.layerCodecs,
-    truncated: snapshot.truncated,
-  }).byteLength;
+  const headerBytes = encodeMessagePack(
+    omitUndefinedObjectProperties({
+      version: snapshot.version,
+      metadata: snapshot.metadata,
+      layerCodecs: snapshot.layerCodecs,
+      truncated: snapshot.truncated,
+    }),
+  ).byteLength;
   return {
     version: 1,
     metadata: structuredClone(snapshot.metadata),

@@ -1,3 +1,4 @@
+import { publishRecording } from './recording-catalog';
 import { appendFile, mkdir, readFile, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { encodeRecordingFile } from '@tensnap/core/persistence';
@@ -140,10 +141,5 @@ export async function writeRunRecording(
   format: 'json' | 'msgpack' = 'json',
 ): Promise<string> {
   const data = encodeRecordingFile(snapshot, { format });
-  const output = join(
-    paths.recordingsDir,
-    `${encodeURIComponent(runId)}.tensnap-recording.${format}`,
-  );
-  await writeFileAtomically(output, data);
-  return output;
+  return publishRecording(paths.recordingsDir, runId, format, data);
 }
