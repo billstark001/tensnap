@@ -3,7 +3,8 @@ import { configureDialogHost } from '@tensnap/web-common/workbench/content';
 import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
 import './runtime/leafer-runtime';
 
-import React, { PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Providers } from './Providers';
 import { App } from './App';

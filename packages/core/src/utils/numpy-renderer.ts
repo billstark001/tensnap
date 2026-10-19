@@ -1,4 +1,4 @@
-import { NumpyArrayData } from './npy-parser';
+import type { NumpyArrayData } from './npy-parser';
 import type { BackgroundInterpolation } from '@tensnap/protocol/layers';
 
 const validateShape = (shape: number[], expectedChannels: number[] = [1, 3, 4]) => {

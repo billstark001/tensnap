@@ -47,12 +47,12 @@ import type {
   SimulatorToRendererMessage,
   StateSyncRequest,
 } from '@tensnap/protocol';
+import type { LayerRegistryClass } from './layer-registry';
 import {
   type ItemLayerController,
   type LayerControllerContext,
   type LayerDependencyChange,
   layerRegistry,
-  LayerRegistryClass,
 } from './layer-registry';
 import { createStateSyncInventory, createStateSyncRequest } from './state-sync-inventory';
 import type {

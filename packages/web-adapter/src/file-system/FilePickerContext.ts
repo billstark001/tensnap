@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react';
-import { FileSystemPicker } from '@tensnap/web-common/types/file';
+import type { FileSystemPicker } from '@tensnap/web-common/types/file';
 
 export interface FilePickerContextValue {
   pickFiles: FileSystemPicker['pickFiles'];

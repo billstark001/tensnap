@@ -4,7 +4,7 @@ import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as dialogStyles from './AboutDialog.css';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
 const AboutDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import {
+import type {
   FileSystemAdapter,
   FileSystemAdapterFactory,
   FileSystemPicker,

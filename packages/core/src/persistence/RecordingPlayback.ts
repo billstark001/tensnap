@@ -1,5 +1,5 @@
 import { Scenario } from '../scenario/Scenario';
-import { RecordingStoreReader } from './recording-store';
+import type { RecordingStoreReader } from './recording-store';
 
 /** Asynchronous offline playback. One reader/generation belongs to exactly one tab. */
 export class RecordingPlayback {

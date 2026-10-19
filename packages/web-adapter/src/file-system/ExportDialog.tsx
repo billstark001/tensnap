@@ -1,8 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { Dialog, Form } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
-import { DialogOpenProps, useCallbackRef } from '@tensnap/web-common/react';
-import { FileSystemAdapter } from '@tensnap/web-common/types/file';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
+import { useCallbackRef } from '@tensnap/web-common/react';
+import type { FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { exportDirectory } from './export-utils';
 
 export interface ExportOption {

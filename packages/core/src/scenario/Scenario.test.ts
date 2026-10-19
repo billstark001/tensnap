@@ -1,6 +1,7 @@
 import { assert, describe, it, expect, vi } from 'vitest';
 import { Scenario } from './Scenario';
-import { AgentStorage, BackgroundStorage, BaseStorage } from '../environment/storages';
+import type { BackgroundStorage } from '../environment/storages';
+import { AgentStorage, BaseStorage } from '../environment/storages';
 import { EdgeStorage } from '../environment/storages/EdgeStorage';
 import { TrajectoryStorage } from '../environment/storages/TrajectoryStorage';
 import { registerLayerType } from './layer-registry';

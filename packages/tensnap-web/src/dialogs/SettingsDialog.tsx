@@ -5,7 +5,7 @@ import React, { useState, useCallback, useMemo, useSyncExternalStore } from 'rea
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import * as Switch from '@radix-ui/react-switch';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import {
   ACTION_TIMEOUT_SECONDS_OPTIONS,
   MAX_SNAPSHOT_PLAYBACK_FPS,
@@ -18,14 +18,14 @@ import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { activateLocale, locales, isValidLocale } from '@/i18n';
 import { useToast } from '@/store/toast';
-import type { ProjectSource } from '@tensnap/core/snapshot';
+import type { ProjectSource, Snapshot } from '@tensnap/core/snapshot';
 import { listBuiltinModels } from '@/transport';
 
 import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { ipFamilyError } from '@/utils/network';
 
-const NO_SNAPSHOTS: import('@tensnap/core/snapshot').Snapshot[] = [];
+const NO_SNAPSHOTS: Snapshot[] = [];
 const subscribeNone = () => () => {};
 
 const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {

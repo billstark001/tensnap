@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { FileSystemPicker } from '@tensnap/web-common/types/file';
+import type { FileSystemPicker } from '@tensnap/web-common/types/file';
 import { useFilePicker } from './FilePickerContext';
 
 interface FilePickerBridgeProps {

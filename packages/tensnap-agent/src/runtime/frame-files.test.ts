@@ -1,3 +1,4 @@
+import type * as FileSystem from 'node:fs/promises';
 import { mkdtemp, readFile, rm, writeFile, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -16,7 +17,7 @@ import { encodeRecordingFile } from '@tensnap/core/persistence';
 import { snapshotFromFrame } from '@tensnap/core/snapshot';
 
 vi.mock('node:fs/promises', async (importOriginal) => {
-  const original = await importOriginal<typeof import('node:fs/promises')>();
+  const original = await importOriginal<typeof FileSystem>();
   return { ...original, rename: vi.fn(original.rename), writeFile: vi.fn(original.writeFile) };
 });
 
@@ -66,7 +67,7 @@ it('reports the retained temporary directory and original error if preserving pa
 });
 
 it('retains completed artifact values without claiming a path when partial image persistence fails', async () => {
-  const original = await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises');
+  const original = await vi.importActual<typeof FileSystem>('node:fs/promises');
   vi.mocked(writeFile)
     .mockImplementationOnce(original.writeFile)
     .mockRejectedValueOnce(new Error('partial image write failed'));

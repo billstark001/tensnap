@@ -10,8 +10,10 @@ import {
 } from '@tensnap/core/persistence';
 import { createAutoLayout } from '@/utils/view/pack';
 import { archiveProjectFileContentInWorker } from '@/workers/project-archive';
-import { create, StoreApi, UseBoundStore } from 'zustand';
-import { createTransportStore, TransportStore } from './transport';
+import type { StoreApi, UseBoundStore } from 'zustand';
+import { create } from 'zustand';
+import type { TransportStore } from './transport';
+import { createTransportStore } from './transport';
 import {
   parseProjectFileContent,
   PROJECT_FILE_VERSION,

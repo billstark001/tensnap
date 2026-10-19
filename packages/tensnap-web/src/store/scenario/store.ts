@@ -4,19 +4,17 @@ import { createStoreContext } from '@/utils/zustand';
 import { createAutoLayout } from '@/utils/view/pack';
 import { createDefaultRootLayout } from '@tensnap/core/persistence';
 
-import { AnyView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { createUpdateTriggerStoreFunction } from '../update-trigger';
 import { useSettingsStore } from '../settings';
-import {
+import { GridEnvStorage, RendererSession, sanitizeParameter } from '@tensnap/core';
+import type {
+  DiagnosticEvent,
   ChartStorage,
-  GridEnvStorage,
-  RendererSession,
   Scenario,
   ScenarioEnvironmentState,
   ScenarioSnapshot,
-  sanitizeParameter,
 } from '@tensnap/core';
-import type { DiagnosticEvent } from '@tensnap/core';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
 import type { RendererSessionActionMetricsDetail } from '@tensnap/core/runtime';
 import {
@@ -37,7 +35,7 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
-import {
+import type {
   EditableEnvironmentDraft,
   ProjectDiagnostic,
   ScenarioStore,

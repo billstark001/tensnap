@@ -1,3 +1,4 @@
+import type * as Process from './process';
 // @vitest-environment node
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -10,7 +11,7 @@ import type { EvaluationSpecification } from './types';
 vi.mock('node:fs/promises', () => ({ readFile: vi.fn() }));
 vi.mock('./config', () => ({ checkProfileLocks: vi.fn().mockResolvedValue({}) }));
 vi.mock('./process', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('./process')>()),
+  ...(await importOriginal<typeof Process>()),
   execute: vi.fn(),
 }));
 vi.mock('playwright', () => ({

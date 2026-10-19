@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { Scenario } from '@tensnap/core';
-import { AgentStorage } from '@tensnap/core/environment';
+import type { AgentStorage } from '@tensnap/core/environment';
 import { createAgentInspectionSource } from './agent-inspection-source';
 
 function fixture(count: number) {

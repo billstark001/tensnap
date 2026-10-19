@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { Scenario } from './Scenario';
 import { ScenarioInspector } from './ScenarioInspector';
 import { createAgentInspectionView } from './inspection-view';
-import { AgentStorage, EdgeStorage, TrajectoryStorage } from '../environment';
+import type { AgentStorage, EdgeStorage, TrajectoryStorage } from '../environment';
 
 it('projects an owned ego graph with only its edges, trajectories and referenced assets', async () => {
   const scenario = new Scenario();

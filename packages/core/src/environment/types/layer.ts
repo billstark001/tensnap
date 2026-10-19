@@ -5,7 +5,7 @@
  */
 
 import type { TrajectoryLayerMetadata } from '@tensnap/protocol/layers';
-import { SceneBounds, OriginMode } from './viewport';
+import type { SceneBounds, OriginMode } from './viewport';
 
 /**
  * Renderer-side lifecycle policy with explicit defaults for optional protocol

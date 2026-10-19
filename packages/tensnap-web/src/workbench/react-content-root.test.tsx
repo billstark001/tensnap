@@ -5,7 +5,7 @@ import { act, fireEvent, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 
 vi.mock('react-dom/client', async (original) => {
-  const actual = await original<typeof import('react-dom/client')>();
+  const actual = await original<typeof ReactDOMClient>();
   return { ...actual, createRoot: vi.fn(actual.createRoot) };
 });
 

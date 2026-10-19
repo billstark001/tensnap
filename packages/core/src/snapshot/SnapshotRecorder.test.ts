@@ -13,7 +13,7 @@ import {
   snapshotArchiveForJson,
 } from './SnapshotArchive';
 import type { RecordingOptions, SnapshotLayerCodecImplementation } from './types';
-import { AgentStorage } from '../environment';
+import type { AgentStorage } from '../environment';
 
 describe('SnapshotRecorder', () => {
   it.each([

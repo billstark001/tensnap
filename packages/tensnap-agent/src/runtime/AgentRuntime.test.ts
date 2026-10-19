@@ -2,12 +2,12 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, type WebSocket } from 'ws';
 import { decodeProtocolMessage, encodeProtocolMessage } from '@tensnap/protocol';
 import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
 import { resolveRuntimeContextPaths } from './context';
-import type { RendererSession } from '@tensnap/core/runtime';
+import type { RendererSession, RendererClient } from '@tensnap/core/runtime';
 import { readCapturedFrame } from './frame-files';
 
 const temporaryRoots: string[] = [];
@@ -512,9 +512,7 @@ it.each([false, true])(
       },
     });
     await runtime.initialize();
-    const renderer = (
-      runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
-    ).renderer;
+    const renderer = (runtime as unknown as { renderer: RendererSession }).renderer;
     renderer.attachTransport({
       connectionId: 'test',
       transportKind: 'inmemory',
@@ -588,12 +586,9 @@ it('preserves rendered artifacts when the required scene checkpoint cannot be wr
 });
 
 function attachReviewTransport(runtime: AgentRuntime) {
-  const renderer = (
-    runtime as unknown as { renderer: import('@tensnap/core/runtime').RendererSession }
-  ).renderer;
+  const renderer = (runtime as unknown as { renderer: RendererSession }).renderer;
   let dispatched = 0;
-  const client = (runtime as unknown as { client: import('@tensnap/core/runtime').RendererClient })
-    .client;
+  const client = (runtime as unknown as { client: RendererClient }).client;
   client.attachTransport({
     connectionId: 'review',
     transportKind: 'inmemory',
@@ -1111,7 +1106,7 @@ it.each(['status-write', 'handshake'] as const)(
         capabilities: [],
       },
     });
-    let connectedSocket: import('ws').WebSocket | undefined;
+    let connectedSocket: WebSocket | undefined;
     let accepted!: () => void;
     const acceptedConnection = new Promise<void>((resolve) => {
       accepted = resolve;

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
-import { AnchoredView } from '@tensnap/core/persistence';
-import { BaseViewFields, BaseViewEditorProps } from './BaseViewEditor';
-import {
+import type { AnchoredView } from '@tensnap/core/persistence';
+import type { BaseViewEditorProps } from './BaseViewEditor';
+import { BaseViewFields } from './BaseViewEditor';
+import type {
   BooleanParameter,
   EnumParameter,
   NumberParameter,

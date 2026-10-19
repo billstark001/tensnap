@@ -1,4 +1,4 @@
-import { Scenario } from '../scenario';
+import type { Scenario } from '../scenario';
 import { SnapshotPlayer } from './SnapshotRecorder';
 import type { Snapshot, SnapshotFrame } from './types';
 

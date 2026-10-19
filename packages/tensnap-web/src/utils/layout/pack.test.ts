@@ -1,4 +1,5 @@
-import { pack, groupRectanglesByType, calculateBounds, Rectangle, PlacedRectangle } from './pack';
+import type { Rectangle, PlacedRectangle } from './pack';
+import { pack, groupRectanglesByType, calculateBounds } from './pack';
 
 describe('Rectangle Packing with MaxRects', () => {
   describe('Basic Packing', () => {

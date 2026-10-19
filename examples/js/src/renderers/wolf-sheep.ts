@@ -6,7 +6,8 @@ import {
   modelBuilder,
   numberField,
 } from '@tensnap/js/bindings';
-import { WolfSheepConfig, WolfSheepModel, World } from '../models/wolf-sheep';
+import type { WolfSheepConfig, World } from '../models/wolf-sheep';
+import { WolfSheepModel } from '../models/wolf-sheep';
 
 const GRID_LAYER = 'grid';
 const TERRAIN_LAYER = 'terrain';

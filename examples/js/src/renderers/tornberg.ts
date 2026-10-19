@@ -1,13 +1,7 @@
 import type { GraphAgentState, GraphEdge, GridAgentState } from '@tensnap/core/environment';
 import { enumField, modelBuilder, numberField } from '@tensnap/js/bindings';
-import {
-  TornbergConfig,
-  TornbergMetrics,
-  TornbergState,
-  computeTornbergMetrics,
-  initializeTornberg,
-  stepTornberg,
-} from '../models/tornberg';
+import type { TornbergConfig, TornbergMetrics, TornbergState } from '../models/tornberg';
+import { computeTornbergMetrics, initializeTornberg, stepTornberg } from '../models/tornberg';
 
 const CULTURE_LAYER = 'culture';
 const NETWORK_AGENT_LAYER = 'network_agents';

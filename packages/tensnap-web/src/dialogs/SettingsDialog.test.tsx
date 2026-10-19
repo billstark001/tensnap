@@ -1,3 +1,4 @@
+import type * as Transport from '@/transport';
 import { fireEvent, render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@lingui/react';
 import { setupI18n } from '@lingui/core';
@@ -7,7 +8,7 @@ import { SettingsDialog } from './SettingsDialog';
 import { CreateNewProjectDialog } from './CreateNewProjectDialog';
 
 vi.mock('@/transport', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/transport')>()),
+  ...(await importOriginal<typeof Transport>()),
   listBuiltinModels: () => [],
 }));
 const i18n = setupI18n({ locale: 'en', messages: { en: {} } });
@@ -73,14 +74,12 @@ it('updates recording choices when the owning project renames or imports recordi
     expect(screen.getAllByText('Renamed recording').length).toBeGreaterThan(0);
     expect(screen.queryByText('Original recording')).toBeNull();
     act(() =>
-      project.useScenarioStore
-        .getState()
-        .importSnapshots([
-          createSingleSnapshot(new Scenario().dump(), {
-            id: 'new-source',
-            label: 'Imported recording',
-          }),
-        ]),
+      project.useScenarioStore.getState().importSnapshots([
+        createSingleSnapshot(new Scenario().dump(), {
+          id: 'new-source',
+          label: 'Imported recording',
+        }),
+      ]),
     );
     const selector = screen
       .getAllByRole('combobox')

@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { AgentIcon } from '@/types/model';
+import type { AgentIcon } from '@/types/model';
 import * as styles from './AgentDetailsDialog.css';
 
 export function createIconElement(

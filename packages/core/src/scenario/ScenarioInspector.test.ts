@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Scenario } from './Scenario';
 import { ScenarioInspector } from './ScenarioInspector';
-import { EdgeStorage } from '../environment';
+import type { EdgeStorage } from '../environment';
 
 function message(type: string, payload: unknown) {
   return { type, payload } as any;

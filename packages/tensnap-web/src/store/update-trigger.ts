@@ -1,4 +1,4 @@
-import { CreateStoreFunction } from '@/utils/zustand';
+import type { CreateStoreFunction } from '@/utils/zustand';
 import { create } from 'zustand';
 
 export interface UpdateTriggerState {

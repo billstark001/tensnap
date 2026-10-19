@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { ChartStorage } from './ChartStorage';
 import type { ChartGroupMetadata } from '@tensnap/protocol';
-import { ChartGroup } from './types';
+import type { ChartGroup } from './types';
 import { instantiateChartMetadata } from './utils';
 
 function makeGroup(id: string, label = id, metaIds: string[] = [id]): ChartGroup {

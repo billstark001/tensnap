@@ -13,7 +13,7 @@ import type {
 import { assert, describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
 import { materializeSnapshot, type Snapshot } from '../snapshot';
-import { AgentStorage, TrajectoryStorage } from '../environment';
+import type { AgentStorage, TrajectoryStorage } from '../environment';
 
 function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTransport {
   return {

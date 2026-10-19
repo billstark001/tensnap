@@ -29,6 +29,7 @@ import type {
 } from '@tensnap/protocol';
 import { SceneRestorePayloadSchema } from '@tensnap/protocol';
 import { validateIPFamily, parseIPFamily, type IPFamily } from '@tensnap/network';
+import type { RendererSession, RestoreChartPolicy } from '@tensnap/core/runtime';
 import {
   ActionRenderError,
   RecordingCollection,
@@ -37,12 +38,10 @@ import {
   compileRunCondition,
   type CollectionConfig,
   RendererClient,
-  RendererSession,
   type BoundedRunSpec,
   type RunStatus,
   type RendererSessionRecordingDetail,
   type SceneRestoreOptions,
-  RestoreChartPolicy,
 } from '@tensnap/core/runtime';
 import { ScenarioInspector, type ScenarioQuery } from '@tensnap/core/scenario';
 import type {

@@ -1,7 +1,7 @@
 // UniformEnvironmentView.tsx
 import { useState, useMemo, useCallback, useSyncExternalStore } from 'react';
 import type { AgentItem as UniformAgent } from '@tensnap/protocol/layers';
-import { AnchoredView } from '@tensnap/core/persistence';
+import type { AnchoredView } from '@tensnap/core/persistence';
 import { Pagination } from '@tensnap/web-common/components/ui/Pagination';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
 import { createIconElement } from '../../dialogs/AgentIconElement';
@@ -10,7 +10,7 @@ import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { EmptyState } from '@tensnap/web-common/components/ui/EmptyState';
-import { AssetStore, Scenario, ScenarioEnvironmentState } from '@tensnap/core';
+import type { AssetStore, Scenario, ScenarioEnvironmentState } from '@tensnap/core';
 import type { AgentRef } from '@tensnap/core';
 import { AgentStorage } from '@tensnap/core/environment';
 import { useScenarioStore } from '@/store/scenario/store';

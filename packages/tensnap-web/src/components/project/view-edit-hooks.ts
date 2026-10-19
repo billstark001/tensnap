@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { AnyView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ContainerView } from '@tensnap/core/persistence';
 import { useScenarioStore } from '@/store/scenario/store';
-import { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
+import type { Parameter, ChartGroup, Action, BooleanParameter } from '@/types/model';
 import type { MonitorState } from '@tensnap/core/monitor';
 import type { EditableEnvironmentDraft } from '@/store/scenario/types';
 import { findView } from '@/utils/view/container';
@@ -20,9 +20,9 @@ import {
   createMonitorView,
 } from '@/utils/view/create-view';
 import { generateUniqueId } from '@/utils/common';
-import { ViewUpdateHandler } from '../view/useViewContext';
+import type { ViewUpdateHandler } from '../view/useViewContext';
 import { useToast } from '@/store/toast';
-import { MessageDescriptor } from '@lingui/core';
+import type { MessageDescriptor } from '@lingui/core';
 import { useRecordViewHistory } from '@/store/view-history';
 import {
   getEditableEnvironmentData,

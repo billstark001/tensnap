@@ -1,5 +1,6 @@
 import { normalizeWebSocketData } from '@tensnap/network/node';
-import WebSocket, { WebSocketServer } from 'ws';
+import type WebSocket from 'ws';
+import { WebSocketServer } from 'ws';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
 import { type AddressInfo } from 'node:net';

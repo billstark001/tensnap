@@ -9,7 +9,7 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
-import { StoreApi, UseBoundStore } from 'zustand';
+import type { StoreApi, UseBoundStore } from 'zustand';
 import type { ScenarioStore } from './types';
 
 const diagnosticSeverityFromLog = (level: NormalizedLogPayload['level']): DiagnosticSeverity =>

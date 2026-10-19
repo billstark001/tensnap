@@ -2,7 +2,7 @@ import type { DiagnosticSeverity } from '@tensnap/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useScenarioStore } from '@/store/scenario/store';
 import * as styles from './ProjectTerminal.css';
-import { ProjectDiagnostic } from '@/store/scenario/types';
+import type { ProjectDiagnostic } from '@/store/scenario/types';
 
 type DiagnosticFilter = 'all' | DiagnosticSeverity;
 

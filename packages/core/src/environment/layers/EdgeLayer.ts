@@ -23,15 +23,16 @@
  */
 
 import * as d3 from 'd3';
-import { Line, Polygon } from '@leafer-ui/core';
+import type { Line, Polygon } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
-import { EdgeDelta, EdgeStorage, EdgeStorageData } from '../storages/EdgeStorage';
-import { AgentStorage, AgentRenderState } from '../storages/AgentStorage';
-import { AgentLayerConfig } from './AgentLayer';
+import type { EdgeDelta, EdgeStorageData } from '../storages/EdgeStorage';
+import { EdgeStorage } from '../storages/EdgeStorage';
+import type { AgentStorage, AgentRenderState } from '../storages/AgentStorage';
+import type { AgentLayerConfig } from './AgentLayer';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { Viewport, GraphEdge } from '../types';
-import { GraphEnvConfig } from '../types/env';
+import type { GraphEnvConfig } from '../types/env';
 import { createArrowhead, createEdgeLine } from '../utils/shape';
 import { resolveAgentSize } from '../utils/agent';
 

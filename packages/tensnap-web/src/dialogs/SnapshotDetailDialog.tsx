@@ -6,7 +6,7 @@ import { uint8ArrayToArrayBuffer } from '@tensnap/core/utils';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 import { msg, t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';

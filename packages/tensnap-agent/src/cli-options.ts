@@ -1,4 +1,5 @@
-import { Command, Option } from 'commander';
+import type { Command } from 'commander';
+import { Option } from 'commander';
 import type { IPFamily } from '@tensnap/network';
 import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';

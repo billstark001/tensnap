@@ -1,7 +1,7 @@
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState, useCallback, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';

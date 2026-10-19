@@ -1,11 +1,11 @@
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
-import { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { DialogOpenProps } from '@tensnap/web-common/react';
+import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { ButtonViewEditor } from './ButtonViewEditor';
 import { ContainerViewEditor } from './ContainerViewEditor';
 import { EnvironmentViewEditor } from './EnvironmentViewEditor';
@@ -13,20 +13,22 @@ import { ParameterViewEditor } from './ParameterViewEditor';
 import { ChartViewEditor } from './ChartViewEditor';
 import { MonitorViewEditor } from './MonitorViewEditor';
 import { useScenarioStore } from '@/store/scenario/store';
-import { Action, Parameter, ChartGroup, ParameterType } from '@/types/model';
+import type { Action, Parameter, ChartGroup, ParameterType } from '@/types/model';
 import { EditObjectIdDialog } from './EditObjectIdDialog';
 import { ConfirmEditDialog } from './ConfirmEditDialog';
 import { useToast } from '@/store';
-import {
+import type {
   EditableObjectData,
   EditableObjectKind,
+  ScenarioDataSources,
+} from './edit-view-model';
+import {
   getBoundObjectId,
   getEditableObjectData,
   getEditableObjectKind,
   getObjectIdConflict,
   normalizeEnvironmentForType,
   normalizeParameterForType,
-  ScenarioDataSources,
   withBoundObjectId,
   withObjectDataId,
 } from './edit-view-model';

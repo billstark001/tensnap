@@ -1,9 +1,5 @@
-import React, {
-  forwardRef,
-  InputHTMLAttributes,
-  TextareaHTMLAttributes,
-  SelectHTMLAttributes,
-} from 'react';
+import type { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
+import React, { forwardRef } from 'react';
 import * as formStyles from './Form.css';
 import clsx from 'clsx';
 

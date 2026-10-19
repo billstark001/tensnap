@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useState, useRef, ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { Dialog } from '@tensnap/web-common/components/ui';
 import { t } from '@lingui/core/macro';
 import { FileSystemBrowser } from './FileSystemBrowser';
-import {
+import type {
   FileMetadata,
   DirectoryEntry,
   FilePickerOptions,
   FileSystemAdapter,
 } from '@tensnap/web-common/types/file';
-import { FilePickerContext, FilePickerContextValue } from './FilePickerContext';
+import type { FilePickerContextValue } from './FilePickerContext';
+import { FilePickerContext } from './FilePickerContext';
 import { joinPath, validateName } from './utils';
 import * as styles from './FileSystemBrowser.css';
 

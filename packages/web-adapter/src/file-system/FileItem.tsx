@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import * as DropdownMenu from '@tensnap/web-common/components/ui/DropdownMenu';
 import { t } from '@lingui/core/macro';
-import { DirectoryEntry } from '@tensnap/web-common/types/file';
+import type { DirectoryEntry } from '@tensnap/web-common/types/file';
 import { formatFileSize, formatDate } from './utils';
 import * as styles from './FileSystemBrowser.css';
 

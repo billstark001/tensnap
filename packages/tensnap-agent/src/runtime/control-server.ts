@@ -1,6 +1,6 @@
 // #region Imports
 import { createAdaptorServer, type ServerType } from '@hono/node-server';
-import { AgentRuntime } from './AgentRuntime';
+import type { AgentRuntime } from './AgentRuntime';
 import type { RuntimeEvent } from '../types';
 import { buildControlApp } from './control-server/app';
 import { listenIPServers, closeIPServers } from '@tensnap/network/node';

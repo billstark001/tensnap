@@ -8,17 +8,19 @@ import {
 } from '@dnd-kit/core';
 import { restrictToWindowEdges } from '@dnd-kit/modifiers';
 import * as styles from './styles.css';
-import { ContainerView } from '@tensnap/core/persistence';
+import type { ContainerView } from '@tensnap/core/persistence';
 import { ContainerViewComponent } from './ContainerViewComponent';
 import { nestedOverlapCollisionDetection } from '@/utils/view/collision';
-import { ViewContext, ViewContextScheme } from './useViewContext';
+import type { ViewContextScheme } from './useViewContext';
+import { ViewContext } from './useViewContext';
 import { useCallbackRef } from '@tensnap/web-common/react';
-import { ViewProps } from './types';
+import type { ViewProps } from './types';
 import { viewConstants } from './constants';
 import { Guidelines } from './GuideLines';
 import clsx from 'clsx';
 import { useDragContent, useResizeContent } from './useDragAndResizeContent';
-import { PropsWithChildren, useMemo } from 'react';
+import type { PropsWithChildren } from 'react';
+import { useMemo } from 'react';
 import { getEffectiveViewBox } from '@/utils/view/geometry';
 
 export type ViewRendererProps = ViewProps<ContainerView> & Partial<ViewContextScheme>;

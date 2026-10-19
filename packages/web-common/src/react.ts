@@ -1,4 +1,4 @@
-import { DialogProps } from './components/ui/Dialog';
+import type { DialogProps } from './components/ui/Dialog';
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 
 /**

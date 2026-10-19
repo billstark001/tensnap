@@ -1,3 +1,4 @@
+import type * as Transport from '@tensnap/js/transport';
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SimulatorSession } from '@tensnap/js/runtime';
@@ -7,7 +8,7 @@ import { runWsReplicate } from './runner';
 
 const fault = vi.hoisted(() => ({ closeOn: '' }));
 vi.mock('@tensnap/js/transport', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@tensnap/js/transport')>();
+  const original = await importOriginal<typeof Transport>();
   return {
     ...original,
     createWebSocketTransportHost(

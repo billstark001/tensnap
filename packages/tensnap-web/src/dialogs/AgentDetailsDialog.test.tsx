@@ -1,3 +1,4 @@
+import type * as LinguiReact from '@lingui/react';
 // @vitest-environment jsdom
 
 import React from 'react';
@@ -19,7 +20,7 @@ const rendererHarness = vi.hoisted(() => {
 });
 
 vi.mock('@lingui/react', async () => {
-  const actual = await vi.importActual<typeof import('@lingui/react')>('@lingui/react');
+  const actual = await vi.importActual<typeof LinguiReact>('@lingui/react');
   return {
     ...actual,
     Trans: ({

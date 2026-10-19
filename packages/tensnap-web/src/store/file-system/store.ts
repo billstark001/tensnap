@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { FileSystemAdapter } from '@tensnap/web-common/types/file';
+import type { FileSystemAdapter } from '@tensnap/web-common/types/file';
 import type {
   FileMetadata,
   FileContent,

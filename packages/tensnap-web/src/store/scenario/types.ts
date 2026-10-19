@@ -1,5 +1,5 @@
-import { SetStateAction } from 'react';
-import {
+import type { SetStateAction } from 'react';
+import type {
   Scenario,
   RendererSession,
   ScenarioSnapshot,
@@ -23,8 +23,8 @@ import type {
   StateSyncBeginPayload,
   StateSyncEndPayload,
 } from '@tensnap/protocol';
-import { ContainerView } from '@tensnap/core/persistence';
-import { UpdateTriggerState } from '../update-trigger';
+import type { ContainerView } from '@tensnap/core/persistence';
+import type { UpdateTriggerState } from '../update-trigger';
 
 export interface StateSyncStatus {
   requestId: string | null;

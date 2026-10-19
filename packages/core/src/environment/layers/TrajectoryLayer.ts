@@ -1,7 +1,7 @@
 import { Line } from '@leafer-ui/core';
 import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
-import {
+import type {
   TrajectoryDelta,
   TrajectoryAppendDelta,
   TrajectoryEntry,
@@ -11,7 +11,8 @@ import {
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { GridCoordOffset, Viewport } from '../types';
 import { getCoordOffsetValue } from '../utils';
-import { splitTrajectoryPoints, TrajectoryWorldBounds } from '../utils/trajectory';
+import type { TrajectoryWorldBounds } from '../utils/trajectory';
+import { splitTrajectoryPoints } from '../utils/trajectory';
 
 const TRAJECTORY_CHUNK_POINTS = 1_024;
 
