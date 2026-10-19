@@ -69,10 +69,12 @@ const CreateNewProjectDialogContent: React.FC<CreateNewDialogProps> = ({
   const fakeModels = useMemo(() => listBuiltinModels(), []);
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange} size="lg">
-      <Dialog.Title>
-        <Trans>Create New Project</Trans>
-      </Dialog.Title>
+    <Dialog.Root
+      title={_(msg`Create New Project`)}
+      open={isOpen}
+      onOpenChange={onOpenChange}
+      size="lg"
+    >
       <Dialog.Description></Dialog.Description>
       <Dialog.Body>
         <Form.FieldSet>
@@ -116,11 +118,6 @@ const CreateNewProjectDialogContent: React.FC<CreateNewDialogProps> = ({
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
         <Dialog.Button
           variant="primary"
           onClick={handleCreateItem}
@@ -136,4 +133,5 @@ const CreateNewProjectDialogContent: React.FC<CreateNewDialogProps> = ({
 export const CreateNewProjectDialog = defineDialog(
   'CreateNewProjectDialog',
   CreateNewProjectDialogContent,
+  { width: 680, height: 610, minWidth: 440, minHeight: 320 },
 );

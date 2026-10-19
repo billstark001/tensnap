@@ -1,3 +1,5 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -6,11 +8,10 @@ import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
 const AboutDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
+  const { _ } = useLingui();
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Title>
-        <Trans>About TenSnap</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`About TenSnap`)} open={open} onOpenChange={onOpenChange}>
       <Dialog.Description></Dialog.Description>
 
       <div className={dialogStyles.aboutContainer}>
@@ -73,16 +74,13 @@ const AboutDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) =
           <Trans>© 2025 TenSnap Contributors</Trans>
         </div>
       </div>
-
-      <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Close</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
-      </Dialog.Footer>
     </Dialog.Root>
   );
 };
 
-export const AboutDialog = defineDialog('AboutDialog', AboutDialogContent);
+export const AboutDialog = defineDialog('AboutDialog', AboutDialogContent, {
+  width: 480,
+  height: 460,
+  minWidth: 320,
+  minHeight: 240,
+});

@@ -1,3 +1,4 @@
+import { clearWindowPlacements } from '@tensnap/web-common/workbench/window-state';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { IPFamily } from '@tensnap/network';
 import React, { useState, useCallback, useMemo } from 'react';
@@ -128,10 +129,7 @@ const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }
   );
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="lg">
-      <Dialog.Title>
-        <Trans>Settings</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Settings`)} open={open} onOpenChange={onOpenChange} size="lg">
       <Dialog.Description className={styles.visuallyHidden}>
         <Trans>Configure application and project settings.</Trans>
       </Dialog.Description>
@@ -143,6 +141,14 @@ const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }
             <Trans>System Settings</Trans>
           </h3>
 
+          <Dialog.Button
+            onClick={async () => {
+              await clearWindowPlacements();
+              toast.success(_(msg`Window positions cleared`));
+            }}
+          >
+            <Trans>Clear saved window positions</Trans>
+          </Dialog.Button>
           <div className={styles.systemSettingsGrid}>
             <div className={styles.settingItem}>
               <label className={styles.settingLabel}>
@@ -534,16 +540,13 @@ const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }
           </div>
         )}
       </div>
-
-      <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Close</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
-      </Dialog.Footer>
     </Dialog.Root>
   );
 };
 
-export const SettingsDialog = defineDialog('SettingsDialog', SettingsDialogContent);
+export const SettingsDialog = defineDialog('SettingsDialog', SettingsDialogContent, {
+  width: 720,
+  height: 680,
+  minWidth: 440,
+  minHeight: 320,
+});

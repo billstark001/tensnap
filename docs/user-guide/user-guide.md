@@ -256,6 +256,8 @@ Drag files onto the workbench to open each in a new tab. Drag recordings onto th
 
 The browser uses movable/resizable WinBox dialog windows. Desktop dialogs use native windows, with content and commands tied to the project from which they opened, even after switching project tabs. Closing that project closes its auxiliary windows.
 
+Window dialogs remember their position and size separately by type. The browser stores these preferences in localStorage; desktop stores them in its local settings cache. Use **Settings → Clear saved window positions** to reset all of them. Reopening a window fits its remembered geometry to the available screen. Close dialogs with their titlebar control or Escape; clicking the backdrop leaves them open.
+
 On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. The desktop native menu follows the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
 
 Recording replay places navigation buttons below its timeline: first frame, previous frame, play/pause, next frame and last frame. Stepping moves between retained frames, including recordings whose first frame is not zero. Manual navigation pauses playback; reaching the last frame stops playback, and Play from the end restarts at the first frame.

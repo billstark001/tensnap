@@ -1,6 +1,9 @@
 import { beforeEach, expect, it, vi } from 'vitest';
+import { waitFor } from '@testing-library/react';
 const mock = vi.hoisted(() => ({
   runtime: null as any,
+  secondary: false,
+  title: vi.fn().mockResolvedValue(undefined),
   alive: true,
   changed: undefined as any,
   handlers: new Map<string, (event: any) => unknown>(),
@@ -47,6 +50,9 @@ vi.mock('../../../tensnap-tauri/node_modules/@tauri-apps/api/webviewWindow.js', 
     label: string;
     destroy = vi.fn().mockResolvedValue(undefined);
     once = vi.fn().mockResolvedValue(vi.fn());
+    onMoved = vi.fn(async () => vi.fn());
+    onResized = vi.fn(async () => vi.fn());
+    scaleFactor = vi.fn(async () => 2);
     setTitle = vi.fn().mockResolvedValue(undefined);
     listen = (...args: any[]) => mock.listen(...args);
     onCloseRequested = vi.fn(async () => vi.fn());
@@ -64,10 +70,25 @@ vi.mock('../../../tensnap-tauri/node_modules/@tauri-apps/api/webviewWindow.js', 
       label: 'main',
       listen: (...args: any[]) => mock.listen(...args),
       onCloseRequested: async () => vi.fn(),
-      setTitle: vi.fn().mockResolvedValue(undefined),
+      setTitle: mock.title,
     }),
   };
 });
+vi.mock('../../../tensnap-tauri/node_modules/@tauri-apps/api/window.js', () => ({
+  availableMonitors: async () =>
+    mock.secondary
+      ? [
+          {
+            scaleFactor: 2,
+            workArea: { position: { x: -1440, y: 0 }, size: { width: 1440, height: 1800 } },
+          },
+        ]
+      : [],
+  currentMonitor: async () => ({
+    scaleFactor: 2,
+    workArea: { position: { x: 0, y: 0 }, size: { width: 2880, height: 1800 } },
+  }),
+}));
 import {
   installNativeWindows,
   startNativeContent,
@@ -75,6 +96,7 @@ import {
 beforeEach(() => {
   vi.clearAllMocks();
   mock.alive = true;
+  mock.secondary = false;
   mock.handlers.clear();
   mock.windows.length = 0;
   mock.stops.length = 0;
@@ -92,8 +114,7 @@ it('registers the owner before creating a native child, dispatches RPC and dispo
   const close = vi.fn();
   const handle = mock.runtime.open('AboutDialog', { open: true }, close);
   expect(mock.windows).toHaveLength(0);
-  await Promise.resolve();
-  expect(mock.windows).toHaveLength(1);
+  await waitFor(() => expect(mock.windows).toHaveLength(1));
   expect(mock.windows[0].options).toMatchObject({ parent: 'main' });
   const requestName = [...mock.handlers.keys()][0];
   await mock.handlers.get(requestName)!({
@@ -179,4 +200,72 @@ it('closes an owner scope before readiness when its project disappears', async (
   expect(mock.disposeOwner).toHaveBeenCalledTimes(1);
   expect(mock.windows).toHaveLength(0);
   handle.dispose();
+});
+
+it('gives native content a viewport shell and updates its single host title only when it changes', async () => {
+  mock.emit.mockImplementation(async (_owner: string, name: string, payload: any) => {
+    if (name === 'content-request:test')
+      await mock.handlers.get('content-response:test')!({
+        payload: { id: payload.id, value: mock.state },
+      });
+  });
+  const dispose = await startNativeContent(
+    document.createElement('div'),
+    new AbortController().signal,
+  );
+  const { getDialogHost } = await import('@tensnap/web-common/workbench/content');
+  const close = vi.fn();
+  const options = {
+    type: 'AboutDialog',
+    title: 'About',
+    size: 'md' as const,
+    modal: true,
+    dismissible: true,
+    onClose: close,
+  };
+  const shell = getDialogHost().create(options);
+  try {
+    expect(shell.element.classList.contains('native-content-window')).toBe(true);
+    expect(shell.element.getAttribute('aria-label')).toBe('About');
+    expect(mock.title).toHaveBeenCalledExactlyOnceWith('About');
+    expect(shell.element.querySelector('h2, [data-dialog-close]')).toBeNull();
+    shell.update({ ...options, title: 'Translated title' });
+    expect(shell.element.getAttribute('aria-label')).toBe('Translated title');
+    shell.update({ ...options, title: 'Translated title' });
+    expect(mock.title).toHaveBeenCalledTimes(2);
+    document.dispatchEvent(new Event('content-close-request'));
+    expect(close).toHaveBeenCalledTimes(1);
+    shell.update({ ...options, dismissible: false });
+    document.dispatchEvent(new Event('content-close-request'));
+    expect(close).toHaveBeenCalledTimes(1);
+  } finally {
+    shell.dispose();
+    dispose();
+  }
+  expect(document.querySelector('.native-content-window')).toBeNull();
+});
+
+it('restores a remembered child onto a still-connected secondary display', async () => {
+  const { configureSettingsPersistence, getSettingsPersistence } =
+    await import('@tensnap/web-common/settings-persistence');
+  const original = getSettingsPersistence();
+  configureSettingsPersistence({
+    get: async (key) =>
+      key === 'window-placement:AboutDialog'
+        ? JSON.stringify({ generation: '', x: -600, y: 100, width: 480, height: 460 })
+        : null,
+    set: async () => {},
+    remove: async () => {},
+    keys: async () => [],
+  });
+  mock.secondary = true;
+  installNativeWindows();
+  const handle = mock.runtime.open('AboutDialog', {}, vi.fn());
+  try {
+    await waitFor(() => expect(mock.windows).toHaveLength(1));
+    expect(mock.windows[0].options).toMatchObject({ x: -600, y: 100, width: 480, height: 460 });
+  } finally {
+    handle.dispose();
+    configureSettingsPersistence(original);
+  }
 });

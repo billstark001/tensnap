@@ -2,7 +2,10 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "main",
   "description": "Minimum desktop permissions for user-selected files, settings, and the application menu.",
-  "windows": ["main", "dialog-*"],
+  "windows": [
+    "main",
+    "dialog-*"
+  ],
   "permissions": [
     "core:window:allow-theme",
     "core:event:allow-listen",
@@ -27,7 +30,15 @@
     "core:window:allow-is-fullscreen",
     "core:window:allow-set-fullscreen",
     "core:window:allow-start-dragging",
-    "core:window:allow-internal-toggle-maximize"
+    "core:window:allow-internal-toggle-maximize",
+    "store:allow-delete",
+    "core:window:allow-current-monitor",
+    "store:allow-keys",
+    "core:window:allow-available-monitors"
   ],
-  "platforms": ["linux", "macOS", "windows"]
+  "platforms": [
+    "linux",
+    "macOS",
+    "windows"
+  ]
 }

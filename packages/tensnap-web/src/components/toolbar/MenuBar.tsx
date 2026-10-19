@@ -72,7 +72,11 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
 
   return (
     <>
-      <div className={clsx(styles.menuBar, className)}>
+      <div
+        data-workbench-menubar
+        data-tauri-drag-region
+        className={clsx(styles.menuBar, className)}
+      >
         {/* File Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

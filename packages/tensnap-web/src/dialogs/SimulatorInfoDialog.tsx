@@ -1,3 +1,5 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { Scenario } from '@tensnap/core';
 import type { SimulatorInfoPayload } from '@tensnap/protocol';
@@ -21,6 +23,8 @@ function SimulatorInfoDialogContent({
   simulatorInfo,
   scenario,
 }: SimulatorInfoDialogProps) {
+  const { _ } = useLingui();
+
   const [metadataRevision, setMetadataRevision] = useState(0);
   useEffect(() => {
     if (!open || !scenario) return;
@@ -46,11 +50,12 @@ function SimulatorInfoDialogContent({
   void metadataRevision;
   const metadata = scenario?.metadata ?? {};
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="lg">
-      <Dialog.CloseButton />
-      <Dialog.Title>
-        <Trans>Simulator information</Trans>
-      </Dialog.Title>
+    <Dialog.Root
+      title={_(msg`Simulator information`)}
+      open={open}
+      onOpenChange={onOpenChange}
+      size="lg"
+    >
       <Dialog.Description>
         <Trans>Session identity, capabilities, and current model metadata.</Trans>
       </Dialog.Description>
@@ -146,4 +151,9 @@ function SimulatorInfoDialogContent({
   );
 }
 
-export const SimulatorInfoDialog = defineDialog('SimulatorInfoDialog', SimulatorInfoDialogContent);
+export const SimulatorInfoDialog = defineDialog('SimulatorInfoDialog', SimulatorInfoDialogContent, {
+  width: 680,
+  height: 560,
+  minWidth: 400,
+  minHeight: 280,
+});

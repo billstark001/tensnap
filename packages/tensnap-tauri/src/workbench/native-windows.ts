@@ -1,3 +1,10 @@
+import { availableMonitors, currentMonitor } from '@tauri-apps/api/window';
+import { configureDialogHost } from '@tensnap/web-common/workbench/content';
+import {
+  readWindowPlacement,
+  saveWindowPlacement,
+  windowGeometry,
+} from '@tensnap/web-common/workbench/window-state';
 import { WebviewWindow, getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emitTo } from '@tauri-apps/api/event';
 import { configureNativeDialogRuntime } from '@tensnap/web-common/workbench/dialog-content';
@@ -103,23 +110,105 @@ export function installNativeWindows(): void {
       };
       // Register the owner listener before the child can send its ready request.
       void requestListener
-        .then((stop) => {
+        .then(async (stop) => {
           if (disposed) {
             stop();
             return;
           }
           stopRequests = stop;
+          const [memory, current, monitors] = await Promise.all([
+            readWindowPlacement(contentId),
+            currentMonitor(),
+            availableMonitors(),
+          ]);
+          const saved = memory.placement;
+          const monitor =
+            (saved &&
+              monitors.find((candidate) => {
+                const { position, size } = candidate.workArea;
+                const scale = candidate.scaleFactor;
+                const x = saved.x + saved.width / 2;
+                const y = saved.y + saved.height / 2;
+                return (
+                  x >= position.x / scale &&
+                  x < (position.x + size.width) / scale &&
+                  y >= position.y / scale &&
+                  y < (position.y + size.height) / scale
+                );
+              })) ||
+            current;
+          if (!monitor) throw new Error('No display is available for the content window.');
+          if (disposed) return;
+          const workArea = monitor.workArea;
+          const factor = monitor.scaleFactor;
+          const area = {
+            x: workArea.position.x / factor + 12,
+            y: workArea.position.y / factor + 12,
+            width: workArea.size.width / factor - 24,
+            height: workArea.size.height / factor - 64,
+          };
+          const geometry = windowGeometry(contentId, area, memory.placement);
           window = new WebviewWindow(label, {
             url: `index.html?content=${encodeURIComponent(contentId)}&owner=${encodeURIComponent(ownerLabel)}&channel=${channel}`,
             title: 'TenSnap',
-            width:
-              contentId === 'SnapshotDetailDialog' || contentId === 'EditViewDialog' ? 1080 : 720,
-            height: 760,
-            minWidth: 320,
-            minHeight: 240,
-            center: true,
+            width: geometry.width,
+            height: geometry.height,
+            minWidth: geometry.minWidth,
+            minHeight: geometry.minHeight,
+            maxWidth: geometry.maxWidth,
+            maxHeight: geometry.maxHeight,
+            x: geometry.x,
+            y: geometry.y,
             parent: ownerLabel,
           });
+          let placement = {
+            x: geometry.x,
+            y: geometry.y,
+            width: geometry.width,
+            height: geometry.height,
+          };
+          let placementTimer: ReturnType<typeof setTimeout> | undefined;
+          const remember = () => {
+            clearTimeout(placementTimer);
+            placementTimer = setTimeout(() => {
+              void saveWindowPlacement(contentId, memory.generation, placement);
+            }, 150);
+          };
+          stopWindowEvents.push(() => {
+            clearTimeout(placementTimer);
+            void saveWindowPlacement(contentId, memory.generation, placement);
+          });
+          const logicalEvent = (apply: (scale: number) => void) => {
+            if (disposed) return;
+            void window!.scaleFactor().then(
+              (scale) => {
+                if (disposed) return;
+                apply(scale);
+                remember();
+              },
+              (error) => {
+                if (!disposed) console.error('Window geometry update failed:', error);
+              },
+            );
+          };
+          void window
+            .onMoved(({ payload }) => {
+              logicalEvent((scale) => {
+                placement = { ...placement, x: payload.x / scale, y: payload.y / scale };
+              });
+            })
+            .then(ownWindowEvent, failed);
+          void window
+            .onResized(({ payload }) => {
+              logicalEvent((scale) => {
+                placement = {
+                  ...placement,
+                  width: payload.width / scale,
+                  height: payload.height / scale,
+                };
+              });
+            })
+            .then(ownWindowEvent, failed);
           void window
             .once('tauri://error', (event) => {
               if (disposed) return;
@@ -227,20 +316,54 @@ export async function startNativeContent(
     );
     const initial = await call('initialize', []);
     signal.throwIfAborted();
+    configureDialogHost({
+      create(options) {
+        const element = document.createElement('section');
+        element.className = 'content-island native-content-window';
+        element.tabIndex = -1;
+        element.setAttribute('role', options.dismissible ? 'dialog' : 'alertdialog');
+        document.body.append(element);
+        let contentDisposed = false;
+        let lastTitle: string | undefined;
+        const update = (next: typeof options) => {
+          if (contentDisposed) return;
+          options = next;
+          element.setAttribute('aria-label', next.title);
+          if (lastTitle === next.title) return;
+          lastTitle = next.title;
+          void window
+            .setTitle(next.title)
+            .catch((error) => console.error('Content title update failed:', error));
+        };
+        update(options);
+        const key = (event: KeyboardEvent) => {
+          if (
+            event.key === 'Escape' &&
+            options.dismissible &&
+            !document.querySelector('[data-workbench-menu]')
+          )
+            options.onClose();
+        };
+        const requestClose = () => {
+          if (options.dismissible) options.onClose();
+        };
+        document.addEventListener('content-close-request', requestClose);
+        element.addEventListener('keydown', key);
+        return {
+          element,
+          update,
+          dispose() {
+            if (contentDisposed) return;
+            contentDisposed = true;
+            document.removeEventListener('content-close-request', requestClose);
+            element.removeEventListener('keydown', key);
+            element.remove();
+          },
+        };
+      },
+    });
     content = mountNativeContent(host, initial, { call });
     if (newest) content.update(newest);
-    let lastTitle: string | null = null;
-    const observer = new MutationObserver(() => {
-      const title = document.querySelector('h2')?.textContent;
-      if (title && title !== lastTitle) {
-        lastTitle = title;
-        void window
-          .setTitle(title)
-          .catch((error) => console.error('Content title update failed:', error));
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    own(() => observer.disconnect());
     const commands = [
       'new',
       'open',

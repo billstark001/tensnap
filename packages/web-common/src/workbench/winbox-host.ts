@@ -1,5 +1,6 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- Shared source consumers need the untyped dependency and CSS declarations.
 /// <reference path="./winbox.d.ts" />
+import { readWindowPlacement, saveWindowPlacement, windowGeometry } from './window-state';
 import WinBox from 'winbox/src/js/winbox';
 import 'winbox/dist/css/winbox.min.css';
 import { createFocusTrap } from 'focus-trap';
@@ -27,17 +28,25 @@ export function createWinBoxHost(): DialogHost {
       element.tabIndex = -1;
       element.setAttribute('role', options.dismissible ? 'dialog' : 'alertdialog');
       element.setAttribute('aria-modal', String(options.modal));
-      const sizes = { md: 480, lg: 680, xl: 1060, full: Math.max(320, innerWidth - 32) };
+      const area = () => ({
+        x: 12,
+        y: 12,
+        width: Math.max(1, innerWidth - 24),
+        height: Math.max(1, innerHeight - 24),
+      });
+      const geometry = windowGeometry(options.type, area(), undefined, options.size);
       const box = new WinBox({
         title: options.title,
         mount: element,
         modal: options.modal,
-        width: Math.min(sizes[options.size], innerWidth - 24),
-        height: options.size === 'full' ? innerHeight - 32 : Math.min(700, innerHeight - 48),
-        x: 'center',
-        y: 'center',
-        minwidth: 240,
-        minheight: 160,
+        width: geometry.width,
+        height: geometry.height,
+        x: geometry.x,
+        y: geometry.y,
+        minwidth: geometry.minWidth,
+        minheight: geometry.minHeight,
+        maxwidth: geometry.maxWidth,
+        maxheight: geometry.maxHeight,
         header: 40,
         class: [
           'tensnap-window',
@@ -55,6 +64,7 @@ export function createWinBoxHost(): DialogHost {
       const boxElement = box.dom as HTMLElement;
       const title = boxElement.querySelector<HTMLElement>('.wb-title')!;
       title.setAttribute('aria-hidden', 'true');
+      element.setAttribute('aria-label', options.title);
       const close = boxElement.querySelector<HTMLElement>('.wb-close')!;
       close.setAttribute('role', 'button');
       close.setAttribute('aria-label', 'Close');
@@ -85,36 +95,48 @@ export function createWinBoxHost(): DialogHost {
           options.onClose();
         }
       };
-      const outside = (event: PointerEvent) => {
-        if (
-          windows[windows.length - 1] !== element ||
-          !options.modal ||
-          !options.dismissible ||
-          (event.target as Element)?.closest('[data-workbench-menu]')
-        )
-          return;
-        const rect = boxElement.getBoundingClientRect();
-        if (
-          event.clientX < rect.left ||
-          event.clientX > rect.right ||
-          event.clientY < rect.top ||
-          event.clientY > rect.bottom
-        ) {
-          event.preventDefault();
-          event.stopPropagation();
-          options.onClose();
-        }
-      };
-      document.addEventListener('pointerdown', outside, true);
       boxElement.addEventListener('keydown', keydown);
-      const observer = new MutationObserver(() => {
-        const heading = element.querySelector<HTMLElement>('[data-dialog-title]');
-        if (heading?.textContent) box.setTitle(heading.textContent);
-        if (heading?.id) element.setAttribute('aria-labelledby', heading.id);
-        const description = element.querySelector('[data-dialog-description]');
-        if (description?.id) element.setAttribute('aria-describedby', description.id);
+      // Resize handles extend outside the frame. Only explicit chrome/Escape closes a window.
+      let touched = false;
+      let generation: string | undefined;
+      let saveTimer: ReturnType<typeof setTimeout> | undefined;
+      const placement = () => ({ x: box.x, y: box.y, width: box.width, height: box.height });
+      const save = () => {
+        if (generation !== undefined)
+          void saveWindowPlacement(options.type, generation, placement());
+      };
+      const moved = () => {
+        touched = true;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(save, 150);
+      };
+      const restored = readWindowPlacement(options.type).then((value) => {
+        generation = value.generation;
+        if (!disposing && !touched && value.placement) {
+          const next = windowGeometry(options.type, area(), value.placement, options.size);
+          box.resize(next.width, next.height).move(next.x, next.y);
+        }
       });
-      observer.observe(element, { childList: true, subtree: true, characterData: true });
+      box.onmove = moved;
+      box.onresize = moved;
+      const viewportChanged = () => {
+        const next = windowGeometry(options.type, area(), placement(), options.size);
+        box.minwidth = next.minWidth;
+        box.minheight = next.minHeight;
+        box.maxwidth = next.maxWidth;
+        box.maxheight = next.maxHeight;
+        if (box.max) {
+          box
+            .resize(next.maxWidth, next.maxHeight, true)
+            .move(
+              area().x + (area().width - next.maxWidth) / 2,
+              area().y + (area().height - next.maxHeight) / 2,
+              true,
+            );
+        } else box.resize(next.width, next.height).move(next.x, next.y);
+      };
+      box.onmaximize = viewportChanged;
+      window.addEventListener('resize', viewportChanged);
       queueMicrotask(() => {
         if (!disposing) {
           if (options.modal) trap.activate();
@@ -123,9 +145,11 @@ export function createWinBoxHost(): DialogHost {
       });
       return {
         element,
-        ownsCloseControl: true,
         update(next: WindowOptions) {
+          if (disposing) return;
           options = next;
+          box.setTitle(next.title);
+          element.setAttribute('aria-label', next.title);
           boxElement.classList.toggle('no-close', !next.dismissible);
           close.tabIndex = next.dismissible ? 0 : -1;
           close.setAttribute('aria-hidden', String(!next.dismissible));
@@ -134,10 +158,12 @@ export function createWinBoxHost(): DialogHost {
           if (disposing) return;
           disposing = true;
           windows.splice(windows.indexOf(element), 1);
-          observer.disconnect();
+          clearTimeout(saveTimer);
+          const finalPlacement = placement();
+          void restored.then(() => saveWindowPlacement(options.type, generation!, finalPlacement));
+          window.removeEventListener('resize', viewportChanged);
           close.removeEventListener('keydown', closeKey);
           element.removeEventListener('focusin', activate);
-          document.removeEventListener('pointerdown', outside, true);
           boxElement.removeEventListener('keydown', keydown);
           trap.deactivate({ returnFocus: false });
           box.close(true);

@@ -1,20 +1,6 @@
 import { style } from '@vanilla-extract/css';
 import { vars } from '../../styles/global.css';
 
-export const dialogTitle = style({
-  margin: 0,
-  fontSize: vars.fontSize.lg,
-  fontWeight: '600',
-  color: vars.color.foreground,
-  marginBottom: vars.space.md,
-
-  selectors: {
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-  },
-});
-
 export const dialogDescription = style({
   fontSize: vars.fontSize.sm,
   color: vars.color.secondary,
@@ -28,43 +14,8 @@ export const dialogDescription = style({
   },
 });
 
-export const dialogClose = style({
-  position: 'absolute',
-  top: vars.space.md,
-  right: vars.space.md,
-  padding: vars.space.sm,
-  borderRadius: vars.radius.sm,
-  border: 'none',
-  backgroundColor: 'transparent',
-  color: vars.color.secondary,
-  cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: '32px',
-  height: '32px',
-
-  selectors: {
-    '&:hover': {
-      backgroundColor: 'rgba(0, 0, 0, 0.05)',
-      color: vars.color.foreground,
-    },
-    '&:focus': {
-      outline: `2px solid ${vars.color.primary}`,
-      outlineOffset: '2px',
-    },
-    'body[data-theme="dark"] &': {
-      color: vars.color.darkForeground,
-    },
-    'body[data-theme="dark"] &:hover': {
-      backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-  },
-});
-
 export const dialogBody = style({
-  minHeight: '200px',
+  minHeight: 0,
   overflowY: 'auto',
 
   selectors: {

@@ -5,7 +5,7 @@ import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 
 interface ConfirmEditDialogProps {
   open: boolean;
-  title: React.ReactNode;
+  title: string;
   description: React.ReactNode;
   onOpenChange: (open: boolean) => void;
   onConfirm: () => void | Promise<void>;
@@ -20,9 +20,13 @@ const ConfirmEditDialogContent: React.FC<ConfirmEditDialogProps> = ({
 }) => {
   const [error, setError] = useState<string | null>(null);
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="md" closeOnInteractOutside={false}>
-      <Dialog.CloseButton />
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root
+      title={title}
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      dismissible={false}
+    >
       <Dialog.Description>{description}</Dialog.Description>
       {error && <p role="alert">{error}</p>}
       <Dialog.Footer>
@@ -49,4 +53,9 @@ const ConfirmEditDialogContent: React.FC<ConfirmEditDialogProps> = ({
   );
 };
 
-export const ConfirmEditDialog = defineDialog('ConfirmEditDialog', ConfirmEditDialogContent);
+export const ConfirmEditDialog = defineDialog('ConfirmEditDialog', ConfirmEditDialogContent, {
+  width: 480,
+  height: 300,
+  minWidth: 320,
+  minHeight: 200,
+});

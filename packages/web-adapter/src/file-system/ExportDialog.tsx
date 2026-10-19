@@ -96,8 +96,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
   );
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root type="ExportDialog" title={title} open={isOpen} onOpenChange={onOpenChange}>
       <Dialog.Description>
         {t`Export path`}: {currentPath}
       </Dialog.Description>

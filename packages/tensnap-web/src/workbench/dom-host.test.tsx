@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useState } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -26,12 +27,10 @@ it('keeps business content mounted in WinBox and dismisses only the top nested d
     const [outer, setOuter] = useState(true);
     const [inner, setInner] = useState(false);
     return (
-      <Dialog.Root open={outer} onOpenChange={setOuter}>
-        <Dialog.Title>Outer</Dialog.Title>
+      <Dialog.Root title="Outer" open={outer} onOpenChange={setOuter}>
         <Content />
         <button onClick={() => setInner(true)}>Nested</button>
-        <Dialog.Root open={inner} onOpenChange={setInner}>
-          <Dialog.Title>Inner</Dialog.Title>
+        <Dialog.Root title="Inner" open={inner} onOpenChange={setInner}>
           <button>Inner action</button>
         </Dialog.Root>
       </Dialog.Root>
@@ -144,9 +143,13 @@ it('updates a stable content ID when its module definition is registered again',
   const First = () => <span>First</span>;
   const Current = () => <span>Current</span>;
   defineDialog('hot-content-test', First);
-  expect(dialogContent('hot-content-test')).toBe(First);
+  expect(
+    render(React.createElement(dialogContent('hot-content-test'))).getByText('First'),
+  ).toBeTruthy();
   defineDialog('hot-content-test', Current);
-  expect(dialogContent('hot-content-test')).toBe(Current);
+  expect(
+    render(React.createElement(dialogContent('hot-content-test'))).getByText('Current'),
+  ).toBeTruthy();
   expect(() => dialogContent('missing-content-test')).toThrow('Unknown dialog content');
 });
 
@@ -154,7 +157,13 @@ it('dismisses the focused nonmodal window without trapping focus in a different 
   const host = createWinBoxHost();
   const closeFirst = vi.fn();
   const closeSecond = vi.fn();
-  const options = { title: 'Floating', size: 'md' as const, modal: false, dismissible: true };
+  const options = {
+    type: 'Floating',
+    title: 'Floating',
+    size: 'md' as const,
+    modal: false,
+    dismissible: true,
+  };
   const first = host.create({ ...options, onClose: closeFirst });
   const second = host.create({ ...options, onClose: closeSecond });
   try {
@@ -174,19 +183,42 @@ it('uses one visible title and one keyboard-operable close control owned by WinB
   configureDialogHost(createWinBoxHost());
   const close = vi.fn();
   const view = render(
-    <Dialog.Root open onOpenChange={close}>
-      <Dialog.Title>Themed dialog</Dialog.Title>
-      <Dialog.CloseButton />
+    <Dialog.Root title="Themed dialog" open onOpenChange={close}>
       <Dialog.Body>Body</Dialog.Body>
     </Dialog.Root>,
   );
   const dialog = await screen.findByRole('dialog', { name: 'Themed dialog' });
-  const heading = dialog.querySelector('[data-dialog-title]')!;
+  expect(dialog.querySelector('h2')).toBeNull();
   const shell = dialog.closest('.winbox')!;
-  expect(shell.querySelector('.wb-title')).toHaveTextContent(heading.textContent!);
+  expect(shell.querySelector('.wb-title')).toHaveTextContent('Themed dialog');
   expect(dialog.querySelector('[data-dialog-close]')).toBeNull();
   const control = screen.getByRole('button', { name: 'Close' });
   fireEvent.keyDown(control, { key: 'Enter' });
   expect(close).toHaveBeenCalledExactlyOnceWith(false);
+  view.unmount();
+});
+
+it('keeps the window open when a resize handle lies outside its frame or the backdrop is pressed', async () => {
+  configureDialogHost(createWinBoxHost());
+  const close = vi.fn();
+  const view = render(
+    <Dialog.Root title="Resize regression" open onOpenChange={close}>
+      <input aria-label="Resize draft" defaultValue="preserved" />
+    </Dialog.Root>,
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Resize regression' });
+  const frame = dialog.closest('.winbox') as HTMLElement;
+  const handle = frame.querySelector('.wb-se')!;
+  expect(handle).toBeTruthy();
+  fireEvent.click(frame.querySelector('.wb-max')!);
+  expect(parseFloat(frame.style.width)).toBeLessThanOrEqual(innerWidth - 24);
+  expect(parseFloat(frame.style.height)).toBeLessThanOrEqual(innerHeight - 24);
+  fireEvent.click(frame.querySelector('.wb-max')!);
+  fireEvent.pointerDown(handle, { clientX: -100, clientY: -100 });
+  fireEvent.pointerMove(document, { clientX: 800, clientY: 600 });
+  fireEvent.pointerUp(document, { clientX: 800, clientY: 600 });
+  fireEvent.pointerDown(document.body, { clientX: -100, clientY: -100 });
+  expect(close).not.toHaveBeenCalled();
+  expect(screen.getByRole('textbox', { name: 'Resize draft' })).toHaveValue('preserved');
   view.unmount();
 });

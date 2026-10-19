@@ -24,7 +24,9 @@
     "./workbench/layout": "./src/workbench/layout.ts",
     "./workbench/winbox-host": "./src/workbench/winbox-host.ts",
     "./workbench/dialog-content": "./src/workbench/dialog-content.tsx",
-    "./workbench/portal-content": "./src/workbench/portal-content.tsx"
+    "./workbench/portal-content": "./src/workbench/portal-content.tsx",
+    "./workbench/window-state": "./src/workbench/window-state.ts",
+    "./settings-persistence": "./src/settings-persistence.ts"
   },
   "scripts": {
     "build": "tsc --noEmit -p tsconfig.json",

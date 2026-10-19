@@ -15,38 +15,44 @@ import {
 } from 'react';
 import { ContentIsland } from '../../workbench/portal-content';
 import clsx from 'clsx';
-import { X } from 'lucide-react';
+import { WindowTypeContext } from '../../workbench/dialog-content';
 import { getDialogHost, type ContentWindow, type WindowOptions } from '../../workbench/content';
 import * as styles from './Dialog.css';
 
 export interface DialogProps {
+  title: string;
+  type?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   size?: WindowOptions['size'];
   modal?: boolean;
-  closeOnInteractOutside?: boolean;
+  dismissible?: boolean;
   children?: ReactNode;
 }
 const DialogContainerContext = createContext<HTMLElement | undefined>(undefined);
 export const useDialogContainer = () => useContext(DialogContainerContext);
-const HostCloseControlContext = createContext(false);
 const DialogContext = createContext<(() => void) | null>(null);
 export function Root({
+  title,
+  type,
   open = false,
   onOpenChange,
   size = 'md',
   modal = true,
-  closeOnInteractOutside = true,
+  dismissible = true,
   children,
 }: DialogProps) {
+  const registeredType = useContext(WindowTypeContext);
+  const windowType = type ?? registeredType;
   const [content, setContent] = useState<ContentWindow | null>(null);
   const options = useRef<WindowOptions>(null!);
   useLayoutEffect(() => {
     options.current = {
-      title: 'TenSnap',
+      title,
+      type: windowType,
       size,
       modal,
-      dismissible: closeOnInteractOutside,
+      dismissible,
       onClose: () => onOpenChange?.(false),
     };
   });
@@ -66,31 +72,13 @@ export function Root({
   return content ? (
     <ContentIsland host={content.element}>
       <DialogContainerContext.Provider value={content.element}>
-        <HostCloseControlContext.Provider
-          value={!!content.ownsCloseControl && closeOnInteractOutside}
-        >
-          <DialogContext.Provider value={() => onOpenChange?.(false)}>
-            {children}
-          </DialogContext.Provider>
-        </HostCloseControlContext.Provider>
+        <DialogContext.Provider value={() => onOpenChange?.(false)}>
+          {children}
+        </DialogContext.Provider>
       </DialogContainerContext.Provider>
     </ContentIsland>
   ) : null;
 }
-export const Title = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
-  (props, ref) => {
-    const id = useId();
-    return (
-      <h2
-        {...props}
-        id={props.id ?? id}
-        data-dialog-title
-        ref={ref}
-        className={clsx(styles.dialogTitle, props.className)}
-      />
-    );
-  },
-);
 export const Description = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLParagraphElement>>(
   (props, ref) => {
     const id = useId();
@@ -154,31 +142,10 @@ export function Close({
     </button>
   );
 }
-export const CloseButton = forwardRef<
-  HTMLButtonElement,
-  Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>
->(({ className, ...props }, ref) => {
-  const hostOwnsCloseControl = useContext(HostCloseControlContext);
-  if (hostOwnsCloseControl) return null;
-  return (
-    <Close asChild>
-      <button
-        type="button"
-        {...props}
-        ref={ref}
-        className={clsx(styles.dialogClose, className)}
-        data-dialog-close
-        aria-label="Close"
-      >
-        <X size={16} />
-      </button>
-    </Close>
-  );
-});
 export const Separator = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement> & { vertical?: boolean }
 >(({ vertical, ...props }, ref) => (
   <div {...props} ref={ref} className={clsx(styles.dialogSeparator, vertical && 'vertical')} />
 ));
-export default { Root, Title, Description, Footer, Body, Button, Close, CloseButton, Separator };
+export default { Root, Description, Footer, Body, Button, Close, Separator };

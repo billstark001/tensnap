@@ -1,4 +1,5 @@
-import { createElement, useLayoutEffect, useRef, type ComponentType } from 'react';
+import { registerWindowType, type WindowDimensions } from './window-state';
+import { createContext, createElement, useLayoutEffect, useRef, type ComponentType } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { ContentDefinition } from './content';
 
@@ -9,6 +10,8 @@ export interface NativeDialogHandle {
 export interface NativeDialogRuntime {
   open(contentId: string, props: object, close: () => void): NativeDialogHandle;
 }
+export const WindowTypeContext = createContext('Dialog');
+
 let nativeRuntime: NativeDialogRuntime | undefined;
 const definitions = new Map<string, ComponentType<any>>();
 export function configureNativeDialogRuntime(runtime: NativeDialogRuntime): void {
@@ -38,9 +41,13 @@ export function reactContent<T>(
 export function defineDialog<P extends object>(
   id: string,
   component: ComponentType<P>,
+  dimensions?: WindowDimensions,
 ): ComponentType<P> {
+  registerWindowType(id, dimensions);
   // A stable content ID names its current module definition, including hot module updates.
-  definitions.set(id, component);
+  const content = (props: P) =>
+    createElement(WindowTypeContext.Provider, { value: id }, createElement(component, props));
+  definitions.set(id, content);
   return function DialogContent(props: P) {
     const handle = useRef<NativeDialogHandle | null>(null);
     const latest = useRef(props);
@@ -69,6 +76,6 @@ export function defineDialog<P extends object>(
     useLayoutEffect(() => {
       handle.current?.update(props);
     });
-    return nativeRuntime ? null : createElement(component, props);
+    return nativeRuntime ? null : createElement(content, props);
   };
 }

@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { Locale } from '@/i18n';
 import type { ProtocolValidationLevel } from '@tensnap/protocol';
-import { getSettingsPersistence } from './settings-persistence';
+import { getSettingsPersistence } from '@tensnap/web-common/settings-persistence';
 
 export type { RenderTriggerMode } from '@tensnap/core/runtime/browser';
 import type { RenderTriggerMode } from '@tensnap/core/runtime/browser';

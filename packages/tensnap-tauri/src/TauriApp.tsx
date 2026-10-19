@@ -1,11 +1,13 @@
+import {
+  configureSettingsPersistence,
+  getSettingsPersistence,
+} from '@tensnap/web-common/settings-persistence';
 import { installNativeWindows, startNativeContent } from './workbench/native-windows';
 import { useTauriFileDrop } from './hooks/useTauriFileDrop';
 import React, { useCallback, useEffect, useState } from 'react';
 import { App, Providers, registerDefaultModels } from '@tensnap/web';
 import { TauriFileSystemAdapter, TauriFilePicker, TauriSettingsPersistence } from './adapters';
 import {
-  configureSettingsPersistence,
-  getSettingsPersistence,
   hydrateSettings,
   registerFileSystemAdapter,
   registerFileSystemPicker,

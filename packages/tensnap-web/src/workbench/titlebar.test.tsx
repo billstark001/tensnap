@@ -5,7 +5,7 @@ vi.mock('../components/toolbar/ToolBarLayout', () => ({ ToolBarLayout: () => <di
 vi.mock('../components/project/ProjectPanel', () => ({ ProjectPanel: () => <div>Workspace</div> }));
 vi.mock('../dialogs/SettingsDialog', () => ({ SettingsDialog: () => null }));
 import { App } from '../App';
-it('reserves a title row above the menu for macOS overlay windows and hides it in fullscreen or web', () => {
+it('shares the menu row with macOS overlay controls and removes the reservation in fullscreen or web', () => {
   const root = document.createElement('div');
   root.id = 'root';
   document.body.append(root);
@@ -13,17 +13,15 @@ it('reserves a title row above the menu for macOS overlay windows and hides it i
     container: root,
   });
   try {
-    const titlebar = root.querySelector<HTMLElement>('.workbench-titlebar')!;
-    expect(titlebar.hidden).toBe(false);
-    expect(titlebar).toHaveTextContent('TenSnap');
-    expect(titlebar).toHaveAttribute('data-tauri-drag-region');
-    expect(titlebar.nextElementSibling?.textContent).toBe('Menu');
+    const shell = root.querySelector<HTMLElement>('.workbench-shell')!;
+    expect(shell).toHaveAttribute('data-titlebar-overlay');
+    expect(root.querySelector('.workbench-titlebar')).toBeNull();
     view.rerender(<App environment="tauri" system="mac" isFullscreen />);
-    expect(titlebar.hidden).toBe(true);
+    expect(shell).not.toHaveAttribute('data-titlebar-overlay');
     view.rerender(<App environment="web" system="mac" />);
-    expect(titlebar.hidden).toBe(true);
+    expect(shell).not.toHaveAttribute('data-titlebar-overlay');
     view.rerender(<App environment="tauri" system="mac" isFullscreen={false} />);
-    expect(titlebar.hidden).toBe(false);
+    expect(shell).toHaveAttribute('data-titlebar-overlay');
   } finally {
     view.unmount();
     root.remove();

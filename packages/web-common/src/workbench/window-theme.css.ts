@@ -8,7 +8,7 @@ globalStyle('.tensnap-window', {
   borderRadius: vars.radius.md,
   boxShadow: vars.shadow.xl,
 });
-globalStyle('.tensnap-window .wb-header, .workbench-titlebar', {
+globalStyle('.tensnap-window .wb-header', {
   background: vars.color.gridBackground,
   color: vars.color.foreground,
   borderBottom: `1px solid ${vars.color.gridLine}`,
@@ -62,14 +62,11 @@ globalStyle('body[data-theme="dark"] .tensnap-window', {
   color: vars.color.darkForeground,
   borderColor: vars.color.darkGridLine,
 });
-globalStyle(
-  'body[data-theme="dark"] .tensnap-window .wb-header, body[data-theme="dark"] .workbench-titlebar',
-  {
-    background: vars.color.darkGridBackground,
-    color: vars.color.darkForeground,
-    borderBottomColor: vars.color.darkGridLine,
-  },
-);
+globalStyle('body[data-theme="dark"] .tensnap-window .wb-header', {
+  background: vars.color.darkGridBackground,
+  color: vars.color.darkForeground,
+  borderBottomColor: vars.color.darkGridLine,
+});
 globalStyle('body[data-theme="dark"] .tensnap-window .wb-body', {
   background: vars.color.darkBackground,
   color: vars.color.darkForeground,
@@ -77,17 +74,6 @@ globalStyle('body[data-theme="dark"] .tensnap-window .wb-body', {
 globalStyle('body[data-theme="dark"] .tensnap-window .wb-max', { filter: 'none' });
 globalStyle('body[data-theme="dark"] .tensnap-window.modal::after', {
   background: vars.color.overlayDark,
-});
-// Keep a semantic heading for accessible naming; WinBox owns the one visible title.
-globalStyle('.tensnap-window [data-dialog-title]', {
-  position: 'absolute',
-  width: '1px',
-  height: '1px',
-  margin: 0,
-  padding: 0,
-  overflow: 'hidden',
-  whiteSpace: 'nowrap',
-  clipPath: 'inset(50%)',
 });
 // Modal focus/dismissal stays active while WinBox handles moving and resizing.
 globalStyle(

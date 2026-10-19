@@ -40,8 +40,12 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
   );
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Title>{t`Create New Item`}</Dialog.Title>
+    <Dialog.Root
+      type="CreateDialog"
+      title={t`Create New Item`}
+      open={isOpen}
+      onOpenChange={onOpenChange}
+    >
       <Dialog.Description></Dialog.Description>
       <div>
         <Form.FieldSet>

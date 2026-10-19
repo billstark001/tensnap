@@ -397,11 +397,7 @@ const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
-      <Dialog.CloseButton />
-      <Dialog.Title>
-        <Trans>Edit View</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Edit View`)} open={open} onOpenChange={onOpenChange} size="xl">
       <Dialog.Description />
 
       <Dialog.Body>
@@ -415,17 +411,12 @@ const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
         <Dialog.Button variant="primary" onClick={handleSave} disabled={!hasChanges}>
           <Trans>Save</Trans>
         </Dialog.Button>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
       </Dialog.Footer>
 
       <EditObjectIdDialog
         key={objectIdDialog ? `${objectIdDialog.kind}:${objectIdDialog.currentId}` : 'closed'}
         open={Boolean(objectIdDialog)}
-        title={<Trans>Edit Object ID</Trans>}
+        title={_(msg`Edit Object ID`)}
         currentId={objectIdDialog?.currentId ?? ''}
         objectExists={objectIdDialog?.objectExists ?? false}
         validateId={validateObjectId}
@@ -439,7 +430,7 @@ const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
 
       <ConfirmEditDialog
         open={Boolean(structuralEdit)}
-        title={<Trans>Confirm Structural Change</Trans>}
+        title={_(msg`Confirm Structural Change`)}
         description={
           <Trans>
             This change may alter how the object is interpreted. Existing data will be preserved
@@ -457,4 +448,9 @@ const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
   );
 };
 
-export const EditViewDialog = defineDialog('EditViewDialog', EditViewDialogContent);
+export const EditViewDialog = defineDialog('EditViewDialog', EditViewDialogContent, {
+  width: 1060,
+  height: 700,
+  minWidth: 640,
+  minHeight: 420,
+});

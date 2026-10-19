@@ -1,3 +1,5 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
@@ -21,6 +23,8 @@ const ContinuousRunDialogContent = ({
   onOpenChange,
   onRun,
 }: ContinuousRunDialogProps) => {
+  const { _ } = useLingui();
+
   const [maxSteps, setMaxSteps] = useState(String(profile?.maxSteps ?? 1000));
   const [stopWhen, setStopWhen] = useState(profile?.stopWhen ?? '');
   const [maxWallTimeMs, setMaxWallTimeMs] = useState(
@@ -56,14 +60,10 @@ const ContinuousRunDialogContent = ({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Title>
-        <Trans>Continuous run</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Continuous run`)} open={open} onOpenChange={onOpenChange}>
       <Dialog.Description>
         <Trans>Configure a bounded continuous run for action {actionId}.</Trans>
       </Dialog.Description>
-      <Dialog.CloseButton />
 
       <Form.Root
         onSubmit={(event) => {
@@ -147,4 +147,9 @@ const ContinuousRunDialogContent = ({
   );
 };
 
-export const ContinuousRunDialog = defineDialog('ContinuousRunDialog', ContinuousRunDialogContent);
+export const ContinuousRunDialog = defineDialog('ContinuousRunDialog', ContinuousRunDialogContent, {
+  width: 520,
+  height: 480,
+  minWidth: 360,
+  minHeight: 260,
+});

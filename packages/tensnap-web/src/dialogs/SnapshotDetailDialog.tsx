@@ -213,11 +213,12 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
 
   return (
     <>
-      <Dialog.Root open={open} onOpenChange={onOpenChange} size="xl">
-        <Dialog.CloseButton />
-        <Dialog.Title>
-          <Trans>Snapshot replay</Trans>
-        </Dialog.Title>
+      <Dialog.Root
+        title={_(msg`Snapshot replay`)}
+        open={open}
+        onOpenChange={onOpenChange}
+        size="xl"
+      >
         <Dialog.Description>
           <Trans>Inspect this recording offline. Opening it creates a disconnected copy.</Trans>
         </Dialog.Description>
@@ -458,4 +459,5 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
 export const SnapshotDetailDialog = defineDialog(
   'SnapshotDetailDialog',
   SnapshotDetailDialogContent,
+  { width: 1080, height: 740, minWidth: 640, minHeight: 420 },
 );

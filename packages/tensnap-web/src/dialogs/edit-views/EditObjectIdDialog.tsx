@@ -10,7 +10,7 @@ import * as styles from './EditViews.css';
 
 interface EditObjectIdDialogProps {
   open: boolean;
-  title: React.ReactNode;
+  title: string;
   currentId: string;
   objectExists: boolean;
   validateId: (nextId: string) => string | null | Promise<string | null>;
@@ -46,9 +46,7 @@ const EditObjectIdDialogContent: React.FC<EditObjectIdDialogProps> = ({
   };
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} size="md" closeOnInteractOutside={false}>
-      <Dialog.CloseButton />
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root title={title} open={open} onOpenChange={onOpenChange} size="md">
       <Dialog.Description>
         <Trans>Update the object ID used by this view.</Trans>
       </Dialog.Description>
@@ -78,14 +76,14 @@ const EditObjectIdDialogContent: React.FC<EditObjectIdDialogProps> = ({
         <Dialog.Button variant="primary" onClick={handleSubmit}>
           <Trans>Apply</Trans>
         </Dialog.Button>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
       </Dialog.Footer>
     </Dialog.Root>
   );
 };
 
-export const EditObjectIdDialog = defineDialog('EditObjectIdDialog', EditObjectIdDialogContent);
+export const EditObjectIdDialog = defineDialog('EditObjectIdDialog', EditObjectIdDialogContent, {
+  width: 480,
+  height: 300,
+  minWidth: 320,
+  minHeight: 200,
+});

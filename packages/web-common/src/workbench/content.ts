@@ -10,6 +10,7 @@ export interface ContentDefinition<T> {
 }
 export interface WindowOptions {
   title: string;
+  type: string;
   size: 'md' | 'lg' | 'xl' | 'full';
   modal: boolean;
   dismissible: boolean;
@@ -17,7 +18,6 @@ export interface WindowOptions {
 }
 export interface ContentWindow {
   element: HTMLElement;
-  ownsCloseControl?: boolean;
   update(options: WindowOptions): void;
   dispose(): void;
 }

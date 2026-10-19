@@ -1,3 +1,5 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import type { AgentInspectionSource } from '../workbench/agent-inspection-source';
 import { useRemoteInspection } from '../workbench/useRemoteInspection';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
@@ -177,6 +179,8 @@ const PositionInfo = ({
 };
 
 function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
+  const { _ } = useLingui();
+
   const {
     agent,
     onClose,
@@ -219,14 +223,15 @@ function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
 
   if (!liveAgent)
     return inspectionSource && isOpen ? (
-      <Dialog.Root open onOpenChange={(open) => !open && onClose()} size="lg">
-        <Dialog.Title>
-          <Trans>Agent Details</Trans>
-        </Dialog.Title>
+      <Dialog.Root
+        title={_(msg`Agent Details`)}
+        open
+        onOpenChange={(open) => !open && onClose()}
+        size="lg"
+      >
         <Dialog.Body aria-busy="true">
           <progress />
         </Dialog.Body>
-        <Dialog.CloseButton />
       </Dialog.Root>
     ) : null;
 
@@ -258,10 +263,12 @@ function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
   };
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()} size="lg">
-      <Dialog.Title>
-        <Trans>Agent Details</Trans>
-      </Dialog.Title>
+    <Dialog.Root
+      title={_(msg`Agent Details`)}
+      open={isOpen}
+      onOpenChange={(open) => !open && onClose()}
+      size="lg"
+    >
       <Dialog.Description>
         <Trans>View detailed information about the selected agent</Trans>
       </Dialog.Description>
@@ -360,18 +367,13 @@ function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
           )}
         </div>
       </Dialog.Body>
-
-      <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Close</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
-      </Dialog.Footer>
-
-      <Dialog.CloseButton />
     </Dialog.Root>
   );
 }
 
-export const AgentDetailsDialog = defineDialog('AgentDetailsDialog', AgentDetailsDialogContent);
+export const AgentDetailsDialog = defineDialog('AgentDetailsDialog', AgentDetailsDialogContent, {
+  width: 760,
+  height: 640,
+  minWidth: 440,
+  minHeight: 320,
+});

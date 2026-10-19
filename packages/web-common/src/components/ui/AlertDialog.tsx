@@ -5,7 +5,7 @@ import * as Dialog from './Dialog';
 export interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: ReactNode;
+  title: string;
   description: ReactNode;
   confirmLabel?: ReactNode;
   cancelLabel?: ReactNode;
@@ -23,8 +23,7 @@ function ConfirmDialogContent({
   onConfirm,
 }: ConfirmDialogProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} closeOnInteractOutside={false}>
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
       <Dialog.Description>{description}</Dialog.Description>
       <Dialog.Footer>
         <Dialog.Button onClick={() => onOpenChange(false)}>{cancelLabel}</Dialog.Button>
@@ -38,7 +37,7 @@ function ConfirmDialogContent({
 export interface AlertDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: ReactNode;
+  title: string;
   description: ReactNode;
   acknowledgeLabel?: ReactNode;
   onAcknowledge?: () => void;
@@ -52,8 +51,7 @@ function AlertDialogContent({
   onAcknowledge,
 }: AlertDialogProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange} closeOnInteractOutside={false}>
-      <Dialog.Title>{title}</Dialog.Title>
+    <Dialog.Root title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
       <Dialog.Description>{description}</Dialog.Description>
       <Dialog.Footer>
         <Dialog.Button
@@ -70,6 +68,16 @@ function AlertDialogContent({
   );
 }
 
-export const ConfirmDialog = defineDialog('ConfirmDialog', ConfirmDialogContent);
+export const ConfirmDialog = defineDialog('ConfirmDialog', ConfirmDialogContent, {
+  width: 480,
+  height: 240,
+  minWidth: 320,
+  minHeight: 180,
+});
 
-export const AlertDialog = defineDialog('AlertDialog', AlertDialogContent);
+export const AlertDialog = defineDialog('AlertDialog', AlertDialogContent, {
+  width: 480,
+  height: 240,
+  minWidth: 320,
+  minHeight: 180,
+});

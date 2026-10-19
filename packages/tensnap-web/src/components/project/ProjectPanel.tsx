@@ -6,7 +6,7 @@ import { StatusBar } from './StatusBar';
 import { ProjectTerminal } from './ProjectTerminal';
 import { RightPanel } from './RightPanel';
 import { useState, useCallback, useEffect, useLayoutEffect } from 'react';
-import { getSettingsPersistence } from '@/store/settings-persistence';
+import { getSettingsPersistence } from '@tensnap/web-common/settings-persistence';
 
 const RIGHT_PANEL_KEY = 'tensnap:panel:right';
 const BOTTOM_PANEL_KEY = 'tensnap:panel:bottom';

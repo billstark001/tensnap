@@ -69,7 +69,7 @@ export function App(props: Partial<MenuBarConfig>) {
     return () => shell.dispose();
   }, [shell]);
   useLayoutEffect(() => {
-    shell.setTitlebarVisible(environment === 'tauri' && system === 'mac' && !isFullscreen);
+    shell.setTitlebarOverlay(environment === 'tauri' && system === 'mac' && !isFullscreen);
   }, [shell, environment, system, isFullscreen]);
   return (
     <>

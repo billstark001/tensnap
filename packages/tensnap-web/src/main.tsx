@@ -1,3 +1,4 @@
+import { getSettingsPersistence } from '@tensnap/web-common/settings-persistence';
 import { configureDialogHost } from '@tensnap/web-common/workbench/content';
 import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
 import './runtime/leafer-runtime';
@@ -12,7 +13,7 @@ import '@tensnap/web-common/styles/global.css';
 import { InBrowserFilePicker, registerWebAdapterLocaleCatalog } from '@tensnap/web-adapter';
 import { initI18n, detectLocale, i18n, registerLocaleCatalog } from './i18n';
 import { registerFileSystemAdapter, registerFileSystemPicker } from './store/file-system/provider';
-import { getSettingsPersistence, hydrateSettings, useSettingsStore } from './store';
+import { hydrateSettings, useSettingsStore } from './store';
 import { IndexedDBFileSystemAdapter } from '@tensnap/web-adapter/adapters';
 import { I18nProvider } from '@lingui/react';
 import { registerDefaultModels } from './transport';

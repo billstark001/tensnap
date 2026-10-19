@@ -6,23 +6,17 @@ import './window-theme.css';
 export function createWorkbenchShell() {
   const element = document.createElement('div');
   element.className = 'workbench-shell';
-  const titlebar = document.createElement('div');
-  titlebar.className = 'workbench-titlebar';
-  titlebar.dataset.tauriDragRegion = '';
-  titlebar.textContent = 'TenSnap';
-  titlebar.hidden = true;
   const toolbar = document.createElement('header');
   const workspace = document.createElement('main');
   workspace.className = 'workbench-workspace';
   workspace.dataset.fileDropTarget = 'workbench';
-  element.append(titlebar, toolbar, workspace);
+  element.append(toolbar, workspace);
   return {
     element,
-    titlebar,
     toolbar,
     workspace,
-    setTitlebarVisible(visible: boolean) {
-      titlebar.hidden = !visible;
+    setTitlebarOverlay(visible: boolean) {
+      element.toggleAttribute('data-titlebar-overlay', visible);
     },
     dispose: () => element.remove(),
   };

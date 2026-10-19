@@ -182,11 +182,12 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       {children}
 
       <Dialog.Root
+        type="FilePickerProvider"
+        title={dialogTitle}
         open={pickerState.isOpen}
         onOpenChange={(open) => !open && handleCancel()}
         size="full"
       >
-        <Dialog.Title>{dialogTitle}</Dialog.Title>
         <Dialog.Description>{dialogDescription}</Dialog.Description>
 
         <Dialog.Body>
@@ -232,8 +233,6 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
             </Dialog.Button>
           </div>
         </Dialog.Footer>
-
-        <Dialog.CloseButton />
       </Dialog.Root>
     </FilePickerContext.Provider>
   );

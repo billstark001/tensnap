@@ -1,3 +1,5 @@
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -15,15 +17,14 @@ function SelectRecordingDialogContent({
   snapshots = [],
   onSelect,
 }: SelectRecordingDialogProps) {
+  const { _ } = useLingui();
+
   const [selected, setSelected] = useState('');
   const id = snapshots.some((snapshot) => snapshot.metadata.id === selected)
     ? selected
     : snapshots[0]?.metadata.id;
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Title>
-        <Trans>Select recording</Trans>
-      </Dialog.Title>
+    <Dialog.Root title={_(msg`Select recording`)} open={open} onOpenChange={onOpenChange}>
       <Dialog.Body>
         <select
           aria-label="Recording"
@@ -38,11 +39,6 @@ function SelectRecordingDialogContent({
         </select>
       </Dialog.Body>
       <Dialog.Footer>
-        <Dialog.Close asChild>
-          <Dialog.Button>
-            <Trans>Cancel</Trans>
-          </Dialog.Button>
-        </Dialog.Close>
         <Dialog.Button
           disabled={!id}
           onClick={() => {
@@ -62,4 +58,5 @@ function SelectRecordingDialogContent({
 export const SelectRecordingDialog = defineDialog(
   'SelectRecordingDialog',
   SelectRecordingDialogContent,
+  { width: 480, height: 260, minWidth: 320, minHeight: 200 },
 );

@@ -27,10 +27,10 @@ msgstr "操作菜单"
 #~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 #~ msgstr "你确定要删除\"{0}\"吗？这将删除其中的所有内容。"
 
-#: src/file-system/CreateDialog.tsx:70
-#: src/file-system/ExportDialog.tsx:161
-#: src/file-system/FilePickerProvider.tsx:224
-#: src/file-system/FileSystemBrowser.tsx:345
+#: src/file-system/CreateDialog.tsx:74
+#: src/file-system/ExportDialog.tsx:160
+#: src/file-system/FilePickerProvider.tsx:225
+#: src/file-system/FileSystemBrowser.tsx:346
 msgid "Cancel"
 msgstr "取消"
 
@@ -39,15 +39,15 @@ msgid "Clear search"
 msgstr "清除搜索"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:230
+#: src/file-system/FilePickerProvider.tsx:231
 msgid "Confirm Selection ({0})"
 msgstr "确认选择（{0}）"
 
-#: src/file-system/CreateDialog.tsx:73
+#: src/file-system/CreateDialog.tsx:77
 msgid "Create"
 msgstr "创建"
 
-#: src/file-system/CreateDialog.tsx:44
+#: src/file-system/CreateDialog.tsx:45
 msgid "Create New Item"
 msgstr "新建项目"
 
@@ -56,25 +56,25 @@ msgid "Current directory: {currentDirectory}"
 msgstr "当前目录：{currentDirectory}"
 
 #: src/file-system/FileItem.tsx:71
-#: src/file-system/FileSystemBrowser.tsx:344
+#: src/file-system/FileSystemBrowser.tsx:345
 msgid "Delete"
 msgstr "删除"
 
 #. placeholder {0}: pendingDeleteEntry?.name ?? ''
-#: src/file-system/FileSystemBrowser.tsx:338
+#: src/file-system/FileSystemBrowser.tsx:339
 msgid "Delete \"{0}\"?"
 msgstr "删除“{0}”？"
 
-#: src/file-system/CreateDialog.tsx:54
+#: src/file-system/CreateDialog.tsx:58
 #: src/file-system/FileItem.tsx:44
 msgid "Directory"
 msgstr "文件夹"
 
-#: src/file-system/FileSystemBrowser.tsx:291
+#: src/file-system/FileSystemBrowser.tsx:292
 msgid "Directory is empty"
 msgstr "文件夹为空"
 
-#: src/file-system/FileSystemBrowser.tsx:296
+#: src/file-system/FileSystemBrowser.tsx:297
 msgid "Drag files here"
 msgstr "将文件拖到这里"
 
@@ -82,12 +82,12 @@ msgstr "将文件拖到这里"
 msgid "Drag files here to upload"
 msgstr "将文件拖到这里上传"
 
-#: src/file-system/CreateDialog.tsx:63
+#: src/file-system/CreateDialog.tsx:67
 msgid "Enter directory name"
 msgstr "输入文件夹名称"
 
-#: src/file-system/CreateDialog.tsx:63
-#: src/file-system/FilePickerProvider.tsx:216
+#: src/file-system/CreateDialog.tsx:67
+#: src/file-system/FilePickerProvider.tsx:217
 msgid "Enter file name"
 msgstr "输入文件名"
 
@@ -107,11 +107,11 @@ msgstr "导出为 ZIP 压缩包，保留目录结构"
 msgid "Export Options"
 msgstr "导出选项"
 
-#: src/file-system/ExportDialog.tsx:102
+#: src/file-system/ExportDialog.tsx:101
 msgid "Export path"
 msgstr "导出路径"
 
-#: src/file-system/ExportDialog.tsx:154
+#: src/file-system/ExportDialog.tsx:153
 msgid "Exporting, please wait..."
 msgstr "正在导出，请稍候..."
 
@@ -131,7 +131,7 @@ msgstr "执行导出选项失败"
 msgid "Failed to export"
 msgstr "导出失败"
 
-#: src/file-system/FileSystemBrowser.tsx:280
+#: src/file-system/FileSystemBrowser.tsx:281
 msgid "Failed to load"
 msgstr "加载失败"
 
@@ -143,11 +143,11 @@ msgstr "加载目录失败"
 msgid "Failed to upload files"
 msgstr "上传文件失败"
 
-#: src/file-system/CreateDialog.tsx:53
+#: src/file-system/CreateDialog.tsx:57
 msgid "File"
 msgstr "文件"
 
-#: src/file-system/FilePickerProvider.tsx:209
+#: src/file-system/FilePickerProvider.tsx:210
 msgid "File name:"
 msgstr "文件名："
 
@@ -160,7 +160,7 @@ msgstr "名称无效"
 msgid "JSON Format"
 msgstr "JSON 格式"
 
-#: src/file-system/FileSystemBrowser.tsx:275
+#: src/file-system/FileSystemBrowser.tsx:276
 msgid "Loading..."
 msgstr "加载中..."
 
@@ -168,7 +168,7 @@ msgstr "加载中..."
 msgid "More Actions"
 msgstr "更多操作"
 
-#: src/file-system/CreateDialog.tsx:58
+#: src/file-system/CreateDialog.tsx:62
 msgid "Name"
 msgstr "名称"
 
@@ -184,7 +184,7 @@ msgstr "下一页"
 msgid "No {itemName} available"
 msgstr "没有可用的{itemName}"
 
-#: src/file-system/FilePickerProvider.tsx:216
+#: src/file-system/FilePickerProvider.tsx:217
 msgid "No file selected"
 msgstr "未选择文件"
 
@@ -192,7 +192,7 @@ msgstr "未选择文件"
 msgid "No results found"
 msgstr "未找到结果"
 
-#: src/file-system/FilePickerProvider.tsx:231
+#: src/file-system/FilePickerProvider.tsx:232
 msgid "Open"
 msgstr "打开"
 
@@ -201,7 +201,7 @@ msgid "Open File"
 msgstr "打开文件"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:151
-#: src/file-system/FileSystemBrowser.tsx:297
+#: src/file-system/FileSystemBrowser.tsx:298
 msgid "Or click to browse"
 msgstr "或点击浏览"
 
@@ -217,7 +217,7 @@ msgstr "上一页"
 msgid "Refresh"
 msgstr "刷新"
 
-#: src/file-system/FileSystemBrowser.tsx:283
+#: src/file-system/FileSystemBrowser.tsx:284
 msgid "Retry"
 msgstr "重试"
 
@@ -225,7 +225,7 @@ msgstr "重试"
 msgid "Root"
 msgstr "根目录"
 
-#: src/file-system/FilePickerProvider.tsx:228
+#: src/file-system/FilePickerProvider.tsx:229
 msgid "Save"
 msgstr "保存"
 
@@ -233,7 +233,7 @@ msgstr "保存"
 msgid "Save File"
 msgstr "保存文件"
 
-#: src/file-system/ExportDialog.tsx:121
+#: src/file-system/ExportDialog.tsx:120
 msgid "Select export format"
 msgstr "选择导出格式"
 
@@ -246,7 +246,7 @@ msgstr "选择文件"
 msgid "Selected {0} files"
 msgstr "已选择 {0} 个文件"
 
-#: src/file-system/FilePickerProvider.tsx:209
+#: src/file-system/FilePickerProvider.tsx:210
 msgid "Selected file:"
 msgstr "已选择文件："
 
@@ -255,11 +255,11 @@ msgstr "已选择文件："
 msgid "This directory is empty"
 msgstr "此目录为空"
 
-#: src/file-system/FileSystemBrowser.tsx:342
+#: src/file-system/FileSystemBrowser.tsx:343
 msgid "This file will be permanently deleted."
 msgstr "此文件将被永久删除。"
 
-#: src/file-system/FileSystemBrowser.tsx:341
+#: src/file-system/FileSystemBrowser.tsx:342
 msgid "This will delete all nested content."
 msgstr "这将删除其中的所有嵌套内容。"
 
@@ -267,7 +267,7 @@ msgstr "这将删除其中的所有嵌套内容。"
 msgid "Try adjusting your search criteria"
 msgstr "尝试调整搜索条件"
 
-#: src/file-system/CreateDialog.tsx:48
+#: src/file-system/CreateDialog.tsx:52
 msgid "Type"
 msgstr "类型"
 

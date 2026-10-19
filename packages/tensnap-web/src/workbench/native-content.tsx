@@ -9,7 +9,7 @@ import { Scenario } from '@tensnap/core';
 import { RendererSession } from '@tensnap/core/runtime';
 import type { ScenarioSnapshot } from '@tensnap/core/scenario';
 import { dialogContent, reactContent } from '@tensnap/web-common/workbench/dialog-content';
-import { configureDialogHost, mountContent } from '@tensnap/web-common/workbench/content';
+import { mountContent } from '@tensnap/web-common/workbench/content';
 import { useProjectStore, type ProjectContextScheme } from '../store/project';
 import { createScenarioStore, ScenarioStoreProvider } from '../store/scenario/store';
 import { useSettingsStore } from '../store/settings';
@@ -335,39 +335,6 @@ export function mountNativeContent(host: HTMLElement, initial: ContentState, rpc
   const scenario = createScenarioStore(history);
   const loadLocalScene = scenario.getState().load;
   const transport = createTransportStore(scenario);
-  configureDialogHost({
-    create(options) {
-      const element = document.createElement('section');
-      element.className = 'content-island';
-      element.tabIndex = -1;
-      element.setAttribute('role', options.dismissible ? 'dialog' : 'alertdialog');
-      document.body.append(element);
-      const key = (event: KeyboardEvent) => {
-        if (
-          event.key === 'Escape' &&
-          options.dismissible &&
-          !document.querySelector('[data-workbench-menu]')
-        )
-          options.onClose();
-      };
-      const requestClose = () => {
-        if (options.dismissible) options.onClose();
-      };
-      document.addEventListener('content-close-request', requestClose);
-      element.addEventListener('keydown', key);
-      return {
-        element,
-        update(next) {
-          options = next;
-        },
-        dispose() {
-          document.removeEventListener('content-close-request', requestClose);
-          element.removeEventListener('keydown', key);
-          element.remove();
-        },
-      };
-    },
-  });
   const definition = reactContent(dialogContent(initial.contentId), (content: ReactNode) =>
     createElement(
       I18nProvider,
