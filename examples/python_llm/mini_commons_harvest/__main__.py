@@ -12,9 +12,6 @@ def add_arguments(parser):
     parser.add_argument(
         "--rule", choices=["greedy", "conserve", "signal"], default="greedy"
     )
-    parser.add_argument(
-        "--protocol", choices=["legacy", "factorial-v1"], default="legacy"
-    )
     parser.add_argument("--message-delivery", choices=["on", "off"], default="on")
     parser.add_argument("--drought-start", type=int, default=0)
     parser.add_argument("--drought-duration", type=int, default=0)

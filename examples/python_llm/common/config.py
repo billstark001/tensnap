@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 def integer(value: object, name: str, low: int, high: int) -> int:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{name} must be an integer in [{low}, {high}]")
+        raise TypeError(f"{name} must be an integer in [{low}, {high}]")
     if not math.isfinite(value) or int(value) != value or not low <= value <= high:
         raise ValueError(f"{name} must be an integer in [{low}, {high}]")
     return int(value)
@@ -20,7 +20,7 @@ def integer(value: object, name: str, low: int, high: int) -> int:
 
 def probability(value: object, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{name} must be between zero and one")
+        raise TypeError(f"{name} must be between zero and one")
     if not math.isfinite(value) or not 0 <= value <= 1:
         raise ValueError(f"{name} must be between zero and one")
     return float(value)
@@ -81,19 +81,19 @@ class LLMConfig:
             else "{}"
         )
         try:
-            kwargs = dict(
-                api_key=values.get("LLM_API_KEY")
+            kwargs = {
+                "api_key": values.get("LLM_API_KEY")
                 or values.get("DEEPSEEK_API_KEY")
                 or values.get("API_SECRET")
                 or values.get("OPENAI_API_KEY", ""),
-                base_url=base_url,
-                model=values.get("LLM_MODEL", "deepseek-flash"),
-                max_calls=int(values.get("LLM_MAX_CALLS", "32")),
-                max_tokens=int(values.get("LLM_MAX_TOKENS", "128")),
-                timeout=float(values.get("LLM_TIMEOUT", "45")),
-                temperature=float(values.get("LLM_TEMPERATURE", "0.7")),
-                extra_body=json.loads(values.get("LLM_EXTRA_BODY", default_extra)),
-            )
+                "base_url": base_url,
+                "model": values.get("LLM_MODEL", "deepseek-flash"),
+                "max_calls": int(values.get("LLM_MAX_CALLS", "32")),
+                "max_tokens": int(values.get("LLM_MAX_TOKENS", "128")),
+                "timeout": float(values.get("LLM_TIMEOUT", "45")),
+                "temperature": float(values.get("LLM_TEMPERATURE", "0.7")),
+                "extra_body": json.loads(values.get("LLM_EXTRA_BODY", default_extra)),
+            }
         except (ValueError, TypeError):
             raise ValueError("Invalid numeric or JSON LLM configuration") from None
         kwargs.update(

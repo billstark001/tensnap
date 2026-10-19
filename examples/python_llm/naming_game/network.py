@@ -39,7 +39,8 @@ class ContactNetwork:
         nx.freeze(self.graph)
         self.adjacency = [sorted(self.graph.neighbors(i)) for i in range(n)]
 
-    def _ring(self, group, degree):
+    def _add_regular_ring(self, group: list[int], degree: int) -> None:
+        """Join each node to degree/2 neighbors in each direction."""
         self.graph.add_edges_from(
             (node, group[(i + offset) % len(group)])
             for i, node in enumerate(group)
@@ -49,20 +50,31 @@ class ContactNetwork:
     def _build(self):
         n, order = len(self.agent_ids), self._order
         if self.topology == "complete":
-            self.graph.add_edges_from((i, j) for i in range(n) for j in range(i + 1, n))
+            self.graph = nx.complete_graph(n)
         elif self.topology == "ring":
-            self._ring(list(range(n)), 2)
+            self.graph = nx.cycle_graph(n)
         elif self.topology == "community":
-            self._ring(order[: n // 2], self.degree)
-            self._ring(order[n // 2 :], self.degree)
-            a, b, c, d = order[0], order[1], order[n // 2], order[n // 2 + 1]
-            self.graph.remove_edges_from(((a, b), (c, d)))
-            self.graph.add_edges_from(((a, c), (b, d)))
+            self._build_communities()
         else:
-            self._ring(order, self.degree)
+            self._add_regular_ring(order, self.degree)
             self._mix(20 * n * self.degree)
 
-    def _mix(self, proposals):
+    def _build_communities(self) -> None:
+        """Replace one edge per community with two degree-preserving bridges."""
+        midpoint = len(self.agent_ids) // 2
+        left, right = self._order[:midpoint], self._order[midpoint:]
+        self._add_regular_ring(left, self.degree)
+        self._add_regular_ring(right, self.degree)
+        self.graph.remove_edges_from(((left[0], left[1]), (right[0], right[1])))
+        self.graph.add_edges_from(((left[0], right[0]), (left[1], right[1])))
+
+    def _mix(self, proposals: int) -> None:
+        """Propose simple edge swaps; undo those that disconnect the graph.
+
+        NetworkX also provides connected_double_edge_swap. This explicit loop
+        fixes the proposal count, edge ordering and random consumption for the
+        experiment; using that generator defines a different graph sample.
+        """
         for _ in range(proposals):
             edges = sorted((min(a, b), max(a, b)) for a, b in self.graph.edges)
             (a, b), (c, d) = self._rng.sample(edges, 2)

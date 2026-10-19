@@ -12,9 +12,6 @@ def add_arguments(parser):
         default="complete",
     )
     parser.add_argument("--exploration", type=float, default=0.05)
-    parser.add_argument(
-        "--protocol", choices=["legacy", "factorial-v1"], default="legacy"
-    )
     parser.add_argument("--degree", type=int, default=4)
     parser.add_argument("--committed", type=int, default=0)
     parser.add_argument("--committed-name", choices=["Q", "M"], default="M")

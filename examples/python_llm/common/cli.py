@@ -191,7 +191,7 @@ def main(kind: str, model_type, config_type, add_arguments, load_view) -> None:
     args = parser(kind, config_type(), add_arguments).parse_args()
     try:
         code = asyncio.run(execute(kind, model_type, config_type, load_view, args))
-    except (ValueError, DecisionError) as exc:
+    except (TypeError, ValueError, DecisionError) as exc:
         print(f"Example stopped: {exc}", file=sys.stderr)
         code = 2
     except KeyboardInterrupt:

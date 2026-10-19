@@ -1,0 +1,126 @@
+{
+  "source_commit": "15ea092056534c33cd5843473f09d1e3e979dd32",
+  "normalization": "Current checkpoint version 2; omit removed protocol field. All model state, both RNG states, config and metrics remain in the digest.",
+  "cases": [
+    {
+      "kind": "naming",
+      "config": {
+        "seed": 7,
+        "topology": "complete",
+        "rule": "wsls",
+        "committed": 0,
+        "label_order": "QM"
+      },
+      "steps": 240,
+      "sha256": "e9fba014271b5b808fcac30e7227859da05ffb2c64db7bfb96c82dd130510333"
+    },
+    {
+      "kind": "naming",
+      "config": {
+        "seed": 7,
+        "topology": "ring",
+        "rule": "wsls",
+        "committed": 0,
+        "label_order": "MQ"
+      },
+      "steps": 240,
+      "sha256": "5fa65a85cc820666a4f68fdf0db4a5427e3a76312853eb566d90cd01fb7788cc"
+    },
+    {
+      "kind": "naming",
+      "config": {
+        "seed": 7,
+        "topology": "mixed",
+        "rule": "frequency",
+        "committed": 0,
+        "label_order": "QM"
+      },
+      "steps": 240,
+      "sha256": "b63dc93fe121931781a65548e5315c43665e8c0f92db25e28535d2a778da5663"
+    },
+    {
+      "kind": "naming",
+      "config": {
+        "seed": 7,
+        "topology": "community",
+        "rule": "frequency",
+        "committed": 4,
+        "label_order": "MQ"
+      },
+      "steps": 240,
+      "sha256": "ce0f0c1f292266b708c389d4148bbc63332b634219e2a6932b7ac5a16c75e4bc"
+    },
+    {
+      "kind": "commons",
+      "config": {
+        "seed": 1,
+        "rule": "greedy",
+        "message_delivery": "on",
+        "drought_start": 4,
+        "drought_duration": 6
+      },
+      "steps": 180,
+      "sha256": "92c362d77ca7ef6fa815bc19e6b4754ee867803318da25826fac6db61db006bb"
+    },
+    {
+      "kind": "commons",
+      "config": {
+        "seed": 1,
+        "rule": "greedy",
+        "message_delivery": "off",
+        "drought_start": 4,
+        "drought_duration": 6
+      },
+      "steps": 180,
+      "sha256": "307e629d9f17ec8b03936a8f13a7c3345a9243394c8bfe61043d3dc362f98882"
+    },
+    {
+      "kind": "commons",
+      "config": {
+        "seed": 1,
+        "rule": "conserve",
+        "message_delivery": "on",
+        "drought_start": 4,
+        "drought_duration": 6
+      },
+      "steps": 180,
+      "sha256": "6f8a13a69f3dc5c7c9f0a21739897c5346eef3d2146dcdf33aac19479aab5099"
+    },
+    {
+      "kind": "commons",
+      "config": {
+        "seed": 1,
+        "rule": "conserve",
+        "message_delivery": "off",
+        "drought_start": 4,
+        "drought_duration": 6
+      },
+      "steps": 180,
+      "sha256": "ec738cfff05bf840644caae8e93a61608d2825b83a8fab328a8062be67dedd23"
+    },
+    {
+      "kind": "commons",
+      "config": {
+        "seed": 1,
+        "rule": "signal",
+        "message_delivery": "on",
+        "drought_start": 4,
+        "drought_duration": 6
+      },
+      "steps": 180,
+      "sha256": "890228a6e80a7e9bd6e5634fd948b7f0c339ae84eb3666de5d3dd7d7e48b3cde"
+    },
+    {
+      "kind": "commons",
+      "config": {
+        "seed": 1,
+        "rule": "signal",
+        "message_delivery": "off",
+        "drought_start": 4,
+        "drought_duration": 6
+      },
+      "steps": 180,
+      "sha256": "9151a8bc1db079a8b95e94930af70f6e5650d00716f646986be6236b14937651"
+    }
+  ]
+}

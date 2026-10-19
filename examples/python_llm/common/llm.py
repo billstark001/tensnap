@@ -60,7 +60,7 @@ class DecisionTape:
                     item["fingerprint"],
                 )
                 if not isinstance(item["response"], dict):
-                    raise ValueError("Invalid decision tape response")
+                    raise TypeError("Invalid decision tape response")
                 if key in self._records and self._records[key] != item:
                     raise ValueError("Conflicting decisions in replay tape")
                 self._records[key] = item
@@ -158,7 +158,7 @@ class DecisionTape:
                 raise ValueError("incomplete")
             answer = json.loads(choice["message"]["content"])
             if not isinstance(answer, dict):
-                raise ValueError("non-object")
+                raise TypeError("non-object")
         except (ValueError, TypeError, KeyError, IndexError):
             raise DecisionError(
                 "LLM must return a complete JSON object; no retry attempted"

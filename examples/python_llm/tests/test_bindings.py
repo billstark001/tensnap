@@ -27,6 +27,7 @@ async def test_projection_reset_restore_monitors_and_clock(kind, factory):
     assert {"selected_agent", "metrics", "inference"} <= set(scenario.monitors)
     assert "reseed" in scenario.actions
     assert "scene.restore.checkpoint" in scenario.capabilities
+    assert scenario.state_schema_version == "2"
     assert "scene.restore.projected" not in scenario.capabilities
     await scenario._ensure_initialized()
     initial = scenario.environments["main"].build_state()

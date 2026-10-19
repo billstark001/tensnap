@@ -75,7 +75,6 @@ async def naming(args, directory):
     config = NamingConfig(
         agents=args.agents,
         degree=args.degree,
-        protocol="factorial-v1",
         topology="mixed",
         exploration=args.exploration,
         rule=args.naming_rule,
@@ -281,7 +280,6 @@ async def commons(args, directory):
     config = CommonsConfig(
         agents=args.agents,
         regrowth=args.regrowth,
-        protocol="factorial-v1",
         drought_start=args.drought_start,
         drought_duration=args.drought_duration,
         drought_multiplier=args.drought_multiplier,
@@ -481,6 +479,11 @@ def main():
             "git_head": subprocess.check_output(
                 ["git", "rev-parse", "HEAD"], cwd=root, text=True
             ).strip(),
+            "git_dirty": bool(
+                subprocess.check_output(
+                    ["git", "status", "--porcelain", "--", "."], cwd=root, text=True
+                ).strip()
+            ),
         }
         report["inference"] = {"mode": "rule", "live_calls": 0, "cost_cny": 0}
         write(args.output / "report.json", report)
@@ -494,7 +497,7 @@ def main():
                 }
             )
         )
-    except (ValueError, FileExistsError) as exc:
+    except (TypeError, ValueError, FileExistsError) as exc:
         raise SystemExit(f"Experiment stopped: {exc}") from None
 
 

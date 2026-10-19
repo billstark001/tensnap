@@ -129,7 +129,6 @@ class CommonsView(ModelView):
     @monitor("treatment", "Delivery / drought / fertile components", render_hint="tree")
     def treatment(self):
         return {
-            "protocol": self.model.config.protocol,
             "message_delivery": self.model.config.message_delivery,
             "drought_start": self.model.config.drought_start,
             "drought_duration": self.model.config.drought_duration,

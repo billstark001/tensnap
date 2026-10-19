@@ -20,13 +20,14 @@ class CheckpointModel:
 
     model_id: str
     config_type: Any
+    checkpoint_version = 2
 
     def capture(self) -> dict:
         """Detach a complete continuation state, excluding credentials and paid usage."""
         return copy.deepcopy(
             {
                 "model_id": self.model_id,
-                "version": 1,
+                "version": self.checkpoint_version,
                 "config": asdict(self.config),
                 "tick": self.tick,
                 "random_state": json.dumps(self.rng.getstate()),
@@ -39,8 +40,13 @@ class CheckpointModel:
 
     def restore(self, payload: dict) -> None:
         """Validate a fresh candidate, then install it without rewinding request costs."""
-        if (payload.get("model_id"), payload.get("version")) != (self.model_id, 1):
-            raise ValueError("Checkpoint model or schema mismatch")
+        if (payload.get("model_id"), payload.get("version")) != (
+            self.model_id,
+            self.checkpoint_version,
+        ):
+            raise ValueError(
+                "Checkpoint model or schema mismatch; historical checkpoints require the Git snapshot described in HISTORY.md"
+            )
         if payload.get("uses_provider") != (self.provider is not None):
             raise ValueError("Checkpoint policy mode mismatch")
         tick = integer(payload["tick"], "checkpoint tick", 0, 10**9)

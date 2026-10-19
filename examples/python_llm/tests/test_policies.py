@@ -1,9 +1,8 @@
-"""Exact network compatibility, raw notes, and bounded policy correction."""
+"""Deterministic networks, complete notes, and bounded policy correction."""
 
 import copy
 import hashlib
 import json
-from decimal import Decimal
 
 import networkx as nx
 import pytest
@@ -13,7 +12,6 @@ from examples.python_llm.common.llm import DecisionError
 from examples.python_llm.mini_commons_harvest.model import MiniCommons
 from examples.python_llm.naming_game.model import NamingConfig, NamingGame
 from examples.python_llm.naming_game.network import ContactNetwork
-from examples.python_llm.repair_pilot import CumulativeLedger
 
 
 @pytest.mark.parametrize(
@@ -62,7 +60,7 @@ async def test_long_note_is_retained_and_only_display_is_shortened():
             self.cursor += 1
             return {"name": "Q", "note": note}
 
-    model = NamingGame(NamingConfig(protocol="factorial-v1"), Tape())
+    model = NamingGame(NamingConfig(), Tape())
     await model.step()
     for identity in model.last_interaction["players"]:
         player = next(p for p in model.agents if p.id == identity)
@@ -113,16 +111,3 @@ async def test_exhausted_correction_is_bounded_and_model_stays_atomic():
         await model.step()
     assert model.capture() == before
     assert len(tape.requests) == 2
-
-
-def test_repair_budget_subtracts_both_previous_stages(tmp_path):
-    previous = {
-        "guard_debit_cny": "6.06032750",
-        "peak_cost_upper_cny": "4.848262",
-        "live_requests": 3975,
-    }
-    ledger = CumulativeLedger(tmp_path / "budget.jsonl", previous)
-    assert ledger.limit == Decimal("5.43967250")
-    assert ledger.max_calls == 1025
-    assert ledger.status()["combined_guard_debit_cny"] == "6.06032750"
-    assert ledger.status()["combined_limit_cny"] == "11.5"

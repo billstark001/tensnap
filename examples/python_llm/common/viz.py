@@ -103,7 +103,7 @@ async def build_scenario(model, view_type, port=8765):
         port=port,
         step_interval=0.1,
         model_id=model.model_id,
-        state_schema_version="1",
+        state_schema_version=str(model.checkpoint_version),
     )
     view.scenario = scenario
     scenario.add_all(view)

@@ -28,7 +28,6 @@ class NamingConfig:
     memory: int = 5
     topology: str = "complete"
     exploration: float = 0.05
-    protocol: str = "legacy"
     degree: int = 4
     committed: int = 0
     committed_name: str = "M"
@@ -43,8 +42,6 @@ class NamingConfig:
         probability(self.exploration, "exploration")
         if self.topology not in ("complete", "ring", "mixed", "community"):
             raise ValueError("Unknown contact topology")
-        if self.protocol not in ("legacy", "factorial-v1"):
-            raise ValueError("Unknown naming protocol")
         if self.rule not in ("wsls", "frequency"):
             raise ValueError("Unknown naming rule")
         integer(self.degree, "degree", 2, 198)
@@ -58,12 +55,6 @@ class NamingConfig:
             self.agents % 2 or self.degree % 2 or self.degree >= self.agents // 2
         ):
             raise ValueError("Regular networks need even N, even degree, degree < N/2")
-        if self.protocol == "legacy" and (
-            self.topology in ("mixed", "community")
-            or self.committed
-            or self.rule != "wsls"
-        ):
-            raise ValueError("New mechanisms require --protocol factorial-v1")
 
 
 @dataclass
@@ -129,17 +120,20 @@ class NamingGame(CheckpointModel):
         self.agents = self._create_agents()
         self.recent_edges: list[Interaction] = []
         self.last_interaction: dict = {}
-        self.network = ContactNetwork(
-            [p.id for p in self.agents],
-            seed=self.config.seed,
-            topology=self.config.topology,
-            degree=self.config.degree,
-        )
+        self.network = self._contact_network(self.config)
         assignment = list(range(self.config.agents))
         random.Random(self.config.seed ^ 0xC01117).shuffle(assignment)
         self.minority_order = assignment
         self.events: list[dict] = []
         self.treatment_tick = 0
+
+    def _contact_network(self, config: NamingConfig) -> ContactNetwork:
+        return ContactNetwork(
+            [p.id for p in self.agents],
+            seed=config.seed,
+            topology=config.topology,
+            degree=config.degree,
+        )
 
     @property
     def committed_ids(self) -> set[str]:
@@ -161,9 +155,9 @@ class NamingGame(CheckpointModel):
         config = replace(
             self.config, topology=topology, committed=committed, committed_name=name
         )
-        candidate = type(self)(config, self.provider)
+        network = self._contact_network(config)
         self.config = config
-        self.network = candidate.network
+        self.network = network
         self.treatment_tick = self.tick
         self.events = []
 
@@ -185,32 +179,16 @@ class NamingGame(CheckpointModel):
         return {
             "run_seed": self.config.seed,
             "agent": player.id,
-            "names": self.policy_rng.sample(
-                (
-                    list(self.config.label_order)
-                    if self.config.protocol == "factorial-v1"
-                    else ["Q", "M"]
-                ),
-                2,
-            ),
+            "names": self.policy_rng.sample(list(self.config.label_order), 2),
             "recent_interactions": player.history,
         }
 
     def rule_decision(self, player: Player) -> dict:
-        """Repeat success, switch after failure, or explore symmetrically."""
+        """Explore first; otherwise use the selected local-memory rule."""
         if not player.history or self.policy_rng.random() < self.config.exploration:
-            choice = self.policy_rng.choice(
-                list(self.config.label_order)
-                if self.config.protocol == "factorial-v1"
-                else ["Q", "M"]
-            )
+            choice = self.policy_rng.choice(list(self.config.label_order))
         elif self.config.rule == "frequency":
-            count = sum(event["other"] == "Q" for event in player.history)
-            choice = (
-                ("Q" if 2 * count > len(player.history) else "M")
-                if 2 * count != len(player.history)
-                else self.policy_rng.choice(list(self.config.label_order))
-            )
+            choice = self._most_frequent_partner_name(player)
         else:
             last = player.history[-1]
             choice = last["own"] if last["success"] else last["other"]
@@ -222,6 +200,16 @@ class NamingGame(CheckpointModel):
                 else "symmetric win-stay / lose-switch baseline"
             ),
         }
+
+    def _most_frequent_partner_name(self, player: Player) -> str:
+        """Estimate the next partner's choice from personal history alone."""
+        q_count = sum(event["other"] == "Q" for event in player.history)
+        m_count = len(player.history) - q_count
+        if q_count == m_count:
+            return self.policy_rng.choice(list(self.config.label_order))
+        if q_count > m_count:
+            return "Q"
+        return "M"
 
     def _choose_pair(self) -> list[Player]:
         """Sample an allowed contact using only the environmental RNG."""
@@ -242,7 +230,7 @@ class NamingGame(CheckpointModel):
                 "note": "exogenous fixed-name policy",
             }
         system = SYSTEM
-        if self.config.protocol == "factorial-v1" and self.config.label_order == "MQ":
+        if self.config.label_order == "MQ":
             system = system.replace("Q or M", "M or Q")
         answer = (
             await self.provider.decide(system, self.observation(player))
@@ -284,8 +272,7 @@ class NamingGame(CheckpointModel):
             "names": [d["name"] for d in decisions],
             "success": success,
         }
-        if self.config.protocol == "factorial-v1":
-            self.events = [*self.events, self.last_interaction][-4 * len(self.agents) :]
+        self.events = [*self.events, self.last_interaction][-4 * len(self.agents) :]
 
     def _remember_interaction(
         self, player: Player, partner: Player, own: dict, other: dict, success: bool
@@ -315,77 +302,74 @@ class NamingGame(CheckpointModel):
             if contact.age < 12 and (contact.source, contact.target) != (source, target)
         ] + [Interaction(source, target, self.tick, success)]
 
+    def _target_share(self, names: list[str | None]) -> float | None:
+        """Keep an empty sample distinct from zero target choices."""
+        if not names:
+            return None
+        return names.count(self.config.committed_name) / len(names)
+
     def metrics(self) -> dict:
-        """Return researcher metrics; these are never provided to the agents."""
-        n = len(self.agents)
-        counts = {name: sum(p.name == name for p in self.agents) for name in ("Q", "M")}
-        values = {
-            "tick": self.tick,
-            "q_share": counts["Q"] / n,
-            "m_share": counts["M"] / n,
-            "unseen_share": 1 - sum(counts.values()) / n,
-            "coordination_rate": self.successes / self.tick if self.tick else 0,
-            "last_choice_agreement": max(counts.values()) / n,
-        }
-        if self.config.protocol == "factorial-v1":
-            ordinary = [p for p in self.agents if p.id not in self.committed_ids]
-            choices = [
-                (agent, name)
-                for event in self.events
-                for agent, name in zip(event["players"], event["names"], strict=True)
-                if agent not in self.committed_ids
-            ]
-            target = self.config.committed_name
-            community_shares = []
-            for group in (0, 1):
-                names = [
-                    name for agent, name in choices if self.communities[agent] == group
+        """Measure population state and recent ordinary choices separately."""
+        population = len(self.agents)
+        q_count = sum(player.name == "Q" for player in self.agents)
+        m_count = sum(player.name == "M" for player in self.agents)
+        fixed_ids = self.committed_ids
+        ordinary = [player for player in self.agents if player.id not in fixed_ids]
+        recent_choices = [
+            (agent_id, name)
+            for event in self.events
+            for agent_id, name in zip(event["players"], event["names"], strict=True)
+            if agent_id not in fixed_ids
+        ]
+        community_shares = [
+            self._target_share(
+                [
+                    name
+                    for agent_id, name in recent_choices
+                    if self.communities[agent_id] == group
                 ]
-                community_shares.append(
-                    sum(name == target for name in names) / len(names)
-                    if names
-                    else None
-                )
-            values.update(
-                {
-                    "ordinary_target_last_share": sum(
-                        p.name == target for p in ordinary
-                    )
-                    / len(ordinary),
-                    "ordinary_target_choice_share": (
-                        sum(name == target for _, name in choices) / len(choices)
-                        if choices
-                        else None
-                    ),
-                    "ordinary_recent_choices": len(choices),
-                    "rolling_coordination": (
-                        sum(e["success"] for e in self.events) / len(self.events)
-                        if self.events
-                        else None
-                    ),
-                    "community_target_choice_shares": community_shares,
-                    "community_gap": (
-                        abs(community_shares[0] - community_shares[1])
-                        if None not in community_shares
-                        else None
-                    ),
-                    "window_interactions": len(self.events),
-                    "treatment_tick": self.treatment_tick,
-                }
             )
-        return values
+            for group in (0, 1)
+        ]
+        community_gap = None
+        if None not in community_shares:
+            community_gap = abs(community_shares[0] - community_shares[1])
+
+        return {
+            "tick": self.tick,
+            "q_share": q_count / population,
+            "m_share": m_count / population,
+            "unseen_share": 1 - (q_count + m_count) / population,
+            "coordination_rate": self.successes / self.tick if self.tick else 0,
+            "last_choice_agreement": max(q_count, m_count) / population,
+            "ordinary_target_last_share": self._target_share(
+                [p.name for p in ordinary]
+            ),
+            "ordinary_target_choice_share": self._target_share(
+                [name for _, name in recent_choices]
+            ),
+            "ordinary_recent_choices": len(recent_choices),
+            "rolling_coordination": (
+                sum(event["success"] for event in self.events) / len(self.events)
+                if self.events
+                else None
+            ),
+            "community_target_choice_shares": community_shares,
+            "community_gap": community_gap,
+            "window_interactions": len(self.events),
+            "treatment_tick": self.treatment_tick,
+        }
 
     def state(self) -> dict:
         """Return model state for the common checkpoint serializer."""
-        state = {
+        return {
             "agents": [asdict(player) for player in self.agents],
             "successes": self.successes,
             "recent_edges": [asdict(contact) for contact in self.recent_edges],
             "last_interaction": self.last_interaction,
+            "events": self.events,
+            "treatment_tick": self.treatment_tick,
         }
-        if self.config.protocol == "factorial-v1":
-            state.update(events=self.events, treatment_tick=self.treatment_tick)
-        return state
 
     def load_state(self, state: dict) -> None:
         """Validate checkpoint state on a detached candidate before installing it."""
@@ -423,24 +407,23 @@ class NamingGame(CheckpointModel):
         self.successes = integer(state["successes"], "successes", 0, 10**9)
         self.recent_edges = edges
         self.last_interaction = state["last_interaction"]
-        if self.config.protocol == "factorial-v1":
-            self.treatment_tick = integer(
-                state["treatment_tick"], "treatment tick", 0, self.tick
-            )
-            events = state["events"]
-            if not isinstance(events, list) or len(events) > 4 * len(players):
-                raise ValueError("Invalid naming measurement window")
-            previous = self.treatment_tick
-            for event in events:
-                integer(event["tick"], "measurement tick", previous + 1, self.tick)
-                previous = event["tick"]
-                if (
-                    len(event["players"]) != 2
-                    or len(set(event["players"])) != 2
-                    or not set(event["players"]) <= ids
-                    or len(event["names"]) != 2
-                    or any(name not in ("Q", "M") for name in event["names"])
-                    or event["success"] != (event["names"][0] == event["names"][1])
-                ):
-                    raise ValueError("Invalid naming measurement event")
-            self.events = events
+        self.treatment_tick = integer(
+            state["treatment_tick"], "treatment tick", 0, self.tick
+        )
+        events = state["events"]
+        if not isinstance(events, list) or len(events) > 4 * len(players):
+            raise ValueError("Invalid naming measurement window")
+        previous = self.treatment_tick
+        for event in events:
+            integer(event["tick"], "measurement tick", previous + 1, self.tick)
+            previous = event["tick"]
+            if (
+                len(event["players"]) != 2
+                or len(set(event["players"])) != 2
+                or not set(event["players"]) <= ids
+                or len(event["names"]) != 2
+                or any(name not in ("Q", "M") for name in event["names"])
+                or event["success"] != (event["names"][0] == event["names"][1])
+            ):
+                raise ValueError("Invalid naming measurement event")
+        self.events = events

@@ -67,7 +67,9 @@ def test_invalid_restore_does_not_partially_mutate_model(factory, corrupt):
 async def test_naming_simultaneous_answers_and_failed_second_answer_are_atomic():
     class Provider:
         cursor = 0
-        observations = []
+
+        def __init__(self):
+            self.observations = []
 
         async def decide(self, system, observation):
             self.observations.append(copy.deepcopy(observation))

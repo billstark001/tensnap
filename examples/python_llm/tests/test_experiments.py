@@ -15,7 +15,7 @@ from examples.python_llm.naming_game.model import NamingConfig, NamingGame
 @pytest.mark.parametrize("seed", [1, 7, 42])
 def test_network_degree_connectivity_partition_and_bridges(seed):
     graphs = [
-        NamingGame(NamingConfig(seed=seed, protocol="factorial-v1", topology=topology))
+        NamingGame(NamingConfig(seed=seed, topology=topology))
         for topology in ("mixed", "community")
     ]
     for model in graphs:
@@ -37,7 +37,7 @@ def test_network_degree_connectivity_partition_and_bridges(seed):
 
 @pytest.mark.asyncio
 async def test_naming_treatment_preserves_memories_and_schedules_and_excludes_minority():
-    model = NamingGame(NamingConfig(protocol="factorial-v1", topology="mixed"))
+    model = NamingGame(NamingConfig(topology="mixed"))
     for _ in range(200):
         await model.step()
     prefix = model.capture()
@@ -86,11 +86,7 @@ async def test_naming_treatment_preserves_memories_and_schedules_and_excludes_mi
 @pytest.mark.parametrize("rule", ["wsls", "frequency"])
 async def test_naming_label_counterbalance_and_fixed_policy_avoids_provider(rule):
     models = [
-        NamingGame(
-            NamingConfig(
-                protocol="factorial-v1", topology="mixed", label_order=order, rule=rule
-            )
-        )
+        NamingGame(NamingConfig(topology="mixed", label_order=order, rule=rule))
         for order in ("QM", "MQ")
     ]
     for _ in range(300):
@@ -115,9 +111,7 @@ async def test_naming_label_counterbalance_and_fixed_policy_avoids_provider(rule
         async def decide(self, *_):
             raise AssertionError("Fixed agents must not call the LLM")
 
-    fixed = NamingGame(
-        NamingConfig(protocol="factorial-v1", committed=4), NeverCalled()
-    )
+    fixed = NamingGame(NamingConfig(committed=4), NeverCalled())
     player = next(player for player in fixed.agents if player.id in fixed.committed_ids)
     assert (await fixed._choose_name(player))["name"] == "M"
 
@@ -125,9 +119,7 @@ async def test_naming_label_counterbalance_and_fixed_policy_avoids_provider(rule
 def test_frequency_uses_partner_memory_and_chart_has_numeric_empty_sample():
     from examples.python_llm.naming_game.viz import NamingView
 
-    model = NamingGame(
-        NamingConfig(protocol="factorial-v1", rule="frequency", exploration=0)
-    )
+    model = NamingGame(NamingConfig(rule="frequency", exploration=0))
     assert model.metrics()["ordinary_target_choice_share"] is None
     assert NamingView(model).ordinary_target_share == 0.0
     player = model.agents[0]
@@ -158,11 +150,7 @@ async def test_missing_prefix_is_retained_and_empty_community_is_undefined(tmp_p
 
 def test_signal_receives_advice_while_off_keeps_message_generation():
     models = [
-        MiniCommons(
-            CommonsConfig(
-                protocol="factorial-v1", rule="signal", message_delivery=delivery
-            )
-        )
+        MiniCommons(CommonsConfig(rule="signal", message_delivery=delivery))
         for delivery in ("on", "off")
     ]
     for model in models:
@@ -189,7 +177,7 @@ def test_signal_receives_advice_while_off_keeps_message_generation():
 
 
 def test_environment_field_does_not_shift_with_cell_eligibility():
-    config = CommonsConfig(seed=42, protocol="factorial-v1", regrowth=0.7)
+    config = CommonsConfig(seed=42, regrowth=0.7)
     a, b = MiniCommons(config), MiniCommons(config)
     # First fertile cell full in A, eligible in B. A distant unchanged region
     # must receive exactly the same random tests over repeated rounds.
@@ -214,7 +202,6 @@ def test_environment_field_does_not_shift_with_cell_eligibility():
 @pytest.mark.asyncio
 async def test_drought_boundaries_restore_and_irreversible_component_extinction():
     config = CommonsConfig(
-        protocol="factorial-v1",
         rule="signal",
         drought_start=2,
         drought_duration=3,
