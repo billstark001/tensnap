@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { useRemoteInspection } from './useRemoteInspection';
 import type { AgentInspectionSource, InspectionResponse } from './agent-inspection-source';
+import { Scenario } from '@tensnap/core';
 afterEach(() => vi.useRealTimers());
 it('keeps one request in flight, cancels stale radius requests and clears acknowledgements for a new source', async () => {
   vi.useFakeTimers();
@@ -138,4 +139,49 @@ it('closes rather than showing stale data forever after repeated failures', asyn
   expect(source.read).toHaveBeenCalledTimes(5);
   expect(close).toHaveBeenCalledTimes(1);
   hook.unmount();
+});
+
+it('acknowledges a revision only after the receiver successfully loads it and bounds load failures', async () => {
+  const { initI18n } = await import('../i18n');
+  await initI18n('en');
+  vi.useFakeTimers();
+  const ref = { environmentId: 'world', layerId: 'agents', agentId: 1 };
+  const response: InspectionResponse = {
+    token: 'revision',
+    view: {
+      scene: new Scenario().dump(),
+      assetHashes: {},
+      inspection: {
+        kind: 'none',
+        reason: 'uniform-environment',
+        ref,
+        agent: { id: 1 },
+        environmentId: 'world',
+        layerId: 'agents',
+        radius: 3,
+        neighbors: [],
+        neighborCount: 0,
+        edges: [],
+      },
+    },
+  };
+  const read = vi.fn().mockResolvedValue(response);
+  const close = vi.fn();
+  const source = { read };
+  const hook = renderHook(() => useRemoteInspection(source, 3, true, close));
+  const load = vi.spyOn(hook.result.current.scenario, 'load').mockImplementation(() => {
+    throw new Error('Rendering resource unavailable');
+  });
+  try {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    expect(read).toHaveBeenCalledTimes(5);
+    expect(read.mock.calls.every(([request]) => request.token === undefined)).toBe(true);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+  } finally {
+    load.mockRestore();
+    hook.unmount();
+  }
 });

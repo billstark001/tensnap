@@ -41,9 +41,7 @@ export function useRemoteInspection(
           controller.signal,
         );
         if (controller.signal.aborted) return;
-        failures = 0;
         if ('view' in response) {
-          token.current = response.token;
           if (!response.view) {
             close();
             return;
@@ -53,7 +51,9 @@ export function useRemoteInspection(
           response.view.scene.assets.forEach((asset) => assets.current.set(asset.meta.id, asset));
           scenario.load({ ...response.view.scene, assets: [...assets.current.values()] });
           setInspection(response.view.inspection);
+          token.current = response.token;
         }
+        failures = 0;
         // Schedule after completion: slow IPC can never accumulate a queue.
         timer = setTimeout(() => {
           void read();
