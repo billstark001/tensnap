@@ -328,3 +328,45 @@ describe('portable persistence', () => {
     expect(reads).toBe(count);
   });
 });
+
+describe('binary recording persistence', () => {
+  it('normalizes real scene dumps, mixed frame assets and checkpoints before deduplication', async () => {
+    const { decodeMessagePack, encodeBytesAsDataUrl } = await import('@tensnap/protocol');
+    const scene = new Scenario();
+    await scene.assets.receiveData('icon', 'same-hash', 'image/png', Uint8Array.of(1, 2, 3));
+    const snapshot = createSingleSnapshot(scene.dump());
+    snapshot.metadata.checkpoint = {
+      model_id: 'model',
+      encoding: 'opaque',
+      data: encodeBytesAsDataUrl(Uint8Array.of(5, 6)),
+    };
+    snapshot.frames.push({
+      index: 1,
+      timestamp: 1,
+      kind: 'sync',
+      controls: [],
+      messages: [
+        {
+          type: 'asset_data',
+          payload: {
+            id: 'icon',
+            hash: 'same-hash',
+            mime: 'image/png',
+            data: Uint8Array.of(1, 2, 3),
+          },
+        },
+      ],
+    });
+    const encoded = encodeRecordingFile(snapshot, { format: 'msgpack' });
+    const raw = decodeMessagePack<any>(encoded);
+    expect(raw.assetTable['same-hash'].data).toEqual(Uint8Array.of(1, 2, 3));
+    expect(raw.recording.metadata.checkpoint.data).toEqual(Uint8Array.of(5, 6));
+    expect(raw.recording.segments[0].data).toBeInstanceOf(Uint8Array);
+    expect(typeof snapshot.initial.scenario.assets[0].data).toBe('string');
+    const json = encodeRecordingFile(snapshot, { format: 'json' });
+    const fromJson = decodeRecordingFile(json).snapshot;
+    const converted = decodeMessagePack<any>(encodeRecordingFile(fromJson, { format: 'msgpack' }));
+    expect(converted.assetTable['same-hash'].data).toEqual(Uint8Array.of(1, 2, 3));
+    expect(decodeRecordingFile(encoded).snapshot.frames).toEqual(fromJson.frames);
+  });
+});

@@ -257,6 +257,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
       className={clsx(styles.browserContainer, className)}
       onDragOver={allowUpload ? handleDragOver : undefined}
       onDragLeave={allowUpload ? handleDragLeave : undefined}
+      data-file-picker
       onDrop={allowUpload ? handleDrop : undefined}
     >
       <div className={styles.browserHeader}>

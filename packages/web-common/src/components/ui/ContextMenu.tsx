@@ -1,92 +1,67 @@
-import * as RadixContextMenu from '@radix-ui/react-context-menu';
+import {
+  cloneElement,
+  forwardRef,
+  useContext,
+  type HTMLAttributes,
+  type ReactElement,
+  type ReactNode,
+  type MouseEvent,
+} from 'react';
+import * as Menu from './DropdownMenu';
 import * as styles from './ContextMenu.css';
 import clsx from 'clsx';
-import { forwardRef } from 'react';
-
-export interface ContextMenuProps extends RadixContextMenu.ContextMenuProps {
-  trigger?: React.ReactNode;
+export interface ContextMenuProps {
+  trigger?: ReactNode;
   disabled?: boolean;
-  portalProps?: RadixContextMenu.ContextMenuPortalProps;
-  contentProps?: RadixContextMenu.ContextMenuContentProps;
+  children?: ReactNode;
 }
-
-export const Root = (props: ContextMenuProps) => {
-  const { trigger, disabled, portalProps, contentProps, children, ...rootProps } = props;
-
+function ContextTrigger({ trigger, disabled }: { trigger?: ReactNode; disabled?: boolean }) {
+  const menu = useContext(Menu.MenuContext);
+  if (!trigger) return null;
+  const child = trigger as ReactElement<HTMLAttributes<HTMLElement>>;
+  return cloneElement(child, {
+    onContextMenu: (event: MouseEvent<HTMLElement>) => {
+      child.props.onContextMenu?.(event);
+      if (disabled || event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopPropagation();
+      menu.show(event.clientX, event.clientY, event.currentTarget);
+    },
+  });
+}
+export function Root({ trigger, disabled, children }: ContextMenuProps) {
   return (
-    <RadixContextMenu.Root {...rootProps}>
-      {trigger ? (
-        <RadixContextMenu.Trigger asChild disabled={disabled}>
-          {trigger}
-        </RadixContextMenu.Trigger>
-      ) : null}
-      <RadixContextMenu.Portal {...portalProps}>
-        <RadixContextMenu.Content
-          {...contentProps}
-          style={{ zIndex: 1_000, ...contentProps?.style }}
-          className={clsx(styles.contextMenu, contentProps?.className)}
-        >
-          {children}
-        </RadixContextMenu.Content>
-      </RadixContextMenu.Portal>
-    </RadixContextMenu.Root>
+    <Menu.Root>
+      <ContextTrigger trigger={trigger} disabled={disabled} />
+      <Menu.Content className={styles.contextMenu}>{children}</Menu.Content>
+    </Menu.Root>
   );
-};
-
+}
 export type ItemVariant = 'normal' | 'danger';
-const itemVariants = {
-  normal: styles.contextMenuItem,
-  danger: styles.contextMenuItemDanger,
-};
-
 export const Item = forwardRef<
-  HTMLHeadingElement,
-  RadixContextMenu.ContextMenuItemProps & {
-    variant?: ItemVariant;
-  }
->((props, ref) => {
-  const { variant = 'normal', className, ...rest } = props;
-  return (
-    <RadixContextMenu.Item ref={ref} className={clsx(itemVariants[variant], className)} {...rest} />
-  );
-});
-Item.displayName = 'ContextMenu.Item';
-
+  HTMLButtonElement,
+  React.ComponentProps<typeof Menu.Item> & { variant?: ItemVariant }
+>(({ variant, className, ...props }, ref) => (
+  <Menu.Item
+    {...props}
+    ref={ref}
+    className={clsx(
+      variant === 'danger' ? styles.contextMenuItemDanger : styles.contextMenuItem,
+      className,
+    )}
+  />
+));
+export const Label = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
+  <Menu.Label {...props} ref={ref} className={clsx(styles.contextMenuLabel, props.className)} />
+));
 export const Separator = forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & {
-    vertical?: boolean;
-  }
->((props, ref) => {
-  return (
-    <div
-      {...props}
-      ref={ref}
-      className={clsx(styles.contextMenuSeparator, props.vertical && 'vertical')}
-    />
-  );
-});
-Separator.displayName = 'ContextMenu.Separator';
-
-export const Label = forwardRef<HTMLParagraphElement, RadixContextMenu.ContextMenuLabelProps>(
-  (props, ref) => {
-    return (
-      <RadixContextMenu.Label
-        {...props}
-        ref={ref}
-        className={clsx(styles.contextMenuLabel, props.className)}
-      />
-    );
-  },
-);
-Label.displayName = 'ContextMenu.Label';
-
-export const Trigger = RadixContextMenu.Trigger;
-
-export default {
-  Root,
-  Trigger,
-  Item,
-  Label,
-  Separator,
-};
+  HTMLAttributes<HTMLDivElement> & { vertical?: boolean }
+>(({ vertical, ...props }, ref) => (
+  <Menu.Separator
+    {...props}
+    ref={ref}
+    className={clsx(styles.contextMenuSeparator, vertical && 'vertical', props.className)}
+  />
+));
+export default { Root, Item, Label, Separator };

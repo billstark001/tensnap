@@ -22,7 +22,7 @@ import {
   Timer,
   MoreHorizontal,
 } from 'lucide-react';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as DropdownMenu from '@tensnap/web-common/components/ui/DropdownMenu';
 import * as styles from '@/styles/toolbar.css';
 import { useButtonControls } from '../../hooks/useButtonControls';
 import { useScenarioUndoRedoStore } from '@/store/undo-redo';
@@ -193,19 +193,18 @@ export function SimulationControlTools() {
               <MoreHorizontal size={16} />
             </button>
           </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
-              {overflowActions.map((action) => (
-                <DropdownMenu.Item
-                  key={action.id}
-                  className={styles.dropdownItem}
-                  onSelect={() => requestModelAction(action.id)}
-                >
-                  {`Model action: ${action.label}`}
-                </DropdownMenu.Item>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
+
+          <DropdownMenu.Content className={styles.dropdownContent} sideOffset={5}>
+            {overflowActions.map((action) => (
+              <DropdownMenu.Item
+                key={action.id}
+                className={styles.dropdownItem}
+                onSelect={() => requestModelAction(action.id)}
+              >
+                {`Model action: ${action.label}`}
+              </DropdownMenu.Item>
+            ))}
+          </DropdownMenu.Content>
         </DropdownMenu.Root>
       </ToolGroupContainer>
       {runActionId && !isSnapshotSource && (

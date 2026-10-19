@@ -93,8 +93,12 @@ export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
   app.get('/v1/runs', (c) => c.json({ run: runtime.getRun() }));
 
   app.post('/v1/runs', async (c) => {
-    const body = await readJsonObject<BoundedRunSpec>(c.req);
-    const { record, ...spec } = body;
+    const body = await readJsonObject<BoundedRunSpec & { recordingFormat?: 'json' | 'msgpack' }>(
+      c.req,
+    );
+    const { record, recordingFormat, ...spec } = body;
+    validateFields({ recordingFormat }, { recordingFormat: ['json', 'msgpack'] });
+    if (recordingFormat && !record) invalid('recordingFormat requires record.');
     validateFields(
       spec,
       {
@@ -149,7 +153,12 @@ export function registerRunRoutes(app: Hono, runtime: AgentRuntime): void {
     }
     try {
       return c.json(
-        { run: runtime.startRun({ ...spec, record: (record as unknown) === true ? {} : record }) },
+        {
+          run: runtime.startRun(
+            { ...spec, record: (record as unknown) === true ? {} : record },
+            recordingFormat,
+          ),
+        },
         202,
       );
     } catch (error) {

@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { encodeRecordingFile } from '@tensnap/core/persistence';
 import { frameFromRecording, snapshotFromFrame } from '@tensnap/core/snapshot';
 import { useFileSystem } from '@/store/file-system/provider';
@@ -122,7 +123,7 @@ export interface SnapshotDetailDialogProps extends DialogOpenProps {
 }
 
 /** Offline replay UI. It never writes a replayed state into a live renderer. */
-export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
+const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
   open,
   onOpenChange,
   snapshot,
@@ -145,17 +146,18 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
   const [restoreOpen, setRestoreOpen] = useState(false);
   const { saveFileAs, writeFile } = useFileSystem();
   const toast = useToast();
+  const saveFormat = useSettingsStore((state) => state.saveFormat);
   const exportRecording = async (singleFrame: boolean) => {
     if (!snapshot) return;
     try {
       const target = singleFrame
         ? snapshotFromFrame(frameFromRecording(snapshot, frame))
         : snapshot;
-      const bytes = encodeRecordingFile(target);
+      const bytes = encodeRecordingFile(target, { format: saveFormat });
       const file = await saveFileAs({
         title: singleFrame ? t`Export current frame` : t`Export full recording`,
-        defaultPath: `${target.metadata.id}.tensnap-recording.json`,
-        filters: [{ name: 'TenSnap recording', extensions: ['json'] }],
+        defaultPath: `${target.metadata.id}.tensnap-recording.${saveFormat}`,
+        filters: [{ name: 'TenSnap recording', extensions: [saveFormat] }],
       });
       if (!file) return;
       await writeFile(file.path, uint8ArrayToArrayBuffer(bytes));
@@ -400,3 +402,8 @@ export const SnapshotDetailDialog: React.FC<SnapshotDetailDialogProps> = ({
     </>
   );
 };
+
+export const SnapshotDetailDialog = defineDialog(
+  'SnapshotDetailDialog',
+  SnapshotDetailDialogContent,
+);

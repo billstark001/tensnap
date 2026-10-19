@@ -60,6 +60,7 @@ export interface CliOptions extends SkillOptions {
   height?: number;
   viewport?: { x: number; y: number; width: number; height: number };
   format?: 'png' | 'jpeg';
+  recordingFormat?: 'json' | 'msgpack';
   quality?: number;
   maxActions?: number;
   maxSteps?: number;

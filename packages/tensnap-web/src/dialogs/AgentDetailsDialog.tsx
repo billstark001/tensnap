@@ -1,3 +1,6 @@
+import type { AgentInspectionSource } from '../workbench/agent-inspection-source';
+import { useRemoteInspection } from '../workbench/useRemoteInspection';
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import Form from '@tensnap/web-common/components/ui/Form';
 import * as styles from './AgentDetailsDialog.css';
@@ -14,6 +17,7 @@ import { ValueInspector } from '../components/value-inspector';
 // Union type for all agent types
 
 interface AgentDetailsDialogProps {
+  inspectionSource?: AgentInspectionSource;
   agent: AgentRenderState | null;
   /** Stable identity used to resolve live data while the inspector is open. */
   agentRef?: AgentRef | null;
@@ -172,7 +176,7 @@ const PositionInfo = ({
   return null;
 };
 
-export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
+function AgentDetailsDialogContent(props: AgentDetailsDialogProps) {
   const {
     agent,
     onClose,
@@ -181,6 +185,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     resolveAssetUrl,
     agentRef,
     scenario,
+    inspectionSource,
   } = props;
 
   const isOpen = open ?? !!agent;
@@ -188,11 +193,22 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
   const [radius, setRadius] = useState(3);
   const [radiusInput, setRadiusInput] = useState('3');
   const [follow, setFollow] = useState(true);
-  const inspection = useLiveInspection(scenario, agentRef, radius, isOpen);
-  const liveAgent = scenario && agentRef ? inspection?.agent : agent;
+  const localInspection = useLiveInspection(
+    scenario,
+    agentRef,
+    radius,
+    isOpen && !inspectionSource,
+  );
+  const remote = useRemoteInspection(inspectionSource, radius, isOpen, onClose);
+  const inspection = inspectionSource ? remote.inspection : localInspection;
+  const liveAgent = inspectionSource
+    ? inspection?.agent
+    : scenario && agentRef
+      ? inspection?.agent
+      : agent;
   const inspectionEnvironment =
     inspection && inspection.kind !== 'none'
-      ? scenario?.getEnvironment(inspection.environmentId)
+      ? (inspectionSource ? remote.scenario : scenario)?.getEnvironment(inspection.environmentId)
       : undefined;
 
   useEffect(() => {
@@ -201,14 +217,28 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     }
   }, [agentRef, inspection, onClose, scenario]);
 
-  if (!liveAgent) return null;
+  if (!liveAgent)
+    return inspectionSource && isOpen ? (
+      <Dialog.Root open onOpenChange={(open) => !open && onClose()} size="lg">
+        <Dialog.Title>
+          <Trans>Agent Details</Trans>
+        </Dialog.Title>
+        <Dialog.Body aria-busy="true">
+          <progress />
+        </Dialog.Body>
+        <Dialog.CloseButton />
+      </Dialog.Root>
+    ) : null;
 
   const size = liveAgent.size || 16;
   const color = liveAgent.color || '#666666';
   const assetId = liveAgent.icon?.startsWith('asset:')
     ? liveAgent.icon.slice('asset:'.length)
     : null;
-  const assetUrl = assetId ? resolveAssetUrl?.(assetId) : undefined;
+  const assetResolver = inspectionSource
+    ? (id: string) => remote.scenario.assets.getUrl(id)
+    : resolveAssetUrl;
+  const assetUrl = assetId ? assetResolver?.(assetId) : undefined;
   const hasCustomData = liveAgent.data !== undefined && Object.keys(liveAgent.data).length > 0;
   const showUnavailableSpatialContext = agentType !== 'uniform' && inspection?.kind === 'none';
 
@@ -242,7 +272,7 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
             <AgentInspectionCanvas
               inspection={inspection}
               environment={inspectionEnvironment}
-              resolveAssetUrl={resolveAssetUrl}
+              resolveAssetUrl={assetResolver}
               follow={follow}
             />
             <div className={styles.inspectionControls}>
@@ -343,3 +373,5 @@ export function AgentDetailsDialog(props: AgentDetailsDialogProps) {
     </Dialog.Root>
   );
 }
+
+export const AgentDetailsDialog = defineDialog('AgentDetailsDialog', AgentDetailsDialogContent);

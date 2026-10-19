@@ -250,6 +250,12 @@ You can record a configured continuous run, or start/stop recording from the sna
 
 Saved projects deduplicate resolved image/data assets across the live scenario and every recording. MessagePack is the compact default; JSON remains useful for inspecting a project by hand. Both preserve the same project semantics.
 
+Recording exports use the same JSON/MessagePack setting, for both full timelines and individual frames. Older JSON projects and recordings remain readable; file contents determine their format.
+
+Drag files onto the workbench to open each in a new tab. Drag recordings onto the Snapshots panel to append their full timelines to that tab, with one undo operation per file. If no tab exists, the first recording creates an offline tab and the remainder join it. Dropping a project on Snapshots extracts its recordings without connecting its source. Duplicate recording IDs and corrupt files report errors; other files in the batch continue. A local recording-store link opens its own offline tab because its timeline remains in its owning local store. The file picker's upload area continues to import files into its filesystem.
+
+The browser uses movable/resizable WinBox dialog windows. Desktop dialogs use native windows, with content and commands tied to the project from which they opened, even after switching project tabs. Closing that project closes its auxiliary windows.
+
 On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. The desktop native menu follows the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
 
 ## Inspecting Agents and Trails

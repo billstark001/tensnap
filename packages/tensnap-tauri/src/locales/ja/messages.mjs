@@ -1,1 +1,1 @@
-/*eslint-disable*/export const messages=JSON.parse("{}");
+/*eslint-disable*/export const messages=JSON.parse("{\"-G3aj-\":[\"ファイルのインポートに失敗しました\"],\"U8fPGG\":[\"ファイルのドラッグ＆ドロップの初期化に失敗しました\"]}");

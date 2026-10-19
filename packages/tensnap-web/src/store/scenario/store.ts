@@ -1,3 +1,4 @@
+import { validateRecording } from '@tensnap/core/persistence';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import { createStoreContext } from '@/utils/zustand';
 import { createAutoLayout } from '@/utils/view/pack';
@@ -1000,6 +1001,23 @@ export const createScenarioStore = (
 
       getScreenshotCapture: (id: string) => {
         return screenshotCaptures.get(id);
+      },
+
+      importSnapshots: (inputs) => {
+        const before = get().snapshots;
+        const ids = new Set(before.map((snapshot) => snapshot.metadata.id));
+        const incoming = inputs.map((snapshot) => {
+          validateRecording(snapshot);
+          if (ids.has(snapshot.metadata.id))
+            throw new Error(`Recording ID already exists: ${snapshot.metadata.id}`);
+          ids.add(snapshot.metadata.id);
+          return structuredClone(snapshot);
+        });
+        if (!incoming.length) throw new Error('The file contains no recordings.');
+        const after = [...before, ...incoming];
+        policies.assertSnapshotSetAllowed?.(after);
+        set({ snapshots: after });
+        recordSnapshotChange('Import recordings', before, after);
       },
 
       addSnapshot: (draft) => {

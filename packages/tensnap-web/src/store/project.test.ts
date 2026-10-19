@@ -732,7 +732,7 @@ describe('ProjectStore', () => {
     await useProjectStore.getState().open('/allowed/assets.json', 1);
     const opened = useProjectStore.getState().projects[1]!.useScenarioStore.getState();
     expect(opened.dump().assets[0]?.data).toBe(asset.data);
-    expect(opened.snapshots[0]?.initial.scenario.assets[0]?.data).toBe(asset.data);
+    expect(opened.snapshots[0]?.initial.scenario.assets[0]?.data).toEqual(Uint8Array.of(1, 2, 3));
   });
 
   it('extracts recordings from an external online project without opening its source', async () => {

@@ -153,6 +153,7 @@ function summarizeEnvironments(snapshot: ScenarioSnapshot): SceneSummary['enviro
 export class AgentRuntime extends EventEmitter {
   private readonly client: RendererClient;
   private readonly renderer: RendererSession;
+  private readonly recordingFormats = new Map<string, 'json' | 'msgpack'>();
   private readonly recordingEntries = new Map<string, RecordingStatus>();
   private collectionStarting = false;
   private activeCollection?: RecordingCollection;
@@ -667,6 +668,7 @@ export class AgentRuntime extends EventEmitter {
   async saveFrame(
     output: string,
     options: {
+      recordingFormat?: 'json' | 'msgpack';
       checkpoint?: 'none' | 'if-supported' | 'required';
       envIds?: string[];
       chartIds?: string[];
@@ -704,7 +706,10 @@ export class AgentRuntime extends EventEmitter {
     return this.renderer.restoreFrame(frame, { ...options, signal });
   }
 
-  startRecording(options: RecordingOptions = {}): RecordingStatus {
+  startRecording(
+    options: RecordingOptions = {},
+    format: 'json' | 'msgpack' = 'json',
+  ): RecordingStatus {
     this.assertCollectionAvailable();
     this.assertConnected();
     if (
@@ -721,6 +726,7 @@ export class AgentRuntime extends EventEmitter {
     const { layerCodecImplementations: _policies, ...values } = actual;
     const statusOptions = structuredClone(values);
     const snapshot = this.renderer.startRecording(actual);
+    this.recordingFormats.set(snapshot.metadata.id, format);
     this.manualRecordingId = snapshot.metadata.id;
     const entry = this.recordingEntries.get(snapshot.metadata.id)!;
     entry.options = statusOptions;
@@ -746,9 +752,9 @@ export class AgentRuntime extends EventEmitter {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
-    for (const name of files.filter((file) => file.endsWith('.tensnap-recording.json'))) {
+    for (const name of files.filter((file) => /\.tensnap-recording\.(json|msgpack)$/.test(file))) {
       const path = join(this.context.recordingsDir, name);
-      const encodedId = name.slice(0, -'.tensnap-recording.json'.length);
+      const encodedId = name.replace(/\.tensnap-recording\.(json|msgpack)$/, '');
       let id: string;
       try {
         id = decodeURIComponent(encodedId);
@@ -772,7 +778,11 @@ export class AgentRuntime extends EventEmitter {
     return structuredClone([...this.recordingEntries.values()]);
   }
 
-  async exportRecording(id: string, outputPath: string): Promise<RecordingStatus> {
+  async exportRecording(
+    id: string,
+    outputPath: string,
+    format: 'json' | 'msgpack' = 'json',
+  ): Promise<RecordingStatus> {
     await this.listRecordings();
     const entry = this.recordingEntries.get(id);
     if (!entry || entry.status !== 'persisted' || !entry.path)
@@ -780,7 +790,7 @@ export class AgentRuntime extends EventEmitter {
     const document = decodeRecordingFile(await readFile(entry.path));
     await writeFileAtomically(
       outputPath,
-      encodeRecordingFile(document.snapshot, { origin: document.origin }),
+      encodeRecordingFile(document.snapshot, { origin: document.origin, format }),
     );
     return { ...structuredClone(entry), path: outputPath };
   }
@@ -902,8 +912,19 @@ export class AgentRuntime extends EventEmitter {
     return entry ? { path: entry.path, ...(entry.collection?.status ?? entry.status) } : undefined;
   }
 
-  startRun(spec: BoundedRunSpec) {
+  startRun(spec: BoundedRunSpec, format: 'json' | 'msgpack' = 'json') {
     this.assertCollectionAvailable();
+    if (spec.record && format === 'msgpack') {
+      const id = spec.record.id ?? crypto.randomUUID();
+      spec = { ...spec, record: { ...spec.record, id } };
+      this.recordingFormats.set(id, format);
+      try {
+        return this.startRunInternal(spec);
+      } catch (error) {
+        this.recordingFormats.delete(id);
+        throw error;
+      }
+    }
     return this.startRunInternal(spec);
   }
 
@@ -1093,7 +1114,9 @@ export class AgentRuntime extends EventEmitter {
         this.recordingCompletionByRun.delete(removable[0]);
       }
       const write = Promise.resolve()
-        .then(() => this.recordingWriter(this.context, id, snapshot))
+        .then(() =>
+          this.recordingWriter(this.context, id, snapshot, this.recordingFormats.get(id) ?? 'json'),
+        )
         .then(
           (path) => {
             entry.status = 'persisted';
@@ -1107,6 +1130,7 @@ export class AgentRuntime extends EventEmitter {
           },
         )
         .then(() => {
+          this.recordingFormats.delete(id);
           this.emitRuntimeEvent('recording.persistence', { runId, ...entry });
         });
       this.recordingCompletionByRun.set(runId ?? id, write);

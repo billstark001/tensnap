@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -12,12 +13,12 @@ interface EditObjectIdDialogProps {
   title: React.ReactNode;
   currentId: string;
   objectExists: boolean;
-  validateId: (nextId: string) => string | null;
+  validateId: (nextId: string) => string | null | Promise<string | null>;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (nextId: string) => void;
+  onSubmit: (nextId: string) => void | Promise<void>;
 }
 
-export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
+const EditObjectIdDialogContent: React.FC<EditObjectIdDialogProps> = ({
   open,
   title,
   currentId,
@@ -30,14 +31,18 @@ export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
   const toast = useToast();
   const [draftId, setDraftId] = useState(currentId);
 
-  const handleSubmit = () => {
-    const validationError = validateId(draftId);
-    if (validationError) {
-      toast.warning(_(msg`Invalid ID`), validationError);
-      // return;
+  const handleSubmit = async () => {
+    try {
+      const validationError = await validateId(draftId);
+      if (validationError) {
+        toast.warning(_(msg`Invalid ID`), validationError);
+        return;
+      }
+      await onSubmit(draftId);
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(String(error));
     }
-    onSubmit(draftId);
-    onOpenChange(false);
   };
 
   return (
@@ -82,3 +87,5 @@ export const EditObjectIdDialog: React.FC<EditObjectIdDialogProps> = ({
     </Dialog.Root>
   );
 };
+
+export const EditObjectIdDialog = defineDialog('EditObjectIdDialog', EditObjectIdDialogContent);

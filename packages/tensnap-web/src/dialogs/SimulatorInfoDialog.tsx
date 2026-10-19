@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { Scenario } from '@tensnap/core';
 import type { SimulatorInfoPayload } from '@tensnap/protocol';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -14,7 +15,7 @@ export interface SimulatorInfoDialogProps {
 }
 
 /** Immutable session identity and mutable scenario metadata in one safe view. */
-export function SimulatorInfoDialog({
+function SimulatorInfoDialogContent({
   open,
   onOpenChange,
   simulatorInfo,
@@ -144,3 +145,5 @@ export function SimulatorInfoDialog({
     </Dialog.Root>
   );
 }
+
+export const SimulatorInfoDialog = defineDialog('SimulatorInfoDialog', SimulatorInfoDialogContent);

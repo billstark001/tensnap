@@ -130,6 +130,7 @@ export interface ScenarioStore {
   unregisterScreenshotCapture: (id: string) => void;
   getScreenshotCapture: (id: string) => ScreenshotCaptureHandler | undefined;
 
+  importSnapshots: (snapshots: Snapshot[]) => void;
   addSnapshot: (draft?: SnapshotDraft) => void;
   /** Captures an exact checkpoint when the connected simulator supports it. */
   captureSnapshot: (draft?: SnapshotDraft) => Promise<void>;

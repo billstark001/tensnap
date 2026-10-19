@@ -11,3 +11,5 @@ export * from './types';
 export { createRenderPlanFromSnapshot } from './utils/plan';
 
 export * from './query';
+
+export { createAgentInspectionView, type AgentInspectionView } from './inspection-view';

@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as DropdownMenu from '@tensnap/web-common/components/ui/DropdownMenu';
 import { t } from '@lingui/core/macro';
 import * as styles from './FileSystemBrowser.css';
 
@@ -43,13 +43,12 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         <DropdownMenu.Trigger asChild>
           <button className={styles.actionButton}>{t`More Actions`}</button>
         </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content className={styles.dropdownContent}>
-            <DropdownMenu.Item className={styles.dropdownItem} onClick={() => onExport()}>
-              {t`Export`}
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
+
+        <DropdownMenu.Content className={styles.dropdownContent}>
+          <DropdownMenu.Item className={styles.dropdownItem} onClick={() => onExport()}>
+            {t`Export`}
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
       </DropdownMenu.Root>
       <input
         ref={fileInputRef}

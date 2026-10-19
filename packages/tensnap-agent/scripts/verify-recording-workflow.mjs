@@ -94,6 +94,12 @@ try {
   assert.ok(recording);
   const file = join(output, 'run.tensnap-recording.json');
   await run(['recording', 'export', recording.id, '--output', file], true);
+  const packedFile = join(output, 'run.tensnap-recording.msgpack');
+  await run(
+    ['recording', 'export', recording.id, '--recording-format', 'msgpack', '--output', packedFile],
+    true,
+  );
+  assert.notEqual((await readFile(packedFile))[0], '{'.charCodeAt(0));
   const imageFlags = [
     '--env',
     'main',
@@ -106,6 +112,28 @@ try {
   ];
   const saved = join(output, 'saved');
   await run(['frame', 'save', '--checkpoint', 'required', '--output', saved, ...imageFlags], true);
+  const packedSaved = join(output, 'saved-msgpack');
+  await run(
+    [
+      'frame',
+      'save',
+      '--checkpoint',
+      'required',
+      '--recording-format',
+      'msgpack',
+      '--output',
+      packedSaved,
+    ],
+    true,
+  );
+  const packedManifest = JSON.parse(await readFile(join(packedSaved, 'manifest.json'), 'utf8'));
+  assert.equal(packedManifest.state.path, 'state.recording.msgpack');
+  assert.equal((await run(['frame', 'compare', saved, packedSaved])).equal, true);
+  const packedRestored = await run(
+    ['frame', 'restore', packedSaved, '--mode', 'checkpoint', '--history', 'replace'],
+    true,
+  );
+  assert.equal(packedRestored.modelStatus, 'restored');
   await run(['action', 'run', 'step', '--wait'], true);
   const a = join(output, 'branch-a');
   await run(['frame', 'save', '--checkpoint', 'required', '--output', a], true);
@@ -129,11 +157,38 @@ try {
     true,
     5,
   );
+  const { run: packedRun } = await run(
+    [
+      'run',
+      'start',
+      'start',
+      '--max-actions',
+      '2',
+      '--record',
+      '--recording-format',
+      'msgpack',
+      '--wait',
+      '--until',
+      'persisted',
+    ],
+    true,
+  );
+  assert.equal(packedRun.recording.status, 'persisted');
+  const packedCatalog = await run(['recording', 'list'], true);
+  assert.ok(
+    packedCatalog.recordings.some(
+      (entry) => entry.runId === packedRun.id && entry.path.endsWith('.tensnap-recording.msgpack'),
+    ),
+  );
+  await run(['recording', 'start', '--recording-format', 'msgpack', '--max-frames', '10'], true);
+  await run(['action', 'run', 'step', '--wait'], true);
+  await run(['recording', 'stop'], true);
   await run(['runtime', 'down'], true);
   daemonStarted = false;
   model.kill('SIGTERM');
   await once(model, 'exit');
   const info = await run(['recording', 'info', file]);
+  assert.deepEqual(await run(['recording', 'info', packedFile]), info);
   assert.equal(info.frameCount, 6); // Five actions plus the stop lifecycle, with repeated model time.
   const selected = await run(['recording', 'seek', file, '--time', '5', '--match', 'last']);
   assert.equal(selected.position.frame, 6);
@@ -148,6 +203,20 @@ try {
     history,
     ...imageFlags,
   ]);
+  const packedHistory = join(output, 'history-msgpack');
+  await run([
+    'recording',
+    'export-frame',
+    packedFile,
+    '--frame',
+    '3',
+    '--recording-format',
+    'msgpack',
+    '--output',
+    packedHistory,
+    ...imageFlags,
+  ]);
+  assert.equal((await run(['frame', 'compare', history, packedHistory])).equal, true);
   const png = join(output, 'offline.png');
   await run([
     'recording',
@@ -190,6 +259,7 @@ try {
     rerunSceneEqual: comparison.equal,
     rerunCheckpointEqual: comparison.checkpointEqual,
     offlineImageEqual: true,
+    messagePackRoundTrip: true,
     commands,
   };
   await writeFile(join(output, 'acceptance.json'), JSON.stringify(report, null, 2) + '\n');

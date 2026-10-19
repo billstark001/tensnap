@@ -12,3 +12,11 @@ msgstr ""
 "Last-Translator: \n"
 "Language-Team: \n"
 "Plural-Forms: \n"
+
+#: src/hooks/useTauriFileDrop.ts:64
+msgid "File drop initialization failed"
+msgstr "ファイルのドラッグ＆ドロップの初期化に失敗しました"
+
+#: src/hooks/useTauriFileDrop.ts:57
+msgid "File import failed"
+msgstr "ファイルのインポートに失敗しました"

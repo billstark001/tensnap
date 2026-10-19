@@ -188,7 +188,10 @@ export const RightPanel = () => {
   };
 
   return (
-    <div className={styles.rightPanel}>
+    <div
+      className={styles.rightPanel}
+      data-file-drop-target={activeTab === 'snapshots' ? 'snapshots' : undefined}
+    >
       <div className={styles.panelHeader}>
         <h3>
           <Trans>Inspector</Trans>

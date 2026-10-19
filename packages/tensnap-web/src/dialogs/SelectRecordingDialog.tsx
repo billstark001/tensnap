@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import type { DialogOpenProps } from '@tensnap/web-common/react';
@@ -8,7 +9,7 @@ export interface SelectRecordingDialogProps extends DialogOpenProps {
   snapshots?: Snapshot[];
   onSelect?: (id: string) => void;
 }
-export function SelectRecordingDialog({
+function SelectRecordingDialogContent({
   open,
   onOpenChange,
   snapshots = [],
@@ -57,3 +58,8 @@ export function SelectRecordingDialog({
     </Dialog.Root>
   );
 }
+
+export const SelectRecordingDialog = defineDialog(
+  'SelectRecordingDialog',
+  SelectRecordingDialogContent,
+);

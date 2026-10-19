@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { RendererSession, RestoreChartPolicy } from '@tensnap/core/runtime';
 import {
   materializeSnapshot,
@@ -315,7 +316,7 @@ function SceneRestoreDialogContent({
   );
 }
 
-export function SceneRestoreDialog({
+function SceneRestoreDialogWindow({
   open,
   onOpenChange,
   snapshot,
@@ -354,3 +355,5 @@ export function SceneRestoreDialog({
     </Dialog.Root>
   );
 }
+
+export const SceneRestoreDialog = defineDialog('SceneRestoreDialog', SceneRestoreDialogWindow);

@@ -1,3 +1,8 @@
+import { t } from '@lingui/core/macro';
+import { createWorkbenchShell } from '@tensnap/web-common/workbench/layout';
+import { ContentIsland } from '@tensnap/web-common/workbench/portal-content';
+import { installBrowserFileDrop } from './workbench/file-drop';
+import { useToast } from './store/toast';
 import * as styles from './styles/app.css';
 import { ToolBarLayout } from './components/toolbar/ToolBarLayout';
 import { MenuBarContext, type MenuBarConfig } from './components/toolbar/MenuBarContext';
@@ -6,7 +11,7 @@ import { useLoadingStore } from './store/loading';
 import { ProjectPanel } from './components/project/ProjectPanel';
 import { SettingsDialog } from './dialogs/SettingsDialog';
 import { useSettingsStore } from './store/settings';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useLayoutEffect } from 'react';
 
 export function App(props: Partial<MenuBarConfig>) {
   const { loading: fileSystemLoading } = useFileSystem();
@@ -19,6 +24,17 @@ export function App(props: Partial<MenuBarConfig>) {
     onExit,
     onToggleFullscreen,
   } = props;
+
+  const toast = useToast();
+  useEffect(
+    () =>
+      environment === 'web'
+        ? installBrowserFileDrop((errors) => {
+            if (errors.length) toast.error(t`File import failed`, errors.join('\n'));
+          })
+        : undefined,
+    [environment, toast],
+  );
 
   const [browserFullscreen, setBrowserFullscreen] = useState(
     () => typeof document !== 'undefined' && Boolean(document.fullscreenElement),
@@ -47,15 +63,24 @@ export function App(props: Partial<MenuBarConfig>) {
   const settingsDialogOpen = useSettingsStore((store) => store.settingsDialogOpen);
   const setSettingsDialogOpen = useSettingsStore((store) => store.setSettingsDialogOpen);
 
+  const [shell] = useState(createWorkbenchShell);
+  useLayoutEffect(() => {
+    document.getElementById('root')!.append(shell.element);
+    return () => shell.dispose();
+  }, [shell]);
   return (
-    <div className={styles.appContainer}>
+    <>
       <MenuBarContext.Provider
         value={{ environment, system, isFullscreen, onExit, onToggleFullscreen: toggleFullscreen }}
       >
-        <ToolBarLayout />
+        <ContentIsland host={shell.toolbar}>
+          <ToolBarLayout />
+        </ContentIsland>
       </MenuBarContext.Provider>
 
-      <ProjectPanel />
+      <ContentIsland host={shell.workspace}>
+        <ProjectPanel />
+      </ContentIsland>
 
       <SettingsDialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen} />
 
@@ -65,6 +90,6 @@ export function App(props: Partial<MenuBarConfig>) {
           <div className={styles.spinner} />
         </div>
       )}
-    </div>
+    </>
   );
 }

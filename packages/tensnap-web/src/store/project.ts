@@ -47,6 +47,7 @@ export interface ProjectOpenResult {
 export interface ProjectContextScheme {
   id: string;
   filepath: string | null;
+  displayName?: string;
   source: ProjectSource;
   modelIdentity?: SnapshotModelIdentity;
   snapshotPlayback?: SnapshotPlaybackSource;
@@ -63,6 +64,7 @@ export interface ProjectContextScheme {
 }
 
 function projectTabName(project: ProjectContextScheme): string {
+  if (project.displayName) return project.displayName;
   if (!project.filepath)
     return project.source.kind === 'snapshot'
       ? `Snapshot: ${project.source.snapshot_id}`
@@ -161,6 +163,10 @@ export interface ProjectStore {
 
   new: (source: ProjectSource, indexHint?: number) => void;
   open: (filepath: string, indexHint?: number) => Promise<ProjectOpenResult>;
+  openContent: (
+    bytes: Uint8Array,
+    options?: { filepath?: string; name?: string; indexHint?: number },
+  ) => Promise<ProjectOpenResult>;
   save: (index?: number, saveAsPath?: string) => Promise<void>;
   close: (index: number) => void;
   confirmClose: () => void;
@@ -241,10 +247,15 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       throw new Error(`File not found: ${filepath}`);
     }
 
-    const rawContent: unknown =
+    const bytes =
       typeof fileContent.content === 'string'
-        ? JSON.parse(fileContent.content)
-        : decodePersistenceValue(new Uint8Array(fileContent.content));
+        ? new TextEncoder().encode(fileContent.content)
+        : new Uint8Array(fileContent.content);
+    return get().openContent(bytes, { filepath, indexHint });
+  },
+
+  async openContent(bytes, { filepath, name, indexHint } = {}) {
+    const rawContent = decodePersistenceValue(bytes);
     if (
       rawContent &&
       typeof rawContent === 'object' &&
@@ -280,7 +291,8 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const { projects, setActive } = get();
     const targetIndex = projectInsertionIndex(indexHint, projects.length);
 
-    const newProject = createProject(source, filepath, model_identity);
+    const newProject = createProject(source, filepath ?? null, model_identity);
+    newProject.displayName = name;
     newProject.useScenarioStore.setState({ mainView, snapshots });
     if (source.kind === 'snapshot') {
       const snapshot = snapshots.find((entry) => entry.metadata.id === source.snapshot_id);
@@ -384,6 +396,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
 
     project.filepath = filepath;
+    project.displayName = undefined;
     project.modelIdentity = scenarioStore.session.modelIdentity ?? undefined;
     // A user may edit while archival or filesystem writes are pending. Only
     // mark the exact state captured above as saved.
@@ -629,6 +642,14 @@ export async function readRecordingSources(filepath: string): Promise<{
     typeof file.content === 'string'
       ? JSON.parse(file.content)
       : decodePersistenceValue(new Uint8Array(file.content));
+  return parseRecordingSources(raw);
+}
+
+export function parseRecordingSources(raw: unknown): {
+  snapshots: Snapshot[];
+  layout?: ContainerView;
+  storeLink?: ProjectContextScheme['recordingStoreLink'];
+} {
   const link = parseRecordingStoreLink(raw);
   if (link) return { snapshots: [], storeLink: link };
   if (raw && typeof raw === 'object' && 'snapshots' in raw && !('kind' in raw)) {

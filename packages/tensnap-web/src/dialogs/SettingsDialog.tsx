@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { IPFamily } from '@tensnap/network';
 import React, { useState, useCallback, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -22,7 +23,7 @@ import * as styles from './SettingsDialog.css';
 import Form from '@tensnap/web-common/components/ui/Form';
 import { ipFamilyError } from '@/utils/network';
 
-export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
+const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   const { _ } = useLingui();
   const toast = useToast();
 
@@ -544,3 +545,5 @@ export const SettingsDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }
     </Dialog.Root>
   );
 };
+
+export const SettingsDialog = defineDialog('SettingsDialog', SettingsDialogContent);

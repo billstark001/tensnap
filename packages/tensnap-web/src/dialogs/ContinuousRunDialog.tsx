@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { useState } from 'react';
 import { Trans } from '@lingui/react/macro';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
@@ -9,11 +10,11 @@ export interface ContinuousRunDialogProps {
   actionId: string;
   profile?: ContinuousRunProfile;
   onOpenChange: (open: boolean) => void;
-  onRun: (profile: ContinuousRunProfile) => void;
+  onRun: (profile: ContinuousRunProfile) => void | Promise<void>;
 }
 
 /** Configure a bounded run without bypassing the view context menu. */
-export const ContinuousRunDialog = ({
+const ContinuousRunDialogContent = ({
   open,
   actionId,
   profile,
@@ -28,7 +29,8 @@ export const ContinuousRunDialog = ({
   const [record, setRecord] = useState(profile?.record ?? false);
   const [error, setError] = useState<'max-steps' | 'wall-time' | null>(null);
 
-  const submit = () => {
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const submit = async () => {
     const steps = Number(maxSteps);
     const wallTime = maxWallTimeMs.trim() ? Number(maxWallTimeMs) : undefined;
     if (!Number.isInteger(steps) || steps < 1 || steps > 1_000_000) {
@@ -40,13 +42,17 @@ export const ContinuousRunDialog = ({
       return;
     }
 
-    onRun({
-      maxSteps: steps,
-      stopWhen: stopWhen.trim() || undefined,
-      maxWallTimeMs: wallTime,
-      record,
-    });
-    onOpenChange(false);
+    try {
+      await onRun({
+        maxSteps: steps,
+        stopWhen: stopWhen.trim() || undefined,
+        maxWallTimeMs: wallTime,
+        record,
+      });
+      onOpenChange(false);
+    } catch (error) {
+      setSubmitError(String(error));
+    }
   };
 
   return (
@@ -114,6 +120,7 @@ export const ContinuousRunDialog = ({
               <Trans>Record this run</Trans>
             </Form.Label>
           </Form.FieldSet>
+          {submitError && <p role="alert">{submitError}</p>}
           {error === 'max-steps' && (
             <p role="alert">
               <Trans>Maximum steps must be an integer from 1 to 1,000,000.</Trans>
@@ -139,3 +146,5 @@ export const ContinuousRunDialog = ({
     </Dialog.Root>
   );
 };
+
+export const ContinuousRunDialog = defineDialog('ContinuousRunDialog', ContinuousRunDialogContent);

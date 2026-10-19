@@ -1,6 +1,6 @@
 import { useSelectRecordingStore } from '@/dialogs/SelectRecordingDialogStore';
 import { useCallback } from 'react';
-import { useFileSystem } from '@/store/file-system/provider';
+import { getFileSystemState, useFileSystem } from '@/store/file-system/provider';
 import { useWithLoading } from '@/store/loading';
 import { readRecordingSources, useProjectStore } from '@/store/project';
 import { useSettingsStore } from '@/store/settings';
@@ -126,3 +126,18 @@ export const useFileOperations = (): FileOperationsContextValue => {
 
   return contextValue;
 };
+
+/** Resolve the original tab after the save dialog, even if another tab was selected. */
+export async function saveProjectAs(projectId: string): Promise<void> {
+  const format = useSettingsStore.getState().saveFormat;
+  const file = await getFileSystemState().saveFileAs({
+    title: t`Save As`,
+    defaultPath: `project.${format}`,
+    filters: [{ name: 'TenSnap project', extensions: [format] }],
+  });
+  if (!file) return;
+  const store = useProjectStore.getState();
+  const index = store.projects.findIndex((project) => project.id === projectId);
+  if (index < 0) throw new Error('The destination project was closed.');
+  await store.save(index, file.path);
+}

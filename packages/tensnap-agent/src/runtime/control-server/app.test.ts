@@ -164,12 +164,15 @@ it.each([
     body: JSON.stringify({ mode: 'bounded', actionId: 'step', maxSteps: 1, record }),
   });
   expect(response.status).toBe(202);
-  expect(startRun).toHaveBeenCalledExactlyOnceWith({
-    mode: 'bounded',
-    actionId: 'step',
-    maxSteps: 1,
-    record: record === true ? {} : record,
-  });
+  expect(startRun).toHaveBeenCalledExactlyOnceWith(
+    {
+      mode: 'bounded',
+      actionId: 'step',
+      maxSteps: 1,
+      record: record === true ? {} : record,
+    },
+    undefined,
+  );
 });
 
 it('reports recording export filesystem failures as persistence errors', async () => {
@@ -214,3 +217,39 @@ it.each(['action', 'run'] as const)(
     });
   },
 );
+
+it.each(['json', 'msgpack'])(
+  'passes explicit recording format %s through the run API',
+  async (recordingFormat) => {
+    const startRun = vi.fn().mockReturnValue({ id: 'accepted' });
+    const app = buildControlApp(
+      { startRun } as unknown as AgentRuntime,
+      new RuntimeSseBroker(),
+      () => {},
+    );
+    const spec = { mode: 'bounded', actionId: 'step', maxSteps: 1, record: {} };
+    const response = await app.request('/v1/runs', {
+      method: 'POST',
+      body: JSON.stringify({ ...spec, recordingFormat }),
+    });
+    expect(response.status).toBe(202);
+    expect(startRun).toHaveBeenCalledExactlyOnceWith(spec, recordingFormat);
+  },
+);
+it.each([
+  { record: false, recordingFormat: 'msgpack' },
+  { record: true, recordingFormat: 'gzip' },
+])('rejects incompatible recording format options %j', async (options) => {
+  const startRun = vi.fn();
+  const app = buildControlApp(
+    { startRun } as unknown as AgentRuntime,
+    new RuntimeSseBroker(),
+    () => {},
+  );
+  const response = await app.request('/v1/runs', {
+    method: 'POST',
+    body: JSON.stringify({ mode: 'bounded', actionId: 'step', maxSteps: 1, ...options }),
+  });
+  expect(response.status).toBe(400);
+  expect(startRun).not.toHaveBeenCalled();
+});

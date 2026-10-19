@@ -8,7 +8,10 @@ import { FrameSaveError } from '../frame-files';
 export function registerArtifactRoutes(app: Hono, runtime: AgentRuntime): void {
   app.get('/v1/recordings', async (c) => c.json({ recordings: await runtime.listRecordings() }));
   app.post('/v1/recordings', async (c) => {
-    const body = await readJsonObject<RecordingOptions>(c.req, { optional: true });
+    const { recordingFormat, ...body } = await readJsonObject<
+      RecordingOptions & { recordingFormat?: 'json' | 'msgpack' }
+    >(c.req, { optional: true });
+    validateFields({ recordingFormat }, { recordingFormat: ['json', 'msgpack'] });
     validateFields(body, {
       maxSteps: 'integer',
       maxBytes: 'positive',
@@ -17,7 +20,7 @@ export function registerArtifactRoutes(app: Hono, runtime: AgentRuntime): void {
       keyframeEvery: 'integer',
       label: 'string',
     });
-    return c.json({ recording: runtime.startRecording(body) }, 202);
+    return c.json({ recording: runtime.startRecording(body, recordingFormat) }, 202);
   });
   app.post('/v1/recordings/stop', async (c) => {
     const body = await readJsonObject<{ timeoutMs?: number }>(c.req, { optional: true });
@@ -28,9 +31,17 @@ export function registerArtifactRoutes(app: Hono, runtime: AgentRuntime): void {
       : c.json({ recording });
   });
   app.post('/v1/recordings/:id/export', async (c) => {
-    const body = await readJsonObject<{ output: string }>(c.req);
-    validateFields(body, { output: 'string' }, ['output']);
-    return c.json({ recording: await runtime.exportRecording(c.req.param('id'), body.output) });
+    const body = await readJsonObject<{ output: string; recordingFormat?: 'json' | 'msgpack' }>(
+      c.req,
+    );
+    validateFields(body, { output: 'string', recordingFormat: ['json', 'msgpack'] }, ['output']);
+    return c.json({
+      recording: await runtime.exportRecording(
+        c.req.param('id'),
+        body.output,
+        body.recordingFormat,
+      ),
+    });
   });
   app.post('/v1/frames', async (c) => {
     const body = await readJsonObject<
@@ -41,6 +52,7 @@ export function registerArtifactRoutes(app: Hono, runtime: AgentRuntime): void {
       {
         output: 'string',
         checkpoint: ['none', 'if-supported', 'required'],
+        recordingFormat: ['json', 'msgpack'],
         envIds: 'array',
         chartIds: 'array',
         renderOptions: 'object',

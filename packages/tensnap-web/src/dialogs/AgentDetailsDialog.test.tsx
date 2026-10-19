@@ -168,3 +168,20 @@ describe('AgentDetailsDialog', () => {
     }
   });
 });
+
+it('keeps the inspector dismissible while its first native projection is pending', async () => {
+  let signal: AbortSignal | undefined;
+  const read = vi.fn((_request, abort: AbortSignal) => {
+    signal = abort;
+    return new Promise<never>(() => {});
+  });
+  const close = vi.fn();
+  const view = render(
+    <AgentDetailsDialog open agent={null} inspectionSource={{ read }} onClose={close} />,
+  );
+  expect(await screen.findByRole('dialog', { name: 'Agent Details' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+  expect(close).toHaveBeenCalledTimes(1);
+  view.unmount();
+  expect(signal?.aborted).toBe(true);
+});

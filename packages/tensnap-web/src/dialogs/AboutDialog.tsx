@@ -1,10 +1,11 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as dialogStyles from './AboutDialog.css';
 import { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 
-export const AboutDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
+const AboutDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Title>
@@ -83,3 +84,5 @@ export const AboutDialog: React.FC<DialogOpenProps> = ({ open, onOpenChange }) =
     </Dialog.Root>
   );
 };
+
+export const AboutDialog = defineDialog('AboutDialog', AboutDialogContent);

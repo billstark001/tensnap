@@ -19,7 +19,8 @@
         "react/only-export-components": [
           "warn",
           {
-            "allowConstantExport": true
+            "allowConstantExport": true,
+            "customHOCs": ["defineDialog"]
           }
         ],
         "react-hooks/rules-of-hooks": "error",

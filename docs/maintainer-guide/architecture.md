@@ -407,3 +407,14 @@ Memory and IndexedDB adapters own persisted binary buffers, tags, and metadata. 
 The Web host owns worker scheduling, automatic layout, file dialogs and offline tabs using `SnapshotPlaybackSource`. Opening recordings never opens an enclosing project's source. A cursor does not trim the retained recording. The Node agent owns atomic normal-completion file writes, catalog entries, by-ID waits, fixed-scene painters and verified evidence directories. Images and state in one frame use the same capture; live state caches are not evidence manifests.
 
 Compatibility is limited to released file migrations and public API spellings. Frame evidence uses normal-completion commits and does not provide segment-store or crash-tail recovery.
+
+
+## Workbench content and auxiliary windows
+
+`web-common/workbench` owns the DOM layout, splitters, menus and dialog-host contracts. React mounts business content into stable DOM slots through portals or a `ContentDefinition` with `mount`, `update` and `dispose`; optional resize/visibility hooks are available to content implementations. Geometry changes do not remount business content. Web configures the WinBox host. Tauri configures a native dialog runtime and loads registered content IDs in separate WebviewWindows.
+
+The opening project owns the simulator transport and all mutations. Auxiliary windows mount disconnected rendering state and invoke scoped owner callbacks; they never create another simulator connection. Each window has its own request channel, pending-call timeout, subscription and cancellation scope. Initialization failures, owner closure and unmount release listeners, callbacks, spatial indexes and native windows. Content props have a separate version from subscribed state, so receiving a settings/context update does not reset a local form draft. Native menus route to the focused window, whose project commands retain its original project ID. Text cut/copy/paste/select-all use Tauri predefined native menu items.
+
+Native live agent inspection uses `createAgentInspectionSource` and core `createAgentInspectionView`, not `Scenario.dump()`. The owner retains spatial indexes and projects the selected environment's visible agents, relevant edges/trajectories, grid/background layers and referenced assets. The receiving window acknowledges hashes only for received bytes and removes resources that are superseded or no longer referenced. A single request is in flight; the next poll starts 100 ms after completion, with cancellation on radius change or closure. Unchanged revisions return a token only. Large visible populations, grids or retained trajectories still have their own output cost. Web inspection continues using shared local state.
+
+See [workbench validation](workbench-validation.md) for reproducible automated and native interaction checks.

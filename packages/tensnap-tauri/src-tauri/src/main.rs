@@ -6,6 +6,7 @@ mod menu;
 
 use commands::common::*;
 use menu::create_menu;
+use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
@@ -16,6 +17,26 @@ fn main() {
         ])
         .menu(create_menu)
         .on_menu_event(menu::handle_menu_event)
+        .on_window_event(|window, event| {
+            if window.label() == "main"
+                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            {
+                for (label, child) in window.app_handle().webview_windows() {
+                    if label.starts_with("dialog-") {
+                        let _ = child.destroy();
+                    }
+                }
+            } else if window.label().starts_with("dialog-")
+                && matches!(event, tauri::WindowEvent::Destroyed)
+            {
+                let descendant_prefix = format!("{}-", window.label());
+                for (label, child) in window.app_handle().webview_windows() {
+                    if label.starts_with(&descendant_prefix) {
+                        let _ = child.destroy();
+                    }
+                }
+            }
+        })
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())

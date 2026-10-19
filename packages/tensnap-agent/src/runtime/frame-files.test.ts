@@ -237,3 +237,16 @@ it('owns and deduplicates render targets and supports punctuation in public IDs'
   ]);
   expect((await readCapturedFrame(result.directory)).manifest).toEqual(result.manifest);
 });
+
+it('saves and verifies MessagePack frame evidence while retaining JSON defaults', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'tensnap-msgpack-frame-'));
+  roots.push(root);
+  const frame = fixture();
+  const binary = await saveCapturedFrame(frame, join(root, 'binary'), {
+    recordingFormat: 'msgpack',
+  });
+  expect(binary.manifest.state.path).toBe('state.recording.msgpack');
+  expect((await readCapturedFrame(binary.directory)).frame.scene).toEqual(frame.scene);
+  const json = await saveCapturedFrame(frame, join(root, 'json'));
+  expect(json.manifest.state.path).toBe('state.recording.json');
+});

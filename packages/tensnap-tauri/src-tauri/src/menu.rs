@@ -171,17 +171,11 @@ fn create_menu_for_locale(app: &AppHandle, locale: &str) -> Result<Menu<tauri::W
             &MenuItem::with_id(app, "undo", labels.undo, true, Some("CmdOrCtrl+Z"))?,
             &MenuItem::with_id(app, "redo", labels.redo, true, Some("CmdOrCtrl+Shift+Z"))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(app, "cut", labels.cut, true, Some("CmdOrCtrl+X"))?,
-            &MenuItem::with_id(app, "copy", labels.copy, true, Some("CmdOrCtrl+C"))?,
-            &MenuItem::with_id(app, "paste", labels.paste, true, Some("CmdOrCtrl+V"))?,
+            &PredefinedMenuItem::cut(app, Some(labels.cut))?,
+            &PredefinedMenuItem::copy(app, Some(labels.copy))?,
+            &PredefinedMenuItem::paste(app, Some(labels.paste))?,
             &PredefinedMenuItem::separator(app)?,
-            &MenuItem::with_id(
-                app,
-                "select_all",
-                labels.select_all,
-                true,
-                Some("CmdOrCtrl+A"),
-            )?,
+            &PredefinedMenuItem::select_all(app, Some(labels.select_all))?,
         ],
     )?;
 
@@ -272,7 +266,10 @@ pub fn set_menu_locale(app: &AppHandle, locale: &str) -> Result<(), String> {
 }
 
 pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
-    let window = app.get_webview_window("main");
+    let window = app
+        .webview_windows()
+        .into_values()
+        .find(|window| window.is_focused().unwrap_or(false));
 
     if let Some(window) = window {
         match event.id().as_ref() {
@@ -289,10 +286,6 @@ pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             // Edit menu
             "undo" => emit_event(&window, "menu:undo"),
             "redo" => emit_event(&window, "menu:redo"),
-            "cut" => emit_event(&window, "menu:cut"),
-            "copy" => emit_event(&window, "menu:copy"),
-            "paste" => emit_event(&window, "menu:paste"),
-            "select_all" => emit_event(&window, "menu:select-all"),
 
             // View menu
             "zoom_in" => emit_event(&window, "menu:zoom-in"),

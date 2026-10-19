@@ -1,3 +1,4 @@
+import { decodeBinaryString } from '@tensnap/protocol';
 import { omitUndefinedObjectProperties } from './serialization';
 import type { ScenarioSnapshot } from '../scenario/types';
 import {
@@ -550,7 +551,8 @@ function recoverRecordingSnapshot(
 type ProjectAssetTable = ProjectFileArchive['assetTable'];
 
 function sameAssetData(left: string | Uint8Array, right: string | Uint8Array): boolean {
-  if (typeof left === 'string' || typeof right === 'string') return left === right;
+  left = typeof left === 'string' ? decodeBinaryString(left).bytes : left;
+  right = typeof right === 'string' ? decodeBinaryString(right).bytes : right;
   return left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
 }
 
@@ -560,6 +562,7 @@ function storeAsset(
   mime: string,
   data: string | Uint8Array,
 ): void {
+  data = typeof data === 'string' ? decodeBinaryString(data).bytes : data;
   const existing = table[hash];
   if (existing && (existing.mime !== mime || !sameAssetData(existing.data, data))) {
     throw new Error(`Project asset hash collision for ${hash}.`);
@@ -593,7 +596,10 @@ function assetResolver(table: ProjectAssetTable) {
     const data = table[hash]?.data;
     if (data === undefined) return undefined;
     // Uint8Array construction also copies Node Buffer views; Buffer.slice() would borrow.
-    const copy = typeof data === 'string' ? data : new Uint8Array(data);
+    const copy =
+      typeof data === 'string'
+        ? new Uint8Array(decodeBinaryString(data).bytes)
+        : new Uint8Array(data);
     owned.set(hash, copy);
     return copy;
   };
@@ -615,8 +621,36 @@ function hydrateScenarioAssets(
   return next;
 }
 
+function normalizeOwnedSnapshotBinary(snapshot: Snapshot): void {
+  if (snapshot.metadata.checkpoint && typeof snapshot.metadata.checkpoint.data === 'string')
+    snapshot.metadata.checkpoint.data = new Uint8Array(
+      decodeBinaryString(snapshot.metadata.checkpoint.data).bytes,
+    );
+  // Only protocol binary fields are normalized; user values and URLs are opaque.
+  for (const frame of snapshot.frames) {
+    for (const message of [...frame.messages, ...frame.controls]) {
+      const payload = message.payload as unknown as {
+        data?: string | Uint8Array;
+        checkpoint?: { data: string | Uint8Array };
+      };
+      if (
+        (message.type === 'asset_data' || message.type === 'screenshot_response') &&
+        typeof payload.data === 'string'
+      )
+        payload.data = decodeBinaryString(payload.data).bytes;
+      if (
+        (message.type === 'scene_capture_result' || message.type === 'scene_restore') &&
+        payload.checkpoint &&
+        typeof payload.checkpoint.data === 'string'
+      )
+        payload.checkpoint.data = decodeBinaryString(payload.checkpoint.data).bytes;
+    }
+  }
+}
+
 export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
+  normalizeOwnedSnapshotBinary(next);
   extractOwnedScenarioAssets(next.initial.scenario, table);
   for (const keyframe of next.keyframes) extractOwnedScenarioAssets(keyframe.scenario, table);
   for (const frame of next.frames) {
@@ -633,6 +667,7 @@ export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTab
 
 export function hydrateSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {
   const next = structuredClone(snapshot);
+  normalizeOwnedSnapshotBinary(next);
   const resolveAsset = assetResolver(table);
   hydrateOwnedScenarioAssets(next.initial.scenario, resolveAsset);
   for (const keyframe of next.keyframes)

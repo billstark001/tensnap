@@ -1331,3 +1331,33 @@ it('a persistence wait timeout leaves the run and recording intact for a later w
     await runtime.stop();
   }
 });
+
+it('discovers MessagePack recordings and preserves JSON as the default export format', async () => {
+  const { Scenario } = await import('@tensnap/core/scenario');
+  const { createSingleSnapshot } = await import('@tensnap/core/snapshot');
+  const { encodeRecordingFile, decodeRecordingFile } = await import('@tensnap/core/persistence');
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-binary-recordings-'));
+  temporaryRoots.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  const runtime = new AgentRuntime(context);
+  await runtime.initialize();
+  try {
+    await mkdir(context.recordingsDir, { recursive: true });
+    await writeFile(
+      join(context.recordingsDir, 'binary.tensnap-recording.msgpack'),
+      encodeRecordingFile(createSingleSnapshot(new Scenario().dump(), { id: 'binary' }), {
+        format: 'msgpack',
+      }),
+    );
+    expect(await runtime.listRecordings()).toMatchObject([{ id: 'binary', status: 'persisted' }]);
+    const json = join(rootDir, 'default.json');
+    const binary = join(rootDir, 'export.msgpack');
+    await runtime.exportRecording('binary', json);
+    await runtime.exportRecording('binary', binary, 'msgpack');
+    expect((await readFile(json, 'utf8')).startsWith('{')).toBe(true);
+    expect((await readFile(binary))[0]).not.toBe(123);
+    expect(decodeRecordingFile(await readFile(binary)).snapshot.metadata.id).toBe('binary');
+  } finally {
+    await runtime.stop();
+  }
+});

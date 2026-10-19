@@ -1,3 +1,4 @@
+import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
@@ -36,7 +37,11 @@ interface EditViewDialogProps extends DialogOpenProps {
   onSave: (
     updatedView: AnyView,
     objectData?: any,
-  ) => void | boolean | { ok: boolean; message?: string };
+  ) =>
+    | void
+    | boolean
+    | { ok: boolean; message?: string }
+    | Promise<void | boolean | { ok: boolean; message?: string }>;
 }
 
 type ObjectIdDialogState = {
@@ -165,7 +170,7 @@ const getObjectDataForSave = (
 ): EditableObjectData | undefined =>
   getEditableObjectKind(view) ? (objectData ?? undefined) : undefined;
 
-export const EditViewDialog: React.FC<EditViewDialogProps> = ({
+const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
   open,
   onOpenChange,
   view,
@@ -320,8 +325,14 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     setEditorRevision((revision) => revision + 1);
   }, [structuralEdit, toast.warning]);
 
-  const handleSave = useCallback(() => {
-    const result = onSave(localView, getObjectDataForSave(localView, localObjectData));
+  const handleSave = useCallback(async () => {
+    let result: Awaited<ReturnType<typeof onSave>>;
+    try {
+      result = await onSave(localView, getObjectDataForSave(localView, localObjectData));
+    } catch (error) {
+      toast.error(String(error));
+      return;
+    }
     if (typeof result === 'object' && result && 'ok' in result && !result.ok) {
       return;
     }
@@ -330,7 +341,7 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     }
     setHasChanges(false);
     onOpenChange?.(false);
-  }, [localView, localObjectData, onSave, onOpenChange]);
+  }, [localView, localObjectData, onSave, onOpenChange, toast]);
 
   const renderEditor = () => {
     switch (localView.type) {
@@ -445,3 +456,5 @@ export const EditViewDialog: React.FC<EditViewDialogProps> = ({
     </Dialog.Root>
   );
 };
+
+export const EditViewDialog = defineDialog('EditViewDialog', EditViewDialogContent);

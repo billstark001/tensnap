@@ -1,4 +1,4 @@
-import { style, keyframes } from '@vanilla-extract/css';
+import { style, keyframes, globalStyle } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const appContainer = style({
@@ -119,3 +119,5 @@ export const spinner = style({
     },
   },
 });
+
+globalStyle('[data-file-drop-active]', { outline: '3px solid #4688ee', outlineOffset: '-3px' });

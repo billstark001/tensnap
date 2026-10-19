@@ -137,9 +137,13 @@ export async function writeRunRecording(
   paths: RuntimeContextPaths,
   runId: string,
   snapshot: Snapshot,
+  format: 'json' | 'msgpack' = 'json',
 ): Promise<string> {
-  const data = encodeRecordingFile(snapshot);
-  const output = join(paths.recordingsDir, `${encodeURIComponent(runId)}.tensnap-recording.json`);
+  const data = encodeRecordingFile(snapshot, { format });
+  const output = join(
+    paths.recordingsDir,
+    `${encodeURIComponent(runId)}.tensnap-recording.${format}`,
+  );
   await writeFileAtomically(output, data);
   return output;
 }
