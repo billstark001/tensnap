@@ -46,13 +46,12 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [history]);
 
-  const { environment, onExit, onToggleFullscreen } = useContext(MenuBarContext);
+  const { environment, onExit, onToggleFullscreen, onOpenDocumentation } =
+    useContext(MenuBarContext);
 
   const handleDocumentation = () => {
-    window.open(
-      'https://github.com/billstark001/tensnap/tree/main/docs',
-      '_blank',
-      'noopener,noreferrer',
+    void Promise.resolve(onOpenDocumentation()).catch((error) =>
+      console.error('Unable to open documentation:', error),
     );
   };
 

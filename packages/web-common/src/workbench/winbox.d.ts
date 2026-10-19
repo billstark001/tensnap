@@ -3,7 +3,6 @@ declare module 'winbox/src/js/winbox' {
     constructor(options: {
       title: string;
       mount: HTMLElement;
-      modal: boolean;
       width: number;
       height: number;
       x: string | number;

@@ -52,11 +52,6 @@ globalStyle('.tensnap-window .wb-close::after', {
   transform: 'translate(-50%, -50%) rotate(-45deg)',
 });
 globalStyle('.tensnap-window .wb-close:hover', { color: vars.color.danger });
-globalStyle('.tensnap-window.modal::after', {
-  animation: 'none',
-  opacity: 1,
-  background: vars.color.overlayLight,
-});
 globalStyle('body[data-theme="dark"] .tensnap-window', {
   background: vars.color.darkBackground,
   color: vars.color.darkForeground,
@@ -72,11 +67,3 @@ globalStyle('body[data-theme="dark"] .tensnap-window .wb-body', {
   color: vars.color.darkForeground,
 });
 globalStyle('body[data-theme="dark"] .tensnap-window .wb-max', { filter: 'none' });
-globalStyle('body[data-theme="dark"] .tensnap-window.modal::after', {
-  background: vars.color.overlayDark,
-});
-// Modal focus/dismissal stays active while WinBox handles moving and resizing.
-globalStyle(
-  '.tensnap-window.modal:not(.max) .wb-body ~ div, .tensnap-window.modal:not(.max) .wb-drag',
-  { pointerEvents: 'auto' },
-);

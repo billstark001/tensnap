@@ -135,69 +135,76 @@ export function StatusBar({
 
   return (
     <div className={styles.statusBar}>
-      <span className={connectionClassName} title={connectionError ?? undefined}>
-        {connectionLabel}
-      </span>
-      <span className={styles.statusMeta}>
-        <span>
-          <Trans>Time Step:</Trans>
+      <div
+        className={styles.statusMetrics}
+        role="group"
+        aria-label={_(msg`Runtime status`)}
+        tabIndex={0}
+      >
+        <span className={connectionClassName} title={connectionError ?? undefined}>
+          {connectionLabel}
         </span>
-        <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
-      </span>
-      {runSummary && (
-        <span className={styles.statusMeta} title={runSummary}>
-          <span>
-            <Trans>Run:</Trans>
-          </span>
-          <span className={styles.metricValue}>{runSummary}</span>
-        </span>
-      )}
-      <span className={styles.statusMeta}>
-        <span>
-          <Trans>TPS:</Trans>
-        </span>
-        <span className={styles.metricValue}>
-          {runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}
-        </span>
-      </span>
-      <span className={styles.statusMeta}>
-        <span>
-          <Trans>MSPT:</Trans>
-        </span>
-        <span className={styles.metricValue}>
-          {runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}
-        </span>
-      </span>
-      <span className={styles.statusMeta}>
-        <span>
-          <Trans>Model:</Trans>
-        </span>
-        <span className={styles.metricValue}>
-          {simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}
-        </span>
-      </span>
-      {simulatorCommMs != null && (
         <span className={styles.statusMeta}>
           <span>
-            <Trans>Comm:</Trans>
+            <Trans>Time Step:</Trans>
           </span>
-          <span className={styles.metricValue}>{simulatorCommMs.toFixed(1)}</span>
+          <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
         </span>
-      )}
-      {simulatorRenderMs != null && (
+        {runSummary && (
+          <span className={styles.statusMeta} title={runSummary}>
+            <span>
+              <Trans>Run:</Trans>
+            </span>
+            <span className={styles.metricValue}>{runSummary}</span>
+          </span>
+        )}
         <span className={styles.statusMeta}>
           <span>
-            <Trans>Srv Render:</Trans>
+            <Trans>TPS:</Trans>
           </span>
-          <span className={styles.metricValue}>{simulatorRenderMs.toFixed(1)}</span>
+          <span className={styles.metricValue}>
+            {runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}
+          </span>
         </span>
-      )}
-
+        <span className={styles.statusMeta}>
+          <span>
+            <Trans>MSPT:</Trans>
+          </span>
+          <span className={styles.metricValue}>
+            {runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}
+          </span>
+        </span>
+        <span className={styles.statusMeta}>
+          <span>
+            <Trans>Model:</Trans>
+          </span>
+          <span className={styles.metricValue}>
+            {simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}
+          </span>
+        </span>
+        {simulatorCommMs != null && (
+          <span className={styles.statusMeta}>
+            <span>
+              <Trans>Comm:</Trans>
+            </span>
+            <span className={styles.metricValue}>{simulatorCommMs.toFixed(1)}</span>
+          </span>
+        )}
+        {simulatorRenderMs != null && (
+          <span className={styles.statusMeta}>
+            <span>
+              <Trans>Srv Render:</Trans>
+            </span>
+            <span className={styles.metricValue}>{simulatorRenderMs.toFixed(1)}</span>
+          </span>
+        )}
+      </div>
       <div className={styles.buttonGroup}>
         <button
           onClick={handleReconnect}
           className={styles.toggleButton}
           disabled={reconnectDisabled}
+          aria-label={_(msg`Reconnect`)}
           title={_(msg`Force reconnect to server`)}
           style={{
             opacity: reconnectDisabled ? 0.5 : 1,
@@ -205,7 +212,7 @@ export function StatusBar({
           }}
         >
           <RefreshCw size={16} className={isReconnecting || isConnecting ? 'spinning-icon' : ''} />
-          <span>
+          <span className={styles.buttonText}>
             <Trans>Reconnect</Trans>
           </span>
         </button>
@@ -213,20 +220,22 @@ export function StatusBar({
         <button
           onClick={() => setInfoOpen(true)}
           className={styles.toggleButton}
+          aria-label={_(msg`Info`)}
           title={_(msg`Simulator information`)}
         >
           <Info size={16} />
-          <span>
+          <span className={styles.buttonText}>
             <Trans>Info</Trans>
           </span>
         </button>
         <button
           onClick={() => setSettingsDialogOpen(true)}
           className={styles.toggleButton}
+          aria-label={_(msg`Settings`)}
           title={_(msg`Settings`)}
         >
           <Wrench size={16} />
-          <span>
+          <span className={styles.buttonText}>
             <Trans>Settings</Trans>
           </span>
         </button>
@@ -244,6 +253,7 @@ export function StatusBar({
           <button
             onClick={onToggleRightPanel}
             className={styles.toggleButton}
+            aria-label={rightPanelVisible ? _(msg`Hide Right Panel`) : _(msg`Show Right Panel`)}
             title={rightPanelVisible ? _(msg`Hide Right Panel`) : _(msg`Show Right Panel`)}
           >
             {rightPanelVisible ? <PanelRightClose size={16} /> : <PanelRight size={16} />}
@@ -253,6 +263,7 @@ export function StatusBar({
           <button
             onClick={onToggleBottomPanel}
             className={styles.toggleButton}
+            aria-label={bottomPanelVisible ? _(msg`Hide Bottom Panel`) : _(msg`Show Bottom Panel`)}
             title={bottomPanelVisible ? _(msg`Hide Bottom Panel`) : _(msg`Show Bottom Panel`)}
           >
             {bottomPanelVisible ? <PanelBottomClose size={16} /> : <PanelBottom size={16} />}

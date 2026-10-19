@@ -38,7 +38,6 @@ export function createWinBoxHost(): DialogHost {
       const box = new WinBox({
         title: options.title,
         mount: element,
-        modal: options.modal,
         width: geometry.width,
         height: geometry.height,
         x: geometry.x,

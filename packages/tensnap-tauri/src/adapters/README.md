@@ -12,11 +12,17 @@ The application has no custom Rust command that accepts a renderer-provided path
 
 For project Save As, the shared toolbar supplies a JSON or MessagePack filter and the proposed final filename to `save(...)`. The adapter writes exactly the path returned by that dialog. Do not append an extension after the dialog or create its parent directory speculatively: Tauri scopes the path the user actually selected, not a later rewritten sibling path.
 
-`src-tauri/capabilities/main.json` is the single capability declaration. Keep it minimal: dialog `open`/`save`, the fs operations used by the adapter, store `load`/`get`/`set`, and the existing window/event APIs. Do not add a wildcard filesystem scope or enable `withGlobalTauri`.
+`src-tauri/capabilities/main.json` is the single capability declaration. Keep it minimal: dialog `open`/`save`, the fs operations used by the adapter, store `load`/`get`/`set`/`keys`/`delete`, and the existing window/event APIs. Do not add a wildcard filesystem scope or enable `withGlobalTauri`.
 
 ## Native menu localization
 
 `useTauriMenuEvents` observes the shared settings locale and calls `set_menu_locale_handler` whenever it changes, including after settings hydration. The Rust menu builder owns the native labels because operating-system menus are outside the renderer's Lingui runtime. Its `en`, `zh`, and `ja` label tables must stay complete and the menu unit test must cover every supported renderer locale when adding a new language.
+
+## External documentation and auxiliary windows
+
+`common.openDocumentation` invokes the fixed `open_documentation_handler`; the Rust Opener plugin opens the GitHub documentation in the system browser. The command accepts no renderer-provided URL/path. Automatic JS link interception is disabled and no broad opener capability is granted. Rendered and native menus share this adapter; auxiliary menu commands proxy to the original owner.
+
+Each auxiliary Webview uses its bootstrap React root for all business content. Pass its render callback through `startNativeContent`; do not create another root on `#root`. See the [workbench infrastructure guide](../../../../docs/maintainer-guide/workbench-infrastructure.md) for window registration, menu ownership, projections and RPC cancellation.
 
 ## Registration
 

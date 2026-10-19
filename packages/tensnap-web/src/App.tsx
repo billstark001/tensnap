@@ -5,7 +5,11 @@ import { installBrowserFileDrop } from './workbench/file-drop';
 import { useToast } from './store/toast';
 import * as styles from './styles/app.css';
 import { ToolBarLayout } from './components/toolbar/ToolBarLayout';
-import { MenuBarContext, type MenuBarConfig } from './components/toolbar/MenuBarContext';
+import {
+  MenuBarContext,
+  openBrowserDocumentation,
+  type MenuBarConfig,
+} from './components/toolbar/MenuBarContext';
 import { useFileSystem } from './store/file-system/provider';
 import { useLoadingStore } from './store/loading';
 import { ProjectPanel } from './components/project/ProjectPanel';
@@ -21,6 +25,7 @@ export function App(props: Partial<MenuBarConfig>) {
     environment = 'web',
     system = 'other',
     isFullscreen: controlledFullscreen,
+    onOpenDocumentation = openBrowserDocumentation,
     onExit,
     onToggleFullscreen,
   } = props;
@@ -74,7 +79,14 @@ export function App(props: Partial<MenuBarConfig>) {
   return (
     <>
       <MenuBarContext.Provider
-        value={{ environment, system, isFullscreen, onExit, onToggleFullscreen: toggleFullscreen }}
+        value={{
+          environment,
+          system,
+          isFullscreen,
+          onExit,
+          onOpenDocumentation,
+          onToggleFullscreen: toggleFullscreen,
+        }}
       >
         <ContentIsland host={shell.toolbar}>
           <ToolBarLayout />

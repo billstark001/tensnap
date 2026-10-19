@@ -9,3 +9,8 @@ export async function getOsName(): Promise<string> {
 export async function setNativeMenuLocale(locale: Locale): Promise<void> {
   await invoke('set_menu_locale_handler', { locale });
 }
+
+/** Open the GitHub documentation in the system browser, including from native menus. */
+export async function openDocumentation(): Promise<void> {
+  await invoke('open_documentation_handler');
+}

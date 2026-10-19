@@ -56,7 +56,7 @@ msgstr "A parameter with this ID already exists."
 msgid "About"
 msgstr "About"
 
-#: src/components/toolbar/MenuBar.tsx:235
+#: src/components/toolbar/MenuBar.tsx:234
 #: src/dialogs/AboutDialog.tsx:14
 msgid "About TenSnap"
 msgstr "About TenSnap"
@@ -89,8 +89,8 @@ msgstr "Action:"
 msgid "Adjust Mode"
 msgstr "Adjust Mode"
 
-#: src/dialogs/AgentDetailsDialog.tsx:227
-#: src/dialogs/AgentDetailsDialog.tsx:267
+#: src/dialogs/AgentDetailsDialog.tsx:240
+#: src/dialogs/AgentDetailsDialog.tsx:280
 msgid "Agent Details"
 msgstr "Agent Details"
 
@@ -162,7 +162,7 @@ msgid "Button Text"
 msgstr "Button Text"
 
 #: src/dialogs/ContinuousRunDialog.tsx:138
-#: src/dialogs/edit-views/ConfirmEditDialog.tsx:48
+#: src/dialogs/edit-views/ConfirmEditDialog.tsx:49
 #: src/dialogs/SceneRestoreDialog.tsx:301
 msgid "Cancel"
 msgstr "Cancel"
@@ -251,11 +251,11 @@ msgstr "Close {0}"
 msgid "Close this project and discard renderer edits that have not been saved?"
 msgstr "Close this project and discard renderer edits that have not been saved?"
 
-#: src/dialogs/AgentDetailsDialog.tsx:341
+#: src/dialogs/AgentDetailsDialog.tsx:354
 msgid "Color:"
 msgstr "Color:"
 
-#: src/components/project/StatusBar.tsx:182
+#: src/components/project/StatusBar.tsx:188
 msgid "Comm:"
 msgstr "Comm:"
 
@@ -271,7 +271,7 @@ msgstr "Configure a bounded continuous run for action {actionId}."
 msgid "Configure application and project settings."
 msgstr "Configure application and project settings."
 
-#: src/dialogs/edit-views/ConfirmEditDialog.tsx:44
+#: src/dialogs/edit-views/ConfirmEditDialog.tsx:45
 msgid "Confirm"
 msgstr "Confirm"
 
@@ -317,7 +317,7 @@ msgstr "Continuous run…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:142
 #: src/components/project/ViewContextMenuRenderer.tsx:149
-#: src/components/toolbar/MenuBar.tsx:156
+#: src/components/toolbar/MenuBar.tsx:155
 #: src/dialogs/SnapshotDetailDialog.tsx:119
 msgid "Copy"
 msgstr "Copy"
@@ -349,7 +349,7 @@ msgstr "Current Value"
 #~ msgid "Custom"
 #~ msgstr "Custom"
 
-#: src/dialogs/AgentDetailsDialog.tsx:357
+#: src/dialogs/AgentDetailsDialog.tsx:370
 msgid "Custom Data:"
 msgstr "Custom Data:"
 
@@ -357,7 +357,7 @@ msgstr "Custom Data:"
 msgid "Custom simulator actions are unavailable for a snapshot source."
 msgstr "Custom simulator actions are unavailable for a snapshot source."
 
-#: src/components/toolbar/MenuBar.tsx:153
+#: src/components/toolbar/MenuBar.tsx:152
 msgid "Cut"
 msgstr "Cut"
 
@@ -369,7 +369,7 @@ msgstr "Dark"
 msgid "Data Points"
 msgstr "Data Points"
 
-#: src/dialogs/AgentDetailsDialog.tsx:351
+#: src/dialogs/AgentDetailsDialog.tsx:364
 msgid "default"
 msgstr "default"
 
@@ -417,7 +417,7 @@ msgstr "Display"
 msgid "Display Type"
 msgstr "Display Type"
 
-#: src/components/toolbar/MenuBar.tsx:225
+#: src/components/toolbar/MenuBar.tsx:224
 msgid "Documentation"
 msgstr "Documentation"
 
@@ -434,7 +434,7 @@ msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:175
-#: src/components/toolbar/MenuBar.tsx:128
+#: src/components/toolbar/MenuBar.tsx:127
 msgid "Edit"
 msgstr "Edit"
 
@@ -504,7 +504,7 @@ msgstr "Exact checkpoint"
 msgid "Exact checkpoints are available only at the recording's initial frame."
 msgstr "Exact checkpoints are available only at the recording's initial frame."
 
-#: src/components/toolbar/MenuBar.tsx:117
+#: src/components/toolbar/MenuBar.tsx:116
 msgid "Exit"
 msgstr "Exit"
 
@@ -589,7 +589,7 @@ msgstr "Failed to update view"
 #~ msgid "Fallback Background Color"
 #~ msgstr "Fallback Background Color"
 
-#: src/components/toolbar/MenuBar.tsx:84
+#: src/components/toolbar/MenuBar.tsx:83
 msgid "File"
 msgstr "File"
 
@@ -597,7 +597,7 @@ msgstr "File"
 #~ msgid "File Browser"
 #~ msgstr "File Browser"
 
-#: src/App.tsx:33
+#: src/App.tsx:38
 msgid "File import failed"
 msgstr "File import failed"
 
@@ -615,7 +615,7 @@ msgstr "File saved"
 msgid "First frame"
 msgstr "First frame"
 
-#: src/dialogs/AgentDetailsDialog.tsx:307
+#: src/dialogs/AgentDetailsDialog.tsx:320
 msgid "Follow agent"
 msgstr "Follow agent"
 
@@ -627,7 +627,7 @@ msgstr "Follow agent"
 #~ msgid "Force hidden"
 #~ msgstr "Force hidden"
 
-#: src/components/project/StatusBar.tsx:201
+#: src/components/project/StatusBar.tsx:208
 msgid "Force reconnect to server"
 msgstr "Force reconnect to server"
 
@@ -647,7 +647,7 @@ msgstr "Frame:"
 msgid "Frames:"
 msgstr "Frames:"
 
-#: src/components/toolbar/MenuBar.tsx:191
+#: src/components/toolbar/MenuBar.tsx:190
 msgid "Fullscreen"
 msgstr "Fullscreen"
 
@@ -667,7 +667,7 @@ msgstr "Fullscreen"
 msgid "Hash:"
 msgstr "Hash:"
 
-#: src/dialogs/AgentDetailsDialog.tsx:169
+#: src/dialogs/AgentDetailsDialog.tsx:182
 msgid "Heading:"
 msgstr "Heading:"
 
@@ -675,19 +675,21 @@ msgstr "Heading:"
 msgid "Height"
 msgstr "Height"
 
-#: src/components/toolbar/MenuBar.tsx:219
+#: src/components/toolbar/MenuBar.tsx:218
 msgid "Help"
 msgstr "Help"
 
-#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:266
+#: src/components/project/StatusBar.tsx:267
 msgid "Hide Bottom Panel"
 msgstr "Hide Bottom Panel"
 
-#: src/components/project/StatusBar.tsx:247
+#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:257
 msgid "Hide Right Panel"
 msgstr "Hide Right Panel"
 
-#: src/dialogs/AgentDetailsDialog.tsx:331
+#: src/dialogs/AgentDetailsDialog.tsx:344
 msgid "Icon:"
 msgstr "Icon:"
 
@@ -697,12 +699,13 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
-#: src/dialogs/AgentDetailsDialog.tsx:322
+#: src/dialogs/AgentDetailsDialog.tsx:335
 #: src/dialogs/SnapshotDetailDialog.tsx:245
 msgid "ID:"
 msgstr "ID:"
 
-#: src/components/project/StatusBar.tsx:220
+#: src/components/project/StatusBar.tsx:223
+#: src/components/project/StatusBar.tsx:228
 msgid "Info"
 msgstr "Info"
 
@@ -754,7 +757,7 @@ msgstr "Keep editing"
 msgid "Keep live charts"
 msgstr "Keep live charts"
 
-#: src/components/toolbar/MenuBar.tsx:228
+#: src/components/toolbar/MenuBar.tsx:227
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
@@ -828,7 +831,7 @@ msgstr "Model"
 msgid "Model mismatch"
 msgstr "Model mismatch"
 
-#: src/components/project/StatusBar.tsx:173
+#: src/components/project/StatusBar.tsx:179
 msgid "Model:"
 msgstr "Model:"
 
@@ -853,7 +856,7 @@ msgstr "Monitors"
 msgid "More Actions"
 msgstr "More Actions"
 
-#: src/components/project/StatusBar.tsx:165
+#: src/components/project/StatusBar.tsx:171
 msgid "MSPT:"
 msgstr "MSPT:"
 
@@ -862,11 +865,11 @@ msgid "Name"
 msgstr "Name"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:310
+#: src/dialogs/AgentDetailsDialog.tsx:323
 msgid "Neighbors: {0}"
 msgstr "Neighbors: {0}"
 
-#: src/components/toolbar/MenuBar.tsx:90
+#: src/components/toolbar/MenuBar.tsx:89
 msgid "New"
 msgstr "New"
 
@@ -965,7 +968,7 @@ msgstr "No snapshots yet."
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "No snapshots yet. Click \"Take Snapshot\" to create one."
 
-#: src/dialogs/AgentDetailsDialog.tsx:317
+#: src/dialogs/AgentDetailsDialog.tsx:330
 msgid "No spatial context is available for this agent."
 msgstr "No spatial context is available for this agent."
 
@@ -973,11 +976,11 @@ msgstr "No spatial context is available for this agent."
 msgid "No view tree is available."
 msgstr "No view tree is available."
 
-#: src/dialogs/AgentDetailsDialog.tsx:361
+#: src/dialogs/AgentDetailsDialog.tsx:374
 msgid "None"
 msgstr "None"
 
-#: src/dialogs/AgentDetailsDialog.tsx:163
+#: src/dialogs/AgentDetailsDialog.tsx:176
 msgid "Not positioned"
 msgstr "Not positioned"
 
@@ -1002,7 +1005,7 @@ msgstr "Only start, step, stop, and reset are available for a snapshot source."
 msgid "Open as offline copy"
 msgstr "Open as offline copy"
 
-#: src/components/toolbar/MenuBar.tsx:93
+#: src/components/toolbar/MenuBar.tsx:92
 #: src/components/toolbar/ToolGroups.tsx:61
 #: src/components/toolbar/useFileOperations.ts:60
 msgid "Open File"
@@ -1012,7 +1015,7 @@ msgstr "Open File"
 #~ msgid "Open Folder"
 #~ msgstr "Open Folder"
 
-#: src/components/toolbar/MenuBar.tsx:96
+#: src/components/toolbar/MenuBar.tsx:95
 #: src/components/toolbar/useFileOperations.ts:77
 #: src/dialogs/SelectRecordingDialog.tsx:51
 msgid "Open recording"
@@ -1063,7 +1066,7 @@ msgstr "Parameters"
 msgid "Parameters:"
 msgstr "Parameters:"
 
-#: src/components/toolbar/MenuBar.tsx:159
+#: src/components/toolbar/MenuBar.tsx:158
 msgid "Paste"
 msgstr "Paste"
 
@@ -1089,7 +1092,7 @@ msgstr "Playback controls"
 msgid "Please create or open a project to get started."
 msgstr "Please create or open a project to get started."
 
-#: src/dialogs/AgentDetailsDialog.tsx:158
+#: src/dialogs/AgentDetailsDialog.tsx:171
 msgid "Position:"
 msgstr "Position:"
 
@@ -1147,7 +1150,7 @@ msgstr "Protocol"
 msgid "Protocol {0}"
 msgstr "Protocol {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:288
+#: src/dialogs/AgentDetailsDialog.tsx:301
 msgid "Radius"
 msgstr "Radius"
 
@@ -1155,7 +1158,8 @@ msgstr "Radius"
 msgid "Ready"
 msgstr "Ready"
 
-#: src/components/project/StatusBar.tsx:209
+#: src/components/project/StatusBar.tsx:207
+#: src/components/project/StatusBar.tsx:216
 msgid "Reconnect"
 msgstr "Reconnect"
 
@@ -1183,7 +1187,7 @@ msgstr "Recording frame"
 msgid "Recording frame: {frame}"
 msgstr "Recording frame: {frame}"
 
-#: src/components/toolbar/MenuBar.tsx:149
+#: src/components/toolbar/MenuBar.tsx:148
 #: src/components/toolbar/ToolGroups.tsx:89
 msgid "Redo"
 msgstr "Redo"
@@ -1224,7 +1228,7 @@ msgstr "Reset View"
 #~ msgid "Reset View"
 #~ msgstr "Reset View"
 
-#: src/components/toolbar/MenuBar.tsx:184
+#: src/components/toolbar/MenuBar.tsx:183
 msgid "Reset Zoom"
 msgstr "Reset Zoom"
 
@@ -1272,11 +1276,15 @@ msgstr "root"
 msgid "Run one step"
 msgstr "Run one step"
 
-#: src/components/project/StatusBar.tsx:150
+#: src/components/project/StatusBar.tsx:156
 msgid "Run:"
 msgstr "Run:"
 
-#: src/components/toolbar/MenuBar.tsx:103
+#: src/components/project/StatusBar.tsx:141
+msgid "Runtime status"
+msgstr "Runtime status"
+
+#: src/components/toolbar/MenuBar.tsx:102
 #: src/components/toolbar/ToolGroups.tsx:66
 #: src/dialogs/edit-views/EditViewDialog.tsx:412
 msgid "Save"
@@ -1292,7 +1300,7 @@ msgstr "Save As"
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
-#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/toolbar/MenuBar.tsx:109
 msgid "Save As..."
 msgstr "Save As..."
 
@@ -1312,7 +1320,7 @@ msgstr "Scenario metadata"
 msgid "Search agents by ID, color, or icon..."
 msgstr "Search agents by ID, color, or icon..."
 
-#: src/components/toolbar/MenuBar.tsx:163
+#: src/components/toolbar/MenuBar.tsx:162
 msgid "Select All"
 msgstr "Select All"
 
@@ -1337,23 +1345,26 @@ msgstr "Server Message Validation"
 msgid "Session identity, capabilities, and current model metadata."
 msgstr "Session identity, capabilities, and current model metadata."
 
-#: src/components/project/StatusBar.tsx:226
-#: src/components/project/StatusBar.tsx:230
-#: src/components/toolbar/MenuBar.tsx:209
+#: src/components/project/StatusBar.tsx:234
+#: src/components/project/StatusBar.tsx:235
+#: src/components/project/StatusBar.tsx:239
+#: src/components/toolbar/MenuBar.tsx:208
 #: src/components/toolbar/ToolGroups.tsx:320
 #: src/dialogs/SettingsDialog.tsx:132
 msgid "Settings"
 msgstr "Settings"
 
-#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:266
+#: src/components/project/StatusBar.tsx:267
 msgid "Show Bottom Panel"
 msgstr "Show Bottom Panel"
 
-#: src/components/toolbar/MenuBar.tsx:188
+#: src/components/toolbar/MenuBar.tsx:187
 msgid "Show Grid"
 msgstr "Show Grid"
 
-#: src/components/project/StatusBar.tsx:247
+#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:257
 msgid "Show Right Panel"
 msgstr "Show Right Panel"
 
@@ -1369,7 +1380,7 @@ msgstr "Show Right Panel"
 msgid "Simulation time:"
 msgstr "Simulation time:"
 
-#: src/components/project/StatusBar.tsx:216
+#: src/components/project/StatusBar.tsx:224
 #: src/dialogs/SimulatorInfoDialog.tsx:54
 msgid "Simulator information"
 msgstr "Simulator information"
@@ -1381,7 +1392,7 @@ msgid "Simulator returned {0}."
 msgstr "Simulator returned {0}."
 
 #: src/components/project/RightPanel.tsx:175
-#: src/dialogs/AgentDetailsDialog.tsx:349
+#: src/dialogs/AgentDetailsDialog.tsx:362
 msgid "Size:"
 msgstr "Size:"
 
@@ -1433,7 +1444,7 @@ msgstr "Snapshots"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 
-#: src/components/project/StatusBar.tsx:190
+#: src/components/project/StatusBar.tsx:196
 msgid "Srv Render:"
 msgstr "Srv Render:"
 
@@ -1621,7 +1632,7 @@ msgid "This view can keep its binding, but there is no registered parameter to e
 msgstr "This view can keep its binding, but there is no registered parameter to edit."
 
 #: src/components/project/RightPanel.tsx:286
-#: src/components/project/StatusBar.tsx:143
+#: src/components/project/StatusBar.tsx:149
 msgid "Time Step:"
 msgstr "Time Step:"
 
@@ -1645,7 +1656,7 @@ msgstr "Toggle theme"
 msgid "Toggle Theme"
 msgstr "Toggle Theme"
 
-#: src/components/toolbar/MenuBar.tsx:200
+#: src/components/toolbar/MenuBar.tsx:199
 msgid "Tools"
 msgstr "Tools"
 
@@ -1653,7 +1664,7 @@ msgstr "Tools"
 msgid "Top"
 msgstr "Top"
 
-#: src/components/project/StatusBar.tsx:157
+#: src/components/project/StatusBar.tsx:163
 msgid "TPS:"
 msgstr "TPS:"
 
@@ -1703,7 +1714,7 @@ msgstr "Unable to run model action"
 msgid "Unable to step"
 msgstr "Unable to step"
 
-#: src/components/toolbar/MenuBar.tsx:140
+#: src/components/toolbar/MenuBar.tsx:139
 #: src/components/toolbar/ToolGroups.tsx:82
 msgid "Undo"
 msgstr "Undo"
@@ -1742,7 +1753,7 @@ msgstr "Value path"
 msgid "Version"
 msgstr "Version"
 
-#: src/components/toolbar/MenuBar.tsx:172
+#: src/components/toolbar/MenuBar.tsx:171
 msgid "View"
 msgstr "View"
 
@@ -1750,7 +1761,7 @@ msgstr "View"
 #~ msgid "View and manage snapshot"
 #~ msgstr "View and manage snapshot"
 
-#: src/dialogs/AgentDetailsDialog.tsx:273
+#: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "View detailed information about the selected agent"
 msgstr "View detailed information about the selected agent"
 
@@ -1798,12 +1809,12 @@ msgstr "Will restore {0} parameters and {1} environments{2}."
 msgid "Window positions cleared"
 msgstr "Window positions cleared"
 
-#: src/components/toolbar/MenuBar.tsx:178
+#: src/components/toolbar/MenuBar.tsx:177
 #: src/components/toolbar/ToolGroups.tsx:263
 msgid "Zoom In"
 msgstr "Zoom In"
 
-#: src/components/toolbar/MenuBar.tsx:181
+#: src/components/toolbar/MenuBar.tsx:180
 #: src/components/toolbar/ToolGroups.tsx:264
 msgid "Zoom Out"
 msgstr "Zoom Out"

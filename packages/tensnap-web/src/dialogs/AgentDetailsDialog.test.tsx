@@ -185,3 +185,50 @@ it('keeps the inspector dismissible while its first native projection is pending
   view.unmount();
   expect(signal?.aborted).toBe(true);
 });
+
+it('retargets the same window after another agent is clicked, preserving radius and recentering when follow is off', () => {
+  rendererHarness.reset();
+  const scenario = new Scenario();
+  scenario.apply({ type: 'env_create', payload: { id: 'world', type: '2d' } });
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: { env_id: 'world', layer_id: 'agents', layer_type: 'agent' },
+  });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'world',
+      layer_id: 'agents',
+      items: [
+        { id: 'a', x: 0, y: 0 },
+        { id: 'b', x: 20, y: 30 },
+      ],
+    },
+  });
+  const props = { scenario, agentType: '2d' as const, onClose: vi.fn() };
+  const view = render(
+    <AgentDetailsDialog
+      {...props}
+      agent={{ id: 'a' }}
+      agentRef={{ environmentId: 'world', layerId: 'agents', agentId: 'a' }}
+    />,
+  );
+  const shell = screen.getByRole('dialog', { name: 'Agent Details' }).closest('.winbox');
+  fireEvent.change(screen.getByLabelText('Inspection radius'), { target: { value: '6' } });
+  fireEvent.click(screen.getByRole('checkbox'));
+  view.rerender(
+    <AgentDetailsDialog
+      {...props}
+      agent={{ id: 'b' }}
+      agentRef={{ environmentId: 'world', layerId: 'agents', agentId: 'b' }}
+    />,
+  );
+  expect(screen.getByRole('dialog', { name: 'Agent Details' }).closest('.winbox')).toBe(shell);
+  expect(screen.getByLabelText('Inspection radius')).toHaveValue(6);
+  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  expect(screen.getByText('b')).toBeTruthy();
+  expect(
+    rendererHarness.instances[rendererHarness.instances.length - 1].setViewport,
+  ).toHaveBeenCalledTimes(1);
+  expect(props.onClose).not.toHaveBeenCalled();
+});

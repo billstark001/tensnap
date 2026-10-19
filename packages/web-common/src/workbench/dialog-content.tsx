@@ -1,6 +1,5 @@
 import { registerWindowType, type WindowDimensions } from './window-state';
 import { createContext, createElement, useLayoutEffect, useRef, type ComponentType } from 'react';
-import { createRoot } from 'react-dom/client';
 import type { ContentDefinition } from './content';
 
 export interface NativeDialogHandle {
@@ -22,18 +21,18 @@ export function dialogContent(id: string): ComponentType<any> {
   if (!component) throw new Error(`Unknown dialog content: ${id}`);
   return component;
 }
-/** Both panel roots and auxiliary windows use the same owned React island lifecycle. */
+/** Render through the caller-owned root; content lifecycle never creates a React root. */
 export function reactContent<T>(
   component: ComponentType<T>,
   wrap: (content: React.ReactNode) => React.ReactNode,
+  render: (content: React.ReactNode) => void,
 ): ContentDefinition<T> {
   return {
-    mount(host, context) {
-      const root = createRoot(host);
+    mount(_host, context) {
       const update = (props: T) =>
-        root.render(wrap(createElement(component as ComponentType<any>, props)));
+        render(wrap(createElement(component as ComponentType<any>, props)));
       update(context);
-      return { update, dispose: () => root.unmount() };
+      return { update, dispose: () => render(null) };
     },
   };
 }

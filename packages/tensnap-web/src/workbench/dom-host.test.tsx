@@ -222,3 +222,44 @@ it('keeps the window open when a resize handle lies outside its frame or the bac
   expect(screen.getByRole('textbox', { name: 'Resize draft' })).toHaveValue('preserved');
   view.unmount();
 });
+
+it('opens ordinary windows without modal backdrops and permits selecting the workspace behind them', async () => {
+  configureDialogHost(createWinBoxHost());
+  const selected = vi.fn();
+  const view = render(
+    <>
+      <button onClick={selected}>Select another agent</button>
+      <Dialog.Root open title="Floating inspector">
+        <input aria-label="Inspector input" />
+      </Dialog.Root>
+    </>,
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Floating inspector' });
+  expect(dialog.getAttribute('aria-modal')).toBe('false');
+  expect(dialog.closest('.winbox')!.classList.contains('modal')).toBe(false);
+  fireEvent.mouseDown(screen.getByRole('button', { name: 'Select another agent' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Select another agent' }));
+  expect(selected).toHaveBeenCalledOnce();
+  expect(dialog.isConnected).toBe(true);
+  view.unmount();
+});
+
+it('keeps explicit modal confirmations keyboard-modal without enabling the WinBox backdrop', async () => {
+  const host = createWinBoxHost();
+  const window = host.create({
+    type: 'Confirmation',
+    title: 'Decision',
+    size: 'md',
+    modal: true,
+    dismissible: false,
+    onClose: vi.fn(),
+  });
+  try {
+    await act(async () => {});
+    expect(window.element).toHaveAttribute('aria-modal', 'true');
+    expect(window.element.closest('.winbox')!.classList.contains('modal')).toBe(false);
+    await waitFor(() => expect(document.activeElement).toBe(window.element));
+  } finally {
+    window.dispose();
+  }
+});

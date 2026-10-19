@@ -12,6 +12,7 @@ fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_os_name_handler,
+            open_documentation_handler,
             set_menu_locale_handler,
             exit_application_handler,
         ])
@@ -37,6 +38,11 @@ fn main() {
                 }
             }
         })
+        .plugin(
+            tauri_plugin_opener::Builder::new()
+                .open_js_links_on_click(false)
+                .build(),
+        )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())

@@ -23,7 +23,7 @@ function ConfirmDialogContent({
   onConfirm,
 }: ConfirmDialogProps) {
   return (
-    <Dialog.Root title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
+    <Dialog.Root modal title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
       <Dialog.Description>{description}</Dialog.Description>
       <Dialog.Footer>
         <Dialog.Button onClick={() => onOpenChange(false)}>{cancelLabel}</Dialog.Button>
@@ -51,7 +51,7 @@ function AlertDialogContent({
   onAcknowledge,
 }: AlertDialogProps) {
   return (
-    <Dialog.Root title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
+    <Dialog.Root modal title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
       <Dialog.Description>{description}</Dialog.Description>
       <Dialog.Footer>
         <Dialog.Button

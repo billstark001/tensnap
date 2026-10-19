@@ -262,7 +262,11 @@ On the desktop app, choose JSON or MessagePack in Settings before Save As. The n
 
 Recording replay places navigation buttons below its timeline: first frame, previous frame, play/pause, next frame and last frame. Stepping moves between retained frames, including recordings whose first frame is not zero. Manual navigation pauses playback; reaching the last frame stops playback, and Play from the end restarts at the first frame.
 
+The status bar stays on one line. Scroll its left section to read long run details; narrow windows keep the right buttons as named icons. Help → Documentation opens the GitHub documentation, using your system browser on desktop.
+
 ## Inspecting Agents and Trails
+
+Click another agent in the originating view to retarget an open inspector. Its position and inspection controls are preserved, and the preview centers on the newly selected agent even if Follow is disabled. Web windows have no dimming backdrop, so the workbench remains available.
 
 Selecting an agent opens a live inspection view. Spatial environments show the target, nearby agents, edges, and trajectory context; non-spatial environments explicitly report that there is no spatial viewport. Follow and radius controls change only the inspection view, not the simulation state.
 

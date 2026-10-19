@@ -61,6 +61,7 @@ TenSnap aims to:
 
 ## Quick Links
 
+- [Workbench Infrastructure](./maintainer-guide/workbench-infrastructure.md)
 - [GitHub Repository](https://github.com/billstark001/tensnap)
 - [Report Issues](https://github.com/billstark001/tensnap/issues)
 - [Python Examples](../examples/python/)

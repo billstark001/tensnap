@@ -38,7 +38,7 @@ export function Root({
   open = false,
   onOpenChange,
   size = 'md',
-  modal = true,
+  modal = false,
   dismissible = true,
   children,
 }: DialogProps) {

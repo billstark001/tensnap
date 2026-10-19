@@ -19,7 +19,8 @@ export interface AgentInspectionSource {
 }
 
 /** One retained owner-side index; one request in flight is enforced by the receiving island. */
-export function createAgentInspectionSource(scenario: Scenario, ref: AgentRef) {
+export function createAgentInspectionSource(scenario: Scenario, initialRef: AgentRef) {
+  let ref = initialRef;
   const inspector = new ScenarioInspector(scenario);
   const retained = new Map<AgentStorage, () => void>();
   let revision = 0;
@@ -60,6 +61,18 @@ export function createAgentInspectionSource(scenario: Scenario, ref: AgentRef) {
   };
   syncIndexes();
   return {
+    retarget(next: AgentRef): boolean {
+      if (
+        next.environmentId === ref.environmentId &&
+        next.layerId === ref.layerId &&
+        next.agentId === ref.agentId
+      )
+        return false;
+      ref = next;
+      revision++;
+      syncIndexes();
+      return true;
+    },
     async read(request: InspectionRequest, signal: AbortSignal): Promise<InspectionResponse> {
       signal.throwIfAborted();
       if (disposed) throw new Error('The inspection source has closed.');

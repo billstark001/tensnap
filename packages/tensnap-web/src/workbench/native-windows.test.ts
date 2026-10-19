@@ -161,14 +161,14 @@ it('cleans every acquired listener when child initialization fails', async () =>
       });
   });
   await expect(
-    startNativeContent(document.createElement('div'), new AbortController().signal),
+    startNativeContent(document.createElement('div'), new AbortController().signal, vi.fn()),
   ).rejects.toThrow('Owner closed');
   expect(mock.handlers.size).toBe(0);
   expect(mock.stops.every((stop) => stop.mock.calls.length === 1)).toBe(true);
 });
 it('aborts an in-flight initialization immediately and disposes a fully mounted child exactly once', async () => {
   const abort = new AbortController();
-  const initializing = startNativeContent(document.createElement('div'), abort.signal);
+  const initializing = startNativeContent(document.createElement('div'), abort.signal, vi.fn());
   await Promise.resolve();
   await Promise.resolve();
   const rejection = expect(initializing).rejects.toThrow('closed');
@@ -182,7 +182,11 @@ it('aborts an in-flight initialization immediately and disposes a fully mounted 
       });
   });
   const controller = new AbortController();
-  const dispose = await startNativeContent(document.createElement('div'), controller.signal);
+  const dispose = await startNativeContent(
+    document.createElement('div'),
+    controller.signal,
+    vi.fn(),
+  );
   controller.abort();
   dispose();
   expect(mock.disposeContent).toHaveBeenCalledTimes(1);
@@ -212,6 +216,7 @@ it('gives native content a viewport shell and updates its single host title only
   const dispose = await startNativeContent(
     document.createElement('div'),
     new AbortController().signal,
+    vi.fn(),
   );
   const { getDialogHost } = await import('@tensnap/web-common/workbench/content');
   const close = vi.fn();

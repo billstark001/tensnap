@@ -4,9 +4,7 @@ import { useEffect } from 'react';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { useFileOperations } from '@tensnap/web/file-operations';
 import { useSettingsStore } from '@tensnap/web/store';
-import { setNativeMenuLocale } from '../adapters/common';
-
-const DOCUMENTATION_URL = 'https://github.com/billstark001/tensnap/tree/main/docs';
+import { setNativeMenuLocale, openDocumentation } from '../adapters/common';
 
 export const useTauriMenuEvents = () => {
   const { onNewFile, onFileOpen, onRecordingOpen, onFileSave, onFileSaveAs } = useFileOperations();
@@ -42,7 +40,7 @@ export const useTauriMenuEvents = () => {
       redo: (id) => project(id).value.useUndoRedoStore.getState().redo(),
       settings: () => setSettingsDialogOpen(true),
       about: () => setAboutDialogOpen(true),
-      documentation: () => window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer'),
+      documentation: openDocumentation,
     });
   }, [onNewFile, onFileOpen, onRecordingOpen, setSettingsDialogOpen, setAboutDialogOpen]);
 
@@ -81,7 +79,9 @@ export const useTauriMenuEvents = () => {
     // Help menu events
     unlistenPromises.push(
       listen('menu:documentation', () => {
-        window.open(DOCUMENTATION_URL, '_blank', 'noopener,noreferrer');
+        void openDocumentation().catch((error) =>
+          console.error('Unable to open documentation:', error),
+        );
       }),
     );
     unlistenPromises.push(

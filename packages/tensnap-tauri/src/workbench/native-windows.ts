@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { availableMonitors, currentMonitor } from '@tauri-apps/api/window';
 import { configureDialogHost } from '@tensnap/web-common/workbench/content';
 import {
@@ -239,6 +240,7 @@ export function installNativeWindows(): void {
 export async function startNativeContent(
   host: HTMLElement,
   signal: AbortSignal,
+  render: (content: ReactNode) => void,
 ): Promise<() => void> {
   const params = new URLSearchParams(location.search);
   const channel = params.get('channel');
@@ -362,7 +364,7 @@ export async function startNativeContent(
         };
       },
     });
-    content = mountNativeContent(host, initial, { call });
+    content = mountNativeContent(host, initial, { call }, render);
     if (newest) content.update(newest);
     const commands = [
       'new',

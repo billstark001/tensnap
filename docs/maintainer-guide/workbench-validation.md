@@ -17,6 +17,8 @@ pnpm --filter @tensnap/tauri exec tauri build --debug --bundles app --no-sign
 
 The recording workflow starts a real seeded Schelling WebSocket model and built CLI runtime. It verifies default JSON behavior, explicit MessagePack run/manual recording, catalog discovery, full recording export/read, mixed-format fixed-frame comparison, checkpoint restore/rerun and identical offline images. It writes a machine-readable report under `.tensnap/recording-acceptance-*/acceptance.json`. The model and runtime are stopped in cleanup.
 
+See [workbench infrastructure](workbench-infrastructure.md) for creation and synchronization contracts. Root-lifecycle tests verify one caller-owned root, inherited context and persistent drafts. Retarget tests verify that an already-open inspector switches agent without a full dump. Menu tests stub browser/native capabilities; they never open a real browser.
+
 Web tests cover both file encodings, batch import into an empty tab, destination capture across tab switches, project recording extraction without connecting a source, duplicate/corrupt-file isolation, and undo. Native-host tests mock only the Tauri SDK and check listener-before-window ordering, callback routing, initialization failure, cancellation and disposal. Codec tests exercise actual JSON IPC representations, binary values and callback cancellation. Inspection tests forbid full-scene dumps and compare payload size for 1,000 and 100,000 agents with the same visible region.
 
 For a local projection diagnostic:
@@ -66,3 +68,10 @@ For window sizing and persistence, also check:
 3. Move/resize two different dialog types, close and reopen them, then reload/restart. Each type restores its own placement. Reduce the browser viewport or remove a monitor and reopen: the window fits the available area. Repeat on displays with different scaling.
 4. Settings → Clear saved window positions. Keep an inspector open during the reset, then close it; reopening must use its default placement. Other settings, projects and recordings stay intact.
 5. Open the first item of each menu in light/dark themes with mouse and keyboard; focus text and background remain readable. Verify Save/Apply/Create and confirmation choices remain available despite removal of redundant dismissal buttons.
+
+For the responsive workbench and single-root follow-up:
+
+1. Resize the workspace to roughly 640, 900, 1100 and 1400 CSS pixels in English, Chinese and Japanese. Generate a long run summary. Status labels/badges stay on one line; scroll/focus the left status group to read all values. The right controls remain visible, with icon-only labels below the container threshold. Verify reconnect, info, settings and panel toggles still work.
+2. Web: open an inspector, change its radius and disable Follow. Click another agent in the originating view: the same window shows the new agent and recenters once while preserving radius/follow/geometry. Continue interacting with the workbench and confirm there is no dimming overlay. Repeat with uniform agents.
+3. Tauri: repeat inspector retargeting during an active simulation. Switch project tabs: the inspector must remain tied to its owner. Repeatedly open/close a child and a nested child, including during initialization; the console must have no duplicate-root warning and each child must release its listeners.
+4. Help → Documentation from the rendered menu, the native menu and an auxiliary window's native menu must open the GitHub docs in the system browser on desktop, or a browser tab on Web. No extra native popup should appear. These OS/browser interactions are manual checks; automated tests intercept their adapters.

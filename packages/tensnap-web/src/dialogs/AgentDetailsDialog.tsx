@@ -133,11 +133,24 @@ function AgentInspectionCanvas({
     controllerRef.current?.render(environment);
   }, [environment, inspection.ref.agentId, inspection.ref.layerId]);
 
+  const previousTarget = useRef<string | null>(null);
   useEffect(() => {
-    if (follow && inspection.viewport) {
+    const target = JSON.stringify([
+      inspection.environmentId,
+      inspection.layerId,
+      inspection.ref.agentId,
+    ]);
+    if ((follow || target !== previousTarget.current) && inspection.viewport) {
       controllerRef.current?.setViewport(inspection.viewport);
     }
-  }, [follow, inspection.viewport]);
+    previousTarget.current = target;
+  }, [
+    follow,
+    inspection.viewport,
+    inspection.environmentId,
+    inspection.layerId,
+    inspection.ref.agentId,
+  ]);
 
   return (
     <div ref={containerRef} className={styles.inspectionCanvas} aria-label="Agent neighbourhood" />

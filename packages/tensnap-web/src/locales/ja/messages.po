@@ -56,7 +56,7 @@ msgstr "この ID のパラメータは既に存在します。"
 msgid "About"
 msgstr "について"
 
-#: src/components/toolbar/MenuBar.tsx:235
+#: src/components/toolbar/MenuBar.tsx:234
 #: src/dialogs/AboutDialog.tsx:14
 msgid "About TenSnap"
 msgstr "TenSnapについて"
@@ -89,8 +89,8 @@ msgstr "アクション："
 msgid "Adjust Mode"
 msgstr "調整モード"
 
-#: src/dialogs/AgentDetailsDialog.tsx:227
-#: src/dialogs/AgentDetailsDialog.tsx:267
+#: src/dialogs/AgentDetailsDialog.tsx:240
+#: src/dialogs/AgentDetailsDialog.tsx:280
 msgid "Agent Details"
 msgstr "エージェントの詳細"
 
@@ -162,7 +162,7 @@ msgid "Button Text"
 msgstr "ボタンテキスト"
 
 #: src/dialogs/ContinuousRunDialog.tsx:138
-#: src/dialogs/edit-views/ConfirmEditDialog.tsx:48
+#: src/dialogs/edit-views/ConfirmEditDialog.tsx:49
 #: src/dialogs/SceneRestoreDialog.tsx:301
 msgid "Cancel"
 msgstr "キャンセル"
@@ -251,11 +251,11 @@ msgstr "{0}を閉じる"
 msgid "Close this project and discard renderer edits that have not been saved?"
 msgstr "このプロジェクトを閉じ、保存されていないレンダラーの編集内容を破棄しますか？"
 
-#: src/dialogs/AgentDetailsDialog.tsx:341
+#: src/dialogs/AgentDetailsDialog.tsx:354
 msgid "Color:"
 msgstr "色："
 
-#: src/components/project/StatusBar.tsx:182
+#: src/components/project/StatusBar.tsx:188
 msgid "Comm:"
 msgstr "通信："
 
@@ -271,7 +271,7 @@ msgstr "アクション {actionId} の上限付き連続実行を設定します
 msgid "Configure application and project settings."
 msgstr "アプリケーションとプロジェクトの設定を構成します。"
 
-#: src/dialogs/edit-views/ConfirmEditDialog.tsx:44
+#: src/dialogs/edit-views/ConfirmEditDialog.tsx:45
 msgid "Confirm"
 msgstr "確認"
 
@@ -317,7 +317,7 @@ msgstr "連続実行…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:142
 #: src/components/project/ViewContextMenuRenderer.tsx:149
-#: src/components/toolbar/MenuBar.tsx:156
+#: src/components/toolbar/MenuBar.tsx:155
 #: src/dialogs/SnapshotDetailDialog.tsx:119
 msgid "Copy"
 msgstr "コピー"
@@ -349,7 +349,7 @@ msgstr "現在の値"
 #~ msgid "Custom"
 #~ msgstr "カスタム"
 
-#: src/dialogs/AgentDetailsDialog.tsx:357
+#: src/dialogs/AgentDetailsDialog.tsx:370
 msgid "Custom Data:"
 msgstr "カスタムデータ："
 
@@ -357,7 +357,7 @@ msgstr "カスタムデータ："
 msgid "Custom simulator actions are unavailable for a snapshot source."
 msgstr "スナップショットソースではカスタムシミュレーターアクションは利用できません。"
 
-#: src/components/toolbar/MenuBar.tsx:153
+#: src/components/toolbar/MenuBar.tsx:152
 msgid "Cut"
 msgstr "切り取り"
 
@@ -369,7 +369,7 @@ msgstr "ダーク"
 msgid "Data Points"
 msgstr "データポイント"
 
-#: src/dialogs/AgentDetailsDialog.tsx:351
+#: src/dialogs/AgentDetailsDialog.tsx:364
 msgid "default"
 msgstr "デフォルト"
 
@@ -417,7 +417,7 @@ msgstr "表示"
 msgid "Display Type"
 msgstr "表示タイプ"
 
-#: src/components/toolbar/MenuBar.tsx:225
+#: src/components/toolbar/MenuBar.tsx:224
 msgid "Documentation"
 msgstr "ドキュメント"
 
@@ -434,7 +434,7 @@ msgid "Drag files here to upload"
 msgstr "ファイルをここにドラッグしてアップロード"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:175
-#: src/components/toolbar/MenuBar.tsx:128
+#: src/components/toolbar/MenuBar.tsx:127
 msgid "Edit"
 msgstr "編集"
 
@@ -504,7 +504,7 @@ msgstr "正確なチェックポイント"
 msgid "Exact checkpoints are available only at the recording's initial frame."
 msgstr "正確なチェックポイントは記録の最初のフレームでのみ利用できます。"
 
-#: src/components/toolbar/MenuBar.tsx:117
+#: src/components/toolbar/MenuBar.tsx:116
 msgid "Exit"
 msgstr "終了"
 
@@ -589,7 +589,7 @@ msgstr "ビューの更新に失敗しました"
 #~ msgid "Fallback Background Color"
 #~ msgstr "フォールバック背景色"
 
-#: src/components/toolbar/MenuBar.tsx:84
+#: src/components/toolbar/MenuBar.tsx:83
 msgid "File"
 msgstr "ファイル"
 
@@ -597,7 +597,7 @@ msgstr "ファイル"
 #~ msgid "File Browser"
 #~ msgstr "ファイルブラウザ"
 
-#: src/App.tsx:33
+#: src/App.tsx:38
 msgid "File import failed"
 msgstr "ファイルのインポートに失敗しました"
 
@@ -615,7 +615,7 @@ msgstr "ファイルを保存しました"
 msgid "First frame"
 msgstr "最初のフレーム"
 
-#: src/dialogs/AgentDetailsDialog.tsx:307
+#: src/dialogs/AgentDetailsDialog.tsx:320
 msgid "Follow agent"
 msgstr "エージェントを追従"
 
@@ -627,7 +627,7 @@ msgstr "エージェントを追従"
 #~ msgid "Force hidden"
 #~ msgstr "強制的に非表示"
 
-#: src/components/project/StatusBar.tsx:201
+#: src/components/project/StatusBar.tsx:208
 msgid "Force reconnect to server"
 msgstr "サーバーに強制再接続"
 
@@ -647,7 +647,7 @@ msgstr "フレーム："
 msgid "Frames:"
 msgstr "フレーム数："
 
-#: src/components/toolbar/MenuBar.tsx:191
+#: src/components/toolbar/MenuBar.tsx:190
 msgid "Fullscreen"
 msgstr "全画面"
 
@@ -667,7 +667,7 @@ msgstr "全画面"
 msgid "Hash:"
 msgstr "ハッシュ："
 
-#: src/dialogs/AgentDetailsDialog.tsx:169
+#: src/dialogs/AgentDetailsDialog.tsx:182
 msgid "Heading:"
 msgstr "方向："
 
@@ -675,19 +675,21 @@ msgstr "方向："
 msgid "Height"
 msgstr "高さ"
 
-#: src/components/toolbar/MenuBar.tsx:219
+#: src/components/toolbar/MenuBar.tsx:218
 msgid "Help"
 msgstr "ヘルプ"
 
-#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:266
+#: src/components/project/StatusBar.tsx:267
 msgid "Hide Bottom Panel"
 msgstr "下部パネルを非表示"
 
-#: src/components/project/StatusBar.tsx:247
+#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:257
 msgid "Hide Right Panel"
 msgstr "右側パネルを非表示"
 
-#: src/dialogs/AgentDetailsDialog.tsx:331
+#: src/dialogs/AgentDetailsDialog.tsx:344
 msgid "Icon:"
 msgstr "アイコン："
 
@@ -697,12 +699,13 @@ msgid "ID"
 msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
-#: src/dialogs/AgentDetailsDialog.tsx:322
+#: src/dialogs/AgentDetailsDialog.tsx:335
 #: src/dialogs/SnapshotDetailDialog.tsx:245
 msgid "ID:"
 msgstr "ID："
 
-#: src/components/project/StatusBar.tsx:220
+#: src/components/project/StatusBar.tsx:223
+#: src/components/project/StatusBar.tsx:228
 msgid "Info"
 msgstr "情報"
 
@@ -754,7 +757,7 @@ msgstr "編集を続ける"
 msgid "Keep live charts"
 msgstr "現在のチャートを保持"
 
-#: src/components/toolbar/MenuBar.tsx:228
+#: src/components/toolbar/MenuBar.tsx:227
 msgid "Keyboard Shortcuts"
 msgstr "キーボードショートカット"
 
@@ -828,7 +831,7 @@ msgstr "モデル"
 msgid "Model mismatch"
 msgstr "モデルが一致しません"
 
-#: src/components/project/StatusBar.tsx:173
+#: src/components/project/StatusBar.tsx:179
 msgid "Model:"
 msgstr "モデル："
 
@@ -853,7 +856,7 @@ msgstr "モニター"
 msgid "More Actions"
 msgstr "その他の操作"
 
-#: src/components/project/StatusBar.tsx:165
+#: src/components/project/StatusBar.tsx:171
 msgid "MSPT:"
 msgstr "MSPT："
 
@@ -862,11 +865,11 @@ msgid "Name"
 msgstr "名前"
 
 #. placeholder {0}: inspection.neighborCount
-#: src/dialogs/AgentDetailsDialog.tsx:310
+#: src/dialogs/AgentDetailsDialog.tsx:323
 msgid "Neighbors: {0}"
 msgstr "近傍: {0}"
 
-#: src/components/toolbar/MenuBar.tsx:90
+#: src/components/toolbar/MenuBar.tsx:89
 msgid "New"
 msgstr "新規"
 
@@ -965,7 +968,7 @@ msgstr "まだスナップショットがありません。"
 #~ msgid "No snapshots yet. Click \"Take Snapshot\" to create one."
 #~ msgstr "まだスナップショットがありません。「スナップショットを撮る」をクリックして作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:317
+#: src/dialogs/AgentDetailsDialog.tsx:330
 msgid "No spatial context is available for this agent."
 msgstr "このエージェントには空間コンテキストがありません。"
 
@@ -973,11 +976,11 @@ msgstr "このエージェントには空間コンテキストがありません
 msgid "No view tree is available."
 msgstr "利用可能なビューツリーがありません。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:361
+#: src/dialogs/AgentDetailsDialog.tsx:374
 msgid "None"
 msgstr "なし"
 
-#: src/dialogs/AgentDetailsDialog.tsx:163
+#: src/dialogs/AgentDetailsDialog.tsx:176
 msgid "Not positioned"
 msgstr "位置指定なし"
 
@@ -1002,7 +1005,7 @@ msgstr "スナップショットソースでは開始、ステップ、停止、
 msgid "Open as offline copy"
 msgstr "オフラインコピーとして開く"
 
-#: src/components/toolbar/MenuBar.tsx:93
+#: src/components/toolbar/MenuBar.tsx:92
 #: src/components/toolbar/ToolGroups.tsx:61
 #: src/components/toolbar/useFileOperations.ts:60
 msgid "Open File"
@@ -1012,7 +1015,7 @@ msgstr "ファイルを開く"
 #~ msgid "Open Folder"
 #~ msgstr "フォルダーを開く"
 
-#: src/components/toolbar/MenuBar.tsx:96
+#: src/components/toolbar/MenuBar.tsx:95
 #: src/components/toolbar/useFileOperations.ts:77
 #: src/dialogs/SelectRecordingDialog.tsx:51
 msgid "Open recording"
@@ -1063,7 +1066,7 @@ msgstr "パラメータ"
 msgid "Parameters:"
 msgstr "パラメータ："
 
-#: src/components/toolbar/MenuBar.tsx:159
+#: src/components/toolbar/MenuBar.tsx:158
 msgid "Paste"
 msgstr "貼り付け"
 
@@ -1089,7 +1092,7 @@ msgstr "再生コントロール"
 msgid "Please create or open a project to get started."
 msgstr "プロジェクトを開くか、作成してください。"
 
-#: src/dialogs/AgentDetailsDialog.tsx:158
+#: src/dialogs/AgentDetailsDialog.tsx:171
 msgid "Position:"
 msgstr "位置："
 
@@ -1147,7 +1150,7 @@ msgstr "プロトコル"
 msgid "Protocol {0}"
 msgstr "プロトコル {0}"
 
-#: src/dialogs/AgentDetailsDialog.tsx:288
+#: src/dialogs/AgentDetailsDialog.tsx:301
 msgid "Radius"
 msgstr "半径"
 
@@ -1155,7 +1158,8 @@ msgstr "半径"
 msgid "Ready"
 msgstr "準備完了"
 
-#: src/components/project/StatusBar.tsx:209
+#: src/components/project/StatusBar.tsx:207
+#: src/components/project/StatusBar.tsx:216
 msgid "Reconnect"
 msgstr "再接続"
 
@@ -1183,7 +1187,7 @@ msgstr "録画フレーム"
 msgid "Recording frame: {frame}"
 msgstr "記録フレーム: {frame}"
 
-#: src/components/toolbar/MenuBar.tsx:149
+#: src/components/toolbar/MenuBar.tsx:148
 #: src/components/toolbar/ToolGroups.tsx:89
 msgid "Redo"
 msgstr "やり直す"
@@ -1224,7 +1228,7 @@ msgstr "ビューをリセット"
 #~ msgid "Reset View"
 #~ msgstr "ビューをリセット"
 
-#: src/components/toolbar/MenuBar.tsx:184
+#: src/components/toolbar/MenuBar.tsx:183
 msgid "Reset Zoom"
 msgstr "ズームをリセット"
 
@@ -1272,11 +1276,15 @@ msgstr "ルート"
 msgid "Run one step"
 msgstr "1ステップ実行"
 
-#: src/components/project/StatusBar.tsx:150
+#: src/components/project/StatusBar.tsx:156
 msgid "Run:"
 msgstr "実行："
 
-#: src/components/toolbar/MenuBar.tsx:103
+#: src/components/project/StatusBar.tsx:141
+msgid "Runtime status"
+msgstr "実行状態"
+
+#: src/components/toolbar/MenuBar.tsx:102
 #: src/components/toolbar/ToolGroups.tsx:66
 #: src/dialogs/edit-views/EditViewDialog.tsx:412
 msgid "Save"
@@ -1292,7 +1300,7 @@ msgstr "名前を付けて保存"
 msgid "Save As CSV"
 msgstr "CSV形式で保存"
 
-#: src/components/toolbar/MenuBar.tsx:110
+#: src/components/toolbar/MenuBar.tsx:109
 msgid "Save As..."
 msgstr "名前を付けて保存..."
 
@@ -1312,7 +1320,7 @@ msgstr "シナリオメタデータ"
 msgid "Search agents by ID, color, or icon..."
 msgstr "ID、色、またはアイコンでエージェントを検索..."
 
-#: src/components/toolbar/MenuBar.tsx:163
+#: src/components/toolbar/MenuBar.tsx:162
 msgid "Select All"
 msgstr "すべて選択"
 
@@ -1337,23 +1345,26 @@ msgstr "サーバーメッセージバリデーション"
 msgid "Session identity, capabilities, and current model metadata."
 msgstr "セッション識別子、機能、現在のモデルメタデータ。"
 
-#: src/components/project/StatusBar.tsx:226
-#: src/components/project/StatusBar.tsx:230
-#: src/components/toolbar/MenuBar.tsx:209
+#: src/components/project/StatusBar.tsx:234
+#: src/components/project/StatusBar.tsx:235
+#: src/components/project/StatusBar.tsx:239
+#: src/components/toolbar/MenuBar.tsx:208
 #: src/components/toolbar/ToolGroups.tsx:320
 #: src/dialogs/SettingsDialog.tsx:132
 msgid "Settings"
 msgstr "設定"
 
-#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:266
+#: src/components/project/StatusBar.tsx:267
 msgid "Show Bottom Panel"
 msgstr "下部パネルを表示"
 
-#: src/components/toolbar/MenuBar.tsx:188
+#: src/components/toolbar/MenuBar.tsx:187
 msgid "Show Grid"
 msgstr "グリッドを表示"
 
-#: src/components/project/StatusBar.tsx:247
+#: src/components/project/StatusBar.tsx:256
+#: src/components/project/StatusBar.tsx:257
 msgid "Show Right Panel"
 msgstr "右側パネルを表示"
 
@@ -1369,7 +1380,7 @@ msgstr "右側パネルを表示"
 msgid "Simulation time:"
 msgstr "シミュレーション時刻："
 
-#: src/components/project/StatusBar.tsx:216
+#: src/components/project/StatusBar.tsx:224
 #: src/dialogs/SimulatorInfoDialog.tsx:54
 msgid "Simulator information"
 msgstr "シミュレーター情報"
@@ -1381,7 +1392,7 @@ msgid "Simulator returned {0}."
 msgstr "シミュレーターは {0} を返しました。"
 
 #: src/components/project/RightPanel.tsx:175
-#: src/dialogs/AgentDetailsDialog.tsx:349
+#: src/dialogs/AgentDetailsDialog.tsx:362
 msgid "Size:"
 msgstr "サイズ："
 
@@ -1433,7 +1444,7 @@ msgstr "スナップショット"
 msgid "Some data was invalid. Valid data was loaded; review the project and save a new copy."
 msgstr "一部のデータが無効でした。有効なデータを読み込みました。プロジェクトを確認し、新しいコピーとして保存してください。"
 
-#: src/components/project/StatusBar.tsx:190
+#: src/components/project/StatusBar.tsx:196
 msgid "Srv Render:"
 msgstr "サーバーレンダリング："
 
@@ -1621,7 +1632,7 @@ msgid "This view can keep its binding, but there is no registered parameter to e
 msgstr "ビューはこのバインディングを維持できますが、編集対象の登録済みパラメータがありません。"
 
 #: src/components/project/RightPanel.tsx:286
-#: src/components/project/StatusBar.tsx:143
+#: src/components/project/StatusBar.tsx:149
 msgid "Time Step:"
 msgstr "タイムステップ："
 
@@ -1645,7 +1656,7 @@ msgstr "テーマを切り替え"
 msgid "Toggle Theme"
 msgstr "テーマを切り替え"
 
-#: src/components/toolbar/MenuBar.tsx:200
+#: src/components/toolbar/MenuBar.tsx:199
 msgid "Tools"
 msgstr "ツール"
 
@@ -1653,7 +1664,7 @@ msgstr "ツール"
 msgid "Top"
 msgstr "上"
 
-#: src/components/project/StatusBar.tsx:157
+#: src/components/project/StatusBar.tsx:163
 msgid "TPS:"
 msgstr "TPS："
 
@@ -1703,7 +1714,7 @@ msgstr "モデルアクションを実行できません"
 msgid "Unable to step"
 msgstr "ステップ実行できません"
 
-#: src/components/toolbar/MenuBar.tsx:140
+#: src/components/toolbar/MenuBar.tsx:139
 #: src/components/toolbar/ToolGroups.tsx:82
 msgid "Undo"
 msgstr "元に戻す"
@@ -1742,7 +1753,7 @@ msgstr "値のパス"
 msgid "Version"
 msgstr "バージョン"
 
-#: src/components/toolbar/MenuBar.tsx:172
+#: src/components/toolbar/MenuBar.tsx:171
 msgid "View"
 msgstr "表示"
 
@@ -1750,7 +1761,7 @@ msgstr "表示"
 #~ msgid "View and manage snapshot"
 #~ msgstr "スナップショットを表示・管理"
 
-#: src/dialogs/AgentDetailsDialog.tsx:273
+#: src/dialogs/AgentDetailsDialog.tsx:286
 msgid "View detailed information about the selected agent"
 msgstr "選択したエージェントの詳細情報を表示"
 
@@ -1798,12 +1809,12 @@ msgstr "{0} 個のパラメーターと {1} 個の環境を復元します{2}。
 msgid "Window positions cleared"
 msgstr "ウィンドウ位置の記録を消去しました"
 
-#: src/components/toolbar/MenuBar.tsx:178
+#: src/components/toolbar/MenuBar.tsx:177
 #: src/components/toolbar/ToolGroups.tsx:263
 msgid "Zoom In"
 msgstr "拡大"
 
-#: src/components/toolbar/MenuBar.tsx:181
+#: src/components/toolbar/MenuBar.tsx:180
 #: src/components/toolbar/ToolGroups.tsx:264
 msgid "Zoom Out"
 msgstr "縮小"

@@ -240,7 +240,14 @@ export function contentOwner(contentId: string, initialProps: object) {
     },
     update(next: object) {
       if (project && useProjectStore.getState().activeProject?.id !== project.id) return false;
-      if (inspection) return false;
+      if (inspection) {
+        const selected = next as typeof inspectorProps;
+        if (selected.scenario !== inspectorProps.scenario || !selected.agentRef) return false;
+        const changed = inspection.retarget(selected.agentRef);
+        props = next;
+        if (changed) propsVersion++;
+        return changed;
+      }
       const changed = Object.entries(next).some(
         ([key, value]) =>
           typeof value !== 'function' && value !== (props as Record<string, unknown>)[key],
@@ -329,23 +336,31 @@ export function contentOwner(contentId: string, initialProps: object) {
 }
 
 /** A child owns a local projected scene for rendering, and proxies mutations to its owner. */
-export function mountNativeContent(host: HTMLElement, initial: ContentState, rpc: ContentRpc) {
+export function mountNativeContent(
+  host: HTMLElement,
+  initial: ContentState,
+  rpc: ContentRpc,
+  render: (content: ReactNode) => void,
+) {
   const codec = new ContentCodec(rpc);
   const history = createHistoryStore({ maxCommands: 64, maxBytes: 4 * 1024 * 1024 });
   const scenario = createScenarioStore(history);
   const loadLocalScene = scenario.getState().load;
   const transport = createTransportStore(scenario);
-  const definition = reactContent(dialogContent(initial.contentId), (content: ReactNode) =>
-    createElement(
-      I18nProvider,
-      { i18n },
+  const definition = reactContent(
+    dialogContent(initial.contentId),
+    (content: ReactNode) =>
       createElement(
-        ScenarioStoreProvider,
-        { value: scenario },
-        createElement(ScenarioUndoRedoStoreProvider, { value: history }, content),
+        I18nProvider,
+        { i18n },
+        createElement(
+          ScenarioStoreProvider,
+          { value: scenario },
+          createElement(ScenarioUndoRedoStoreProvider, { value: history }, content),
+        ),
+        createElement(ToastAnchor),
       ),
-      createElement(ToastAnchor),
-    ),
+    render,
   );
   let content: ReturnType<typeof definition.mount> | undefined;
   let propsVersion = -1;

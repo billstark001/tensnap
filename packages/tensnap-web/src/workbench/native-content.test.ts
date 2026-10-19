@@ -166,3 +166,54 @@ it('keeps native inspector initialization free of full-scene serialization', asy
     owner.dispose();
   }
 });
+
+it('retargets an existing native inspector without changing its owner or serializing the full scene', async () => {
+  const scenario = new Scenario();
+  scenario.apply({ type: 'env_create', payload: { id: 'world', type: '2d' } });
+  scenario.apply({
+    type: 'env_layer_create',
+    payload: { env_id: 'world', layer_id: 'agents', layer_type: 'agent' },
+  });
+  scenario.apply({
+    type: 'item_create',
+    payload: {
+      env_id: 'world',
+      layer_id: 'agents',
+      items: [
+        { id: 1, x: 0, y: 0 },
+        { id: 2, x: 20, y: 30 },
+      ],
+    },
+  });
+  const dump = vi.spyOn(scenario, 'dump').mockImplementation(() => {
+    throw new Error('Full dump forbidden');
+  });
+  const initial = {
+    scenario,
+    open: true,
+    agentRef: { environmentId: 'world', layerId: 'agents', agentId: 1 },
+  };
+  const owner = contentOwner('AgentDetailsDialog', initial);
+  const child = new ContentCodec({
+    call: async (method, args) => wire(await owner.codec.invoke(method, wire(args))),
+  });
+  const signal = new AbortController().signal;
+  try {
+    const first = child.decode(wire(owner.state()).props);
+    const response = await first.inspectionSource.read({ radius: 3, assets: {} }, signal);
+    expect(response.view.inspection.agent.id).toBe(1);
+    expect(owner.update({ ...initial, agentRef: { ...initial.agentRef, agentId: 2 } })).toBe(true);
+    const state = wire(owner.state());
+    expect(state.propsVersion).toBe(1);
+    const next = child.decode(state.props);
+    expect(
+      await next.inspectionSource.read({ radius: 3, assets: {}, token: response.token }, signal),
+    ).toMatchObject({ view: { inspection: { agent: { id: 2, x: 20, y: 30 } } } });
+    expect(owner.update({ ...initial, agentRef: { ...initial.agentRef, agentId: 2 } })).toBe(false);
+    expect(state.project).toBeUndefined();
+    expect(dump).not.toHaveBeenCalled();
+  } finally {
+    child.dispose();
+    owner.dispose();
+  }
+});

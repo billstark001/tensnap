@@ -15,7 +15,7 @@ import {
 } from '@tensnap/web/store';
 import { detectLocale, initI18n } from '@tensnap/web/i18n';
 import { useTauriMenuEvents } from './hooks/useTauriMenuEvents';
-import { getOsName } from './adapters/common';
+import { getOsName, openDocumentation } from './adapters/common';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
 import { registerTauriLocaleCatalog } from './i18n/register-catalog';
@@ -63,6 +63,7 @@ async function initializeTauriServices(): Promise<string> {
 }
 
 export const TauriApp: React.FC = () => {
+  const [nativeContent, setNativeContent] = useState<React.ReactNode>(null);
   const [isMac, setIsMac] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -130,7 +131,9 @@ export const TauriApp: React.FC = () => {
     if (!isReady || error || !auxiliary) return;
     const controller = new AbortController();
     let stop: (() => void) | undefined;
-    void startNativeContent(document.getElementById('root')!, controller.signal).then(
+    void startNativeContent(document.getElementById('root')!, controller.signal, (content) => {
+      if (!controller.signal.aborted) setNativeContent(content);
+    }).then(
       (dispose) => {
         if (controller.signal.aborted) dispose();
         else stop = dispose;
@@ -145,7 +148,7 @@ export const TauriApp: React.FC = () => {
     };
   }, [isReady, error]);
 
-  if (isReady && !error && auxiliary) return null;
+  if (isReady && !error && auxiliary) return <>{nativeContent}</>;
 
   if (!isReady) {
     return (
@@ -188,6 +191,7 @@ export const TauriApp: React.FC = () => {
         environment="tauri"
         system={isMac ? 'mac' : 'other'}
         isFullscreen={isFullscreen}
+        onOpenDocumentation={openDocumentation}
         onExit={exitApplication}
         onToggleFullscreen={toggleFullscreen}
       />

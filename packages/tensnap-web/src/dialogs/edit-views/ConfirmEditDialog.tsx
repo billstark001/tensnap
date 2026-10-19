@@ -21,6 +21,7 @@ const ConfirmEditDialogContent: React.FC<ConfirmEditDialogProps> = ({
   const [error, setError] = useState<string | null>(null);
   return (
     <Dialog.Root
+      modal
       title={title}
       open={open}
       onOpenChange={onOpenChange}
