@@ -85,6 +85,35 @@ export function Trigger({
     </button>
   );
 }
+/** Shares a root menu with an ordinary trigger, such as a row's action button. */
+export function ContextTrigger({
+  children,
+}: {
+  children: ReactElement<HTMLAttributes<HTMLElement>>;
+}) {
+  const menu = useContext(MenuContext);
+  return cloneElement(children, {
+    onContextMenu: (event) => {
+      children.props.onContextMenu?.(event);
+      if (event.defaultPrevented) return;
+      event.preventDefault();
+      event.stopPropagation();
+      menu.show(event.clientX, event.clientY, event.currentTarget);
+    },
+    onKeyDown: (event) => {
+      children.props.onKeyDown?.(event);
+      if (
+        event.defaultPrevented ||
+        !(event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = event.currentTarget.getBoundingClientRect();
+      menu.show(rect.left, rect.bottom + 5, event.currentTarget);
+    },
+  });
+}
 /** Actual HTML attributes belong to the rendered menu, rather than a compatibility facade. */
 export function Content({ children, ...props }: HTMLAttributes<HTMLDivElement>) {
   const menu = useContext(MenuContext);

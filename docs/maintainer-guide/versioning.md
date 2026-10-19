@@ -4,17 +4,18 @@ TenSnap uses independent package patch versions within the shared `0.3` release 
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/web` | `0.3.7` | `packages/tensnap-web/package.json` |
+| `@tensnap/web` | `0.3.8` | `packages/tensnap-web/package.json` |
 | `@tensnap/tauri` | `0.3.6` | `packages/tensnap-tauri/package.json`, `src-tauri/Cargo.toml` and generated `Cargo.lock` |
 | `@tensnap/core`, `@tensnap/agent`, `@tensnap/benchmark` | `0.3.6` | Each package's `package.json` |
-| `@tensnap/js`, `@tensnap/examples-js`, `@tensnap/web-adapter` | `0.3.4` | Each package's `package.json` |
+| `@tensnap/js`, `@tensnap/examples-js`, `@tensnap/web-common` | `0.3.4` | Each package's `package.json` |
+| `@tensnap/web-adapter` | `0.3.5` | `packages/web-adapter/package.json` |
 | `@tensnap/protocol` | `0.3.3` | `packages/protocol/package.json` |
 | `@tensnap/network` | `0.3.0` | `packages/network/package.json` |
 | `@tensnap/examples-julia` | `0.3.2` | `examples/julia/package.json` |
 | Go binding | `0.3.3` | `packages/tensnap-go/protocol/version.go` (`BindingVersion`) |
 | Python binding | `0.3.3` | `packages/tensnap-python/tensnap/_version.py` (`__version__`) |
 | Julia binding | `0.3.3` | `packages/tensnap-julia/Project.toml` |
-| `@tensnap/web-common`, workspace root `tensnap` | `0.3.3` | Each `package.json` |
+| Workspace root `tensnap` | `0.3.3` | `package.json` |
 
 The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`, and `packages/tensnap-julia` have no npm version: they run native build and test commands, while their native sources above define release versions.
 

@@ -1,4 +1,5 @@
 import { FileSystemError } from './file-system-error';
+import { validateMove } from './move-utils';
 import LightningFS from '@isomorphic-git/lightning-fs';
 import * as PathUtils from '../utils/path';
 import {
@@ -456,6 +457,35 @@ export class IndexedDBFileSystemAdapter extends FileSystemAdapter {
     } catch {
       return false;
     }
+  }
+
+  override async move(sourcePath: string, targetPath: string): Promise<void> {
+    return this.safeExecute(
+      async () => {
+        const { source, target } = await validateMove(this, sourcePath, targetPath);
+        if (source === target) return;
+        const previous = structuredClone(this.metadata);
+        await this.fsPromises.rename(source, target);
+        for (const entries of [this.metadata.files, this.metadata.directories]) {
+          for (const path of Object.keys(entries)) {
+            if (path !== source && !path.startsWith(`${source}/`)) continue;
+            entries[target + path.slice(source.length)] = entries[path];
+            delete entries[path];
+          }
+        }
+        try {
+          await this.persistMetadata();
+        } catch (error) {
+          this.metadata = previous;
+          await this.fsPromises.rename(target, source);
+          throw error;
+        }
+      },
+      'Failed to move item',
+      'STORAGE_ERROR',
+      sourcePath,
+      'move',
+    );
   }
 
   async createDirectory(path: string, allowExist = false): Promise<DirectoryMetadata> {

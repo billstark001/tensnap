@@ -10,11 +10,16 @@
   position: fixed;
   z-index: 100000;
   max-height: min(80vh, 600px);
+  max-width: calc(100vw - 8px);
   overflow: auto;
 }
 [data-workbench-menu] [role='menuitem']:focus {
   outline: 2px solid #5c9be8;
   outline-offset: -2px;
+}
+[data-workbench-menu] [role='menu'] {
+  display: flex;
+  flex-direction: column;
 }
 .workbench-shell {
   height: 100vh;

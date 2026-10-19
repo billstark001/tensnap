@@ -1,5 +1,7 @@
 export interface SettingsPersistence {
   get(key: string): Promise<string | null>;
+  /** Available for stores that can restore UI geometry before the first render. */
+  getSync?(key: string): string | null;
   keys(): Promise<string[]>;
   set(key: string, value: string): Promise<void>;
   remove(key: string): Promise<void>;
@@ -11,6 +13,10 @@ class BrowserSettingsPersistence implements SettingsPersistence {
   }
 
   async get(key: string): Promise<string | null> {
+    return this.getSync(key);
+  }
+
+  getSync(key: string): string | null {
     try {
       return globalThis.localStorage?.getItem(key) ?? null;
     } catch {

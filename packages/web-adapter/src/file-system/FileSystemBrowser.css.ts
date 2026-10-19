@@ -274,6 +274,9 @@ export const itemActions = style({
     [`${listItem}:hover &`]: {
       opacity: 1,
     },
+    [`${listItem}:focus-within &`]: {
+      opacity: 1,
+    },
   },
 });
 
@@ -457,6 +460,28 @@ export const dropdownItemDanger = style([
     },
   },
 ]);
+
+export const moveDirectoryList = style({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '8px',
+  maxHeight: '200px',
+  overflowY: 'auto',
+  marginTop: '12px',
+});
+
+export const operationError = style({ color: vars.color.danger });
+
+export const exportOption = style([
+  actionButton,
+  { padding: '12px', textAlign: 'left', display: 'block' },
+]);
+
+export const exportOptionDescription = style({
+  fontSize: '12px',
+  marginTop: '4px',
+  opacity: 0.75,
+});
 
 // File picker selection bar styles
 export const selectionBar = style({

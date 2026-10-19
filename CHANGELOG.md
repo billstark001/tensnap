@@ -26,6 +26,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/web [0.3.8] - 2026-10-20
+
+### Added
+
+- Open file picker actions from either the ellipsis button or a right-click. Download individual files with their original bytes, MIME type and filename; move files and directories through a folder browser and rename them in place.
+
+### Fixed
+
+- Keep shared menus beside their trigger or pointer, outside dialog clipping and within the viewport, including keyboard navigation in modal dialogs.
+- Restore remembered dialog geometry before the first visible frame without animating from the default position.
+- Use theme-aware export options in dark mode.
+
+## @tensnap/web-common [0.3.4] - 2026-10-20
+
+### Added
+
+- Shared dropdown context triggers and a filesystem move contract with an unsupported-operation default for hosts using native file UI.
+
+### Fixed
+
+- Mount menus at the document root, track their owning modal focus boundary, constrain their viewport bounds and close them when their owner scrolls or closes.
+- Wait for stored window placement before showing and focusing WinBox dialogs. Do not overwrite saved placement when a window closes before storage finishes loading.
+
+## @tensnap/web-adapter [0.3.5] - 2026-10-20
+
+### Added
+
+- File picker download, move and rename actions with shared right-click/ellipsis access and English, Chinese and Japanese labels.
+- Memory and IndexedDB filesystem moves preserve content and metadata, support directory trees, and reject collisions, missing destinations and moves into a directory's own descendants.
+
+### Fixed
+
+- Await directory refreshes after file operations, clear stale picker selections after reloads, and apply the active theme to export option buttons.
+
 ## @tensnap/web [0.3.7] - 2026-10-20
 
 ### Added

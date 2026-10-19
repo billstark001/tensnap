@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/file-system/FileItem.tsx:63
+#: src/file-system/FileItem.tsx:73
 msgid "Action menu"
 msgstr "Action menu"
 
@@ -28,9 +28,10 @@ msgstr "Action menu"
 #~ msgstr "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 
 #: src/file-system/CreateDialog.tsx:75
-#: src/file-system/ExportDialog.tsx:161
+#: src/file-system/ExportDialog.tsx:153
+#: src/file-system/FileOperationDialog.tsx:151
 #: src/file-system/FilePickerProvider.tsx:227
-#: src/file-system/FileSystemBrowser.tsx:346
+#: src/file-system/FileSystemBrowser.tsx:383
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -55,26 +56,34 @@ msgstr "Create New Item"
 msgid "Current directory: {currentDirectory}"
 msgstr "Current directory: {currentDirectory}"
 
-#: src/file-system/FileItem.tsx:71
-#: src/file-system/FileSystemBrowser.tsx:345
+#: src/file-system/FileItem.tsx:94
+#: src/file-system/FileSystemBrowser.tsx:382
 msgid "Delete"
 msgstr "Delete"
 
 #. placeholder {0}: pendingDeleteEntry?.name ?? ''
-#: src/file-system/FileSystemBrowser.tsx:339
+#: src/file-system/FileSystemBrowser.tsx:376
 msgid "Delete \"{0}\"?"
 msgstr "Delete \"{0}\"?"
 
+#: src/file-system/FileOperationDialog.tsx:114
+msgid "Destination directory"
+msgstr "Destination directory"
+
 #: src/file-system/CreateDialog.tsx:59
-#: src/file-system/FileItem.tsx:44
+#: src/file-system/FileItem.tsx:50
 msgid "Directory"
 msgstr "Directory"
 
-#: src/file-system/FileSystemBrowser.tsx:292
+#: src/file-system/FileSystemBrowser.tsx:316
 msgid "Directory is empty"
 msgstr "Directory is empty"
 
-#: src/file-system/FileSystemBrowser.tsx:297
+#: src/file-system/FileItem.tsx:84
+msgid "Download this file"
+msgstr "Download this file"
+
+#: src/file-system/FileSystemBrowser.tsx:321
 msgid "Drag files here"
 msgstr "Drag files here"
 
@@ -95,51 +104,59 @@ msgstr "Enter file name"
 msgid "Export"
 msgstr "Export"
 
-#: src/file-system/ExportDialog.tsx:70
+#: src/file-system/ExportDialog.tsx:71
 msgid "Export as JSON file with all file contents and metadata"
 msgstr "Export as JSON file with all file contents and metadata"
 
-#: src/file-system/ExportDialog.tsx:77
+#: src/file-system/ExportDialog.tsx:78
 msgid "Export as ZIP compressed file, preserving directory structure"
 msgstr "Export as ZIP compressed file, preserving directory structure"
 
-#: src/file-system/ExportDialog.tsx:30
+#: src/file-system/ExportDialog.tsx:31
 msgid "Export Options"
 msgstr "Export Options"
 
-#: src/file-system/ExportDialog.tsx:102
+#: src/file-system/ExportDialog.tsx:103
 msgid "Export path"
 msgstr "Export path"
 
-#: src/file-system/ExportDialog.tsx:154
+#: src/file-system/ExportDialog.tsx:146
 msgid "Exporting, please wait..."
 msgstr "Exporting, please wait..."
 
-#: src/file-system/FileSystemBrowser.tsx:217
+#: src/file-system/FileSystemBrowser.tsx:222
 msgid "Failed to create item"
 msgstr "Failed to create item"
 
-#: src/file-system/FileSystemBrowser.tsx:239
+#: src/file-system/FileSystemBrowser.tsx:244
 msgid "Failed to delete item"
 msgstr "Failed to delete item"
 
-#: src/file-system/ExportDialog.tsx:93
+#: src/file-system/FileSystemBrowser.tsx:275
+msgid "Failed to download file"
+msgstr "Failed to download file"
+
+#: src/file-system/ExportDialog.tsx:94
 msgid "Failed to execute export option"
 msgstr "Failed to execute export option"
 
-#: src/file-system/ExportDialog.tsx:58
+#: src/file-system/ExportDialog.tsx:59
 msgid "Failed to export"
 msgstr "Failed to export"
 
-#: src/file-system/FileSystemBrowser.tsx:281
+#: src/file-system/FileSystemBrowser.tsx:305
 msgid "Failed to load"
 msgstr "Failed to load"
 
-#: src/file-system/FileSystemBrowser.tsx:62
+#: src/file-system/FileSystemBrowser.tsx:67
 msgid "Failed to load directory"
 msgstr "Failed to load directory"
 
-#: src/file-system/FileSystemBrowser.tsx:155
+#: src/file-system/FileOperationDialog.tsx:77
+msgid "Failed to move item"
+msgstr "Failed to move item"
+
+#: src/file-system/FileSystemBrowser.tsx:160
 msgid "Failed to upload files"
 msgstr "Failed to upload files"
 
@@ -151,16 +168,22 @@ msgstr "File"
 msgid "File name:"
 msgstr "File name:"
 
-#: src/file-system/FileSystemBrowser.tsx:196
-#: src/file-system/FileSystemBrowser.tsx:197
+#: src/file-system/FileSystemBrowser.tsx:264
+msgid "File not found"
+msgstr "File not found"
+
+#: src/file-system/FileOperationDialog.tsx:61
+#: src/file-system/FileSystemBrowser.tsx:201
+#: src/file-system/FileSystemBrowser.tsx:202
 msgid "Invalid name"
 msgstr "Invalid name"
 
-#: src/file-system/ExportDialog.tsx:69
+#: src/file-system/ExportDialog.tsx:70
 msgid "JSON Format"
 msgstr "JSON Format"
 
-#: src/file-system/FileSystemBrowser.tsx:276
+#: src/file-system/FileOperationDialog.tsx:126
+#: src/file-system/FileSystemBrowser.tsx:300
 msgid "Loading..."
 msgstr "Loading..."
 
@@ -168,7 +191,13 @@ msgstr "Loading..."
 msgid "More Actions"
 msgstr "More Actions"
 
+#: src/file-system/FileItem.tsx:88
+#: src/file-system/FileOperationDialog.tsx:82
+msgid "Move"
+msgstr "Move"
+
 #: src/file-system/CreateDialog.tsx:63
+#: src/file-system/FileOperationDialog.tsx:103
 msgid "Name"
 msgstr "Name"
 
@@ -201,13 +230,17 @@ msgid "Open File"
 msgstr "Open File"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:151
-#: src/file-system/FileSystemBrowser.tsx:298
+#: src/file-system/FileSystemBrowser.tsx:322
 msgid "Or click to browse"
 msgstr "Or click to browse"
 
 #: ../web-common/src/components/ui/Pagination.tsx:80
 msgid "Page {pageNum}"
 msgstr "Page {pageNum}"
+
+#: src/file-system/FileOperationDialog.tsx:123
+msgid "Parent directory"
+msgstr "Parent directory"
 
 #: ../web-common/src/components/ui/Pagination.tsx:60
 msgid "Previous page"
@@ -217,7 +250,12 @@ msgstr "Previous page"
 msgid "Refresh"
 msgstr "Refresh"
 
-#: src/file-system/FileSystemBrowser.tsx:284
+#: src/file-system/FileItem.tsx:91
+#: src/file-system/FileOperationDialog.tsx:82
+msgid "Rename"
+msgstr "Rename"
+
+#: src/file-system/FileSystemBrowser.tsx:308
 msgid "Retry"
 msgstr "Retry"
 
@@ -233,7 +271,7 @@ msgstr "Save"
 msgid "Save File"
 msgstr "Save File"
 
-#: src/file-system/ExportDialog.tsx:121
+#: src/file-system/ExportDialog.tsx:122
 msgid "Select export format"
 msgstr "Select export format"
 
@@ -255,11 +293,11 @@ msgstr "Selected file:"
 msgid "This directory is empty"
 msgstr "This directory is empty"
 
-#: src/file-system/FileSystemBrowser.tsx:343
+#: src/file-system/FileSystemBrowser.tsx:380
 msgid "This file will be permanently deleted."
 msgstr "This file will be permanently deleted."
 
-#: src/file-system/FileSystemBrowser.tsx:342
+#: src/file-system/FileSystemBrowser.tsx:379
 msgid "This will delete all nested content."
 msgstr "This will delete all nested content."
 
@@ -275,6 +313,6 @@ msgstr "Type"
 msgid "Upload Files"
 msgstr "Upload Files"
 
-#: src/file-system/ExportDialog.tsx:76
+#: src/file-system/ExportDialog.tsx:77
 msgid "ZIP Archive"
 msgstr "ZIP Archive"

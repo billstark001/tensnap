@@ -113,6 +113,17 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
     [closePicker],
   );
 
+  const handleCurrentDirectoryChange = useCallback(
+    (path: string) => {
+      setCurrentDirectory(path);
+      // The browser clears selection when it reloads after navigation or a mutation.
+      // Match that state so Open cannot submit a file's former path after a move.
+      setSelectedItems([]);
+      if (pickerState.options.mode !== 'save') setInputFileName('');
+    },
+    [pickerState.options.mode],
+  );
+
   const handleConfirm = useCallback(() => {
     const { mode, multiSelect } = pickerState.options;
     const fileName = inputFileName.trim();
@@ -199,7 +210,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
             initialPath={currentDirectory}
             onFileSelect={handleFileSelect}
             onFileDoubleClick={handleFileDoubleClick}
-            onCurrentDirectoryChange={setCurrentDirectory}
+            onCurrentDirectoryChange={handleCurrentDirectoryChange}
             allowUpload={pickerState.options.allowUpload}
             multiSelect={pickerState.options.multiSelect}
           />

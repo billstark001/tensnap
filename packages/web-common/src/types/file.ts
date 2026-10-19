@@ -75,6 +75,13 @@ export abstract class FileSystemAdapter {
   abstract readFile(path: string): Promise<FileContent | null>;
   abstract deleteFile(path: string): Promise<void>;
 
+  /** Move or rename an entry without replacing an existing destination.
+   * Browser adapters implement this; other hosts may keep their native file UI.
+   */
+  move(_sourcePath: string, _targetPath: string): Promise<void> {
+    return Promise.reject(new Error('Moving entries is not supported by this filesystem'));
+  }
+
   // Essential directory operations
   abstract createDirectory(path: string, allowExist?: boolean): Promise<DirectoryMetadata>;
   abstract deleteDirectory(path: string, recursive?: boolean): Promise<void>;

@@ -7,6 +7,14 @@ import { createWinBoxHost } from '@tensnap/web-common/workbench/winbox-host';
 import { configureDialogHost } from '@tensnap/web-common/workbench/content';
 // Controllers are intentionally plain DOM; these tests run in jsdom, with no browser/desktop input.
 import { openMenu } from '../../../web-common/src/workbench/menu';
+import {
+  readWindowPlacement,
+  saveWindowPlacement,
+} from '@tensnap/web-common/workbench/window-state';
+import {
+  configureSettingsPersistence,
+  getSettingsPersistence,
+} from '@tensnap/web-common/settings-persistence';
 afterEach(() =>
   document.querySelectorAll('[data-workbench-menu]').forEach((node) => node.remove()),
 );
@@ -262,4 +270,164 @@ it('honors a child trigger cancellation and opens menus from the keyboard', asyn
   await waitFor(() => expect(screen.getByRole('menuitem', { name: 'Choice' })).toHaveFocus());
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
   expect(trigger).toHaveFocus();
+});
+
+it('toggles an open dropdown closed when its trigger receives a real pointer sequence', async () => {
+  const Menu = await import('@tensnap/web-common/components/ui/DropdownMenu');
+  render(
+    <Menu.Root>
+      <Menu.Trigger>Toggle actions</Menu.Trigger>
+      <Menu.Content>
+        <Menu.Item>Choice</Menu.Item>
+      </Menu.Content>
+    </Menu.Root>,
+  );
+  const trigger = screen.getByRole('button', { name: 'Toggle actions' });
+  fireEvent.pointerDown(trigger);
+  fireEvent.click(trigger);
+  expect(screen.getByRole('menu')).toBeInTheDocument();
+  fireEvent.pointerDown(trigger);
+  fireEvent.click(trigger);
+  expect(screen.queryByRole('menu')).toBeNull();
+});
+
+it('constructs browser windows at their remembered position before the first frame', async () => {
+  const { generation } = await readWindowPlacement('RememberedSyncRegression');
+  await saveWindowPlacement('RememberedSyncRegression', generation, {
+    x: 42,
+    y: 65,
+    width: 430,
+    height: 310,
+  });
+  const window = createWinBoxHost().create({
+    type: 'RememberedSyncRegression',
+    title: 'Immediate placement',
+    size: 'md',
+    modal: false,
+    dismissible: true,
+    onClose: vi.fn(),
+  });
+  const frame = window.element.closest('.winbox') as HTMLElement;
+  expect(frame.style.left).toBe('42px');
+  expect(frame.style.top).toBe('65px');
+  expect(frame.style.width).toBe('430px');
+  expect(frame.style.visibility).toBe('');
+  window.dispose();
+});
+
+it('places menus in viewport space outside clipped windows and keeps modal menu focus', async () => {
+  const Menu = await import('@tensnap/web-common/components/ui/DropdownMenu');
+  const view = render(
+    <Dialog.Root type="ModalMenuRegression" title="Modal menu" open modal>
+      <Menu.Root>
+        <Menu.Trigger>Modal actions</Menu.Trigger>
+        <Menu.Content>
+          <Menu.Item>First choice</Menu.Item>
+          <Menu.Item>Second choice</Menu.Item>
+        </Menu.Content>
+      </Menu.Root>
+    </Dialog.Root>,
+  );
+  const trigger = await screen.findByRole('button', { name: 'Modal actions' });
+  await waitFor(() => expect(trigger.closest('.winbox')).not.toHaveStyle({ visibility: 'hidden' }));
+  vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ left: 600, bottom: 420 } as DOMRect);
+  fireEvent.click(trigger);
+  const overlay = screen.getByRole('menu').parentElement!;
+  expect(overlay.parentElement).toBe(document.body);
+  vi.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+    width: 180,
+    height: 120,
+  } as DOMRect);
+  overlay.append(document.createTextNode(''));
+  await waitFor(() => expect(screen.getByRole('menuitem', { name: 'First choice' })).toHaveFocus());
+  expect(overlay.style.left).toBe('600px');
+  expect(overlay.style.top).toBe('425px');
+  fireEvent.keyDown(document.activeElement!, { key: 'ArrowDown' });
+  expect(screen.getByRole('menuitem', { name: 'Second choice' })).toHaveFocus();
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+  expect(trigger).toHaveFocus();
+  expect(screen.getByRole('dialog', { name: 'Modal menu' })).toBeInTheDocument();
+  view.unmount();
+});
+
+it('clamps menu bounds and closes menus when the owner scrolls or disappears', async () => {
+  const host = createWinBoxHost();
+  const window = host.create({
+    type: 'MenuBounds',
+    title: 'Menu bounds',
+    size: 'md',
+    modal: false,
+    dismissible: true,
+    onClose: vi.fn(),
+  });
+  const trigger = document.createElement('button');
+  window.element.append(trigger);
+  const menu = openMenu(innerWidth - 2, innerHeight - 2, trigger, vi.fn());
+  vi.spyOn(menu.element, 'getBoundingClientRect').mockReturnValue({
+    width: 200,
+    height: 150,
+  } as DOMRect);
+  menu.element.innerHTML = '<button role="menuitem">Choice</button>';
+  await act(async () => {});
+  expect(menu.element.style.left).toBe(`${innerWidth - 204}px`);
+  expect(menu.element.style.top).toBe(`${innerHeight - 154}px`);
+  fireEvent.scroll(menu.element);
+  expect(menu.element.isConnected).toBe(true);
+  fireEvent.scroll(window.element);
+  expect(menu.element.isConnected).toBe(false);
+  const next = openMenu(20, 30, trigger, vi.fn());
+  window.dispose();
+  expect(next.element.isConnected).toBe(false);
+});
+
+it('waits for remembered placement before showing a window and does not overwrite it on early disposal', async () => {
+  const previous = getSettingsPersistence();
+  let resolvePlacement!: (value: string) => void;
+  const set = vi.fn(async () => {});
+  const placement = { x: 50, y: 70, width: 430, height: 310, generation: '' };
+  configureSettingsPersistence({
+    get: async (key) =>
+      key.endsWith('generation')
+        ? ''
+        : new Promise<string>((resolve) => {
+            resolvePlacement = resolve;
+          }),
+    keys: async () => [],
+    set,
+    remove: async () => {},
+  });
+  const host = createWinBoxHost();
+  const options = {
+    type: 'RememberedRegression',
+    title: 'Remembered regression',
+    size: 'md' as const,
+    modal: false,
+    dismissible: true,
+    onClose: vi.fn(),
+  };
+  try {
+    const window = host.create(options);
+    const frame = window.element.closest('.winbox') as HTMLElement;
+    expect(frame.style.visibility).toBe('hidden');
+    expect(frame.style.transition).toBe('none');
+    await act(async () => {});
+    resolvePlacement(JSON.stringify(placement));
+    await waitFor(() => expect(frame.style.visibility).toBe(''));
+    expect(frame.style.left).toBe('50px');
+    expect(frame.style.top).toBe('70px');
+    expect(frame.style.width).toBe('430px');
+    expect(frame.style.transition).toBe('');
+    window.dispose();
+    await act(async () => {});
+    expect(set).toHaveBeenCalledOnce();
+    set.mockClear();
+    const cancelled = host.create(options);
+    await act(async () => {});
+    cancelled.dispose();
+    resolvePlacement(JSON.stringify(placement));
+    await act(async () => {});
+    expect(set).not.toHaveBeenCalled();
+  } finally {
+    configureSettingsPersistence(previous);
+  }
 });

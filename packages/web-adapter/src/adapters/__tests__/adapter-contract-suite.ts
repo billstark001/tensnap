@@ -27,6 +27,77 @@ export function runFileSystemAdapterContractSuite(
       await teardown?.();
     });
 
+    describe('move and rename', () => {
+      it('moves binary contents and metadata without overwriting the source bytes', async () => {
+        const original = await adapter.writeFile(
+          '/source.bin',
+          new Uint8Array([0, 127, 255]).buffer,
+          {
+            mimeType: 'application/x-test',
+            tags: ['kept'],
+            description: 'Original metadata',
+          },
+        );
+        await adapter.createDirectory('/destination');
+        await adapter.move('/source.bin', '/destination/renamed.bin');
+        expect(await adapter.readFile('/source.bin')).toBeNull();
+        const moved = (await adapter.readFile('/destination/renamed.bin'))!;
+        expect(Array.from(new Uint8Array(moved.content as ArrayBuffer))).toEqual([0, 127, 255]);
+        expect(moved.checksum).toBe(original.checksum);
+        expect(moved.metadata).toMatchObject({
+          path: '/destination/renamed.bin',
+          name: 'renamed.bin',
+          parentPath: '/destination',
+          createdAt: original.metadata.createdAt,
+          mimeType: 'application/x-test',
+          tags: ['kept'],
+          description: 'Original metadata',
+        });
+      });
+
+      it('renames directory trees including nested files and empty directories', async () => {
+        await adapter.createDirectory('/tree/empty');
+        await adapter.writeFile('/tree/nested/file.txt', 'nested content', {
+          mimeType: 'text/plain',
+        });
+        await adapter.move('/tree', '/renamed');
+        expect(await adapter.directoryExists('/tree')).toBe(false);
+        expect(await adapter.directoryExists('/renamed/empty')).toBe(true);
+        expect((await adapter.readFile('/renamed/nested/file.txt'))?.content).toBe(
+          'nested content',
+        );
+        expect((await adapter.list('/renamed/nested'))[0]).toMatchObject({
+          name: 'file.txt',
+          path: '/renamed/nested/file.txt',
+          parentPath: '/renamed/nested',
+        });
+        expect(await adapter.list('/')).toHaveLength(1);
+      });
+
+      it('rejects collisions, invalid destinations and recursive moves without losing data', async () => {
+        await adapter.writeFile('/source.txt', 'source');
+        await adapter.writeFile('/occupied.txt', 'destination');
+        await adapter.createDirectory('/tree/nested');
+        for (const [source, target] of [
+          ['/source.txt', '/occupied.txt'],
+          ['/source.txt', '/tree'],
+          ['/tree', '/occupied.txt'],
+          ['/tree', '/tree/nested/subtree'],
+          ['/source.txt', '/missing/file.txt'],
+          ['/absent.txt', '/new.txt'],
+          ['/', '/root'],
+          ['/source.txt', '/'],
+          ['/source.txt', '/tree/../bad.txt'],
+        ])
+          await expect(adapter.move(source, target)).rejects.toThrow();
+        expect((await adapter.readFile('/source.txt'))?.content).toBe('source');
+        expect((await adapter.readFile('/occupied.txt'))?.content).toBe('destination');
+        expect(await adapter.directoryExists('/tree/nested')).toBe(true);
+        await adapter.move('/source.txt', '/source.txt');
+        expect((await adapter.readFile('/source.txt'))?.content).toBe('source');
+      });
+    });
+
     describe('initialization', () => {
       it('should initialize with root directory', async () => {
         const exists = await adapter.directoryExists('/');

@@ -1,4 +1,5 @@
 import { FileSystemError } from './file-system-error';
+import { validateMove } from './move-utils';
 import * as PathUtils from '../utils/path';
 import {
   type FileMetadata,
@@ -139,6 +140,32 @@ export class MemoryFileSystemAdapter extends FileSystemAdapter {
   async fileExists(path: string): Promise<boolean> {
     const normalizedPath = PathUtils.normalizePath(path);
     return this.files.has(normalizedPath);
+  }
+
+  override async move(sourcePath: string, targetPath: string): Promise<void> {
+    const { source, target } = await validateMove(this, sourcePath, targetPath);
+    if (source === target) return;
+    const relocate = <T extends DirectoryMetadata>(metadata: T): T => {
+      const path = target + metadata.path.slice(source.length);
+      return {
+        ...metadata,
+        path,
+        name: PathUtils.getBaseName(path),
+        parentPath: PathUtils.getParentPath(path),
+      };
+    };
+    for (const [path, file] of [...this.files]) {
+      if (path !== source && !path.startsWith(`${source}/`)) continue;
+      const metadata = relocate(file.metadata);
+      this.files.set(metadata.path, { ...file, metadata });
+      this.files.delete(path);
+    }
+    for (const [path, directory] of [...this.directories]) {
+      if (path !== source && !path.startsWith(`${source}/`)) continue;
+      const metadata = relocate(directory);
+      this.directories.set(metadata.path, metadata);
+      this.directories.delete(path);
+    }
   }
 
   // Directory operations

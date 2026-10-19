@@ -3,6 +3,26 @@ export interface MenuController {
   close(): void;
 }
 const stack: MenuController[] = [];
+const owners = new Map<MenuController, HTMLElement | null>();
+const listeners = new Set<() => void>();
+/** Include body-level menus in their owning modal's focus boundary. */
+export function observeOwnedMenus(owner: HTMLElement, update: (menus: HTMLElement[]) => void) {
+  const notify = () =>
+    update(
+      stack.filter((menu) => owner.contains(owners.get(menu) ?? null)).map((menu) => menu.element),
+    );
+  listeners.add(notify);
+  notify();
+  return () => {
+    listeners.delete(notify);
+    for (const menu of [...stack]) {
+      if (owner.contains(owners.get(menu) ?? null)) menu.close();
+    }
+  };
+}
+function notifyOwners() {
+  for (const listener of listeners) listener();
+}
 export function openMenu(
   x: number,
   y: number,
@@ -16,7 +36,9 @@ export function openMenu(
   element.style.left = `${x}px`;
   element.style.top = `${y}px`;
   element.tabIndex = -1;
-  (restoreFocus?.closest('.content-island') ?? document.body).append(element);
+  // Coordinates are viewport-relative. Window bodies can establish fixed-position
+  // containing blocks and clip descendants, so all menus live at the document root.
+  document.body.append(element);
   let disposed = false;
   const items = () =>
     Array.from(element.querySelectorAll<HTMLElement>('[role=menuitem]:not(:disabled)'));
@@ -28,12 +50,20 @@ export function openMenu(
     const index = stack.indexOf(controller);
     if (index >= 0) stack.splice(index, 1);
     observer.disconnect();
+    resizeObserver.disconnect();
+    window.removeEventListener('resize', close);
+    document.removeEventListener('scroll', scrolled, true);
+    owners.delete(controller);
+    notifyOwners();
     element.remove();
-    restoreFocus?.focus();
+    if (restoreFocus?.isConnected) restoreFocus.focus({ preventScroll: true });
     onClose();
   };
   const outside = (event: PointerEvent) => {
-    if (!element.contains(event.target as Node)) close();
+    const target = event.target as Node;
+    // Let an ordinary trigger's click handler toggle its already-open menu.
+    if (restoreFocus?.matches('[aria-haspopup="menu"]') && restoreFocus.contains(target)) return;
+    if (!element.contains(target)) close();
   };
   const key = (event: KeyboardEvent) => {
     if (stack[stack.length - 1] !== controller) return;
@@ -66,19 +96,32 @@ export function openMenu(
       }
     }
   };
-  const observer = new MutationObserver(() => {
+  const position = () => {
     const rect = element.getBoundingClientRect();
     element.style.left = `${Math.max(4, Math.min(x, innerWidth - rect.width - 4))}px`;
     element.style.top = `${Math.max(4, Math.min(y, innerHeight - rect.height - 4))}px`;
-    if (!element.contains(document.activeElement)) (items()[0] ?? element).focus();
+  };
+  const scrolled = (event: Event) => {
+    if (!(event.target instanceof Node) || !element.contains(event.target)) close();
+  };
+  const observer = new MutationObserver(() => {
+    position();
+    if (!element.contains(document.activeElement))
+      (items()[0] ?? element).focus({ preventScroll: true });
   });
+  const resizeObserver = new ResizeObserver(position);
+  resizeObserver.observe(element);
   observer.observe(element, { childList: true, subtree: true });
   const controller = {
     element,
     close,
   };
   stack.push(controller);
+  owners.set(controller, restoreFocus);
+  notifyOwners();
   document.addEventListener('pointerdown', outside, true);
   document.addEventListener('keydown', key, true);
+  window.addEventListener('resize', close);
+  document.addEventListener('scroll', scrolled, true);
   return controller;
 }

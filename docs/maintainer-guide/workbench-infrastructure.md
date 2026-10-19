@@ -29,6 +29,10 @@ Only **AgentDetailsDialog** and **SimulatorInfoDialog** have native tool windows
 
 The old `@tensnap/web-adapter/settings-persistence` export is removed; update imports to web-common. Dialog UI remains under `web-common/components/ui/*`. There is no public generic content registry or `mountContent`/`reactContent`/`portal-content` lifecycle. Adding a form needs a `defineDialog` component, not a new IPC codec.
 
+Browser settings expose optional synchronous reads so WinBox can construct dialogs at their saved geometry. With asynchronous persistence, the shell remains hidden until placement is restored, with transitions disabled for that first placement. Closing before restoration finishes does not replace the saved position. Menus render under `document.body` in viewport coordinates; the menu controller includes them in their owning modal's focus boundary and closes them when that owner scrolls or is disposed.
+
+The browser file picker shares one action menu between each row's ellipsis and context trigger. Memory and IndexedDB adapters implement `FileSystemAdapter.move(source, target)` for files and directory trees, preserving content and metadata and rejecting existing destinations. Other hosts retain the unsupported-operation default when they use native file UI.
+
 ### Messages and data
 
 The protocol has a versioned, validated request union:

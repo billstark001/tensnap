@@ -59,10 +59,7 @@ export function windowGeometry(
     ),
   };
 }
-export async function readWindowPlacement(type: string) {
-  const storage = getSettingsPersistence();
-  const generation = (await storage.get(generationKey)) ?? '';
-  const raw = await storage.get(prefix + type);
+function parseWindowPlacement(generation: string, raw: string | null) {
   if (raw) {
     try {
       const value = JSON.parse(raw);
@@ -78,6 +75,16 @@ export async function readWindowPlacement(type: string) {
     }
   }
   return { generation, placement: undefined };
+}
+export function readWindowPlacementSync(type: string) {
+  const storage = getSettingsPersistence();
+  if (!storage.getSync) return undefined;
+  return parseWindowPlacement(storage.getSync(generationKey) ?? '', storage.getSync(prefix + type));
+}
+export async function readWindowPlacement(type: string) {
+  const storage = getSettingsPersistence();
+  const generation = (await storage.get(generationKey)) ?? '';
+  return parseWindowPlacement(generation, await storage.get(prefix + type));
 }
 export async function saveWindowPlacement(
   type: string,

@@ -1,10 +1,16 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- Shared source consumers need the untyped dependency and CSS declarations.
 /// <reference path="./winbox.d.ts" />
-import { readWindowPlacement, saveWindowPlacement, windowGeometry } from './window-state';
+import {
+  readWindowPlacement,
+  readWindowPlacementSync,
+  saveWindowPlacement,
+  windowGeometry,
+} from './window-state';
 import WinBox from 'winbox/src/js/winbox';
 import 'winbox/dist/css/winbox.min.css';
 import { createFocusTrap } from 'focus-trap';
 import type { DialogHost, WindowOptions } from './content';
+import { observeOwnedMenus } from './menu';
 import './workbench.css';
 import './window-theme.css';
 
@@ -34,7 +40,13 @@ export function createWinBoxHost(): DialogHost {
         width: Math.max(1, innerWidth - 24),
         height: Math.max(1, innerHeight - 24),
       });
-      const geometry = windowGeometry(options.type, area(), undefined, options.size);
+      const cachedPlacement = readWindowPlacementSync(options.type);
+      const geometry = windowGeometry(
+        options.type,
+        area(),
+        cachedPlacement?.placement,
+        options.size,
+      );
       const box = new WinBox({
         title: options.title,
         mount: element,
@@ -61,6 +73,12 @@ export function createWinBoxHost(): DialogHost {
         },
       });
       const boxElement = box.dom as HTMLElement;
+      // Storage may be asynchronous. Do not paint the fallback geometry before
+      // applying the saved position, or let WinBox animate that initial placement.
+      if (!cachedPlacement) {
+        boxElement.style.visibility = 'hidden';
+        boxElement.style.transition = 'none';
+      }
       const title = boxElement.querySelector<HTMLElement>('.wb-title')!;
       title.setAttribute('aria-hidden', 'true');
       element.setAttribute('aria-label', options.title);
@@ -83,6 +101,9 @@ export function createWinBoxHost(): DialogHost {
         allowOutsideClick: (event) => !!(event.target as Element)?.closest('[data-workbench-menu]'),
         tabbableOptions: { displayCheck: 'none' },
       });
+      const stopObservingMenus = observeOwnedMenus(boxElement, (menus) =>
+        trap.updateContainerElements([boxElement, ...menus]),
+      );
       const keydown = (event: KeyboardEvent) => {
         if (
           windows[windows.length - 1] === element &&
@@ -96,8 +117,8 @@ export function createWinBoxHost(): DialogHost {
       };
       boxElement.addEventListener('keydown', keydown);
       // Resize handles extend outside the frame. Only explicit chrome/Escape closes a window.
-      let touched = false;
-      let generation: string | undefined;
+      let ready = !!cachedPlacement;
+      let generation: string | undefined = cachedPlacement?.generation;
       let saveTimer: ReturnType<typeof setTimeout> | undefined;
       const placement = () => ({ x: box.x, y: box.y, width: box.width, height: box.height });
       const save = () => {
@@ -105,19 +126,31 @@ export function createWinBoxHost(): DialogHost {
           void saveWindowPlacement(options.type, generation, placement());
       };
       const moved = () => {
-        touched = true;
         clearTimeout(saveTimer);
         saveTimer = setTimeout(save, 150);
       };
-      const restored = readWindowPlacement(options.type).then((value) => {
-        generation = value.generation;
-        if (!disposing && !touched && value.placement) {
-          const next = windowGeometry(options.type, area(), value.placement, options.size);
-          box.resize(next.width, next.height).move(next.x, next.y);
-        }
-      });
-      box.onmove = moved;
-      box.onresize = moved;
+      void (cachedPlacement ? Promise.resolve(cachedPlacement) : readWindowPlacement(options.type))
+        .then((value) => {
+          generation = value.generation;
+          if (!disposing && !cachedPlacement && value.placement) {
+            const next = windowGeometry(options.type, area(), value.placement, options.size);
+            box.resize(next.width, next.height).move(next.x, next.y);
+          }
+        })
+        .catch(() => {
+          // Unavailable preferences must not prevent opening the window.
+        })
+        .finally(() => {
+          if (disposing) return;
+          boxElement.getBoundingClientRect();
+          boxElement.style.removeProperty('transition');
+          boxElement.style.removeProperty('visibility');
+          ready = true;
+          box.onmove = moved;
+          box.onresize = moved;
+          if (options.modal) trap.activate();
+          else element.focus();
+        });
       const viewportChanged = () => {
         const next = windowGeometry(options.type, area(), placement(), options.size);
         box.minwidth = next.minWidth;
@@ -136,12 +169,6 @@ export function createWinBoxHost(): DialogHost {
       };
       box.onmaximize = viewportChanged;
       window.addEventListener('resize', viewportChanged);
-      queueMicrotask(() => {
-        if (!disposing) {
-          if (options.modal) trap.activate();
-          else element.focus();
-        }
-      });
       return {
         element,
         update(next: WindowOptions) {
@@ -158,13 +185,14 @@ export function createWinBoxHost(): DialogHost {
           disposing = true;
           windows.splice(windows.indexOf(element), 1);
           clearTimeout(saveTimer);
-          const finalPlacement = placement();
-          void restored.then(() => saveWindowPlacement(options.type, generation!, finalPlacement));
+          if (ready && generation !== undefined)
+            void saveWindowPlacement(options.type, generation, placement());
           window.removeEventListener('resize', viewportChanged);
           close.removeEventListener('keydown', closeKey);
           element.removeEventListener('focusin', activate);
           boxElement.removeEventListener('keydown', keydown);
           trap.deactivate({ returnFocus: false });
+          stopObservingMenus();
           box.close(true);
           if (previousFocus?.isConnected) previousFocus.focus();
         },

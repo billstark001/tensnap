@@ -9,6 +9,7 @@ import { normalizePath, joinPath, validateName, readFileContent } from './utils'
 import clsx from 'clsx';
 import * as styles from './FileSystemBrowser.css';
 import { ExportDialog } from './ExportDialog';
+import { FileOperationDialog } from './FileOperationDialog';
 import { EmptyState } from '@tensnap/web-common/components/ui';
 import { ConfirmDialog } from '@tensnap/web-common/components/ui/AlertDialog';
 
@@ -45,6 +46,10 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [pendingDeleteEntry, setPendingDeleteEntry] = useState<DirectoryEntry | null>(null);
+  const [pendingOperation, setPendingOperation] = useState<{
+    entry: DirectoryEntry;
+    operation: 'move' | 'rename';
+  } | null>(null);
 
   const loadDirectory = useCallback(
     async (path: string) => {
@@ -75,7 +80,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
   }, [currentDirectory, loadDirectory]);
 
   const refreshCurrentDirectory = useCallback(() => {
-    loadDirectory(currentDirectory);
+    return loadDirectory(currentDirectory);
   }, [currentDirectory, loadDirectory]);
 
   const setCurrentDirectory = useCallback(
@@ -252,6 +257,25 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
     setShowExportDialog(true);
   }, []);
 
+  const downloadFile = async (entry: DirectoryEntry) => {
+    setError(null);
+    try {
+      const file = await fileSystem.readFile(entry.path);
+      if (!file) throw new Error(t`File not found`);
+      const url = URL.createObjectURL(new Blob([file.content], { type: file.metadata.mimeType }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = entry.name;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      // Give the browser time to consume the URL before releasing it.
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setError((err as Error).message || t`Failed to download file`);
+    }
+  };
+
   return (
     <div
       className={clsx(styles.browserContainer, className)}
@@ -312,6 +336,9 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
                 onItemClick={handleItemClick}
                 onItemDoubleClick={handleItemDoubleClick}
                 onDelete={handleDeleteItem}
+                onDownload={(item) => void downloadFile(item)}
+                onMove={(entry) => setPendingOperation({ entry, operation: 'move' })}
+                onRename={(entry) => setPendingOperation({ entry, operation: 'rename' })}
               />
             ))}
           </div>
@@ -323,6 +350,16 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         onOpenChange={setShowCreateDialog}
         onCreateItem={handleCreateItem}
       />
+
+      {pendingOperation && (
+        <FileOperationDialog
+          key={`${pendingOperation.operation}:${pendingOperation.entry.path}`}
+          {...pendingOperation}
+          fileSystem={fileSystem}
+          onClose={() => setPendingOperation(null)}
+          onComplete={refreshCurrentDirectory}
+        />
+      )}
 
       <ExportDialog
         fileSystem={fileSystem}

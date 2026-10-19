@@ -11,6 +11,9 @@ export interface FileItemProps {
   onItemClick: (entry: DirectoryEntry) => void;
   onItemDoubleClick?: (entry: DirectoryEntry) => void;
   onDelete: (entry: DirectoryEntry) => void;
+  onDownload: (entry: DirectoryEntry) => void;
+  onMove: (entry: DirectoryEntry) => void;
+  onRename: (entry: DirectoryEntry) => void;
 }
 
 export const FileItem: React.FC<FileItemProps> = ({
@@ -19,6 +22,9 @@ export const FileItem: React.FC<FileItemProps> = ({
   onItemClick,
   onItemDoubleClick,
   onDelete,
+  onDownload,
+  onMove,
+  onRename,
 }) => {
   const handleDeleteClick = useCallback(
     (e: React.MouseEvent) => {
@@ -44,35 +50,50 @@ export const FileItem: React.FC<FileItemProps> = ({
       : `${t`Directory`} • ${formatDate(entry.modifiedAt)}`;
 
   return (
-    <div
-      className={isSelected ? styles.listItemSelected : styles.listItem}
-      onClick={handleItemClick}
-      onDoubleClick={handleItemDoubleClick}
-    >
-      <div className={styles.itemIcon}>{entry.type === 'directory' ? '📁' : '📄'}</div>
-      <div className={styles.itemContent}>
-        <div className={styles.itemName}>{entry.name}</div>
-        <div className={styles.itemDetails}>{detailsText}</div>
-      </div>
-      <div className={styles.itemActions}>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild>
-            <button
-              className={styles.itemActionButton}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t`Action menu`}
-            >
-              ⋮
-            </button>
-          </DropdownMenu.Trigger>
-
-          <DropdownMenu.Content className={styles.dropdownContentSmall}>
-            <DropdownMenu.Item className={styles.dropdownItemDanger} onClick={handleDeleteClick}>
-              {t`Delete`}
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      </div>
-    </div>
+    <DropdownMenu.Root>
+      <DropdownMenu.ContextTrigger>
+        <div
+          className={isSelected ? styles.listItemSelected : styles.listItem}
+          onClick={handleItemClick}
+          onDoubleClick={handleItemDoubleClick}
+          tabIndex={-1}
+        >
+          <div className={styles.itemIcon}>{entry.type === 'directory' ? '📁' : '📄'}</div>
+          <div className={styles.itemContent}>
+            <div className={styles.itemName}>{entry.name}</div>
+            <div className={styles.itemDetails}>{detailsText}</div>
+          </div>
+          <div className={styles.itemActions}>
+            <DropdownMenu.Trigger asChild>
+              <button
+                type="button"
+                className={styles.itemActionButton}
+                onClick={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                aria-label={t`Action menu`}
+              >
+                ⋮
+              </button>
+            </DropdownMenu.Trigger>
+          </div>
+        </div>
+      </DropdownMenu.ContextTrigger>
+      <DropdownMenu.Content className={styles.dropdownContent}>
+        {entry.type === 'file' && (
+          <DropdownMenu.Item className={styles.dropdownItem} onClick={() => onDownload(entry)}>
+            {t`Download this file`}
+          </DropdownMenu.Item>
+        )}
+        <DropdownMenu.Item className={styles.dropdownItem} onClick={() => onMove(entry)}>
+          {t`Move`}
+        </DropdownMenu.Item>
+        <DropdownMenu.Item className={styles.dropdownItem} onClick={() => onRename(entry)}>
+          {t`Rename`}
+        </DropdownMenu.Item>
+        <DropdownMenu.Item className={styles.dropdownItemDanger} onClick={handleDeleteClick}>
+          {t`Delete`}
+        </DropdownMenu.Item>
+      </DropdownMenu.Content>
+    </DropdownMenu.Root>
   );
 };

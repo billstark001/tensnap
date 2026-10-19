@@ -13,7 +13,7 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#: src/file-system/FileItem.tsx:63
+#: src/file-system/FileItem.tsx:73
 msgid "Action menu"
 msgstr "操作菜单"
 
@@ -28,9 +28,10 @@ msgstr "操作菜单"
 #~ msgstr "你确定要删除\"{0}\"吗？这将删除其中的所有内容。"
 
 #: src/file-system/CreateDialog.tsx:75
-#: src/file-system/ExportDialog.tsx:161
+#: src/file-system/ExportDialog.tsx:153
+#: src/file-system/FileOperationDialog.tsx:151
 #: src/file-system/FilePickerProvider.tsx:227
-#: src/file-system/FileSystemBrowser.tsx:346
+#: src/file-system/FileSystemBrowser.tsx:383
 msgid "Cancel"
 msgstr "取消"
 
@@ -55,26 +56,34 @@ msgstr "新建项目"
 msgid "Current directory: {currentDirectory}"
 msgstr "当前目录：{currentDirectory}"
 
-#: src/file-system/FileItem.tsx:71
-#: src/file-system/FileSystemBrowser.tsx:345
+#: src/file-system/FileItem.tsx:94
+#: src/file-system/FileSystemBrowser.tsx:382
 msgid "Delete"
 msgstr "删除"
 
 #. placeholder {0}: pendingDeleteEntry?.name ?? ''
-#: src/file-system/FileSystemBrowser.tsx:339
+#: src/file-system/FileSystemBrowser.tsx:376
 msgid "Delete \"{0}\"?"
 msgstr "删除“{0}”？"
 
+#: src/file-system/FileOperationDialog.tsx:114
+msgid "Destination directory"
+msgstr "目标文件夹"
+
 #: src/file-system/CreateDialog.tsx:59
-#: src/file-system/FileItem.tsx:44
+#: src/file-system/FileItem.tsx:50
 msgid "Directory"
 msgstr "文件夹"
 
-#: src/file-system/FileSystemBrowser.tsx:292
+#: src/file-system/FileSystemBrowser.tsx:316
 msgid "Directory is empty"
 msgstr "文件夹为空"
 
-#: src/file-system/FileSystemBrowser.tsx:297
+#: src/file-system/FileItem.tsx:84
+msgid "Download this file"
+msgstr "下载此文件"
+
+#: src/file-system/FileSystemBrowser.tsx:321
 msgid "Drag files here"
 msgstr "将文件拖到这里"
 
@@ -95,51 +104,59 @@ msgstr "输入文件名"
 msgid "Export"
 msgstr "导出"
 
-#: src/file-system/ExportDialog.tsx:70
+#: src/file-system/ExportDialog.tsx:71
 msgid "Export as JSON file with all file contents and metadata"
 msgstr "导出为 JSON 文件，包含所有文件内容和元数据"
 
-#: src/file-system/ExportDialog.tsx:77
+#: src/file-system/ExportDialog.tsx:78
 msgid "Export as ZIP compressed file, preserving directory structure"
 msgstr "导出为 ZIP 压缩包，保留目录结构"
 
-#: src/file-system/ExportDialog.tsx:30
+#: src/file-system/ExportDialog.tsx:31
 msgid "Export Options"
 msgstr "导出选项"
 
-#: src/file-system/ExportDialog.tsx:102
+#: src/file-system/ExportDialog.tsx:103
 msgid "Export path"
 msgstr "导出路径"
 
-#: src/file-system/ExportDialog.tsx:154
+#: src/file-system/ExportDialog.tsx:146
 msgid "Exporting, please wait..."
 msgstr "正在导出，请稍候..."
 
-#: src/file-system/FileSystemBrowser.tsx:217
+#: src/file-system/FileSystemBrowser.tsx:222
 msgid "Failed to create item"
 msgstr "创建项目失败"
 
-#: src/file-system/FileSystemBrowser.tsx:239
+#: src/file-system/FileSystemBrowser.tsx:244
 msgid "Failed to delete item"
 msgstr "删除项目失败"
 
-#: src/file-system/ExportDialog.tsx:93
+#: src/file-system/FileSystemBrowser.tsx:275
+msgid "Failed to download file"
+msgstr "下载文件失败"
+
+#: src/file-system/ExportDialog.tsx:94
 msgid "Failed to execute export option"
 msgstr "执行导出选项失败"
 
-#: src/file-system/ExportDialog.tsx:58
+#: src/file-system/ExportDialog.tsx:59
 msgid "Failed to export"
 msgstr "导出失败"
 
-#: src/file-system/FileSystemBrowser.tsx:281
+#: src/file-system/FileSystemBrowser.tsx:305
 msgid "Failed to load"
 msgstr "加载失败"
 
-#: src/file-system/FileSystemBrowser.tsx:62
+#: src/file-system/FileSystemBrowser.tsx:67
 msgid "Failed to load directory"
 msgstr "加载目录失败"
 
-#: src/file-system/FileSystemBrowser.tsx:155
+#: src/file-system/FileOperationDialog.tsx:77
+msgid "Failed to move item"
+msgstr "移动项目失败"
+
+#: src/file-system/FileSystemBrowser.tsx:160
 msgid "Failed to upload files"
 msgstr "上传文件失败"
 
@@ -151,16 +168,22 @@ msgstr "文件"
 msgid "File name:"
 msgstr "文件名："
 
-#: src/file-system/FileSystemBrowser.tsx:196
-#: src/file-system/FileSystemBrowser.tsx:197
+#: src/file-system/FileSystemBrowser.tsx:264
+msgid "File not found"
+msgstr "文件不存在"
+
+#: src/file-system/FileOperationDialog.tsx:61
+#: src/file-system/FileSystemBrowser.tsx:201
+#: src/file-system/FileSystemBrowser.tsx:202
 msgid "Invalid name"
 msgstr "名称无效"
 
-#: src/file-system/ExportDialog.tsx:69
+#: src/file-system/ExportDialog.tsx:70
 msgid "JSON Format"
 msgstr "JSON 格式"
 
-#: src/file-system/FileSystemBrowser.tsx:276
+#: src/file-system/FileOperationDialog.tsx:126
+#: src/file-system/FileSystemBrowser.tsx:300
 msgid "Loading..."
 msgstr "加载中..."
 
@@ -168,7 +191,13 @@ msgstr "加载中..."
 msgid "More Actions"
 msgstr "更多操作"
 
+#: src/file-system/FileItem.tsx:88
+#: src/file-system/FileOperationDialog.tsx:82
+msgid "Move"
+msgstr "移动"
+
 #: src/file-system/CreateDialog.tsx:63
+#: src/file-system/FileOperationDialog.tsx:103
 msgid "Name"
 msgstr "名称"
 
@@ -201,13 +230,17 @@ msgid "Open File"
 msgstr "打开文件"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:151
-#: src/file-system/FileSystemBrowser.tsx:298
+#: src/file-system/FileSystemBrowser.tsx:322
 msgid "Or click to browse"
 msgstr "或点击浏览"
 
 #: ../web-common/src/components/ui/Pagination.tsx:80
 msgid "Page {pageNum}"
 msgstr "第 {pageNum} 页"
+
+#: src/file-system/FileOperationDialog.tsx:123
+msgid "Parent directory"
+msgstr "上级文件夹"
 
 #: ../web-common/src/components/ui/Pagination.tsx:60
 msgid "Previous page"
@@ -217,7 +250,12 @@ msgstr "上一页"
 msgid "Refresh"
 msgstr "刷新"
 
-#: src/file-system/FileSystemBrowser.tsx:284
+#: src/file-system/FileItem.tsx:91
+#: src/file-system/FileOperationDialog.tsx:82
+msgid "Rename"
+msgstr "重命名"
+
+#: src/file-system/FileSystemBrowser.tsx:308
 msgid "Retry"
 msgstr "重试"
 
@@ -233,7 +271,7 @@ msgstr "保存"
 msgid "Save File"
 msgstr "保存文件"
 
-#: src/file-system/ExportDialog.tsx:121
+#: src/file-system/ExportDialog.tsx:122
 msgid "Select export format"
 msgstr "选择导出格式"
 
@@ -255,11 +293,11 @@ msgstr "已选择文件："
 msgid "This directory is empty"
 msgstr "此目录为空"
 
-#: src/file-system/FileSystemBrowser.tsx:343
+#: src/file-system/FileSystemBrowser.tsx:380
 msgid "This file will be permanently deleted."
 msgstr "此文件将被永久删除。"
 
-#: src/file-system/FileSystemBrowser.tsx:342
+#: src/file-system/FileSystemBrowser.tsx:379
 msgid "This will delete all nested content."
 msgstr "这将删除其中的所有嵌套内容。"
 
@@ -275,6 +313,6 @@ msgstr "类型"
 msgid "Upload Files"
 msgstr "上传文件"
 
-#: src/file-system/ExportDialog.tsx:76
+#: src/file-system/ExportDialog.tsx:77
 msgid "ZIP Archive"
 msgstr "ZIP 压缩包"

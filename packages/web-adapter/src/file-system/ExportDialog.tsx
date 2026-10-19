@@ -5,6 +5,7 @@ import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { useCallbackRef } from '@tensnap/web-common/react';
 import type { FileSystemAdapter } from '@tensnap/web-common/types/file';
 import { exportDirectory } from './export-utils';
+import * as styles from './FileSystemBrowser.css';
 
 export interface ExportOption {
   key: string;
@@ -124,20 +125,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
               <button
                 key={option.key}
                 disabled={exporting}
-                style={{
-                  padding: '12px',
-                  textAlign: 'left',
-                  border: '1px solid #e0e0e0',
-                  borderRadius: '6px',
-                  backgroundColor: '#ffffff',
-                  cursor: exporting ? 'not-allowed' : 'pointer',
-                  opacity: exporting ? 0.6 : 1,
-                  transition: 'all 0.2s',
-                }}
+                className={styles.exportOption}
                 onClick={() => handleOptionClick(option)}
               >
                 <div style={{ fontWeight: '500', marginBottom: '4px' }}>{option.title}</div>
-                <div style={{ fontSize: '12px', color: '#666666' }}>{option.description}</div>
+                <div className={styles.exportOptionDescription}>{option.description}</div>
               </button>
             ))}
           </div>
