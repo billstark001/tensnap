@@ -5,6 +5,7 @@ import 'winbox/dist/css/winbox.min.css';
 import { createFocusTrap } from 'focus-trap';
 import type { DialogHost, WindowOptions } from './content';
 import './workbench.css';
+import './window-theme.css';
 
 /** WinBox exclusively owns the shell; moving it never remounts its content. */
 export function createWinBoxHost(): DialogHost {
@@ -37,6 +38,7 @@ export function createWinBoxHost(): DialogHost {
         y: 'center',
         minwidth: 240,
         minheight: 160,
+        header: 40,
         class: [
           'tensnap-window',
           'no-full',
@@ -51,6 +53,20 @@ export function createWinBoxHost(): DialogHost {
         },
       });
       const boxElement = box.dom as HTMLElement;
+      const title = boxElement.querySelector<HTMLElement>('.wb-title')!;
+      title.setAttribute('aria-hidden', 'true');
+      const close = boxElement.querySelector<HTMLElement>('.wb-close')!;
+      close.setAttribute('role', 'button');
+      close.setAttribute('aria-label', 'Close');
+      close.setAttribute('aria-hidden', String(!options.dismissible));
+      close.tabIndex = options.dismissible ? 0 : -1;
+      const closeKey = (event: KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          close.click();
+        }
+      };
+      close.addEventListener('keydown', closeKey);
       const trap = createFocusTrap(boxElement, {
         fallbackFocus: element,
         escapeDeactivates: false,
@@ -92,7 +108,7 @@ export function createWinBoxHost(): DialogHost {
       document.addEventListener('pointerdown', outside, true);
       boxElement.addEventListener('keydown', keydown);
       const observer = new MutationObserver(() => {
-        const heading = element.querySelector('h2');
+        const heading = element.querySelector<HTMLElement>('[data-dialog-title]');
         if (heading?.textContent) box.setTitle(heading.textContent);
         if (heading?.id) element.setAttribute('aria-labelledby', heading.id);
         const description = element.querySelector('[data-dialog-description]');
@@ -107,14 +123,19 @@ export function createWinBoxHost(): DialogHost {
       });
       return {
         element,
+        ownsCloseControl: true,
         update(next: WindowOptions) {
           options = next;
+          boxElement.classList.toggle('no-close', !next.dismissible);
+          close.tabIndex = next.dismissible ? 0 : -1;
+          close.setAttribute('aria-hidden', String(!next.dismissible));
         },
         dispose() {
           if (disposing) return;
           disposing = true;
           windows.splice(windows.indexOf(element), 1);
           observer.disconnect();
+          close.removeEventListener('keydown', closeKey);
           element.removeEventListener('focusin', activate);
           document.removeEventListener('pointerdown', outside, true);
           boxElement.removeEventListener('keydown', keydown);

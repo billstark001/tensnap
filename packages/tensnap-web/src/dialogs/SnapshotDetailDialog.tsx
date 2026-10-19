@@ -16,7 +16,16 @@ import type { ChartGroup } from '@tensnap/core/chart';
 import { exportToCSV } from '@tensnap/core/chart/browser';
 import type { ScenarioEnvironmentState } from '@tensnap/core/scenario';
 import { SnapshotPlaybackSource, type Snapshot } from '@tensnap/core/snapshot';
-import { ClipboardCopy, Pause, Play, Sheet, SkipBack } from 'lucide-react';
+import {
+  ClipboardCopy,
+  Pause,
+  Play,
+  Sheet,
+  SkipBack,
+  SkipForward,
+  StepBack,
+  StepForward,
+} from 'lucide-react';
 import { getSnapshotIdentity } from '@/types/model';
 import * as styles from './SnapshotDetailDialog.css';
 import { Environment2DView } from '../components/scenario/Environment2DView';
@@ -140,6 +149,11 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
     () => (snapshot ? new SnapshotPlaybackSource(snapshot) : null),
     [snapshot],
   );
+  const retainedFrames = useMemo(
+    () =>
+      snapshot ? [snapshot.initial.frame, ...snapshot.frames.map((frame) => frame.index)] : [],
+    [snapshot],
+  );
   const [frame, setFrame] = useState(firstFrame);
   const [playing, setPlaying] = useState(false);
   const [label, setLabel] = useState(snapshot?.metadata.label ?? '');
@@ -170,22 +184,27 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
   const isStatic = !snapshot || snapshot.frames.length === 0;
 
   useEffect(() => {
-    if (!playing || !snapshot || !player || isStatic) return;
+    if (!open || !playing || !snapshot || !player || isStatic) return;
     const handle = window.setInterval(() => {
-      setFrame((current) => {
-        const next = player.stepFrame();
-        if (!next) {
-          setPlaying(false);
-          return current;
-        }
-        return next.index;
-      });
+      const next = player.stepFrame();
+      if (next) setFrame(next.index);
+      if (!next || next.index === lastFrame) setPlaying(false);
     }, 1_000 / playbackFps);
     return () => window.clearInterval(handle);
-  }, [isStatic, playbackFps, player, playing, snapshot]);
+  }, [isStatic, playbackFps, player, playing, snapshot, open, lastFrame]);
 
   if (!snapshot || !player) return null;
 
+  const seekFrame = (next: number) => {
+    setPlaying(false);
+    player.seek(next);
+    setFrame(player.frame);
+  };
+  const stepFrame = (direction: -1 | 1) => {
+    const position = retainedFrames.indexOf(player.frame);
+    const next = retainedFrames[position + direction];
+    if (next !== undefined) seekFrame(next);
+  };
   const identity = getSnapshotIdentity(snapshot);
   const currentFrame = snapshot.frames.find((candidate) => candidate.index === frame);
   const replay = player.scenario;
@@ -260,40 +279,73 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
             </div>
             {!isStatic && (
               <div className={styles.timelineControls}>
-                <button
-                  type="button"
-                  className={styles.timelineButton}
-                  onClick={() => {
-                    player.reset();
-                    setFrame(firstFrame);
-                  }}
-                  title={_(msg`First frame`)}
-                  aria-label={_(msg`First frame`)}
-                >
-                  <SkipBack size={15} />
-                </button>
-                <button
-                  type="button"
-                  className={styles.timelineButton}
-                  onClick={() => setPlaying((value) => !value)}
-                  title={playing ? _(msg`Pause`) : _(msg`Play`)}
-                  aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}
-                >
-                  {playing ? <Pause size={15} /> : <Play size={15} />}
-                </button>
                 <input
                   className={styles.timelineRange}
                   type="range"
+                  aria-label={_(msg`Recording frame`)}
                   min={firstFrame}
                   max={lastFrame}
                   value={frame}
-                  onChange={(event) => {
-                    setPlaying(false);
-                    const next = Number(event.target.value);
-                    player.seek(next);
-                    setFrame(player.frame);
-                  }}
+                  onChange={(event) => seekFrame(Number(event.target.value))}
                 />
+                <div
+                  className={styles.timelineButtons}
+                  role="group"
+                  aria-label={_(msg`Playback controls`)}
+                >
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === firstFrame}
+                    onClick={() => seekFrame(firstFrame)}
+                    title={_(msg`First frame`)}
+                    aria-label={_(msg`First frame`)}
+                  >
+                    <SkipBack size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === firstFrame}
+                    onClick={() => stepFrame(-1)}
+                    title={_(msg`Previous frame`)}
+                    aria-label={_(msg`Previous frame`)}
+                  >
+                    <StepBack size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    onClick={() => {
+                      if (!playing && frame === lastFrame) seekFrame(firstFrame);
+                      setPlaying((value) => !value);
+                    }}
+                    title={playing ? _(msg`Pause`) : _(msg`Play`)}
+                    aria-label={playing ? _(msg`Pause`) : _(msg`Play`)}
+                  >
+                    {playing ? <Pause size={15} /> : <Play size={15} />}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === lastFrame}
+                    onClick={() => stepFrame(1)}
+                    title={_(msg`Next frame`)}
+                    aria-label={_(msg`Next frame`)}
+                  >
+                    <StepForward size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.timelineButton}
+                    disabled={frame === lastFrame}
+                    onClick={() => seekFrame(lastFrame)}
+                    title={_(msg`Last frame`)}
+                    aria-label={_(msg`Last frame`)}
+                  >
+                    <SkipForward size={15} />
+                  </button>
+                </div>
               </div>
             )}
             {snapshot.truncated && (

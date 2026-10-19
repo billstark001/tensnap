@@ -17,6 +17,7 @@ export interface WindowOptions {
 }
 export interface ContentWindow {
   element: HTMLElement;
+  ownsCloseControl?: boolean;
   update(options: WindowOptions): void;
   dispose(): void;
 }

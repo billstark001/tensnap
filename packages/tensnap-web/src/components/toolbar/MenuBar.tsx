@@ -46,8 +46,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [history]);
 
-  const { environment, system, isFullscreen, onExit, onToggleFullscreen } =
-    useContext(MenuBarContext);
+  const { environment, onExit, onToggleFullscreen } = useContext(MenuBarContext);
 
   const handleDocumentation = () => {
     window.open(
@@ -73,14 +72,7 @@ export const MenuBar: React.FC<MenuBarProps> = ({ className }) => {
 
   return (
     <>
-      <div
-        className={clsx(
-          styles.menuBar,
-          environment === 'tauri' && system === 'mac' && !isFullscreen && 'mac',
-          className,
-        )}
-        data-tauri-drag-region
-      >
+      <div className={clsx(styles.menuBar, className)}>
         {/* File Menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

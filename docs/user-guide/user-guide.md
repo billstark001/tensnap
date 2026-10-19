@@ -258,11 +258,15 @@ The browser uses movable/resizable WinBox dialog windows. Desktop dialogs use na
 
 On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. The desktop native menu follows the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
 
+Recording replay places navigation buttons below its timeline: first frame, previous frame, play/pause, next frame and last frame. Stepping moves between retained frames, including recordings whose first frame is not zero. Manual navigation pauses playback; reaching the last frame stops playback, and Play from the end restarts at the first frame.
+
 ## Inspecting Agents and Trails
 
 Selecting an agent opens a live inspection view. Spatial environments show the target, nearby agents, edges, and trajectory context; non-spatial environments explicitly report that there is no spatial viewport. Follow and radius controls change only the inspection view, not the simulation state.
 
 Trajectory behavior is configured by its layer. Reconnect, reset, and agent deletion may preserve or clear trails depending on layer metadata. A preserved trail for a deleted agent is displayed as a closed historical segment; if the same id later returns, its new path starts separately.
+
+Custom Data and monitor string values display in full, preserving spaces and line breaks. Tree and table views keep their pagination, and wide tables virtualize columns; table rows grow to fit multiline values.
 
 ## Low-Level Python API
 

@@ -169,3 +169,24 @@ it('dismisses the focused nonmodal window without trapping focus in a different 
     first.dispose();
   }
 });
+
+it('uses one visible title and one keyboard-operable close control owned by WinBox', async () => {
+  configureDialogHost(createWinBoxHost());
+  const close = vi.fn();
+  const view = render(
+    <Dialog.Root open onOpenChange={close}>
+      <Dialog.Title>Themed dialog</Dialog.Title>
+      <Dialog.CloseButton />
+      <Dialog.Body>Body</Dialog.Body>
+    </Dialog.Root>,
+  );
+  const dialog = await screen.findByRole('dialog', { name: 'Themed dialog' });
+  const heading = dialog.querySelector('[data-dialog-title]')!;
+  const shell = dialog.closest('.winbox')!;
+  expect(shell.querySelector('.wb-title')).toHaveTextContent(heading.textContent!);
+  expect(dialog.querySelector('[data-dialog-close]')).toBeNull();
+  const control = screen.getByRole('button', { name: 'Close' });
+  fireEvent.keyDown(control, { key: 'Enter' });
+  expect(close).toHaveBeenCalledExactlyOnceWith(false);
+  view.unmount();
+});

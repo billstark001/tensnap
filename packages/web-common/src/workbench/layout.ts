@@ -1,16 +1,31 @@
 // oxlint-disable-next-line typescript/triple-slash-reference -- Shared source consumers need the untyped dependency and CSS declarations.
 /// <reference path="./winbox.d.ts" />
 import './workbench.css';
+import './window-theme.css';
 
 export function createWorkbenchShell() {
   const element = document.createElement('div');
   element.className = 'workbench-shell';
+  const titlebar = document.createElement('div');
+  titlebar.className = 'workbench-titlebar';
+  titlebar.dataset.tauriDragRegion = '';
+  titlebar.textContent = 'TenSnap';
+  titlebar.hidden = true;
   const toolbar = document.createElement('header');
   const workspace = document.createElement('main');
   workspace.className = 'workbench-workspace';
   workspace.dataset.fileDropTarget = 'workbench';
-  element.append(toolbar, workspace);
-  return { element, toolbar, workspace, dispose: () => element.remove() };
+  element.append(titlebar, toolbar, workspace);
+  return {
+    element,
+    titlebar,
+    toolbar,
+    workspace,
+    setTitlebarVisible(visible: boolean) {
+      titlebar.hidden = !visible;
+    },
+    dispose: () => element.remove(),
+  };
 }
 
 /** DOM split controller shared by every panel content implementation. */

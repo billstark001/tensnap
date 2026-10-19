@@ -51,3 +51,11 @@ These steps require interactive UI access and are separate from the automated te
 6. Close a native window during initialization and during an asynchronous action; repeatedly reopen/close an inspector. Verify no orphan windows, duplicate updates or unhandled errors. Exit the main window and verify auxiliary windows exit too.
 
 macOS builds do not establish Windows/Linux window-manager behavior; run these interaction checks on each target platform before release.
+
+
+For the window chrome and replay follow-up, also check:
+
+1. macOS: the main window retains the overlay title bar and system window buttons. The centered frontend title occupies its own 32 px row above the menu, with space reserved for system controls. Resize the window, enter/exit fullscreen, drag the title row and double-click it; menu commands must remain clickable and the title row must hide in fullscreen.
+2. Web: open a dialog in light and dark themes. Its header, border and body follow the application theme; only its header title is visible. Tab to the header Close control and press Enter or Space. Move/resize a modal dialog and confirm that its draft remains intact.
+3. Replay: verify the slider is above one button row, that previous/next navigate actual retained frames, first/last buttons respect endpoints, manual navigation pauses playback and Play at the end restarts. Repeat with a nonzero initial frame and a single-frame capture.
+4. Custom Data: open tree/table/text values containing long strings, indentation and line breaks. Check that their contents are complete, rows do not overlap and the horizontal table scrollbar still reveals additional columns.

@@ -29,6 +29,7 @@ export interface DialogProps {
 }
 const DialogContainerContext = createContext<HTMLElement | undefined>(undefined);
 export const useDialogContainer = () => useContext(DialogContainerContext);
+const HostCloseControlContext = createContext(false);
 const DialogContext = createContext<(() => void) | null>(null);
 export function Root({
   open = false,
@@ -65,9 +66,13 @@ export function Root({
   return content ? (
     <ContentIsland host={content.element}>
       <DialogContainerContext.Provider value={content.element}>
-        <DialogContext.Provider value={() => onOpenChange?.(false)}>
-          {children}
-        </DialogContext.Provider>
+        <HostCloseControlContext.Provider
+          value={!!content.ownsCloseControl && closeOnInteractOutside}
+        >
+          <DialogContext.Provider value={() => onOpenChange?.(false)}>
+            {children}
+          </DialogContext.Provider>
+        </HostCloseControlContext.Provider>
       </DialogContainerContext.Provider>
     </ContentIsland>
   ) : null;
@@ -79,6 +84,7 @@ export const Title = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingEl
       <h2
         {...props}
         id={props.id ?? id}
+        data-dialog-title
         ref={ref}
         className={clsx(styles.dialogTitle, props.className)}
       />
@@ -151,19 +157,24 @@ export function Close({
 export const CloseButton = forwardRef<
   HTMLButtonElement,
   Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'>
->(({ className, ...props }, ref) => (
-  <Close asChild>
-    <button
-      type="button"
-      {...props}
-      ref={ref}
-      className={clsx(styles.dialogClose, className)}
-      aria-label="Close"
-    >
-      <X size={16} />
-    </button>
-  </Close>
-));
+>(({ className, ...props }, ref) => {
+  const hostOwnsCloseControl = useContext(HostCloseControlContext);
+  if (hostOwnsCloseControl) return null;
+  return (
+    <Close asChild>
+      <button
+        type="button"
+        {...props}
+        ref={ref}
+        className={clsx(styles.dialogClose, className)}
+        data-dialog-close
+        aria-label="Close"
+      >
+        <X size={16} />
+      </button>
+    </Close>
+  );
+});
 export const Separator = forwardRef<
   HTMLDivElement,
   HTMLAttributes<HTMLDivElement> & { vertical?: boolean }

@@ -27,9 +27,6 @@ export const menuBar = style({
       backgroundColor: vars.color.darkBackground,
       borderBottomColor: vars.color.darkGridLine,
     },
-    '&.mac': {
-      paddingLeft: '70px',
-    },
   },
 });
 

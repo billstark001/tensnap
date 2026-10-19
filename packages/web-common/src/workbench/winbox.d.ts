@@ -10,6 +10,7 @@ declare module 'winbox/src/js/winbox' {
       y: string;
       minwidth: number;
       minheight: number;
+      header: number;
       class: string[];
       onclose: () => boolean;
       onfocus: () => void;

@@ -56,7 +56,7 @@ msgstr "具有此 ID 的参数已存在。"
 msgid "About"
 msgstr "关于"
 
-#: src/components/toolbar/MenuBar.tsx:239
+#: src/components/toolbar/MenuBar.tsx:231
 #: src/dialogs/AboutDialog.tsx:12
 msgid "About TenSnap"
 msgstr "关于 TenSnap"
@@ -81,7 +81,7 @@ msgstr "动作标签"
 msgid "Action Timeout"
 msgstr "动作超时时长"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:257
+#: src/dialogs/SnapshotDetailDialog.tsx:276
 msgid "Action:"
 msgstr "动作："
 
@@ -171,11 +171,11 @@ msgstr "按钮文本"
 msgid "Cancel"
 msgstr "取消"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:84
+#: src/dialogs/SnapshotDetailDialog.tsx:93
 msgid "Canvas copied to clipboard!"
 msgstr "画布已复制到剪贴板！"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:80
+#: src/dialogs/SnapshotDetailDialog.tsx:89
 msgid "Canvas not found."
 msgstr "未找到画布。"
 
@@ -317,8 +317,8 @@ msgstr "连续执行…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:142
 #: src/components/project/ViewContextMenuRenderer.tsx:149
-#: src/components/toolbar/MenuBar.tsx:160
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/components/toolbar/MenuBar.tsx:152
+#: src/dialogs/SnapshotDetailDialog.tsx:119
 msgid "Copy"
 msgstr "复制"
 
@@ -357,7 +357,7 @@ msgstr "自定义数据："
 msgid "Custom simulator actions are unavailable for a snapshot source."
 msgstr "快照来源不可使用自定义模拟器动作。"
 
-#: src/components/toolbar/MenuBar.tsx:157
+#: src/components/toolbar/MenuBar.tsx:149
 msgid "Cut"
 msgstr "剪切"
 
@@ -377,7 +377,7 @@ msgstr "默认"
 msgid "Delete"
 msgstr "删除"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:383
+#: src/dialogs/SnapshotDetailDialog.tsx:435
 msgid "Delete recording"
 msgstr "删除录制"
 
@@ -417,7 +417,7 @@ msgstr "显示"
 msgid "Display Type"
 msgstr "显示类型"
 
-#: src/components/toolbar/MenuBar.tsx:229
+#: src/components/toolbar/MenuBar.tsx:221
 msgid "Documentation"
 msgstr "帮助文档"
 
@@ -434,7 +434,7 @@ msgid "Drag files here to upload"
 msgstr "拖放文件到此处上传"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:175
-#: src/components/toolbar/MenuBar.tsx:132
+#: src/components/toolbar/MenuBar.tsx:124
 msgid "Edit"
 msgstr "编辑"
 
@@ -504,7 +504,7 @@ msgstr "精确检查点"
 msgid "Exact checkpoints are available only at the recording's initial frame."
 msgstr "精确检查点仅在录制的初始帧可用。"
 
-#: src/components/toolbar/MenuBar.tsx:121
+#: src/components/toolbar/MenuBar.tsx:113
 msgid "Exit"
 msgstr "退出"
 
@@ -520,13 +520,13 @@ msgstr "已展开"
 #~ msgid "Export Current Directory"
 #~ msgstr "导出当前目录"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:158
-#: src/dialogs/SnapshotDetailDialog.tsx:380
+#: src/dialogs/SnapshotDetailDialog.tsx:172
+#: src/dialogs/SnapshotDetailDialog.tsx:432
 msgid "Export current frame"
 msgstr "导出当前帧"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:158
-#: src/dialogs/SnapshotDetailDialog.tsx:377
+#: src/dialogs/SnapshotDetailDialog.tsx:172
+#: src/dialogs/SnapshotDetailDialog.tsx:429
 msgid "Export full recording"
 msgstr "导出完整录像"
 
@@ -538,8 +538,8 @@ msgstr "导出完整录像"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "正在导出，请稍候..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:85
-#: src/dialogs/SnapshotDetailDialog.tsx:87
+#: src/dialogs/SnapshotDetailDialog.tsx:94
+#: src/dialogs/SnapshotDetailDialog.tsx:96
 msgid "Failed to copy canvas to clipboard."
 msgstr "复制画布到剪贴板失败。"
 
@@ -547,7 +547,7 @@ msgstr "复制画布到剪贴板失败。"
 msgid "Failed to copy monitor data to clipboard."
 msgstr "无法将监视器数据复制到剪贴板。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:166
+#: src/dialogs/SnapshotDetailDialog.tsx:180
 msgid "Failed to export recording"
 msgstr "导出录像失败"
 
@@ -589,7 +589,7 @@ msgstr "更新视图失败"
 #~ msgid "Fallback Background Color"
 #~ msgstr "备用背景颜色"
 
-#: src/components/toolbar/MenuBar.tsx:88
+#: src/components/toolbar/MenuBar.tsx:80
 msgid "File"
 msgstr "文件"
 
@@ -610,8 +610,8 @@ msgstr "文件导入失败"
 msgid "File saved"
 msgstr "文件已保存"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:270
-#: src/dialogs/SnapshotDetailDialog.tsx:271
+#: src/dialogs/SnapshotDetailDialog.tsx:301
+#: src/dialogs/SnapshotDetailDialog.tsx:302
 msgid "First frame"
 msgstr "第一帧"
 
@@ -635,11 +635,11 @@ msgstr "强制重新连接到服务器"
 #~ msgid "Force visible"
 #~ msgstr "强制显示"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:251
+#: src/dialogs/SnapshotDetailDialog.tsx:270
 msgid "Frame updates:"
 msgstr "帧更新："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:237
+#: src/dialogs/SnapshotDetailDialog.tsx:256
 msgid "Frame:"
 msgstr "帧："
 
@@ -647,7 +647,7 @@ msgstr "帧："
 msgid "Frames:"
 msgstr "帧数："
 
-#: src/components/toolbar/MenuBar.tsx:195
+#: src/components/toolbar/MenuBar.tsx:187
 msgid "Fullscreen"
 msgstr "全屏"
 
@@ -675,7 +675,7 @@ msgstr "朝向："
 msgid "Height"
 msgstr "高度"
 
-#: src/components/toolbar/MenuBar.tsx:223
+#: src/components/toolbar/MenuBar.tsx:215
 msgid "Help"
 msgstr "帮助"
 
@@ -698,7 +698,7 @@ msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
 #: src/dialogs/AgentDetailsDialog.tsx:315
-#: src/dialogs/SnapshotDetailDialog.tsx:225
+#: src/dialogs/SnapshotDetailDialog.tsx:244
 msgid "ID:"
 msgstr "ID："
 
@@ -706,7 +706,7 @@ msgstr "ID："
 msgid "Info"
 msgstr "信息"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:203
+#: src/dialogs/SnapshotDetailDialog.tsx:222
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "离线查看此录制。打开后将创建一个断开连接的副本。"
 
@@ -754,7 +754,7 @@ msgstr "继续编辑"
 msgid "Keep live charts"
 msgstr "保留实时图表"
 
-#: src/components/toolbar/MenuBar.tsx:232
+#: src/components/toolbar/MenuBar.tsx:224
 msgid "Keyboard Shortcuts"
 msgstr "快捷键"
 
@@ -766,6 +766,11 @@ msgstr "快捷键"
 #: src/dialogs/SettingsDialog.tsx:169
 msgid "Language"
 msgstr "语言"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:343
+#: src/dialogs/SnapshotDetailDialog.tsx:344
+msgid "Last frame"
+msgstr "末帧"
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:39
 msgid "Left"
@@ -840,7 +845,7 @@ msgstr "已将监视器数据复制到剪贴板。"
 msgid "Monitor not found."
 msgstr "未找到监视器。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:318
+#: src/dialogs/SnapshotDetailDialog.tsx:370
 msgid "Monitors"
 msgstr "监视器"
 
@@ -861,7 +866,7 @@ msgstr "名称"
 msgid "Neighbors: {0}"
 msgstr "邻居：{0}"
 
-#: src/components/toolbar/MenuBar.tsx:94
+#: src/components/toolbar/MenuBar.tsx:86
 msgid "New"
 msgstr "新建"
 
@@ -877,11 +882,16 @@ msgstr "新建标签页"
 msgid "New View"
 msgstr "新建视图"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:333
+#: src/dialogs/SnapshotDetailDialog.tsx:334
+msgid "Next frame"
+msgstr "下一帧"
+
 #: ../web-common/src/components/ui/Pagination.tsx:92
 msgid "Next page"
 msgstr "下一页"
 
-#: src/components/value-inspector/ValueInspector.tsx:268
+#: src/components/value-inspector/ValueInspector.tsx:264
 msgid "Next value rows"
 msgstr "下一页数据行"
 
@@ -919,7 +929,7 @@ msgstr "没有主视图。"
 msgid "No metadata on this layer."
 msgstr "此图层没有元数据。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:323
+#: src/dialogs/SnapshotDetailDialog.tsx:375
 msgid "No monitor data was recorded."
 msgstr "未记录任何监视器数据。"
 
@@ -980,7 +990,7 @@ msgstr "对象 ID"
 msgid "Off"
 msgstr "关"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:301
+#: src/dialogs/SnapshotDetailDialog.tsx:353
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "为符合录制预算，较早的帧已被移除。"
 
@@ -988,11 +998,11 @@ msgstr "为符合录制预算，较早的帧已被移除。"
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "快照来源仅提供开始、步进、停止和重置操作。"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:392
+#: src/dialogs/SnapshotDetailDialog.tsx:444
 msgid "Open as offline copy"
 msgstr "作为离线副本打开"
 
-#: src/components/toolbar/MenuBar.tsx:97
+#: src/components/toolbar/MenuBar.tsx:89
 #: src/components/toolbar/ToolGroups.tsx:61
 #: src/components/toolbar/useFileOperations.ts:60
 msgid "Open File"
@@ -1002,14 +1012,14 @@ msgstr "打开文件"
 #~ msgid "Open Folder"
 #~ msgstr "打开文件夹"
 
-#: src/components/toolbar/MenuBar.tsx:100
+#: src/components/toolbar/MenuBar.tsx:92
 #: src/components/toolbar/useFileOperations.ts:77
 #: src/dialogs/SelectRecordingDialog.tsx:55
 msgid "Open recording"
 msgstr "打开录像"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:129
-#: src/dialogs/SnapshotDetailDialog.tsx:100
+#: src/dialogs/SnapshotDetailDialog.tsx:109
 msgid "Options"
 msgstr "选项"
 
@@ -1045,7 +1055,7 @@ msgstr "参数标签"
 msgid "Parameter Type"
 msgstr "参数类型"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:306
+#: src/dialogs/SnapshotDetailDialog.tsx:358
 msgid "Parameters"
 msgstr "参数"
 
@@ -1053,12 +1063,12 @@ msgstr "参数"
 msgid "Parameters:"
 msgstr "参数："
 
-#: src/components/toolbar/MenuBar.tsx:163
+#: src/components/toolbar/MenuBar.tsx:155
 msgid "Paste"
 msgstr "粘贴"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:279
-#: src/dialogs/SnapshotDetailDialog.tsx:280
+#: src/dialogs/SnapshotDetailDialog.tsx:323
+#: src/dialogs/SnapshotDetailDialog.tsx:324
 msgid "Pause"
 msgstr "暂停"
 
@@ -1066,10 +1076,14 @@ msgstr "暂停"
 msgid "Pending"
 msgstr "待处理"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:279
-#: src/dialogs/SnapshotDetailDialog.tsx:280
+#: src/dialogs/SnapshotDetailDialog.tsx:323
+#: src/dialogs/SnapshotDetailDialog.tsx:324
 msgid "Play"
 msgstr "播放"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:294
+msgid "Playback controls"
+msgstr "播放控制"
 
 #: src/components/project/MainViewRenderer.tsx:29
 msgid "Please create or open a project to get started."
@@ -1079,11 +1093,16 @@ msgstr "要开始，请新建或打开一个项目。"
 msgid "Position:"
 msgstr "位置："
 
+#: src/dialogs/SnapshotDetailDialog.tsx:311
+#: src/dialogs/SnapshotDetailDialog.tsx:312
+msgid "Previous frame"
+msgstr "上一帧"
+
 #: ../web-common/src/components/ui/Pagination.tsx:60
 msgid "Previous page"
 msgstr "上一页"
 
-#: src/components/value-inspector/ValueInspector.tsx:260
+#: src/components/value-inspector/ValueInspector.tsx:256
 msgid "Previous value rows"
 msgstr "上一页数据行"
 
@@ -1148,19 +1167,23 @@ msgstr "重新连接成功"
 msgid "Record this run"
 msgstr "记录此次运行"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:231
+#: src/dialogs/SnapshotDetailDialog.tsx:250
 msgid "Recorded:"
 msgstr "录制时间："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:164
+#: src/dialogs/SnapshotDetailDialog.tsx:178
 msgid "Recording exported"
 msgstr "录像已导出"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:285
+msgid "Recording frame"
+msgstr "录像帧"
 
 #: src/dialogs/SceneRestoreDialog.tsx:229
 msgid "Recording frame: {frame}"
 msgstr "录制帧：{frame}"
 
-#: src/components/toolbar/MenuBar.tsx:153
+#: src/components/toolbar/MenuBar.tsx:145
 #: src/components/toolbar/ToolGroups.tsx:89
 msgid "Redo"
 msgstr "重做"
@@ -1201,7 +1224,7 @@ msgstr "重置视图"
 #~ msgid "Reset View"
 #~ msgstr "重置视图"
 
-#: src/components/toolbar/MenuBar.tsx:188
+#: src/components/toolbar/MenuBar.tsx:180
 msgid "Reset Zoom"
 msgstr "重置缩放"
 
@@ -1225,7 +1248,7 @@ msgstr "恢复快照"
 msgid "Restore snapshot to simulator"
 msgstr "将快照恢复到模拟器"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:389
+#: src/dialogs/SnapshotDetailDialog.tsx:441
 msgid "Restore to live simulator"
 msgstr "恢复到实时模拟器"
 
@@ -1237,7 +1260,7 @@ msgstr "正在恢复…"
 #~ msgid "Retry"
 #~ msgstr "重试"
 
-#: src/components/value-inspector/ValueInspector.tsx:213
+#: src/components/value-inspector/ValueInspector.tsx:201
 msgid "root"
 msgstr "根"
 
@@ -1253,7 +1276,7 @@ msgstr "单步执行"
 msgid "Run:"
 msgstr "运行："
 
-#: src/components/toolbar/MenuBar.tsx:107
+#: src/components/toolbar/MenuBar.tsx:99
 #: src/components/toolbar/ToolGroups.tsx:66
 #: src/dialogs/edit-views/EditViewDialog.tsx:416
 msgid "Save"
@@ -1265,11 +1288,11 @@ msgid "Save As"
 msgstr "另存为"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:135
-#: src/dialogs/SnapshotDetailDialog.tsx:105
+#: src/dialogs/SnapshotDetailDialog.tsx:114
 msgid "Save As CSV"
 msgstr "以CSV格式保存"
 
-#: src/components/toolbar/MenuBar.tsx:114
+#: src/components/toolbar/MenuBar.tsx:106
 msgid "Save As..."
 msgstr "另存为..."
 
@@ -1289,7 +1312,7 @@ msgstr "场景元数据"
 msgid "Search agents by ID, color, or icon..."
 msgstr "按 ID、颜色或图标搜索智能体..."
 
-#: src/components/toolbar/MenuBar.tsx:167
+#: src/components/toolbar/MenuBar.tsx:159
 msgid "Select All"
 msgstr "全选"
 
@@ -1316,7 +1339,7 @@ msgstr "会话标识、能力和当前模型元数据。"
 
 #: src/components/project/StatusBar.tsx:226
 #: src/components/project/StatusBar.tsx:230
-#: src/components/toolbar/MenuBar.tsx:213
+#: src/components/toolbar/MenuBar.tsx:205
 #: src/components/toolbar/ToolGroups.tsx:320
 #: src/dialogs/SettingsDialog.tsx:133
 msgid "Settings"
@@ -1326,7 +1349,7 @@ msgstr "设置"
 msgid "Show Bottom Panel"
 msgstr "显示底部面板"
 
-#: src/components/toolbar/MenuBar.tsx:192
+#: src/components/toolbar/MenuBar.tsx:184
 msgid "Show Grid"
 msgstr "显示网格"
 
@@ -1342,7 +1365,7 @@ msgstr "显示右侧面板"
 #~ msgid "Sim:"
 #~ msgstr "模拟："
 
-#: src/dialogs/SnapshotDetailDialog.tsx:245
+#: src/dialogs/SnapshotDetailDialog.tsx:264
 msgid "Simulation time:"
 msgstr "模拟时间："
 
@@ -1370,7 +1393,7 @@ msgstr "快照"
 #~ msgid "Snapshot Details"
 #~ msgstr "快照详情"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:209
+#: src/dialogs/SnapshotDetailDialog.tsx:228
 msgid "Snapshot name"
 msgstr "快照名称"
 
@@ -1386,7 +1409,7 @@ msgstr "快照回放"
 msgid "Snapshot playback FPS"
 msgstr "快照播放帧率"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:200
+#: src/dialogs/SnapshotDetailDialog.tsx:219
 msgid "Snapshot replay"
 msgstr "快照回放"
 
@@ -1455,7 +1478,7 @@ msgstr "停止表达式（可选）"
 msgid "Stop recording"
 msgstr "停止录制"
 
-#: src/components/value-inspector/ValueInspector.tsx:208
+#: src/components/value-inspector/ValueInspector.tsx:196
 msgid "Structured value inspector"
 msgstr "结构化值检查器"
 
@@ -1622,7 +1645,7 @@ msgstr "切换主题"
 msgid "Toggle Theme"
 msgstr "切换主题"
 
-#: src/components/toolbar/MenuBar.tsx:204
+#: src/components/toolbar/MenuBar.tsx:196
 msgid "Tools"
 msgstr "工具"
 
@@ -1680,7 +1703,7 @@ msgstr "无法执行模型动作"
 msgid "Unable to step"
 msgstr "无法步进"
 
-#: src/components/toolbar/MenuBar.tsx:144
+#: src/components/toolbar/MenuBar.tsx:136
 #: src/components/toolbar/ToolGroups.tsx:82
 msgid "Undo"
 msgstr "撤销"
@@ -1710,7 +1733,7 @@ msgstr "更新视图布局"
 #~ msgid "Upload Files"
 #~ msgstr "上传文件"
 
-#: src/components/value-inspector/ValueInspector.tsx:211
+#: src/components/value-inspector/ValueInspector.tsx:199
 msgid "Value path"
 msgstr "值路径"
 
@@ -1719,7 +1742,7 @@ msgstr "值路径"
 msgid "Version"
 msgstr "版本"
 
-#: src/components/toolbar/MenuBar.tsx:176
+#: src/components/toolbar/MenuBar.tsx:168
 msgid "View"
 msgstr "视图"
 
@@ -1771,12 +1794,12 @@ msgstr "宽度"
 msgid "Will restore {0} parameters and {1} environments{2}."
 msgstr "将恢复 {0} 个参数和 {1} 个环境{2}。"
 
-#: src/components/toolbar/MenuBar.tsx:182
+#: src/components/toolbar/MenuBar.tsx:174
 #: src/components/toolbar/ToolGroups.tsx:263
 msgid "Zoom In"
 msgstr "放大"
 
-#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/MenuBar.tsx:177
 #: src/components/toolbar/ToolGroups.tsx:264
 msgid "Zoom Out"
 msgstr "缩小"

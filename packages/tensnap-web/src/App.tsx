@@ -68,6 +68,9 @@ export function App(props: Partial<MenuBarConfig>) {
     document.getElementById('root')!.append(shell.element);
     return () => shell.dispose();
   }, [shell]);
+  useLayoutEffect(() => {
+    shell.setTitlebarVisible(environment === 'tauri' && system === 'mac' && !isFullscreen);
+  }, [shell, environment, system, isFullscreen]);
   return (
     <>
       <MenuBarContext.Provider

@@ -56,7 +56,7 @@ msgstr "A parameter with this ID already exists."
 msgid "About"
 msgstr "About"
 
-#: src/components/toolbar/MenuBar.tsx:239
+#: src/components/toolbar/MenuBar.tsx:231
 #: src/dialogs/AboutDialog.tsx:12
 msgid "About TenSnap"
 msgstr "About TenSnap"
@@ -81,7 +81,7 @@ msgstr "Action Label"
 msgid "Action Timeout"
 msgstr "Action Timeout"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:257
+#: src/dialogs/SnapshotDetailDialog.tsx:276
 msgid "Action:"
 msgstr "Action:"
 
@@ -171,11 +171,11 @@ msgstr "Button Text"
 msgid "Cancel"
 msgstr "Cancel"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:84
+#: src/dialogs/SnapshotDetailDialog.tsx:93
 msgid "Canvas copied to clipboard!"
 msgstr "Canvas copied to clipboard!"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:80
+#: src/dialogs/SnapshotDetailDialog.tsx:89
 msgid "Canvas not found."
 msgstr "Canvas not found."
 
@@ -317,8 +317,8 @@ msgstr "Continuous run…"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:142
 #: src/components/project/ViewContextMenuRenderer.tsx:149
-#: src/components/toolbar/MenuBar.tsx:160
-#: src/dialogs/SnapshotDetailDialog.tsx:110
+#: src/components/toolbar/MenuBar.tsx:152
+#: src/dialogs/SnapshotDetailDialog.tsx:119
 msgid "Copy"
 msgstr "Copy"
 
@@ -357,7 +357,7 @@ msgstr "Custom Data:"
 msgid "Custom simulator actions are unavailable for a snapshot source."
 msgstr "Custom simulator actions are unavailable for a snapshot source."
 
-#: src/components/toolbar/MenuBar.tsx:157
+#: src/components/toolbar/MenuBar.tsx:149
 msgid "Cut"
 msgstr "Cut"
 
@@ -377,7 +377,7 @@ msgstr "default"
 msgid "Delete"
 msgstr "Delete"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:383
+#: src/dialogs/SnapshotDetailDialog.tsx:435
 msgid "Delete recording"
 msgstr "Delete recording"
 
@@ -417,7 +417,7 @@ msgstr "Display"
 msgid "Display Type"
 msgstr "Display Type"
 
-#: src/components/toolbar/MenuBar.tsx:229
+#: src/components/toolbar/MenuBar.tsx:221
 msgid "Documentation"
 msgstr "Documentation"
 
@@ -434,7 +434,7 @@ msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:175
-#: src/components/toolbar/MenuBar.tsx:132
+#: src/components/toolbar/MenuBar.tsx:124
 msgid "Edit"
 msgstr "Edit"
 
@@ -504,7 +504,7 @@ msgstr "Exact checkpoint"
 msgid "Exact checkpoints are available only at the recording's initial frame."
 msgstr "Exact checkpoints are available only at the recording's initial frame."
 
-#: src/components/toolbar/MenuBar.tsx:121
+#: src/components/toolbar/MenuBar.tsx:113
 msgid "Exit"
 msgstr "Exit"
 
@@ -520,13 +520,13 @@ msgstr "Expanded"
 #~ msgid "Export Current Directory"
 #~ msgstr "Export Current Directory"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:158
-#: src/dialogs/SnapshotDetailDialog.tsx:380
+#: src/dialogs/SnapshotDetailDialog.tsx:172
+#: src/dialogs/SnapshotDetailDialog.tsx:432
 msgid "Export current frame"
 msgstr "Export current frame"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:158
-#: src/dialogs/SnapshotDetailDialog.tsx:377
+#: src/dialogs/SnapshotDetailDialog.tsx:172
+#: src/dialogs/SnapshotDetailDialog.tsx:429
 msgid "Export full recording"
 msgstr "Export full recording"
 
@@ -538,8 +538,8 @@ msgstr "Export full recording"
 #~ msgid "Exporting, please wait..."
 #~ msgstr "Exporting, please wait..."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:85
-#: src/dialogs/SnapshotDetailDialog.tsx:87
+#: src/dialogs/SnapshotDetailDialog.tsx:94
+#: src/dialogs/SnapshotDetailDialog.tsx:96
 msgid "Failed to copy canvas to clipboard."
 msgstr "Failed to copy canvas to clipboard."
 
@@ -547,7 +547,7 @@ msgstr "Failed to copy canvas to clipboard."
 msgid "Failed to copy monitor data to clipboard."
 msgstr "Failed to copy monitor data to clipboard."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:166
+#: src/dialogs/SnapshotDetailDialog.tsx:180
 msgid "Failed to export recording"
 msgstr "Failed to export recording"
 
@@ -589,7 +589,7 @@ msgstr "Failed to update view"
 #~ msgid "Fallback Background Color"
 #~ msgstr "Fallback Background Color"
 
-#: src/components/toolbar/MenuBar.tsx:88
+#: src/components/toolbar/MenuBar.tsx:80
 msgid "File"
 msgstr "File"
 
@@ -610,8 +610,8 @@ msgstr "File import failed"
 msgid "File saved"
 msgstr "File saved"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:270
-#: src/dialogs/SnapshotDetailDialog.tsx:271
+#: src/dialogs/SnapshotDetailDialog.tsx:301
+#: src/dialogs/SnapshotDetailDialog.tsx:302
 msgid "First frame"
 msgstr "First frame"
 
@@ -635,11 +635,11 @@ msgstr "Force reconnect to server"
 #~ msgid "Force visible"
 #~ msgstr "Force visible"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:251
+#: src/dialogs/SnapshotDetailDialog.tsx:270
 msgid "Frame updates:"
 msgstr "Frame updates:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:237
+#: src/dialogs/SnapshotDetailDialog.tsx:256
 msgid "Frame:"
 msgstr "Frame:"
 
@@ -647,7 +647,7 @@ msgstr "Frame:"
 msgid "Frames:"
 msgstr "Frames:"
 
-#: src/components/toolbar/MenuBar.tsx:195
+#: src/components/toolbar/MenuBar.tsx:187
 msgid "Fullscreen"
 msgstr "Fullscreen"
 
@@ -675,7 +675,7 @@ msgstr "Heading:"
 msgid "Height"
 msgstr "Height"
 
-#: src/components/toolbar/MenuBar.tsx:223
+#: src/components/toolbar/MenuBar.tsx:215
 msgid "Help"
 msgstr "Help"
 
@@ -698,7 +698,7 @@ msgstr "ID"
 
 #: src/components/project/RightPanel.tsx:163
 #: src/dialogs/AgentDetailsDialog.tsx:315
-#: src/dialogs/SnapshotDetailDialog.tsx:225
+#: src/dialogs/SnapshotDetailDialog.tsx:244
 msgid "ID:"
 msgstr "ID:"
 
@@ -706,7 +706,7 @@ msgstr "ID:"
 msgid "Info"
 msgstr "Info"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:203
+#: src/dialogs/SnapshotDetailDialog.tsx:222
 msgid "Inspect this recording offline. Opening it creates a disconnected copy."
 msgstr "Inspect this recording offline. Opening it creates a disconnected copy."
 
@@ -754,7 +754,7 @@ msgstr "Keep editing"
 msgid "Keep live charts"
 msgstr "Keep live charts"
 
-#: src/components/toolbar/MenuBar.tsx:232
+#: src/components/toolbar/MenuBar.tsx:224
 msgid "Keyboard Shortcuts"
 msgstr "Keyboard Shortcuts"
 
@@ -766,6 +766,11 @@ msgstr "Keyboard Shortcuts"
 #: src/dialogs/SettingsDialog.tsx:169
 msgid "Language"
 msgstr "Language"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:343
+#: src/dialogs/SnapshotDetailDialog.tsx:344
+msgid "Last frame"
+msgstr "Last frame"
 
 #: src/dialogs/edit-views/BaseViewEditor.tsx:39
 msgid "Left"
@@ -840,7 +845,7 @@ msgstr "Monitor data copied to clipboard."
 msgid "Monitor not found."
 msgstr "Monitor not found."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:318
+#: src/dialogs/SnapshotDetailDialog.tsx:370
 msgid "Monitors"
 msgstr "Monitors"
 
@@ -861,7 +866,7 @@ msgstr "Name"
 msgid "Neighbors: {0}"
 msgstr "Neighbors: {0}"
 
-#: src/components/toolbar/MenuBar.tsx:94
+#: src/components/toolbar/MenuBar.tsx:86
 msgid "New"
 msgstr "New"
 
@@ -877,11 +882,16 @@ msgstr "New Tab"
 msgid "New View"
 msgstr "New View"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:333
+#: src/dialogs/SnapshotDetailDialog.tsx:334
+msgid "Next frame"
+msgstr "Next frame"
+
 #: ../web-common/src/components/ui/Pagination.tsx:92
 msgid "Next page"
 msgstr "Next page"
 
-#: src/components/value-inspector/ValueInspector.tsx:268
+#: src/components/value-inspector/ValueInspector.tsx:264
 msgid "Next value rows"
 msgstr "Next value rows"
 
@@ -919,7 +929,7 @@ msgstr "No main view available."
 msgid "No metadata on this layer."
 msgstr "No metadata on this layer."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:323
+#: src/dialogs/SnapshotDetailDialog.tsx:375
 msgid "No monitor data was recorded."
 msgstr "No monitor data was recorded."
 
@@ -980,7 +990,7 @@ msgstr "Object ID"
 msgid "Off"
 msgstr "Off"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:301
+#: src/dialogs/SnapshotDetailDialog.tsx:353
 msgid "Older frames were removed to stay within the recording budget."
 msgstr "Older frames were removed to stay within the recording budget."
 
@@ -988,11 +998,11 @@ msgstr "Older frames were removed to stay within the recording budget."
 msgid "Only start, step, stop, and reset are available for a snapshot source."
 msgstr "Only start, step, stop, and reset are available for a snapshot source."
 
-#: src/dialogs/SnapshotDetailDialog.tsx:392
+#: src/dialogs/SnapshotDetailDialog.tsx:444
 msgid "Open as offline copy"
 msgstr "Open as offline copy"
 
-#: src/components/toolbar/MenuBar.tsx:97
+#: src/components/toolbar/MenuBar.tsx:89
 #: src/components/toolbar/ToolGroups.tsx:61
 #: src/components/toolbar/useFileOperations.ts:60
 msgid "Open File"
@@ -1002,14 +1012,14 @@ msgstr "Open File"
 #~ msgid "Open Folder"
 #~ msgstr "Open Folder"
 
-#: src/components/toolbar/MenuBar.tsx:100
+#: src/components/toolbar/MenuBar.tsx:92
 #: src/components/toolbar/useFileOperations.ts:77
 #: src/dialogs/SelectRecordingDialog.tsx:55
 msgid "Open recording"
 msgstr "Open recording"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:129
-#: src/dialogs/SnapshotDetailDialog.tsx:100
+#: src/dialogs/SnapshotDetailDialog.tsx:109
 msgid "Options"
 msgstr "Options"
 
@@ -1045,7 +1055,7 @@ msgstr "Parameter Label"
 msgid "Parameter Type"
 msgstr "Parameter Type"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:306
+#: src/dialogs/SnapshotDetailDialog.tsx:358
 msgid "Parameters"
 msgstr "Parameters"
 
@@ -1053,12 +1063,12 @@ msgstr "Parameters"
 msgid "Parameters:"
 msgstr "Parameters:"
 
-#: src/components/toolbar/MenuBar.tsx:163
+#: src/components/toolbar/MenuBar.tsx:155
 msgid "Paste"
 msgstr "Paste"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:279
-#: src/dialogs/SnapshotDetailDialog.tsx:280
+#: src/dialogs/SnapshotDetailDialog.tsx:323
+#: src/dialogs/SnapshotDetailDialog.tsx:324
 msgid "Pause"
 msgstr "Pause"
 
@@ -1066,10 +1076,14 @@ msgstr "Pause"
 msgid "Pending"
 msgstr "Pending"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:279
-#: src/dialogs/SnapshotDetailDialog.tsx:280
+#: src/dialogs/SnapshotDetailDialog.tsx:323
+#: src/dialogs/SnapshotDetailDialog.tsx:324
 msgid "Play"
 msgstr "Play"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:294
+msgid "Playback controls"
+msgstr "Playback controls"
 
 #: src/components/project/MainViewRenderer.tsx:29
 msgid "Please create or open a project to get started."
@@ -1079,11 +1093,16 @@ msgstr "Please create or open a project to get started."
 msgid "Position:"
 msgstr "Position:"
 
+#: src/dialogs/SnapshotDetailDialog.tsx:311
+#: src/dialogs/SnapshotDetailDialog.tsx:312
+msgid "Previous frame"
+msgstr "Previous frame"
+
 #: ../web-common/src/components/ui/Pagination.tsx:60
 msgid "Previous page"
 msgstr "Previous page"
 
-#: src/components/value-inspector/ValueInspector.tsx:260
+#: src/components/value-inspector/ValueInspector.tsx:256
 msgid "Previous value rows"
 msgstr "Previous value rows"
 
@@ -1148,19 +1167,23 @@ msgstr "Reconnected successfully"
 msgid "Record this run"
 msgstr "Record this run"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:231
+#: src/dialogs/SnapshotDetailDialog.tsx:250
 msgid "Recorded:"
 msgstr "Recorded:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:164
+#: src/dialogs/SnapshotDetailDialog.tsx:178
 msgid "Recording exported"
 msgstr "Recording exported"
+
+#: src/dialogs/SnapshotDetailDialog.tsx:285
+msgid "Recording frame"
+msgstr "Recording frame"
 
 #: src/dialogs/SceneRestoreDialog.tsx:229
 msgid "Recording frame: {frame}"
 msgstr "Recording frame: {frame}"
 
-#: src/components/toolbar/MenuBar.tsx:153
+#: src/components/toolbar/MenuBar.tsx:145
 #: src/components/toolbar/ToolGroups.tsx:89
 msgid "Redo"
 msgstr "Redo"
@@ -1201,7 +1224,7 @@ msgstr "Reset View"
 #~ msgid "Reset View"
 #~ msgstr "Reset View"
 
-#: src/components/toolbar/MenuBar.tsx:188
+#: src/components/toolbar/MenuBar.tsx:180
 msgid "Reset Zoom"
 msgstr "Reset Zoom"
 
@@ -1225,7 +1248,7 @@ msgstr "Restore snapshot"
 msgid "Restore snapshot to simulator"
 msgstr "Restore snapshot to simulator"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:389
+#: src/dialogs/SnapshotDetailDialog.tsx:441
 msgid "Restore to live simulator"
 msgstr "Restore to live simulator"
 
@@ -1237,7 +1260,7 @@ msgstr "Restoring…"
 #~ msgid "Retry"
 #~ msgstr "Retry"
 
-#: src/components/value-inspector/ValueInspector.tsx:213
+#: src/components/value-inspector/ValueInspector.tsx:201
 msgid "root"
 msgstr "root"
 
@@ -1253,7 +1276,7 @@ msgstr "Run one step"
 msgid "Run:"
 msgstr "Run:"
 
-#: src/components/toolbar/MenuBar.tsx:107
+#: src/components/toolbar/MenuBar.tsx:99
 #: src/components/toolbar/ToolGroups.tsx:66
 #: src/dialogs/edit-views/EditViewDialog.tsx:416
 msgid "Save"
@@ -1265,11 +1288,11 @@ msgid "Save As"
 msgstr "Save As"
 
 #: src/components/project/ViewContextMenuRenderer.tsx:135
-#: src/dialogs/SnapshotDetailDialog.tsx:105
+#: src/dialogs/SnapshotDetailDialog.tsx:114
 msgid "Save As CSV"
 msgstr "Save As CSV"
 
-#: src/components/toolbar/MenuBar.tsx:114
+#: src/components/toolbar/MenuBar.tsx:106
 msgid "Save As..."
 msgstr "Save As..."
 
@@ -1289,7 +1312,7 @@ msgstr "Scenario metadata"
 msgid "Search agents by ID, color, or icon..."
 msgstr "Search agents by ID, color, or icon..."
 
-#: src/components/toolbar/MenuBar.tsx:167
+#: src/components/toolbar/MenuBar.tsx:159
 msgid "Select All"
 msgstr "Select All"
 
@@ -1316,7 +1339,7 @@ msgstr "Session identity, capabilities, and current model metadata."
 
 #: src/components/project/StatusBar.tsx:226
 #: src/components/project/StatusBar.tsx:230
-#: src/components/toolbar/MenuBar.tsx:213
+#: src/components/toolbar/MenuBar.tsx:205
 #: src/components/toolbar/ToolGroups.tsx:320
 #: src/dialogs/SettingsDialog.tsx:133
 msgid "Settings"
@@ -1326,7 +1349,7 @@ msgstr "Settings"
 msgid "Show Bottom Panel"
 msgstr "Show Bottom Panel"
 
-#: src/components/toolbar/MenuBar.tsx:192
+#: src/components/toolbar/MenuBar.tsx:184
 msgid "Show Grid"
 msgstr "Show Grid"
 
@@ -1342,7 +1365,7 @@ msgstr "Show Right Panel"
 #~ msgid "Sim:"
 #~ msgstr "Sim:"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:245
+#: src/dialogs/SnapshotDetailDialog.tsx:264
 msgid "Simulation time:"
 msgstr "Simulation time:"
 
@@ -1370,7 +1393,7 @@ msgstr "Snapshot"
 #~ msgid "Snapshot Details"
 #~ msgstr "Snapshot Details"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:209
+#: src/dialogs/SnapshotDetailDialog.tsx:228
 msgid "Snapshot name"
 msgstr "Snapshot name"
 
@@ -1386,7 +1409,7 @@ msgstr "Snapshot playback"
 msgid "Snapshot playback FPS"
 msgstr "Snapshot playback FPS"
 
-#: src/dialogs/SnapshotDetailDialog.tsx:200
+#: src/dialogs/SnapshotDetailDialog.tsx:219
 msgid "Snapshot replay"
 msgstr "Snapshot replay"
 
@@ -1455,7 +1478,7 @@ msgstr "Stop expression (optional)"
 msgid "Stop recording"
 msgstr "Stop recording"
 
-#: src/components/value-inspector/ValueInspector.tsx:208
+#: src/components/value-inspector/ValueInspector.tsx:196
 msgid "Structured value inspector"
 msgstr "Structured value inspector"
 
@@ -1622,7 +1645,7 @@ msgstr "Toggle theme"
 msgid "Toggle Theme"
 msgstr "Toggle Theme"
 
-#: src/components/toolbar/MenuBar.tsx:204
+#: src/components/toolbar/MenuBar.tsx:196
 msgid "Tools"
 msgstr "Tools"
 
@@ -1680,7 +1703,7 @@ msgstr "Unable to run model action"
 msgid "Unable to step"
 msgstr "Unable to step"
 
-#: src/components/toolbar/MenuBar.tsx:144
+#: src/components/toolbar/MenuBar.tsx:136
 #: src/components/toolbar/ToolGroups.tsx:82
 msgid "Undo"
 msgstr "Undo"
@@ -1710,7 +1733,7 @@ msgstr "Update View Layout"
 #~ msgid "Upload Files"
 #~ msgstr "Upload Files"
 
-#: src/components/value-inspector/ValueInspector.tsx:211
+#: src/components/value-inspector/ValueInspector.tsx:199
 msgid "Value path"
 msgstr "Value path"
 
@@ -1719,7 +1742,7 @@ msgstr "Value path"
 msgid "Version"
 msgstr "Version"
 
-#: src/components/toolbar/MenuBar.tsx:176
+#: src/components/toolbar/MenuBar.tsx:168
 msgid "View"
 msgstr "View"
 
@@ -1771,12 +1794,12 @@ msgstr "Width"
 msgid "Will restore {0} parameters and {1} environments{2}."
 msgstr "Will restore {0} parameters and {1} environments{2}."
 
-#: src/components/toolbar/MenuBar.tsx:182
+#: src/components/toolbar/MenuBar.tsx:174
 #: src/components/toolbar/ToolGroups.tsx:263
 msgid "Zoom In"
 msgstr "Zoom In"
 
-#: src/components/toolbar/MenuBar.tsx:185
+#: src/components/toolbar/MenuBar.tsx:177
 #: src/components/toolbar/ToolGroups.tsx:264
 msgid "Zoom Out"
 msgstr "Zoom Out"

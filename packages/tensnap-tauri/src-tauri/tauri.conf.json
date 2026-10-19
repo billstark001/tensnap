@@ -20,13 +20,12 @@
         "minHeight": 480,
         "minWidth": 640,
         "decorations": true,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {
-      "capabilities": [
-        "main"
-      ],
+      "capabilities": ["main"],
       "csp": "default-src 'self'; connect-src 'self' ws: wss: http://localhost:3250; img-src 'self' asset: http://asset.localhost blob: data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
     "withGlobalTauri": false

@@ -1,11 +1,3 @@
-.tensnap-window {
-  background: #467fba;
-  border-radius: 8px;
-}
-.tensnap-window .wb-body {
-  background: var(--workbench-background, #fff);
-  color: inherit;
-}
 .content-island {
   box-sizing: border-box;
   height: 100%;
@@ -13,10 +5,6 @@
   padding: 20px;
   position: relative;
   outline: none;
-}
-body[data-theme='dark'] .tensnap-window .wb-body {
-  background: #202125;
-  color: #eee;
 }
 [data-workbench-menu] {
   position: fixed;
@@ -82,4 +70,19 @@ body[data-theme='dark'] .tensnap-window .wb-body {
 .content-island[data-dialog-size='full'] {
   display: flex;
   flex-direction: column;
+}
+
+.workbench-titlebar:not([hidden]) {
+  display: flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 80px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+  cursor: default;
 }
