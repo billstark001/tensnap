@@ -5,10 +5,20 @@
 //   2. checks its protocol projection against an independently read model sidecar;
 //   3. captures, advances, restores, and replays an exact checkpoint;
 //   4. forks two threshold trajectories from that checkpoint and renders a PNG.
+//   5. stages a seed, captures/restores it, and verifies deterministic reset.
 // Hosts run sequentially; each audit owns one CLI daemon connection.
 import { createHash } from 'node:crypto';
 import { execFile, spawn } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import {
+  appendFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { connect, createServer } from 'node:net';
 import { tmpdir, platform, arch } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -40,6 +50,7 @@ function option(name) {
 }
 const output = resolve(root, option('--out') ?? 'benchmark-results/schelling-headless');
 let results;
+let traceDirectory;
 const cliPath = join(root, 'packages/tensnap-agent/dist/cli.js');
 const hosts = ['python', 'go', 'julia', 'js'];
 const selected = option('--hosts')?.split(',') ?? hosts;
@@ -49,24 +60,36 @@ if (selected.some((host) => !hosts.includes(host)))
 // experiment so a report identifies the implementation it actually exercised.
 const sourceFiles = [
   'benchmarks/schelling/headless/run.mjs',
+  'packages/tensnap-agent/src/cli.ts',
+  'packages/tensnap-agent/src/cli-options.ts',
+  'packages/tensnap-agent/src/runtime/control-server/scene-routes.ts',
   'examples/python_mesa/schelling.py',
   'examples/python_mesa/schelling_tensnap.py',
-  'examples/python_mesa/schelling_viz.py',
-  'examples/python_mesa/schelling_audit.py',
+  'benchmarks/schelling/v1/subjects/mesa/server.py',
+  'benchmarks/schelling/v1/subjects/mesa/config.py',
+  'benchmarks/schelling/v1/subjects/mesa/audit.py',
   'examples/python_mesa/schelling_checkpoint.py',
+  'packages/tensnap-python/tensnap/scenario.py',
+  'packages/tensnap-python/tensnap/handler.py',
+  'packages/tensnap-python/tensnap/bindings/lifecycle.py',
+  'packages/tensnap-python/tensnap/bindings/basic/restore.py',
+  'packages/tensnap-python/tensnap/utils/func.py',
+  'packages/tensnap-python/tensnap/utils/init_hook.py',
   'examples/go/internal/schelling/model.go',
   'examples/go/internal/schelling/checkpoint.go',
-  'examples/go/internal/schelling/audit.go',
+  'benchmarks/schelling/v1/subjects/go/audit/audit.go',
   'examples/go/internal/schelling/viz.go',
   'examples/go/internal/schelling/server.go',
   'examples/julia/schelling.jl',
   'examples/julia/schelling_tensnap.jl',
-  'examples/julia/schelling_viz.jl',
-  'examples/julia/schelling_audit.jl',
+  'benchmarks/schelling/v1/subjects/julia/tensnap.jl',
+  'benchmarks/schelling/v1/subjects/julia/audit.jl',
   'examples/js/src/models/schelling.ts',
   'examples/js/src/renderers/schelling.ts',
   'examples/js/src/entries/main-ws.ts',
-  'examples/js/src/entries/schelling-audit.ts',
+  'benchmarks/schelling/v1/subjects/js/tensnap.ts',
+  'benchmarks/schelling/v1/subjects/go/tensnap/main.go',
+  'benchmarks/schelling/v1/subjects/js/audit.ts',
 ];
 
 const sleep = (ms) => new Promise((resolvePromise) => setTimeout(resolvePromise, ms));
@@ -122,27 +145,24 @@ function launch(host, port, auditPath) {
     String(port),
   ];
   const choices = {
-    python: [
-      'python',
-      [
-        'examples/python_mesa/schelling_viz.py',
-        ...common,
-        '--encoding',
-        'json',
-        '--no-collect-data',
-      ],
-    ],
-    go: ['go', ['run', './schelling', ...common], join(root, 'examples/go')],
+    python: ['python', ['benchmarks/schelling/v1/subjects/mesa/server.py']],
+    go: ['go', ['run', './tensnap', ...common], join(root, 'benchmarks/schelling/v1/subjects/go')],
     julia: [
       'julia',
       [
         `--project=${process.env.TENSNAP_JULIA_PROJECT ?? 'benchmarks/evaluation/environments/julia'}`,
-        'examples/julia/schelling_viz.jl',
+        'benchmarks/schelling/v1/subjects/julia/tensnap.jl',
       ],
     ],
     js: [
       'pnpm',
-      ['--filter', '@tensnap/examples-js', 'demo:ws', 'schelling', ...common, '--encoding', 'json'],
+      [
+        '--dir',
+        'examples/js',
+        'exec',
+        'tsx',
+        '../../benchmarks/schelling/v1/subjects/js/tensnap.ts',
+      ],
     ],
   };
   const [binary, args, cwd = root] = choices[host];
@@ -162,6 +182,7 @@ function launch(host, port, auditPath) {
     TENSNAP_SCHELLING_THRESHOLD: '0.65',
     TENSNAP_SCHELLING_SEED: '7',
     TENSNAP_USE_MSGPACK: 'false',
+    TENSNAP_SCHELLING_COLLECT_DATA: 'false',
   };
   const child = spawn(binary, args, {
     cwd,
@@ -240,6 +261,19 @@ function sceneAgents(scene) {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function configuredSeed(host, state) {
+  return host === 'python' || host === 'go' ? state.state.seed : state.config.seed;
+}
+function activeState(host, state) {
+  const active = structuredClone(state);
+  if (host === 'python' || host === 'go') delete active.state.seed;
+  else delete active.config.seed;
+  return active;
+}
+function reportPoint({ time, stateHash, agentsHash, metrics, threshold }) {
+  return { time, stateHash, agentsHash, metrics, threshold };
+}
+
 async function runHost(host, revision, sourceDigest) {
   // A temporary directory holds the daemon context, live sidecar, and capture.
   // Only the report, checkpoint, and render are retained under results/.
@@ -247,6 +281,9 @@ async function runHost(host, revision, sourceDigest) {
   const port = await reservePort();
   const auditPath = join(contextRoot, 'audit.json');
   const checkpointPath = join(contextRoot, 'checkpoint.json');
+  const seedCheckpointPath = join(contextRoot, 'seed-checkpoint.json');
+  const tracePath = join(traceDirectory, `${host}.jsonl`);
+  let phase = 'baseline';
   const outputDir = join(results, host);
   await mkdir(outputDir, { recursive: true });
   const simulator = launch(host, port, auditPath);
@@ -274,6 +311,10 @@ async function runHost(host, revision, sourceDigest) {
         // actual live agent positions. Full private state is hashed separately.
         const actual = agentProjection(host, state);
         const projected = sceneAgents(scene);
+        await appendFile(
+          tracePath,
+          `${JSON.stringify({ phase, time: expectedTime, state, projection: projected })}\n`,
+        );
         assert(
           JSON.stringify(actual) === JSON.stringify(projected),
           `${host} live agents differ from protocol projection at t=${expectedTime}`,
@@ -282,6 +323,8 @@ async function runHost(host, revision, sourceDigest) {
           time: expectedTime,
           stateHash: hash(state),
           agentsHash: hash(actual),
+          activeHash: hash(activeState(host, state)),
+          seed: configuredSeed(host, state),
           metrics: state.metrics,
           threshold:
             host === 'python'
@@ -302,16 +345,21 @@ async function runHost(host, revision, sourceDigest) {
     );
   }
 
-  async function setThreshold(value) {
+  async function setParameter(id, value) {
     // param set only acknowledges dispatch. param list confirms that the host
     // actually accepted the runtime change before the next model step.
-    await cli(['param', 'set', 'similarityThreshold', String(value)]);
+    await cli(['param', 'set', id, String(value)]);
     for (let i = 0; i < 80; i++) {
       const listed = await cli(['param', 'list']);
-      if (JSON.stringify(listed).includes(`"value":${value}`)) return;
+      const definitions = listed.parameters ?? listed;
+      if (
+        Array.isArray(definitions) &&
+        definitions.some((parameter) => parameter.id === id && parameter.value === value)
+      )
+        return;
       await sleep(50);
     }
-    throw new Error(`${host} threshold did not become ${value}`);
+    throw new Error(`${host} parameter ${id} did not become ${value}`);
   }
 
   async function steps(count, from) {
@@ -325,6 +373,8 @@ async function runHost(host, revision, sourceDigest) {
         time: point.time,
         stateHash: point.stateHash,
         agentsHash: point.agentsHash,
+        activeHash: point.activeHash,
+        seed: point.seed,
         metrics: point.metrics,
         threshold: point.threshold,
       });
@@ -385,7 +435,7 @@ async function runHost(host, revision, sourceDigest) {
     const checkpoint = JSON.parse(await readFile(checkpointPath, 'utf8'));
     assert(
       checkpoint.model_id === (host === 'js' ? 'schelling' : 'examples.schelling') &&
-        checkpoint.state_schema_version === '2',
+        checkpoint.state_schema_version === '3',
       `${host} checkpoint identity/schema mismatch: ${JSON.stringify(checkpoint).slice(0, 300)}`,
     );
     // Phase 3: advance three steps, restore, and demand equality of both the
@@ -418,6 +468,7 @@ async function runHost(host, revision, sourceDigest) {
     async function branch(threshold) {
       // Each branch starts at the same captured private state. Only the
       // similarity threshold changes before its six measured steps.
+      phase = `threshold-${threshold}`;
       await cli([
         'scene',
         'restore',
@@ -426,7 +477,7 @@ async function runHost(host, revision, sourceDigest) {
         ...(host === 'js' ? ['--time', '5'] : []),
       ]);
       await observation(5);
-      await setThreshold(threshold);
+      await setParameter('similarityThreshold', threshold);
       const trajectory = await steps(6, 5);
       return { threshold, trajectory };
     }
@@ -454,6 +505,60 @@ async function runHost(host, revision, sourceDigest) {
     ]);
     const png = await readFile(renderPath);
     assert(png.subarray(0, 8).toString('hex') === '89504e470d0a1a0a', `${host} render is not PNG.`);
+
+    // A staged seed belongs to the next reset, while the captured RNG belongs
+    // to the current trajectory. Check both through the real CLI and sidecar.
+    phase = 'seed-capture';
+    await cli([
+      'scene',
+      'restore',
+      '--checkpoint',
+      checkpointPath,
+      ...(host === 'js' ? ['--time', '5'] : []),
+    ]);
+    await observation(5);
+    await setParameter('seed', 42);
+    await cliFile(['scene', 'capture', '--output', seedCheckpointPath]);
+    phase = 'seed-future';
+    const seededFuture = await steps(3, 5);
+    assert(
+      seededFuture.every((point) => point.seed === 42),
+      `${host} audit lost staged seed`,
+    );
+    assert(
+      seededFuture.every((point, index) => point.activeHash === future[index].activeHash),
+      `${host} staging seed changed the active trajectory`,
+    );
+    phase = 'seed-overwrite';
+    await setParameter('seed', 99);
+    const overwritten = (await steps(1, 8))[0];
+    assert(overwritten.seed === 99, `${host} overwrite did not reach the live model`);
+    phase = 'seed-restore';
+    await cli([
+      'scene',
+      'restore',
+      '--checkpoint',
+      seedCheckpointPath,
+      ...(host === 'js' ? ['--time', '5'] : []),
+    ]);
+    const seedRestored = await observation(5);
+    assert(seedRestored.seed === 42, `${host} checkpoint did not restore staged seed`);
+    phase = 'seed-replay';
+    const seededReplay = await steps(3, 5);
+    assert(
+      JSON.stringify(seededFuture) === JSON.stringify(seededReplay),
+      `${host} staged-seed checkpoint continuation differs`,
+    );
+    phase = 'seed-reset';
+    await cli(['action', 'run', 'reset', '--wait', '--timeout-ms', '15000']);
+    const seededReset = await observation(0);
+    assert(seededReset.seed === 42, `${host} reset lost restored seed`);
+    assert(seededReset.agentsHash !== initial.agentsHash, `${host} reset ignored new seed`);
+    phase = 'seed-reset-repeat';
+    await cli(['action', 'run', 'reset', '--wait', '--timeout-ms', '15000']);
+    const repeatedReset = await observation(0);
+    assert(seededReset.stateHash === repeatedReset.stateHash, `${host} seeded reset differs`);
+
     const report = {
       // Reports store hashes and short trajectories; the full checkpoint is a
       // separate file so reviewers can inspect the exact restore input.
@@ -488,8 +593,15 @@ async function runHost(host, revision, sourceDigest) {
         sha256: hash(await readFile(checkpointPath)),
       },
       exactRestore: { captured: captured.stateHash, restored: restored.stateHash, pass: true },
-      deterministicFuture: { future, replay, pass: true },
-      branches,
+      deterministicFuture: {
+        future: future.map(reportPoint),
+        replay: replay.map(reportPoint),
+        pass: true,
+      },
+      branches: branches.map(({ threshold, trajectory }) => ({
+        threshold,
+        trajectory: trajectory.map(reportPoint),
+      })),
       rendering: {
         path: 'scene.png',
         width: png.readUInt32BE(16),
@@ -500,7 +612,9 @@ async function runHost(host, revision, sourceDigest) {
     await writeFile(join(outputDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     await writeFile(join(outputDir, 'checkpoint.json'), await readFile(checkpointPath));
     await rm(join(outputDir, 'failure.log'), { force: true });
-    console.log(`${host}: exact restore, deterministic replay, threshold branches, render passed`);
+    console.log(
+      `${host}: exact restore, deterministic replay, threshold branches, render, seed lifecycle passed`,
+    );
     return { host, report: `${host}/report.json`, pass: true };
   } catch (error) {
     // Preserve the simulator's last output when a phase fails.
@@ -536,6 +650,8 @@ async function main() {
   results = await mkdtemp(join(dirname(output), '.schelling-workflow-'));
   if (!arguments_.includes('--skip-build'))
     await command('pnpm', ['--filter', '@tensnap/agent', 'build']);
+  traceDirectory = await mkdtemp(join(tmpdir(), 'tensnap-schelling-trace-'));
+  console.log(`Diagnostic traces: ${traceDirectory}`);
   const revision = await command('git', ['rev-parse', 'HEAD']);
   const sourceHashes = Object.fromEntries(
     await Promise.all(
