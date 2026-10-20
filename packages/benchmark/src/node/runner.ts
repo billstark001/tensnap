@@ -2443,7 +2443,12 @@ async function collectArtifactContext(repositoryRoot: string): Promise<Benchmark
   ]);
   const gitSha = git(repositoryRoot, ['rev-parse', 'HEAD']);
   return {
-    harness: { package: '@tensnap/benchmark', version: packageJson.version, gitSha },
+    harness: {
+      package: '@tensnap/benchmark',
+      version: packageJson.version,
+      gitSha,
+      reportVersion: 2,
+    },
     implementation: { gitSha, dirty: status === null ? null : status.length > 0, lockfileSha256 },
     environment: await collectEnvironment(),
   };
@@ -2735,6 +2740,7 @@ function markdownNumber(value: number): string {
 }
 
 export function renderReport(artifact: BenchmarkArtifact): string {
+  const cadenceColumns = artifact.harness.reportVersion === 2;
   const rows = artifact.runs
     .map((run) => {
       const primaryMetric = run.execution.primaryMetric ?? 'cycle';
@@ -2753,10 +2759,13 @@ export function renderReport(artifact: BenchmarkArtifact): string {
         Object.entries(run.execution.dimensions ?? {})
           .map(([name, value]) => `${name}=${String(value)}`)
           .join(', ') || '-';
-      return `| ${run.suite} | ${run.workload.category} | ${run.system ?? run.profileWorkloadId ?? run.workload.id} | ${run.execution.featureLevel ?? '-'} | ${dimensions} | ${primaryMetric} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${primary.count} | ${markdownNumber(primary.medianMs)} | ${markdownNumber(primary.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
+      const cadence = cadenceColumns
+        ? ` ${markdownNumber(primary.meanMs)} | ${markdownNumber(1_000 / run.summary.cycle.meanMs)} |`
+        : '';
+      return `| ${run.suite} | ${run.workload.category} | ${run.system ?? run.profileWorkloadId ?? run.workload.id} | ${run.execution.featureLevel ?? '-'} | ${dimensions} | ${primaryMetric} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${primary.count} | ${markdownNumber(primary.medianMs)} |${cadence} ${markdownNumber(primary.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
     })
     .join('\n');
-  const mainTable = `| Suite | Category | Workload | Feature level | Dimensions | Primary metric | Encoding | Validation | Samples | Median ms | P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---|---|---|---:|---:|---:|---:|---|---:|\n${rows}`;
+  const mainTable = `| Suite | Category | Workload | Feature level | Dimensions | Primary metric | Encoding | Validation | Samples | Median ms |${cadenceColumns ? ' Mean ms | Measured cycles/s |' : ''} P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---|---|---|---:|---:|${cadenceColumns ? '---:|---:|' : ''}---:|---:|---|---:|\n${rows}`;
   const comparisons =
     artifact.comparisons.length === 0
       ? ''
@@ -2770,6 +2779,7 @@ function csvCell(value: unknown): string {
 }
 
 export function renderAnalysisRunsCsv(artifact: BenchmarkArtifact): string {
+  const cadenceColumns = artifact.harness.reportVersion === 2;
   const header = [
     'run_id',
     'suite',
@@ -2784,6 +2794,7 @@ export function renderAnalysisRunsCsv(artifact: BenchmarkArtifact): string {
     'p95_ms',
     'ci95_low_ms',
     'ci95_high_ms',
+    ...(cadenceColumns ? ['mean_ms', 'cycle_mean_ms', 'measured_cycles_per_second'] : []),
   ];
   const rows = artifact.runs.map((run) => {
     const metric = run.execution.primaryMetric ?? 'cycle';
@@ -2802,6 +2813,9 @@ export function renderAnalysisRunsCsv(artifact: BenchmarkArtifact): string {
       summary.p95Ms,
       summary.bootstrapMedianCi95Ms[0],
       summary.bootstrapMedianCi95Ms[1],
+      ...(cadenceColumns
+        ? [summary.meanMs, run.summary.cycle.meanMs, 1_000 / run.summary.cycle.meanMs]
+        : []),
     ]
       .map(csvCell)
       .join(',');

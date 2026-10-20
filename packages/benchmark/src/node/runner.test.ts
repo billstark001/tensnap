@@ -14,6 +14,7 @@ import {
   mergeBenchmarkJournalSamples,
   readBenchmarkJournal,
   renderReport,
+  renderAnalysisRunsCsv,
   sha256,
   signalExternalProcessTree,
   stableJson,
@@ -286,6 +287,13 @@ describe('benchmark artifact schema v2', () => {
     expect(() => verifyArtifact(artifact)).not.toThrow();
 
     const withoutComparisons = renderReport(artifact);
+    expect(withoutComparisons).not.toContain('Measured cycles/s');
+    const current = { ...artifact, harness: { ...artifact.harness, reportVersion: 2 as const } };
+    expect(renderReport(current)).toContain('Mean ms | Measured cycles/s');
+    expect(renderAnalysisRunsCsv(current).split('\n')[0]).toContain(
+      'mean_ms,cycle_mean_ms,measured_cycles_per_second',
+    );
+    expect(renderAnalysisRunsCsv(artifact)).not.toContain('cycle_mean_ms');
     expect(withoutComparisons).toContain('in-process (not suitable for submission)\n\n| Suite');
     expect(withoutComparisons).toContain('| 0 / 0 |\n\nRaw measurements');
     expect(withoutComparisons).not.toContain('\n\n\n');

@@ -441,6 +441,8 @@ export interface BenchmarkArtifact {
     readonly package: '@tensnap/benchmark';
     readonly version: string;
     readonly gitSha: string | null;
+    /** Missing means the original report layout, retained for evidence verification. */
+    readonly reportVersion?: 2;
   };
   readonly implementation: {
     readonly gitSha: string | null;
