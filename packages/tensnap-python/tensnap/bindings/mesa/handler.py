@@ -232,11 +232,12 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         if self.on_model_init:
             await call_function(self.on_model_init, self.model)
         else:
-            assert self.scenario is not None
-            self._auto_registered = await self.scenario._reinitialize_registered_model(
+            scenario = self.scenario
+            assert scenario is not None
+            self._auto_registered = await scenario._reinitialize_registered_model(
                 self.model_reinitializer,
                 self._auto_registered,
-                lambda: self._register_auto(self.scenario),
+                lambda: self._register_auto(scenario),
             )
 
     async def _model_step_impl(self) -> None:

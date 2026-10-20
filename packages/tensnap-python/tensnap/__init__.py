@@ -4,6 +4,9 @@
 from . import models as models, protocol as protocol, utils as utils
 from ._version import __version__ as __version__
 from .bindings.basic import *
+from .bindings.basic.action import action as action
+from .bindings.basic.chart import chart as chart
+from .bindings.basic.monitor import monitor as monitor
 from .bindings.lifecycle import *
 from .bindings.mesa import (
     BindDataCollectorConfig as BindDataCollectorConfig,

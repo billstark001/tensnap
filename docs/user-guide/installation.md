@@ -50,7 +50,7 @@ pip install -e .  # Editable install for development
 Or with optional development dependencies:
 
 ```bash
-pip install -e ".[dev]"  # Includes pytest, coverage tools, mypy and Ruff
+pip install -e ".[dev]"  # Includes pytest, coverage tools, Pyright and Ruff
 ```
 
 #### 3. Install JavaScript Dependencies
@@ -229,7 +229,7 @@ The development installation includes:
 - **pytest**: Testing framework
 - **pytest-asyncio**: Async test support
 - **pytest-cov**: Code coverage
-- **mypy**: Static type checking
+- **Pyright**: Static type checking with the shared repository configuration
 - **ruff**: Python linting and formatting used by the package scripts
 
 ### JavaScript Development Tools

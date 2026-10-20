@@ -34,11 +34,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Assemble constructor-driven lifecycle, model declarations and post-restore rebinding through `await scenario.register_model(...)`. `BoundModelReinitializer` owns non-UI constructor options and cleanup; remove its former registration/configuration and lifecycle entry points without aliases.
 - Keep seeds optional ordinary initialization parameters and RNGs in models/frameworks. Constructor-only controls default to initialization-only metadata; merge custom parameter metadata without duplicate type arguments. Expose `scenario.reset()` and `set_time_step()`.
+- Replace mypy with pinned Pyright for the Python package. Local lint, pull-request checks and Python publish CI share the root configuration in basic mode and check all library source plus static typing contracts, excluding build outputs. Keep Ruff lint, formatting and Python 3.10 import checks; remove the unused Black development dependency.
 
 ### Fixed
 
 - Preserve explicit constructor parameter overlays after checkpoint restore and keep staged controls in transaction-local rollback state, retaining existing model-owned checkpoint contents and encoding. Keep initialization status and restored environment baselines consistent, and publish the model-synchronized clock after steps.
 - Make failed registration retryable, reject declaration collisions and mixed lifecycle setup, isolate captured constructor kwargs per instance while preserving one-shot layer/Mesa initialization hooks, and separate constructor field names from strategy resources. Await asynchronous callable lifecycle callbacks.
+- Correct Python delta and environment-state signatures, projector callable inference, optional target IDs, closure narrowing, checkpoint encoding and listener policy annotations exposed by full-package Pyright checks.
+- Explicitly re-export the public action, chart and monitor decorators so their callable types resolve consistently. Add public API typing contracts and regression coverage for invalid action target IDs.
 
 ## @tensnap/examples-js [0.3.5] - 2026-10-21
 

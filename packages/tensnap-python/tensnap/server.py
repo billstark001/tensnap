@@ -167,7 +167,7 @@ class TenSnapServer:
         self.host = host
         if ip_family not in ("auto", "ipv4", "ipv6"):
             raise ValueError("ip_family must be auto, ipv4, or ipv6")
-        self.ip_family = ip_family
+        self.ip_family: IPFamily = ip_family
         self.listening_addresses: list[tuple] = []
         self.port = port
         self.use_msgpack = use_msgpack

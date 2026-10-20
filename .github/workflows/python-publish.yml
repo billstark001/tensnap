@@ -47,13 +47,9 @@ jobs:
         run: |
           pytest --cov=tensnap --cov-report=xml
 
-      - name: Check Python types
+      - name: Check Python types and lint
         working-directory: packages/tensnap-python
-        run: |
-          ruff check tensnap
-          find tensnap -type f -name '*.py' -print0 | xargs -0 ruff check --select TID251
-          mypy tensnap tests/typing/layer_kwargs.py
-          pyright tensnap/bindings/basic/layer_kwargs.py tensnap/bindings/basic/layer.py tensnap/bindings/basic/agent_layers.py tests/typing/layer_kwargs.py tests/typing/pep728_metadata.py
+        run: pnpm run lint
       
       - name: Upload coverage
         uses: codecov/codecov-action@v4

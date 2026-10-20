@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, cast
 
 import msgpack
 
@@ -214,7 +214,9 @@ def encode_checkpoint(data: Any, *, use_msgpack: bool) -> dict[str, Any]:
         encoded = bytes(data)
     else:
         encoding = "application/msgpack"
-        encoded = msgpack.packb(data, default=msgpack_default, use_bin_type=True)
+        encoded = cast(
+            bytes, msgpack.packb(data, default=msgpack_default, use_bin_type=True)
+        )
     wire_data: Any = encoded
     if not use_msgpack:
         wire_data = (

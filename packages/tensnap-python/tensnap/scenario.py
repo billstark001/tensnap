@@ -49,6 +49,7 @@ from .models import (
     ChartGroupMetadata,
     EnvironmentBinding,
     EnvironmentRegistration,
+    EnvironmentState,
     LayerBinding,
     LayerRegistration,
     MonitorMetadata,
@@ -466,7 +467,7 @@ class SimulationScenario:
 
     async def _prepare_reset_environment(
         self, env_id: str, environment: EnvironmentRegistration,
-        current: Dict[str, Any], previous: Dict[str, Any] | None,
+        current: EnvironmentState, previous: EnvironmentState | None,
     ) -> None:
         """Prevent stale item deltas when a layer survives model reconstruction."""
         if previous is None or previous["type"] != current["type"]:
@@ -721,13 +722,17 @@ class SimulationScenario:
         if not isinstance(target, dict) or target.get("type") != scope:
             return invalid(f"Action '{action.id}' requires a {scope} target.")
         env_id = target.get("env_id")
-        environment = self.environments.get(env_id)
+        environment = (
+            self.environments.get(env_id) if isinstance(env_id, str) else None
+        )
         if environment is None:
             return invalid(f"Unknown environment: {env_id}.")
         if scope == "env":
             return None
         layer_id = target.get("layer_id")
-        registration = environment.layers.get(layer_id)
+        registration = (
+            environment.layers.get(layer_id) if isinstance(layer_id, str) else None
+        )
         if registration is None:
             return invalid(f"Unknown layer: {layer_id}.")
         if scope == "layer":
@@ -1348,13 +1353,14 @@ class SimulationScenario:
         parameters = binding_api.parameters(target, *cfg_suggest)
         if dry_run:
             return _registry_change("parameters", (p.id for _, p in parameters))
-        factory = (
-            make_dict_getter_and_setter if isinstance(target, dict)
-            else make_attr_getter_and_setter
-        )
         added = []
         for name, param in parameters:
-            self._register_parameter(param, *factory(name, target))
+            getter, setter = (
+                make_dict_getter_and_setter(name, target)
+                if isinstance(target, dict)
+                else make_attr_getter_and_setter(name, target)
+            )
+            self._register_parameter(param, getter, setter)
             added.append(param.id)
         return _registry_change("parameters", added)
 

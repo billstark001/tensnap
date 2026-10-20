@@ -1,4 +1,4 @@
-"""Pyright check for PEP 728 extra items; mypy does not support them yet."""
+"""Pyright static contract for PEP 728 extra items."""
 
 from tensnap.bindings.basic.layer_kwargs import LayerMetadataKwargs
 

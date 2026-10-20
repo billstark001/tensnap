@@ -4,7 +4,8 @@
   "scripts": {
     "build": "python -m pip wheel --no-deps . -w dist",
     "test": "pytest",
-    "lint": "mypy tensnap && ruff check tensnap",
+    "typecheck": "python -m pyright -p ../../pyrightconfig.json --warnings",
+    "lint": "pnpm run typecheck && ruff check tensnap && ruff check --select TID251 --config 'extend-exclude=[]' tensnap",
     "format": "ruff format tensnap",
     "clean": "rm -rf build dist *.egg-info __pycache__"
   }

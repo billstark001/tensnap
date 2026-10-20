@@ -178,7 +178,8 @@ def get_chart_metadata_from_namespace(
                 callable_attr = chart_property.grouped_value
                 param = chart_property.chart
 
-        charts.append((name, callable_attr, param))
+        if callable(callable_attr):
+            charts.append((name, callable_attr, param))
 
     return charts
 
