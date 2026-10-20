@@ -2,12 +2,7 @@
 
 TenSnap connects models to controls, projections and recordings. Random-number generators belong to the model or its modeling framework. A seed is an ordinary initialization parameter. The protocol has no reserved seed field, RNG implementation, global seeding operation or automatic RNG discovery.
 
-Supplying a seed is optional, according to the model's constructor and defaults.
-For example, `RandomWalkConfig()` and `SchellingModel()` use the teaching examples'
-default of 7; pass `seed=42` when you want to select another repeatable experiment.
-Omitting the argument in these examples does not draw a fresh seed. A model may
-instead support `seed=None` for nondeterministic initialization, but that is a
-model-level choice rather than a TenSnap requirement.
+Supplying a seed is optional, according to the model's constructor and defaults. For example, `RandomWalkConfig()` and `SchellingModel()` use the teaching examples' default of 7; pass `seed=42` when you want to select another repeatable experiment. Omitting the argument in these examples does not draw a fresh seed. A model may instead support `seed=None` for nondeterministic initialization, but that is a model-level choice rather than a TenSnap requirement.
 
 ## Ownership and lifecycle
 

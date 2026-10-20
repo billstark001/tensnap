@@ -94,20 +94,9 @@ Schelling is partially split because both the teaching commands and the publicat
 
 This is not the minimum file structure required to bind a Mesa model. The split prevents the example and harness from copying reset behavior or scientific trial loops and then drifting apart; a one-off example can keep those pieces together.
 
-Constructor-driven examples use `await scenario.register_model(model)` to register
-declarations and assemble initialization, stepping, reset and post-restore
-rebinding. Schelling supplies a `BoundModelReinitializer` only to retain its
-non-UI `collect_data` option; it needs no model-specific reinitializer subclass.
-Checkpoint contents and RNG state remain owned by each model.
+Constructor-driven examples use `await scenario.register_model(model)` to register declarations and assemble initialization, stepping, reset and post-restore rebinding. Schelling supplies a `BoundModelReinitializer` only to retain its non-UI `collect_data` option; it needs no model-specific reinitializer subclass. Checkpoint contents and RNG state remain owned by each model.
 
-`schelling_tensnap.py` deliberately uses the function-call form of decorators,
-such as `agent(...)(SchellingAgent)` and `env()(SchellingModel)`, to teach how
-bindings attach to an existing Mesa model. Simple agent fields use `agent`
-selectors rather than a full projection callback. Applying decorators to
-imported classes changes those classes for every importer in the same process;
-this is a teaching example, not recommended application structure. In an
-application, declare bindings alongside classes you own or use a dedicated
-binding class. The scientific model remains in `schelling.py`.
+`schelling_tensnap.py` deliberately uses the function-call form of decorators, such as `agent(...)(SchellingAgent)` and `env()(SchellingModel)`, to teach how bindings attach to an existing Mesa model. Simple agent fields use `agent` selectors rather than a full projection callback. Applying decorators to imported classes changes those classes for every importer in the same process; this is a teaching example, not recommended application structure. In an application, declare bindings alongside classes you own or use a dedicated binding class. The scientific model remains in `schelling.py`.
 
 ## Schelling Solara
 

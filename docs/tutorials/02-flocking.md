@@ -288,14 +288,7 @@ The model owns its initialization RNG. You may omit `seed`: `FlockConfig()` uses
 
 ### Optional model-side parameter checks
 
-The hand-written `__post_init__()` checks, including the explicit call in
-`initialize()`, are optional. TenSnap does not require this method to bind a
-dataclass or register parameters. Frontend controls normally keep submitted
-values within the declared `min`/`max` bounds and use the declared `step`.
-The example retains these checks for configuration created or edited directly
-in Python and for restored configuration; world dimensions, for example, are
-not exposed as frontend controls here. If your lesson does not need these extra
-checks, omit both `__post_init__()` and its call in `initialize()`.
+The hand-written `__post_init__()` checks, including the explicit call in `initialize()`, are optional. TenSnap does not require this method to bind a dataclass or register parameters. Frontend controls normally keep submitted values within the declared `min`/`max` bounds and use the declared `step`. The example retains these checks for configuration created or edited directly in Python and for restored configuration; world dimensions, for example, are not exposed as frontend controls here. If your lesson does not need these extra checks, omit both `__post_init__()` and its call in `initialize()`.
 
 ## Step 2: Create the Visualization Entry Point
 

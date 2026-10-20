@@ -104,13 +104,13 @@ python -m examples.python_llm.mini_commons_harvest serve --policy rule \
 
 ## Measurements and visualization
 
-| Metric | Definition |
-| --- | --- |
-| `tick`, `round` | Individual activations; completed population rounds |
-| `resource` | Total remaining units |
-| `harvested` | Sum of cumulative personal harvests |
-| `gini` | `sum(abs(h_i-h_j)) / (2 * N * sum(h_i))`, or zero before any harvest |
-| `live_cells` | Cells containing at least one unit |
+| Metric          | Definition                                                           |
+| --------------- | -------------------------------------------------------------------- |
+| `tick`, `round` | Individual activations; completed population rounds                  |
+| `resource`      | Total remaining units                                                |
+| `harvested`     | Sum of cumulative personal harvests                                  |
+| `gini`          | `sum(abs(h_i-h_j)) / (2 * N * sum(h_i))`, or zero before any harvest |
+| `live_cells`    | Cells containing at least one unit                                   |
 
 Charts show resource, cumulative harvest and harvest Gini. `metrics`, `local_messages`, `last_event`, `selected_agent` and `inference` are researcher monitors. The global message monitor extends beyond any individual's hearing. Low Gini means similar accumulated yields, not necessarily restraint, efficiency or sustainable cooperation.
 
@@ -124,14 +124,7 @@ Compare stock, yield, depletion and inequality over a stated number of rounds. C
 
 Independent initializations supply distinct runs. Checkpoint continuations share a prefix; tape replay verifies a trajectory without measuring its frequency. Use [CLI collection and checkpoint/history restoration](../README.md#standard-recording-historical-frames-and-restoration) for historical event windows and exact continuation.
 
-The core model rejects unavailable actions before changing state. The explicit
-`LegalActionPolicy` adapter (`common/action_policy.py`) optionally asks the LLM
-for one correction at that same state. Its first request is unchanged. If the
-answer is illegal, the second request adds the rejected answer, the current
-cell's observed resource and the legal action list, explaining that past plans
-and messages cannot override available actions. Both answers remain on tape and
-both live requests consume the budget. Exhaustion stops the branch atomically;
-there is no rule fallback. Choose this adapter explicitly when constructing a provider, and specify the same correction limit in all compared conditions. The ordinary CLI uses strict validation without automatic correction.
+The core model rejects unavailable actions before changing state. The explicit `LegalActionPolicy` adapter (`common/action_policy.py`) optionally asks the LLM for one correction at that same state. Its first request is unchanged. If the answer is illegal, the second request adds the rejected answer, the current cell's observed resource and the legal action list, explaining that past plans and messages cannot override available actions. Both answers remain on tape and both live requests consume the budget. Exhaustion stops the branch atomically; there is no rule fallback. Choose this adapter explicitly when constructing a provider, and specify the same correction limit in all compared conditions. The ordinary CLI uses strict validation without automatic correction.
 
 For a first reading, follow `observation()` → `rule_decision()` → `step()` → `regrow()`. The first method defines the information boundary; decisions are validated before movement or harvest, and regrowth reads the previous grid synchronously. `_explore_without_harvesting()` makes the resource reserve apply to exploration as well as directed harvesting. Read `viz.py` after the transition rules.
 
