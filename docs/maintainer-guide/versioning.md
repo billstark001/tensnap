@@ -6,7 +6,7 @@ TenSnap uses independent package patch versions within the shared `0.3` release 
 | --- | --- | --- |
 | `@tensnap/web` | `0.3.9` | `packages/tensnap-web/package.json` |
 | `@tensnap/tauri` | `0.3.7` | `packages/tensnap-tauri/package.json`, `src-tauri/Cargo.toml` and generated `Cargo.lock` |
-| `@tensnap/core` | `0.3.6` | `packages/core/package.json` |
+| `@tensnap/core` | `0.3.7` | `packages/core/package.json` |
 | `@tensnap/agent` | `0.3.7` | `packages/tensnap-agent/package.json` |
 | `@tensnap/benchmark` | `0.3.7` | `packages/benchmark/package.json` |
 | `@tensnap/js` | `0.3.5` | `packages/tensnap-js/package.json` |
@@ -39,9 +39,9 @@ The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`
 3. Update `CHANGELOG.md` using its package-specific heading format, and update the dated version snapshot in this guide.
 4. Run `pnpm run check:versions` and the affected package tests before tagging.
 
-For a batch patch update, compare the release checkout with its upstream baseline and bump each affected package once, including changed examples and the workspace root when their own package content changes. A wrapper without a version still uses its native binding source. This checkout prepares network 0.3.1, JS 0.3.5, agent/benchmark/Tauri 0.3.7, Web 0.3.9, Python 0.3.4, JS examples 0.3.5 and Julia examples 0.3.3. Agent 0.3.7 has not been published; its CLI fixes and bundled skill updates share that prepared version. Core, protocol, shared UI/adapters, Go/Julia bindings and the root retain their existing versions. The wire and binding-owned persisted formats remain unchanged; current Schelling example checkpoints use schema 3.
+For a batch patch update, compare the release checkout with its upstream baseline and bump each affected package once, including changed examples and the workspace root when their own package content changes. A wrapper without a version still uses its native binding source. This checkout prepares network 0.3.1, JS 0.3.5, core/agent/benchmark/Tauri 0.3.7, Web 0.3.9, Python 0.3.4, JS examples 0.3.5 and Julia examples 0.3.3. Agent 0.3.7 has not been published; its startup improvements, CLI fixes and bundled skill updates share that prepared version. Protocol, shared UI/adapters, Go/Julia bindings and the root retain their existing versions. The wire and binding-owned persisted formats remain unchanged; current Schelling example checkpoints use schema 3.
 
-The JS package publishes exact workspace dependency versions. The agent's executable bundles workspace code, while its library entry points retain external dependencies: publishing network alone does not update the old CLI. Rebuild and publish network, JS and agent in that order to deliver this fix. The Tauri version prepares a new build of the embedded Web/shared UI; changing its version alone does not produce an installer.
+The JS package publishes exact workspace dependency versions. The agent's executable bundles workspace code, while its library entry points retain external dependencies: publishing network alone does not update the old CLI. Rebuild and publish network, core, JS and agent in that order so the CLI and external library entry points receive the fixes and the new core query-schema entry. The Tauri version prepares a new build of the embedded Web/shared UI; changing its version alone does not produce an installer.
 
 Version changes can also affect environment metadata: keep the local TenSnap entry in the active Julia evaluation manifest aligned with `Project.toml`, and refresh evaluation fingerprints only in the latest active profile version for changed package manifests and locks, without changing that profile version when scientific workloads and measurement semantics are unchanged. Leave superseded profile versions and their hashes untouched. A new profile version is required for scientific/measurement changes; see the [evaluation guide](../../benchmarks/evaluation/README.md#current-checkout-profiles). Recorded evaluation exports retain their original versions, profiles, checksums, and source identities. A version bump does not create new performance evidence.
 

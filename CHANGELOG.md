@@ -28,103 +28,100 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## @tensnap/core [0.3.7] - 2026-10-21
+
+### Added
+
+- Expose `@tensnap/core/scenario/query-schema` for query validation without loading scenario or rendering implementations; existing scenario exports remain compatible.
+
+### Changed
+
+- Reduce rolling recording overhead with constant-time frame counts and a bounded GC reference cache. Preserve object integrity checks, pinned readers, retention rules and the storage format.
+
 ## @tensnap/python [0.3.4] - 2026-10-21
 
 ### Changed
 
-- Assemble constructor-driven lifecycle, model declarations and post-restore rebinding through `await scenario.register_model(...)`. `BoundModelReinitializer` owns non-UI constructor options and cleanup; remove its former registration/configuration and lifecycle entry points without aliases.
-- Keep seeds optional ordinary initialization parameters and RNGs in models/frameworks. Constructor-only controls default to initialization-only metadata; merge custom parameter metadata without duplicate type arguments. Expose `scenario.reset()` and `set_time_step()`.
-- Replace mypy with pinned Pyright for the Python package. Local lint, pull-request checks and Python publish CI share the root configuration in basic mode and check all library source plus static typing contracts, excluding build outputs. Keep Ruff lint, formatting and Python 3.10 import checks; remove the unused Black development dependency.
-
-### Fixed
-
-- Preserve explicit constructor parameter overlays after checkpoint restore and keep staged controls in transaction-local rollback state, retaining existing model-owned checkpoint contents and encoding. Keep initialization status and restored environment baselines consistent, and publish the model-synchronized clock after steps.
-- Make failed registration retryable, reject declaration collisions and mixed lifecycle setup, isolate captured constructor kwargs per instance while preserving one-shot layer/Mesa initialization hooks, and separate constructor field names from strategy resources. Await asynchronous callable lifecycle callbacks.
-- Correct Python delta and environment-state signatures, projector callable inference, optional target IDs, closure narrowing, checkpoint encoding and listener policy annotations exposed by full-package Pyright checks.
-- Explicitly re-export the public action, chart and monitor decorators so their callable types resolve consistently. Add public API typing contracts and regression coverage for invalid action target IDs.
+- Consolidate constructor-driven lifecycle and declarations under `await scenario.register_model(...)`, replacing the former registration/configuration and lifecycle entry points without aliases. Add `scenario.reset()` and `set_time_step()`; constructor-only controls default to initialization-only metadata.
+- Keep optional seeds and RNGs model-owned. Preserve constructor overlays, rollback isolation and restored clocks across reset and checkpoint replay; make failed registration retryable and support async lifecycle callbacks.
+- Replace mypy with pinned Pyright for library-wide checks and public API typing contracts; correct annotations and decorator exports. Retain Ruff and Python 3.10 compatibility checks.
 
 ## @tensnap/examples-js [0.3.5] - 2026-10-21
 
 ### Changed
 
-- Keep model RNGs and optional initialization seeds local to each session. Separate Schelling audit and measurement adapters from examples, and report satisfaction, jamming and step limits separately in scientific studies.
-- Use Schelling checkpoint schema 3 to retain the next-reset seed alongside active continuation state; historical schema-2 artifacts remain unchanged.
-
-### Fixed
-
-- Scope Schelling observers to definitions/sessions and remove obsolete model-owned browser timers and parameter APIs. Cover seeded reset, instance isolation, observation invariance and checkpoint replay with reproducibility tests.
+- Scope RNGs, reset seeds and Schelling observers to each session; remove obsolete model-owned browser timers and parameter APIs. Separate measurement/audit adapters and distinguish satisfaction, jamming and step limits.
+- Use Schelling checkpoint schema 3 to retain the next-reset seed alongside continuation state. Historical schema-2 artifacts remain unchanged.
 
 ## @tensnap/examples-julia [0.3.3] - 2026-10-21
 
 ### Changed
 
-- Separate Schelling measurement/audit adapters from examples, distinguish satisfaction, jamming and step limits, and use checkpoint schema 3 while retaining historical artifacts.
-- Clarify the adaptive bar model variant and check model-owned RNGs, seeded reset and exact continuation. Run launchers and tests without personal Julia startup files.
+- Separate Schelling measurement/audit adapters, distinguish scientific stop outcomes and adopt checkpoint schema 3 while retaining historical artifacts. Clarify the adaptive bar model variant; run launchers without personal startup files.
 
 ### Fixed
 
-- Advance Agents.jl models through their native clock and synchronize restored protocol time. Preserve initialization seeds and RNG state across reset and checkpoint replay.
+- Synchronize Agents.jl's native clock with restored protocol time, and preserve initialization seeds and model RNG state across reset and checkpoint replay.
 
 ## @tensnap/network [0.3.1] - 2026-10-21
 
 ### Fixed
 
-- Retry a dual-stack `port=0` bind when the port selected for the first address is occupied on the second address. Roll back partial listeners before each retry, cap retries at ten, and keep explicit-port conflicts fatal.
+- Retry dual-stack ephemeral-port collisions after closing partial listeners; keep explicit-port conflicts fatal.
 
 ## @tensnap/js [0.3.5] - 2026-10-21
 
 ### Added
 
-- Expose the WebSocket host's actual renderer-message and simulator-message validation levels as read-only properties for policy inspection.
+- Expose the WebSocket host's effective validation levels for each message direction as read-only properties.
 
 ### Fixed
 
-- Consume `@tensnap/network` 0.3.1 so simulator hosts receive the ephemeral-port collision fix.
+- Use `@tensnap/network` 0.3.1 for the ephemeral-port collision fix.
 
 ## @tensnap/agent [0.3.7] - 2026-10-21
 
 ### Changed
 
-- Bundle the updated Python lifecycle API and reproducibility documentation with the binding skill, including its synchronized reference resources.
+- Reduce online command startup overhead through a shared lazy-loading orchestrator, loading daemon, recording and rendering implementations only when needed.
+- Bundle the binding skill's updated Python lifecycle and reproducibility documentation.
 
 ### Fixed
 
-- Rebuild the CLI with `@tensnap/network` 0.3.1 so dual-stack control listeners retry ephemeral-port collisions. The generated package also requires the corrected network version for its external library entry points.
-- Accept projected parameter arrays in CLI `scene restore --parameters` and `POST /v1/scene/restore`, enabling overlays alongside checkpoint and projected-state restoration.
-- Use protocol-derived option types and document the `{id, value}` array shape; reject object maps before simulator dispatch.
+- Use `@tensnap/network` 0.3.1 for dual-stack ephemeral-port retries and `@tensnap/core` 0.3.7 for lightweight query schemas and rolling recording optimizations, including external library dependencies.
+- Accept `{id, value}[]` parameter overlays in CLI and HTTP scene restoration; reject object maps before simulator dispatch.
+- Fix the bundled reproducibility guide's checkout-only workflow link and reject missing local skill references during builds.
 
 ## @tensnap/web [0.3.9] - 2026-10-21
 
 ### Fixed
 
-- Preserve a benchmark host's explicit validation policy through initialization, settings updates and reconnect. Read effective validation from the currently active transport. Interactive hosts continue to use the global validation settings.
+- Preserve explicit benchmark validation policies through initialization, settings changes and reconnect, and report the active transport's effective policy. Interactive hosts retain global settings.
 
 ## @tensnap/benchmark [0.3.7] - 2026-10-21
 
 ### Added
 
-- Add opt-in correlated action/result/completion and rAF timestamps, plus `diagnose:timeout` for browser timers/messages, Chromium traces and POSIX Python model/projection/collection, thread CPU, GC and resource counters. Verify probe startup and complete correlations, and preserve available traces on failed runs.
-- Include mean intervals and measured cycles per second in new Markdown/CSV reports, retaining the original report layout for byte-for-byte verification of historical exports.
+- Add Agent CLI profiles for Schelling control cost, bounded queries and long-history collection, with root evaluation integration, smoke cases, offline artifact verification and reports.
+- Add opt-in correlated timing probes and `diagnose:timeout` for browser and Python workloads, preserving diagnostic traces on failure.
+- Report mean intervals and cycles per second in Markdown/CSV while retaining historical report verification.
 
 ### Changed
 
-- Separate Schelling warmup, timing, performance output and independent audit sidecars into benchmark subjects. Scientific CSV distinguishes satisfaction, jamming and step limits. Current Schelling checkpoints use schema 3; historical datasets retain their recorded definitions and schemas.
-- Clarify adaptive HK, gradient Sugarscape, Boids-inspired flocking and search-strategy variants: use synchronous toroidal flocking, correct resource-matrix coordinates and toroidal foraging distances, count HK contacts once, isolate DQN initialization/exploration RNGs, and preserve Mesa constructor settings and seeds on reset. Restore Mesa Schelling scientific state without private collector-history writes.
-- Extend Python/Go audits to observe initialization seeds separately from active RNG state. Check every continuation point and staged-seed capture/restore/reset in the four-language workflow at runtime, including the overwritten seed before restore. Write diagnostics only to temporary traces; publication reports and offline verification retain their original contract. Go example seed controls declare their numeric range instead of inheriting `[0, 1]`.
-- Keep detailed tutorials aligned with scenario registration, mark model-side `__post_init__` bounds checks as optional, and explain that frontend controls normally submit values within declared bounds. Add experiment and reproducibility guides; mark function-call decoration of Mesa classes as teaching-only structure.
-- Reuse same-state neighbor counts in the repository's Mesa Schelling example across statistics, collection and projection. Occupancy/group changes invalidate counts; kernel-only workloads bypass the cache. Seeded transitions, collected records and checkpoint restoration remain covered by regression checks. This example change does not alter the Python distribution.
+- Move Schelling timing and audit adapters into versioned subjects; distinguish satisfaction, jamming and step limits. Current checkpoints use schema 3; historical definitions, schemas and exports remain unchanged.
+- Correct repository examples' HK contacts, Sugarscape coordinates, toroidal flocking/foraging and RNG isolation. Preserve Mesa reset settings and reuse same-state Schelling neighbor counts; extend four-language seed, reset and continuation audits.
 
 ### Fixed
 
-- Propagate requested frontend validation through both browser workload branches, record the actual directional policies and reject mismatches. Document the historical samples whose frontend validation was off despite an error request.
-- Handle external server spawn failures and signal-based exits during readiness checks. Make shutdown idempotent so repeated cleanup does not signal retired process groups.
-- Preserve native timer callback receivers and binary/malformed WebSocket delivery in diagnostic probes; reject missing/duplicate trace records and exclude timers outside the measured window. Use raw-byte file hashes and distinguish local invariant checks from an independently replayed expected trajectory.
+- Pass explicit CLI wait timeouts for long-running cases instead of inheriting the default 30-second wait.
+- Verify actual frontend validation policies, diagnostic correlations and raw-byte artifact hashes; document historical frontend-policy mismatches.
+- Handle external server spawn failures, signal exits and repeated cleanup safely.
 
 ## @tensnap/tauri [0.3.7] - 2026-10-21
 
 ### Fixed
 
-- Refresh the embedded Web/shared UI with the menu placement, remembered dialog geometry and export-theme fixes introduced after the 0.3.6 desktop build. Keep the app manifest and Cargo package/lock versions aligned.
+- Refresh the embedded Web/shared UI with corrected menu placement, remembered dialog geometry and export themes.
 
 ## @tensnap/web [0.3.8] - 2026-10-20
 
