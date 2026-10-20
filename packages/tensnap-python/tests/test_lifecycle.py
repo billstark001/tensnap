@@ -104,7 +104,8 @@ def test_bound_model_reinitializer_registers_constructor_kwargs():
     assert model.agent_count_seen == 4
 
 
-def test_bound_model_reinitializer_supports_add_all_and_default_registration():
+@pytest.mark.asyncio
+async def test_bound_model_reinitializer_supports_add_all_and_default_registration():
     class Model:
         def __init__(self, width: int, agent_count: int):
             self.width = width
@@ -118,8 +119,7 @@ def test_bound_model_reinitializer_supports_add_all_and_default_registration():
     scenario = SimulationScenario()
 
     dry_run = scenario.add_all(reinitializer, dry_run=True)
-    registered = reinitializer.register_model(scenario)
-    reinitializer.configure_reinit(scenario)
+    await scenario.register_model(model, reinitializer=reinitializer)
 
     assert dry_run == {
         "environments": [],
@@ -128,7 +128,7 @@ def test_bound_model_reinitializer_supports_add_all_and_default_registration():
         "actions": [],
         "charts": [],
     }
-    assert registered["parameters"] == ["width", "agent_count"]
+    assert set(scenario.parameters) == {"width", "agent_count"}
 
     scenario.set_parameter("width", 10)
     scenario.set_parameter("agent_count", 5)
@@ -138,7 +138,8 @@ def test_bound_model_reinitializer_supports_add_all_and_default_registration():
     assert model._agent_count_seen == 5
 
 
-def test_bound_model_reinitializer_keeps_conflicting_kwargs_registered_by_model():
+@pytest.mark.asyncio
+async def test_bound_model_reinitializer_keeps_conflicting_kwargs_registered_by_model():
     @binding_api.params(include=["width", "height"])
     class Model:
         def __init__(self, width: int = 8, height: int = 6, agent_count: int = 3):
@@ -150,9 +151,8 @@ def test_bound_model_reinitializer_keeps_conflicting_kwargs_registered_by_model(
     reinitializer = BoundModelReinitializer(model)
     scenario = SimulationScenario()
 
-    registered = reinitializer.register_model(scenario)
+    await scenario.register_model(model, reinitializer=reinitializer)
 
-    assert set(registered["parameters"]) == {"width", "height", "agent_count"}
     assert set(scenario.parameters) == {"width", "height", "agent_count"}
 
     scenario.set_parameter("width", 11)
@@ -165,7 +165,8 @@ def test_bound_model_reinitializer_keeps_conflicting_kwargs_registered_by_model(
     assert model._agent_count_seen == 4
 
 
-def test_bound_model_reinitializer_aliases_same_source_custom_parameter_ids():
+@pytest.mark.asyncio
+async def test_bound_model_reinitializer_uses_same_source_custom_parameter_ids():
     @binding_api.params(include=["width", "height"])
     class Model:
         def __init__(self, width: int = 8, height: int = 6):
@@ -180,9 +181,8 @@ def test_bound_model_reinitializer_aliases_same_source_custom_parameter_ids():
     reinitializer = BoundModelReinitializer(model)
     scenario = SimulationScenario()
 
-    registered = reinitializer.register_model(scenario)
+    await scenario.register_model(model, reinitializer=reinitializer)
 
-    assert set(registered["parameters"]) == {"gridWidth", "height"}
     assert set(scenario.parameters) == {"gridWidth", "height"}
 
     model._width = 11
@@ -193,7 +193,8 @@ def test_bound_model_reinitializer_aliases_same_source_custom_parameter_ids():
     assert model.height == 7
 
 
-def test_bound_model_reinitializer_rejects_parameter_id_conflicts_by_default():
+@pytest.mark.asyncio
+async def test_bound_model_reinitializer_rejects_parameter_id_conflicts_by_default():
     @binding_api.params(include=["width"])
     class Model:
         def __init__(self, width: int = 8, height: int = 6):
@@ -204,21 +205,19 @@ def test_bound_model_reinitializer_rejects_parameter_id_conflicts_by_default():
         def width(self):
             return self._width
 
-    reinitializer = BoundModelReinitializer(
-        Model(),
-        kwarg_bindings=[
-            KwargBinding(
-                name="height",
-                default=6,
-                required=False,
-                annotation=int,
-                parameter=create_parameter(id="gridWidth", type="number", value=6),
-            )
-        ],
-    )
-
     with pytest.raises(ValueError, match="parameter id conflict"):
-        reinitializer.register_model(SimulationScenario())
+        reinitializer = BoundModelReinitializer(
+            Model(),
+            kwarg_bindings=[
+                KwargBinding(
+                    name="height",
+                    default=6,
+                    required=False,
+                    annotation=int,
+                    parameter=create_parameter(id="gridWidth", type="number", value=6),
+                )
+            ],
+        )
 
 
 def test_default_cleanup_for_model_handles_mesa_models_in_lifecycle():
@@ -259,11 +258,9 @@ async def test_bound_model_reinitializer_auto_generates_default_cleanup_for_mesa
     reinitializer = BoundModelReinitializer(model)
     scenario = SimulationScenario()
 
-    reinitializer.register_model(scenario)
     if explicit_none:
-        reinitializer.configure_reinit(scenario, cleanup=None)
-    else:
-        reinitializer.configure_reinit(scenario)
+        reinitializer = BoundModelReinitializer(model, cleanup=None)
+    await scenario.register_model(model, reinitializer=reinitializer)
 
     for _ in range(5):
         model.step()
@@ -272,7 +269,7 @@ async def test_bound_model_reinitializer_auto_generates_default_cleanup_for_mesa
     if hasattr(model, "time"):
         assert model.time == 5
 
-    await reinitializer.model_reset()
+    await scenario.reset()
 
     if hasattr(model, "time"):
         assert model.time == 0
@@ -282,6 +279,79 @@ async def test_bound_model_reinitializer_auto_generates_default_cleanup_for_mesa
     assert CountingMesaModel.step_calls == 6
     if hasattr(model, "time"):
         assert model.time == 1
+
+
+@pytest.mark.asyncio
+async def test_scenario_owns_registration_reset_and_optional_observation():
+    @bind_kwargs(exclude=["collect_data"])
+    @binding_api.params(include=["seed"])
+    class Model:
+        def __init__(self, seed: int = 7, collect_data: bool = True):
+            self.seed = seed
+            self.collect_data = collect_data
+            self.tick = 0
+
+        def step(self):
+            self.tick += 1
+
+    model = Model(collect_data=False)
+    strategy = BoundModelReinitializer(model, init_kwargs={"collect_data": False})
+    scenario = SimulationScenario()
+    observations = []
+    rebuilt = []
+
+    async def observe(current):
+        observations.append((current.seed, current.tick, current.collect_data))
+
+    await scenario.register_model(
+        model,
+        reinitializer=strategy,
+        model_time=lambda: model.tick,
+        observe=observe,
+        after_reinitialize=lambda: rebuilt.append(model.seed),
+    )
+    assert set(scenario.parameters) == {"seed"}
+    assert observations == [(7, 0, False)]
+    await scenario._advance_step()
+    assert observations == [(7, 0, False), (7, 0, False), (7, 1, False)]
+    scenario.set_parameter("seed", 42)
+    await scenario.reset()
+    assert observations[-1] == (42, 0, False)
+    assert rebuilt == [7, 42]
+    assert len(scenario._handlers) == 1
+
+
+@pytest.mark.asyncio
+async def test_scenario_rejects_duplicate_and_mismatched_model_registration():
+    class Model:
+        def step(self):
+            pass
+
+    scenario = SimulationScenario()
+    model = Model()
+    with pytest.raises(ValueError, match="must own"):
+        await scenario.register_model(
+            model, reinitializer=BoundModelReinitializer(Model())
+        )
+    assert not scenario._handlers
+    await scenario.register_model(model)
+    with pytest.raises(ValueError, match="already registered"):
+        await scenario.register_model(model)
+    assert len(scenario._handlers) == 1
+
+
+def test_reinitializer_preserves_positional_construction_without_duplicate_kwargs():
+    class Model:
+        def __init__(self, resource, count: int = 2):
+            self.resource = resource
+            self.count = count
+
+    resource = object()
+    model = Model(resource, count=3)
+    strategy = BoundModelReinitializer(model, init_args=(resource,))
+    assert strategy.current_kwargs() == {"count": 3}
+    strategy.reinitialize_model()
+    assert model.resource is resource and model.count == 3
 
 
 def test_old_mesa_package_lifecycle_exports_warn_and_point_to_new_path():

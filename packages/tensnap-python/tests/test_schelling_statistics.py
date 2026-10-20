@@ -28,10 +28,10 @@ def state(model):
 @pytest.mark.parametrize("collect_data", [False, True])
 def test_reused_counts_preserve_transitions_collector_and_visual_sizes(collect_data):
     cached = SchellingModel(
-        width=16, height=16, rng=20260718, collect_data=collect_data
+        width=16, height=16, seed=20260718, collect_data=collect_data
     )
     reference = SchellingModel(
-        width=16, height=16, rng=20260718, collect_data=collect_data
+        width=16, height=16, seed=20260718, collect_data=collect_data
     )
     reference.neighbor_counts = MethodType(uncached_counts, reference)
     threshold_edit_step = 15
@@ -51,7 +51,7 @@ def test_reused_counts_preserve_transitions_collector_and_visual_sizes(collect_d
 
 
 def test_counts_invalidate_on_movement_group_edit_removal_and_restore():
-    model = SchellingModel(width=8, height=8, density=0.5, rng=7)
+    model = SchellingModel(width=8, height=8, density=0.5, seed=7)
     saved = capture_checkpoint(model)
     for edit in ("move", "group", "remove"):
         state(model)  # populate the cache before each mutation
@@ -77,7 +77,7 @@ def test_counts_invalidate_on_movement_group_edit_removal_and_restore():
 
 
 def test_statistics_reuse_neighbor_scans_until_occupancy_changes(monkeypatch):
-    model = SchellingModel(width=8, height=8, rng=7, collect_data=True)
+    model = SchellingModel(width=8, height=8, seed=7, collect_data=True)
     model._neighbor_counts.clear()
     agent = next(iter(model.agents))
     calls = 0
@@ -98,13 +98,13 @@ def test_statistics_reuse_neighbor_scans_until_occupancy_changes(monkeypatch):
     assert calls == len(model.agents)  # counts do not depend on threshold
 
 
-def test_kernel_only_steps_do_not_populate_or_call_the_statistics_cache(monkeypatch):
-    model = SchellingModel(width=8, height=8, rng=7, collect_data=False)
-
-    def unexpected(*args):
-        raise AssertionError("kernel step entered the statistics cache")
-
-    monkeypatch.setattr(model, "neighbor_counts", unexpected)
+def test_collection_only_changes_observational_history():
+    observed = SchellingModel(width=8, height=8, seed=7, collect_data=True)
+    unobserved = SchellingModel(width=8, height=8, seed=7, collect_data=False)
     for _ in range(10):
-        model.advance()
-        assert not model._neighbor_counts
+        assert state(observed) == state(unobserved)
+        observed.step()
+        unobserved.step()
+    assert observed.random.getstate() == unobserved.random.getstate()
+    assert observed.datacollector.model_vars["Occupied"]
+    assert not unobserved.datacollector.model_vars["Occupied"]

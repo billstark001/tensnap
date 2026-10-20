@@ -23,6 +23,6 @@ def test_mesa_grid_examples_keep_cell_occupancy_after_one_step() -> None:
     sugar.step()
     assert all(agent in agent.cell.agents for agent in sugar.agents)
 
-    schelling = SchellingModel(width=12, height=12, density=0.5, rng=7)
+    schelling = SchellingModel(width=12, height=12, density=0.5, seed=7)
     schelling.step()
     assert all(agent in agent.cell.agents for agent in schelling.agents)

@@ -715,7 +715,7 @@ class TestSimulationScenario:
         scenario.server.broadcast = AsyncMock()
         scenario.server.broadcast_metadata_update = AsyncMock()
 
-        await scenario._fire_reset()
+        await scenario.reset()
 
         calls = [
             (call.args[0], call.args[1])
