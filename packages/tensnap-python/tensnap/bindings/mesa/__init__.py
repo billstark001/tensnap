@@ -15,7 +15,6 @@ if TYPE_CHECKING:
         default_cleanup_for_model,
         get_bind_kwargs,
         merge_registry_changes,
-        reinitialize_registered_model,
     )
 
     from .clock import (
@@ -58,10 +57,6 @@ _DEPRECATED_EXPORTS = {
         "tensnap.bindings.lifecycle",
         "merge_registry_changes",
     ),
-    "reinitialize_registered_model": (
-        "tensnap.bindings.lifecycle",
-        "reinitialize_registered_model",
-    ),
     "default_cleanup_for_model": (
         "tensnap.bindings.lifecycle",
         "default_cleanup_for_model",
@@ -83,7 +78,6 @@ __all__ = [
     "merge_registry_changes",
     "mesa_clock_restore",
     "mesa_model_time",
-    "reinitialize_registered_model",
     "restore_mesa_model_time",
     "validate_mesa_model_time_restore",
 ]

@@ -8,6 +8,13 @@ SimulationLoop has been merged directly into SimulationScenario; the step /
 start / reset coroutines are registered as actions during __init__.
 """
 
+import asyncio
+import inspect
+import logging
+import time
+from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from types import ModuleType
 from typing import (
     Any,
     Dict,
@@ -18,16 +25,7 @@ from typing import (
     TypeVar,
     Union,
 )
-
-import asyncio
-import inspect
-import logging
-import time
-from collections.abc import Callable, Iterable
-from types import ModuleType
-from dataclasses import dataclass
 from uuid import uuid4
-
 
 from . import bindings as binding_api
 from ._version import PROTOCOL_VERSION, __version__
@@ -35,37 +33,38 @@ from .bindings import (
     BindParametersConfig,
 )
 from .bindings.basic.restore import decode_checkpoint, encode_checkpoint
+from .bindings.lifecycle import BoundModelReinitializer, RegistryChanges
 from .handler import (
     DefaultSimulationHandler,
-    SimulationHandler,
     SimulationHandlerProtocol,
     make_default_handlers,
 )
 from .helper import broadcast_env_update, dispatch_cud, send_env_snapshot
-from .network import IPFamily
 from .models import (
+    ActionMetadata,
+    ChartGroupMetadata,
     EnvironmentBinding,
     EnvironmentRegistration,
     LayerBinding,
-    Parameter,
     LayerRegistration,
-    ActionMetadata,
-    ChartGroupMetadata,
     MonitorMetadata,
+    Parameter,
 )
+from .network import IPFamily
 from .protocol import (
     compute_action_deltas,
     compute_chart_deltas,
     compute_environment_deltas,
     compute_monitor_deltas,
     compute_parameter_deltas,
-    item_key_payload,
     format_chart_update,
+    item_key_payload,
     layer_dependency_layer_ids,
     layer_items,
 )
 from .server import ServerToClientMessageType as MT, TenSnapServer
-from .utils.attr import make_dict_getter_and_setter, make_attr_getter_and_setter
+from .utils.attr import make_attr_getter_and_setter, make_dict_getter_and_setter
+from .utils.func import call_function
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +144,9 @@ class SimulationScenario:
         checkpoint_restore: Optional[Callable[[Any], Any]] = None,
         collect_action_timings: bool = False,
     ) -> None:
-        self.server = TenSnapServer(host=host, port=port, use_msgpack=use_msgpack, ip_family=ip_family)
+        self.server = TenSnapServer(
+            host=host, port=port, use_msgpack=use_msgpack, ip_family=ip_family
+        )
         self.step_interval = step_interval
         if not model_id:
             raise ValueError("model_id must be a non-empty stable string")
@@ -209,6 +210,9 @@ class SimulationScenario:
 
         # Handler list — called in registration order for each event
         self._handlers: List[SimulationHandlerProtocol] = []
+        self._registered_model: object | None = None
+        self._model_reinitializer: BoundModelReinitializer | None = None
+        self._after_model_restore: Callable | None = None
 
         # Wire server incoming-message events
         self.server.on_state_sync = self._on_state_sync
@@ -230,6 +234,16 @@ class SimulationScenario:
         """Refresh pre-connection handshake metadata after declarative setup."""
         self._simulator_info["capabilities"] = sorted(self.capabilities)
         self.server.set_simulator_info(self._simulator_info)
+
+    def set_time_step(self, value: int) -> None:
+        """Set the protocol clock from a model lifecycle/checkpoint callback.
+
+        Publication remains owned by the surrounding init/reset/restore transaction.
+        This changes no model state or scheduler and consumes no randomness.
+        """
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError("scenario time step must be a nonnegative integer")
+        self._time_step = value
 
     def configure_scene_restore(
         self,
@@ -270,9 +284,129 @@ class SimulationScenario:
         model_reset: Optional[Callable] = None,
     ) -> None:
         """Convenience: create and register a DefaultSimulationHandler."""
+        if self._registered_model is not None:
+            raise ValueError("A model lifecycle is already registered on this scenario")
         await self.register_handler(
             DefaultSimulationHandler(model_init, model_step, model_reset)
         )
+
+    async def register_model(
+        self,
+        model: object,
+        *,
+        reinitializer: BoundModelReinitializer | None = None,
+        model_step: Callable | None = None,
+        model_time: Callable[[], int] | None = None,
+        after_reinitialize: Callable | None = None,
+        observe: Callable[[Any], Any] | None = None,
+    ) -> BoundModelReinitializer:
+        """Register one model's declarations and constructor-driven lifecycle.
+
+        The scenario owns registry inventory, handlers and restore integration.
+        A reinitializer only supplies construction choices and model cleanup.
+        Model-specific checkpoint hooks use the existing declarations or scenario
+        constructor. ``observe`` receives the live model after registration,
+        initialization/reset, each step and successful restoration.
+        """
+        if self._registered_model is not None or any(
+            isinstance(handler, DefaultSimulationHandler) for handler in self._handlers
+        ):
+            raise ValueError("A model lifecycle is already registered on this scenario")
+        if reinitializer is None:
+            reinitializer = BoundModelReinitializer(model)
+        elif reinitializer.model is not model:
+            raise ValueError("The reinitializer must own the registered model")
+
+        strategy = reinitializer
+        original_hooks = (
+            self._scene_restore, self._checkpoint_capture, self._checkpoint_restore,
+        )
+        original_time = self._time_step
+        planned = _merge_registry_changes(
+            self.add_all(model, dry_run=True), self.add_parameters(strategy, dry_run=True)
+        )
+        existing = {
+            "environments": set(self.environments), "parameters": set(self.parameters),
+            "actions": set(self.actions), "charts": set(self.charts),
+            "monitors": set(self.monitors),
+        }
+        for kind, ids in planned.items():
+            if len(ids) != len(set(ids)) or existing.get(kind, set()).intersection(ids):
+                raise ValueError(f"Model {kind} contain duplicate or already registered IDs")
+
+        def register_declarations() -> RegistryChanges:
+            strategy.refresh_parameters()
+            changes = _merge_registry_changes(
+                self.add_all(model), self.add_parameters(strategy)
+            )
+            if binding_api.scene_restore_binding(model) is None:
+                self.configure_scene_restore(
+                    original_hooks[0], checkpoint_capture=original_hooks[1],
+                    checkpoint_restore=original_hooks[2],
+                )
+            return changes
+
+        async def notify() -> None:
+            if model_time is not None:
+                self.set_time_step(model_time())
+            if observe is not None:
+                await call_function(observe, model)
+
+        async def rebuild() -> None:
+            nonlocal registered
+            registered = await self._reinitialize_registered_model(
+                strategy, registered, register_declarations
+            )
+            if after_reinitialize is not None:
+                await call_function(after_reinitialize)
+            await notify()
+
+        async def step() -> Any:
+            fn = model_step if model_step is not None else getattr(model, "step")
+            result = await call_function(fn)
+            await notify()
+            return result
+
+        async def after_restore() -> None:
+            nonlocal registered
+            self.remove_by_dict(registered)
+            registered = register_declarations()
+            await handler._prime_env_states()
+            await notify()
+            self._initialized = True
+
+        # Reserve ownership before awaiting user callbacks. On failure remove
+        # only this model's planned declarations, leaving other registrations.
+        self._registered_model = model
+        handler = DefaultSimulationHandler(rebuild, step, rebuild)
+        try:
+            registered = register_declarations()
+            await notify()
+            await self.register_handler(handler)
+        except BaseException:
+            self.remove_by_dict(planned)
+            if handler in self._handlers:
+                self._handlers.remove(handler)
+            self.configure_scene_restore(
+                original_hooks[0], checkpoint_capture=original_hooks[1],
+                checkpoint_restore=original_hooks[2],
+            )
+            self._time_step = original_time
+            self._registered_model = None
+            raise
+        self._model_reinitializer = strategy
+        self._after_model_restore = after_restore
+        return strategy
+
+    async def _reinitialize_registered_model(
+        self,
+        reinitializer: BoundModelReinitializer,
+        registered: RegistryChanges,
+        register_declarations: Callable[[], RegistryChanges],
+    ) -> RegistryChanges:
+        reinitializer.reinitialize_model()
+        self.remove_by_dict(registered)
+        return register_declarations()
 
     # endregion
 
@@ -298,7 +432,11 @@ class SimulationScenario:
                 should_continue = should_continue and bool(result)
         return should_continue
 
-    async def _fire_reset(self) -> None:
+    async def reset(self) -> None:
+        """Reset handlers, protocol time, charts and declarations as one lifecycle operation.
+
+        Bound actions may await this method; transport action dispatch provides serialization.
+        """
         previous = self._capture_reset_inventory()
         self._time_step = 0
         self._initialized = False
@@ -807,22 +945,35 @@ class SimulationScenario:
                     result_kwargs["simulate_ms"] = (
                         time.perf_counter() - started_at
                     ) * 1000.0
-                await self.server.send_action_result(ws, str(action_id), **result_kwargs)  # type: ignore[arg-type]
+                await self.server.send_action_result(
+                    ws, str(action_id), **result_kwargs
+                )  # type: ignore[arg-type]
 
     async def _on_scene_restore(self, ws: Any, payload: Dict[str, Any]) -> None:
         request_id = payload.get("request_id") or uuid4().hex
         cached = self._scene_restore_results.get(request_id)
         if cached is not None:
-            await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
+            await self.server.send(
+                ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id}
+            )
             await self.server.send(ws, MT.SCENE_RESTORE_END, cached)
             return
         if self._action_lock.locked():
-            await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
-            await self.server.send(ws, MT.SCENE_RESTORE_END, {
-                "request_id": request_id,
-                "status": "rejected",
-                "error": {"code": "busy", "message": "Wait for the active operation."},
-            })
+            await self.server.send(
+                ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id}
+            )
+            await self.server.send(
+                ws,
+                MT.SCENE_RESTORE_END,
+                {
+                    "request_id": request_id,
+                    "status": "rejected",
+                    "error": {
+                        "code": "busy",
+                        "message": "Wait for the active operation.",
+                    },
+                },
+            )
             return
         async with self._action_lock:
             await self._perform_scene_restore(ws, payload)
@@ -893,7 +1044,10 @@ class SimulationScenario:
 
         # Composed plans validate the entire inbound projection before the
         # transaction starts or any model-owned state changes.
-        if has_projected_state and self._scene_restore is not None:
+        if (
+            has_projected_state and self._scene_restore is not None
+            and payload.get("checkpoint") is None
+        ):
             prepare = getattr(self._scene_restore, "prepare", None)
             if prepare is not None:
                 try:
@@ -907,7 +1061,9 @@ class SimulationScenario:
                         "error": {"code": "invalid_restore", "message": str(error)},
                     }
                     self._scene_restore_results[request_id] = result_payload
-                    await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
+                    await self.server.send(
+                        ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id}
+                    )
                     await self.server.send(ws, MT.SCENE_RESTORE_END, result_payload)
                     return
 
@@ -918,6 +1074,10 @@ class SimulationScenario:
             "monitors": list(self.monitors),
         }
         previous_time = self._time_step
+        previous_initialized = self._initialized
+        strategy = self._model_reinitializer
+        previous_parameters = strategy._capture_pending_values() if strategy else {}
+        previous_init_kwargs = dict(strategy.init_kwargs) if strategy else {}
         rollback_data: Any = None
         rollback_captured = False
         has_rollback = (
@@ -951,9 +1111,7 @@ class SimulationScenario:
             checkpoint = payload.get("checkpoint")
             if checkpoint is not None:
                 checkpoint_data = decode_checkpoint(checkpoint)
-                checkpoint_result = self._checkpoint_restore(checkpoint_data)  # type: ignore[misc]
-                if inspect.isawaitable(checkpoint_result):
-                    await checkpoint_result
+                await self._apply_model_checkpoint(checkpoint_data)
                 rebind = getattr(self._scene_restore, "rebind_targets", None)
                 if rebind is not None:
                     rebind_result = rebind()
@@ -964,6 +1122,12 @@ class SimulationScenario:
                 projected = {
                     key: value for key, value in payload.items() if key != "checkpoint"
                 }
+                if checkpoint is not None:
+                    prepare = getattr(self._scene_restore, "prepare", None)
+                    if prepare is not None:
+                        prepared = prepare(projected)
+                        if inspect.isawaitable(prepared):
+                            await prepared
                 result = self._scene_restore(projected)  # type: ignore[misc]
                 if inspect.isawaitable(result):
                     await result
@@ -972,6 +1136,8 @@ class SimulationScenario:
                 result = rebind()
                 if inspect.isawaitable(result):
                     await result
+            if self._after_model_restore is not None:
+                await self._after_model_restore()
             if "time" in payload:
                 self._time_step = int(payload["time"])
             await self._send_restore_state(ws, previous_ids)
@@ -984,17 +1150,22 @@ class SimulationScenario:
             rollback_error: Exception | None = None
             if has_rollback and rollback_captured:
                 try:
-                    rollback_result = self._checkpoint_restore(rollback_data)  # type: ignore[misc]
-                    if inspect.isawaitable(rollback_result):
-                        await rollback_result
+                    await self._apply_model_checkpoint(rollback_data)
+                    if strategy is not None:
+                        strategy._restore_pending_values(previous_parameters)
+                        strategy.init_kwargs = previous_init_kwargs
                     rebind = getattr(self._scene_restore, "rebind_targets", None)
                     if rebind is not None:
                         rebind_result = rebind()
                         if inspect.isawaitable(rebind_result):
                             await rebind_result
+                    if self._after_model_restore is not None:
+                        await self._after_model_restore()
                 except Exception as caught:
                     rollback_error = caught
                     logger.exception("Scene restore rollback failed")
+            self._time_step = previous_time
+            self._initialized = previous_initialized
             message = str(error)
             if rollback_error is not None:
                 message = f"{message}; rollback failed: {rollback_error}"
@@ -1005,6 +1176,15 @@ class SimulationScenario:
             }
             self._scene_restore_results[request_id] = result_payload
             await self.server.send(ws, MT.SCENE_RESTORE_END, result_payload)
+
+    async def _apply_model_checkpoint(self, data: Any) -> None:
+        """Restore model data, then refresh constructor controls from that model."""
+        strategy = self._model_reinitializer
+        result = self._checkpoint_restore(data)  # type: ignore[misc]
+        if inspect.isawaitable(result):
+            await result
+        if strategy is not None:
+            strategy.sync_from_model()
 
     async def _send_restore_state(
         self, ws: Any, previous_ids: Dict[str, List[str]]
@@ -1038,7 +1218,9 @@ class SimulationScenario:
     async def _on_scene_capture(self, ws: Any, payload: Dict[str, Any]) -> None:
         if self._action_lock.locked():
             await self.server.send_error(
-                ws, "Wait for the active operation.", code="busy",
+                ws,
+                "Wait for the active operation.",
+                code="busy",
                 request_id=payload.get("request_id"),
             )
             return
@@ -1316,7 +1498,10 @@ class SimulationScenario:
         getter: Optional[Callable] = None,
         setter: Optional[Callable] = None,
     ) -> None:
-        self.parameters[param.id] = param.instantiate(getter=getter, setter=setter)
+        self.parameters[param.id] = param.instantiate(
+            getter=param.getter if param.getter is not None else getter,
+            setter=param.setter if param.setter is not None else setter,
+        )
 
     def remove_parameters(self, param_ids: List[str]) -> Dict[str, List[str]]:
         removed: List[str] = []

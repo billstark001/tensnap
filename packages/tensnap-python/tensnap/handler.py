@@ -66,7 +66,7 @@ def make_default_handlers(scenario: "SimulationScenario") -> list[Callable[..., 
 
     @action_decorator("reset", "Reset")
     async def reset() -> None:
-        await scenario._fire_reset()
+        await scenario.reset()
 
     return [start, step, reset]
 
@@ -141,10 +141,11 @@ class DefaultSimulationHandler(SimulationHandler):
         step_result = None
         if self.model_step:
             step_result = await call_function(self.model_step)
-        await s.server.broadcast_metadata_update({"time": step})
+        published_step = s._time_step if s._registered_model is not None else step
+        await s.server.broadcast_metadata_update({"time": published_step})
         await self._push_env_updates()
         await s.broadcast_monitors()
-        await s.broadcast_charts(step)
+        await s.broadcast_charts(published_step)
         return None if step_result is None else bool(step_result)
 
     async def on_reset(self) -> None:

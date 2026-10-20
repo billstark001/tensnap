@@ -15,7 +15,6 @@ from tensnap.bindings.lifecycle import (
     default_cleanup_for_model as _default_cleanup_for_model,
     get_bind_kwargs as _get_bind_kwargs,
     merge_registry_changes as _merge_registry_changes,
-    reinitialize_registered_model as _reinitialize_registered_model,
 )
 
 from .utils import cleanup_mesa_model_step
@@ -29,7 +28,6 @@ if TYPE_CHECKING:
     bind_kwargs = _bind_kwargs
     get_bind_kwargs = _get_bind_kwargs
     merge_registry_changes = _merge_registry_changes
-    reinitialize_registered_model = _reinitialize_registered_model
     default_cleanup_for_model = _default_cleanup_for_model
 
 
@@ -43,7 +41,6 @@ def __getattr__(name: str) -> Any:
         "bind_kwargs": _bind_kwargs,
         "get_bind_kwargs": _get_bind_kwargs,
         "merge_registry_changes": _merge_registry_changes,
-        "reinitialize_registered_model": _reinitialize_registered_model,
         "default_cleanup_for_model": _default_cleanup_for_model,
     }
     if name in deprecated_exports:
@@ -68,5 +65,4 @@ __all__ = [
     "default_cleanup_for_model",
     "get_bind_kwargs",
     "merge_registry_changes",
-    "reinitialize_registered_model",
 ]

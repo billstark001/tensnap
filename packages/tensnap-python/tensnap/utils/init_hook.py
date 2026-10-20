@@ -26,6 +26,7 @@ _INIT_HOOK_STATE_ATTR = "_tensnap_init_hook_state"
 class _InitHookEntry(Generic[T]):
     timing: HookTiming
     hook: OnceInitHook[T]
+    once: bool = True
 
 
 @dataclass(slots=True)
@@ -55,8 +56,8 @@ class OnceInitHookHandle(Generic[T]):
     Calling `uninstall()` restores the original `__init__` only if this hook is
     still installed and has not already fired. The method is idempotent.
 
-    If the hook has already fired, the original `__init__` has already been
-    restored, so `uninstall()` becomes a no-op.
+    If the hook has already fired, `uninstall()` becomes a no-op. Other pending
+    or class-lifetime hooks may keep the shared dispatcher installed.
 
     If another caller replaces `cls.__init__` after this hook is installed,
     `uninstall()` will not overwrite that newer replacement.
@@ -127,10 +128,15 @@ def _make_init_dispatcher(state: _InitHookState[T]) -> InitMethod:
             if should_consume:
                 before_hooks = tuple(state.before_hooks)
                 after_hooks = tuple(state.after_hooks)
-                state.before_hooks.clear()
-                state.after_hooks.clear()
-                setattr(state.cls, "__init__", state.original_init)
-                _clear_state_if_current(state.cls, state)
+                state.before_hooks[:] = [
+                    entry for entry in before_hooks if not entry.once
+                ]
+                state.after_hooks[:] = [
+                    entry for entry in after_hooks if not entry.once
+                ]
+                if not state.has_hooks():
+                    setattr(state.cls, "__init__", state.original_init)
+                    _clear_state_if_current(state.cls, state)
             else:
                 before_hooks = ()
                 after_hooks = ()
@@ -165,8 +171,9 @@ def install_once_init_hook(
     Install a hook that runs once for the next construction of `cls`.
 
     The hook is attached through one dispatcher wrapper per class. On the first
-    call to `cls.__init__`, the dispatcher snapshots all pending hooks, restores
-    the original initializer before running user code, and consumes the snapshot.
+    call to `cls.__init__`, the dispatcher snapshots all hooks and consumes the
+    one-shot entries before running user code. It restores the original
+    initializer when no class-lifetime hooks remain.
     This prevents recursive or nested construction from triggering the same
     hooks again.
 
@@ -208,6 +215,29 @@ def install_once_init_hook(
     This mutates the class object. Avoid using it on classes whose `__init__`
     is also being monkey-patched elsewhere unless you control the ordering.
     """
+    state, entry = _install_init_hook(cls, hook, timing=timing, once=True)
+    return OnceInitHookHandle(
+        cls=cls,
+        original_init=state.original_init,
+        _state=state,
+        _entry=entry,
+    )
+
+
+def install_init_hook(
+    cls: type[T], hook: OnceInitHook[T], *, timing: HookTiming = "after"
+) -> None:
+    """Run a class-lifetime hook on every construction, sharing the dispatcher.
+
+    Pending one-shot binding hooks still run exactly once, in installation order.
+    An after hook runs only when the initializer completes successfully.
+    """
+    _install_init_hook(cls, hook, timing=timing, once=False)
+
+
+def _install_init_hook(
+    cls: type[T], hook: OnceInitHook[T], *, timing: HookTiming, once: bool
+) -> tuple[_InitHookState[T], _InitHookEntry[T]]:
     state = _current_state(cls)
     if state is None:
         state = _InitHookState(cls=cls, original_init=cast(InitMethod, cls.__init__))
@@ -215,14 +245,9 @@ def install_once_init_hook(
         setattr(cls, _INIT_HOOK_STATE_ATTR, state)
         setattr(cls, "__init__", state.wrapper)
 
-    entry = _InitHookEntry(timing=timing, hook=hook)
+    entry = _InitHookEntry(timing=timing, hook=hook, once=once)
 
     with state.lock:
         state.hooks_for(timing).append(entry)
 
-    return OnceInitHookHandle(
-        cls=cls,
-        original_init=state.original_init,
-        _state=state,
-        _entry=entry,
-    )
+    return state, entry

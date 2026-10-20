@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, cast, get_type_hints
+from typing import Any, Literal, TypeAlias, TypeVar, cast, get_type_hints
 
 from tensnap.models import Parameter, create_parameter
 from tensnap.models.parameter import ParameterType
 from tensnap.utils.attr import make_attr_getter
-from tensnap.utils.init_hook import OnceInitHookHandle, install_once_init_hook
+from tensnap.utils.init_hook import install_init_hook
 
 from .basic.parameter import (
     BindParametersConfig,
@@ -23,19 +23,11 @@ from .mesa.utils import (
     is_mesa_model_class,
 )
 
-if TYPE_CHECKING:
-    from tensnap.scenario import SimulationScenario
-
-
 RegistryChanges: TypeAlias = dict[str, list[str]]
 CleanupCallback: TypeAlias = Callable[[], None]
-RegisterModelCallback: TypeAlias = Callable[
-    ..., RegistryChanges | Awaitable[RegistryChanges]
-]
-
 _MISSING = object()
-_DEFAULT = object()
 _BIND_KWARGS_CONFIG_ATTR = "_tensnap_bind_kwargs_config"
+_CONSTRUCTED_KWARGS_ATTR = "_tensnap_constructed_kwargs"
 TDecoratedClass = TypeVar("TDecoratedClass", bound=type[Any])
 
 
@@ -55,53 +47,6 @@ def default_cleanup_for_model(model: object) -> CleanupCallback | None:
 
         return cleanup
     return None
-
-
-def _accepts_dry_run(register_model: RegisterModelCallback) -> bool:
-    try:
-        sig = inspect.signature(register_model)
-    except (TypeError, ValueError):
-        return False
-    return any(
-        param.kind is inspect.Parameter.VAR_KEYWORD or name == "dry_run"
-        for name, param in sig.parameters.items()
-    )
-
-
-def _call_register_model(
-    register_model: RegisterModelCallback, *, dry_run: bool
-) -> RegistryChanges | Awaitable[RegistryChanges]:
-    if _accepts_dry_run(register_model):
-        return register_model(dry_run=dry_run)
-    if dry_run:
-        raise ValueError(
-            "registered must be provided when register_model does not accept dry_run."
-        )
-    return register_model()
-
-
-async def reinitialize_registered_model(
-    scenario: SimulationScenario,
-    *,
-    registered: RegistryChanges,
-    cleanup: CleanupCallback | Iterable[CleanupCallback] | None = None,
-    init_model: Callable[[], None],
-    register_model: RegisterModelCallback,
-) -> RegistryChanges:
-    scenario.remove_by_dict(registered)
-
-    if cleanup is not None:
-        callbacks: Iterable[CleanupCallback]
-        callbacks = (cleanup,) if callable(cleanup) else cleanup
-        for callback in callbacks:
-            callback()
-
-    init_model()
-
-    next_registered = _call_register_model(register_model, dry_run=False)
-    if inspect.isawaitable(next_registered):
-        next_registered = await next_registered
-    return next_registered
 
 
 @dataclass
@@ -142,7 +87,13 @@ def _make_parameter(
 
     p_type = _parameter_type(annotation, value)
     custom = config.get_custom_binding(name, p_type) or {}
-    return create_parameter(id=name, type=p_type, value=value, **custom)
+    custom.pop("type", None)
+    return create_parameter(
+        id=name,
+        type=p_type,
+        value=value,
+        **{"allow_runtime_change": False, **custom},
+    )
 
 
 def _static_init_kwargs(cls: type[Any]) -> dict[str, dict[str, Any]]:
@@ -209,7 +160,7 @@ class BindKwargsConfig(BindParametersConfig):
         )
         self.bound_class: type[Any] | None = None
         self.dynamic_defaults: dict[str, Any] = {}
-        self.init_hook_handle: OnceInitHookHandle[Any] | None = None
+        self._captured_defaults = False
 
     def __call__(self, cls: TDecoratedClass) -> TDecoratedClass:
         current = getattr(cls, _BIND_KWARGS_CONFIG_ATTR, None)
@@ -218,37 +169,36 @@ class BindKwargsConfig(BindParametersConfig):
 
         self.bound_class = cls
         setattr(cls, _BIND_KWARGS_CONFIG_ATTR, self)
-        self.init_hook_handle = install_once_init_hook(
-            cls,
-            lambda _instance, args, kwargs: self._capture_dynamic_defaults(
-                args, kwargs
-            ),
-            timing="after",
-        )
+        install_init_hook(cls, self._capture_dynamic_defaults, timing="after")
         return cls
 
     def _capture_dynamic_defaults(
-        self, args: tuple[Any, ...], kwargs: dict[str, Any]
+        self, instance: Any, args: tuple[Any, ...], kwargs: dict[str, Any]
     ) -> None:
         if self.bound_class is None:
             return
 
         bound = _bind_init_arguments(self.bound_class, args, kwargs)
-        if bound is None:
-            self.dynamic_defaults.update(kwargs)
-            return
+        constructed: dict[str, Any] = {}
+        if bound is not None:
+            sig = inspect.signature(self.bound_class.__init__)
+            for name, value in bound.arguments.items():
+                if name == "self":
+                    continue
+                param = sig.parameters.get(name)
+                if param is not None and param.kind is inspect.Parameter.VAR_KEYWORD:
+                    constructed.update(value)
+                else:
+                    constructed[name] = value
 
-        sig = inspect.signature(self.bound_class.__init__)
-        for name, value in bound.arguments.items():
-            if name == "self":
-                continue
-            param = sig.parameters.get(name)
-            if param is not None and param.kind is inspect.Parameter.VAR_KEYWORD:
-                self.dynamic_defaults.update(value)
-            else:
-                self.dynamic_defaults[name] = value
-
-        self.dynamic_defaults.update(kwargs)
+        constructed.update(kwargs)
+        # Preserve class-level discovery from the first construction, while
+        # recording the actual arguments separately on every live instance.
+        if not self._captured_defaults:
+            self.dynamic_defaults.update(constructed)
+            self._captured_defaults = True
+        if hasattr(instance, "__dict__"):
+            setattr(instance, _CONSTRUCTED_KWARGS_ATTR, constructed)
 
     def get_bindings(
         self,
@@ -257,9 +207,11 @@ class BindKwargsConfig(BindParametersConfig):
         default_overrides: Mapping[str, Any] | None = None,
     ) -> list[KwargBinding]:
         static = _static_init_kwargs(cls)
-        dynamic = dict(self.dynamic_defaults)
-        if default_overrides:
-            dynamic.update(default_overrides)
+        # Class-level inspection may use the first observed call, but a bound
+        # instance must never inherit extra **kwargs from another instance.
+        dynamic = dict(
+            self.dynamic_defaults if default_overrides is None else default_overrides
+        )
 
         names = list(dict.fromkeys([*static, *dynamic]))
         bindings: list[KwargBinding] = []
@@ -324,9 +276,10 @@ class BoundModelReinitializer:
     """
     Keep constructor kwargs as parameters and rebuild a model in place.
 
-    This class is intentionally not a simulation handler. Users still register
-    environments, layers, charts, actions, and ordinary model parameters through
-    the scenario APIs they already use.
+    This is a construction strategy, with no scenario or registry ownership.
+    ``SimulationScenario.register_model`` assembles registration and lifecycle.
+    Excluded constructor choices can be retained in ``init_kwargs`` without
+    exposing them as UI parameters.
     """
 
     def __init__(
@@ -336,24 +289,41 @@ class BoundModelReinitializer:
         *,
         init_args: Sequence[Any] = (),
         init_kwargs: Mapping[str, Any] | None = None,
+        cleanup: CleanupCallback | None = None,
     ) -> None:
         self.model = model
         self.init_args = list(init_args)
+        self.init_kwargs = dict(init_kwargs or {})
+        self._cleanup = (
+            cleanup if cleanup is not None else default_cleanup_for_model(model)
+        )
         self.kwarg_bindings = list(
             kwarg_bindings
-            or get_bind_kwargs(model.__class__, default_overrides=init_kwargs)
+            if kwarg_bindings is not None
+            else get_bind_kwargs(
+                model.__class__,
+                default_overrides={
+                    **getattr(model, _CONSTRUCTED_KWARGS_ATTR, {}),
+                    **self.init_kwargs,
+                },
+            )
         )
+        if self.init_args:
+            positional = inspect.signature(type(model).__init__).bind_partial(
+                model, *self.init_args
+            )
+            self.kwarg_bindings = [
+                binding
+                for binding in self.kwarg_bindings
+                if binding.name not in positional.arguments
+            ]
         self._kwarg_sources: dict[str, KwargValueSource] = {}
-        self._registered: RegistryChanges = {}
-        self._scenario: SimulationScenario | None = None
-        self._register_model: RegisterModelCallback | None = None
-        self._cleanup: CleanupCallback | Iterable[CleanupCallback] | None = None
-
-        for binding in self.kwarg_bindings:
-            if hasattr(type(self), binding.name):
-                continue
-            setattr(self, binding.name, getattr(model, binding.name, binding.default))
-        self._refresh_kwarg_sources()
+        # Constructor field names must never shadow strategy methods/resources.
+        self._kwarg_values = {
+            binding.name: getattr(model, binding.name, binding.default)
+            for binding in self.kwarg_bindings
+        }
+        self.refresh_parameters()
 
     def _refresh_kwarg_sources(
         self,
@@ -373,7 +343,9 @@ class BoundModelReinitializer:
             if model_param is not None:
                 model_attr = getattr(self.model.__class__, binding.name, None)
                 getter: Callable[[], Any]
-                if inspect.isfunction(model_attr):
+                if model_param.getter is not None:
+                    getter = model_param.getter
+                elif inspect.isfunction(model_attr):
                     model_fn = cast(Callable[[Any], Any], model_attr)
 
                     def model_getter(
@@ -409,7 +381,7 @@ class BoundModelReinitializer:
                 name: str = binding.name,
                 default: Any = binding.default,
             ) -> Any:
-                return getattr(self, name, default)
+                return self._kwarg_values.get(name, default)
 
             kwarg_sources[binding.name] = KwargValueSource(
                 kwarg_name=binding.name,
@@ -430,6 +402,33 @@ class BoundModelReinitializer:
             parameter_configs = (BindParametersConfig.EXCLUDE_ALL,)
         return get_parameter_metadata_from_object(self.model, *parameter_configs)
 
+    def refresh_parameters(self) -> None:
+        """Resolve constructor values against the model's current declarations."""
+        self._refresh_kwarg_sources(self._planned_model_parameters())
+
+    def sync_from_model(self) -> None:
+        """Refresh construction choices after model-owned checkpoint restoration."""
+        for name in self.init_kwargs:
+            if hasattr(self.model, name):
+                self.init_kwargs[name] = getattr(self.model, name)
+        for binding in self.kwarg_bindings:
+            source = self._kwarg_sources[binding.name]
+            if source.owner == "kwargs" and hasattr(self.model, binding.name):
+                self._kwarg_values[binding.name] = getattr(self.model, binding.name)
+        self.refresh_parameters()
+
+    def _capture_pending_values(self) -> dict[str, Any]:
+        """Keep pending controls locally for a restore transaction's rollback."""
+        return {
+            name: self._kwarg_values[name]
+            for name, source in self._kwarg_sources.items()
+            if source.owner == "kwargs"
+        }
+
+    def _restore_pending_values(self, values: dict[str, Any]) -> None:
+        """Recover transaction-local controls after rolling back model state."""
+        self._kwarg_values.update(values)
+
     def __tensnap_parameter_metadata__(
         self, *cfg_suggest: BindParametersConfig
     ) -> list[tuple[str, Parameter]]:
@@ -443,11 +442,16 @@ class BoundModelReinitializer:
                 configs, binding.name
             ):
                 continue
-            parameters.append((binding.name, binding.parameter))
+            def setter(value: Any, name: str = binding.name) -> None:
+                self._kwarg_values[name] = value
+
+            parameters.append((binding.name, binding.parameter.instantiate(
+                getter=source.getter, setter=setter,
+            )))
         return parameters
 
     def current_kwargs(self) -> dict[str, Any]:
-        result: dict[str, Any] = {}
+        result: dict[str, Any] = dict(self.init_kwargs)
         for binding in self.kwarg_bindings:
             source = self._kwarg_sources.get(binding.name)
             if source is None:
@@ -460,64 +464,8 @@ class BoundModelReinitializer:
         return result
 
     def reinitialize_model(self) -> None:
+        kwargs = self.current_kwargs()
+        if self._cleanup is not None:
+            self._cleanup()
         model_init = cast(Callable[..., None], type(self.model).__init__)
-        model_init(self.model, *self.init_args, **self.current_kwargs())
-
-    def configure_reinit(
-        self,
-        scenario: SimulationScenario,
-        *,
-        registered: RegistryChanges | None = None,
-        register_model: RegisterModelCallback | None = None,
-        cleanup: CleanupCallback | Iterable[CleanupCallback] | object | None = _DEFAULT,
-    ) -> None:
-        if register_model is None:
-
-            def register_default(*, dry_run: bool = False) -> RegistryChanges:
-                return self.register_model(scenario, dry_run=dry_run)
-
-            register_model = register_default
-        if registered is None:
-            inspected = _call_register_model(register_model, dry_run=True)
-            if inspect.isawaitable(inspected):
-                raise TypeError("register_model dry_run must return synchronously.")
-            registered = inspected
-        if cleanup is _DEFAULT or cleanup is None:
-            cleanup = default_cleanup_for_model(self.model)
-
-        self._scenario = scenario
-        self._registered = registered
-        self._register_model = register_model
-        self._cleanup = cast(
-            CleanupCallback | Iterable[CleanupCallback] | None, cleanup
-        )
-
-    def register_model(
-        self, scenario: SimulationScenario, *, dry_run: bool = False
-    ) -> RegistryChanges:
-        self._refresh_kwarg_sources(self._planned_model_parameters())
-        model_changes = scenario.add_all(self.model, dry_run=dry_run)
-        kwarg_parameter_changes = scenario.add_parameters(self, dry_run=dry_run)
-        return merge_registry_changes(
-            model_changes,
-            kwarg_parameter_changes,
-        )
-
-    async def reinitialize(self) -> RegistryChanges:
-        if self._scenario is None or self._register_model is None:
-            raise RuntimeError("BoundModelReinitializer is not configured.")
-
-        self._registered = await reinitialize_registered_model(
-            self._scenario,
-            registered=self._registered,
-            cleanup=self._cleanup,
-            init_model=self.reinitialize_model,
-            register_model=self._register_model,
-        )
-        return self._registered
-
-    async def model_init(self) -> None:
-        await self.reinitialize()
-
-    async def model_reset(self) -> None:
-        await self.reinitialize()
+        model_init(self.model, *self.init_args, **kwargs)
