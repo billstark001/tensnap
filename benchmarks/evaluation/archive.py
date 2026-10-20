@@ -92,11 +92,15 @@ def create_archive(
         prefix=".archive-", dir=output.parent
     ) as temporary:
         stage = Path(temporary) / "evidence.tar.gz"
-        with stage.open("wb") as raw, gzip.GzipFile(
-            fileobj=raw, mode="wb", filename="", mtime=0, compresslevel=gzip_level
-        ) as compressed, tarfile.open(
-            fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT
-        ) as archive:
+        with (
+            stage.open("wb") as raw,
+            gzip.GzipFile(
+                fileobj=raw, mode="wb", filename="", mtime=0, compresslevel=gzip_level
+            ) as compressed,
+            tarfile.open(
+                fileobj=compressed, mode="w", format=tarfile.PAX_FORMAT
+            ) as archive,
+        ):
             for file, entry in zip(files, inventory):
                 info = tarfile.TarInfo(entry["path"])
                 info.size = entry["bytes"]
@@ -159,9 +163,10 @@ def extract_archive(file: Path, output: Path) -> None:
             for entry in inventory["files"]:
                 target = stage / entry["path"]
                 target.parent.mkdir(parents=True, exist_ok=True)
-                with target.open("xb") as destination, archive.extractfile(
-                    entry["path"]
-                ) as source:
+                with (
+                    target.open("xb") as destination,
+                    archive.extractfile(entry["path"]) as source,
+                ):
                     for block in iter(lambda: source.read(1024 * 1024), b""):
                         destination.write(block)
         stage.rename(output)
