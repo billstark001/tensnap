@@ -28,6 +28,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Python scenario registration now assembles constructor-driven lifecycle, model-owned declarations and post-restore rebinding through `await scenario.register_model(...)`. `BoundModelReinitializer` retains non-UI constructor options and cleanup; its former registration/configuration and lifecycle entry points are removed without aliases.
+- Schelling audit records Python/Go initialization seeds separately from active RNG state. The four-language workflow checks staged-seed capture/restore/reset at runtime and writes temporary diagnostic traces; publication reports and offline verification retain their original contract. Go example seed controls now declare their numeric range instead of inheriting `[0, 1]`.
+
+- Keep seeds as ordinary initialization settings and RNGs in models/frameworks. Constructor-only Python parameters now default to initialization-only metadata; custom parameter metadata is merged without duplicate type arguments. Expose the existing complete Python reset lifecycle as `scenario.reset()` and provide `set_time_step()` for model adapters.
+- Separate Schelling measurement/audit adapters from teaching examples; scientific CSV now distinguishes satisfaction, jamming and step limits. Current Schelling checkpoint schemas are 3; historical artifacts and schema-2 evidence remain unchanged.
+- Clarify adaptive HK, gradient Sugarscape, adaptive bar, Boids-inspired flocking and search-strategy variants, with reproducibility checks and experiment guides.
+
+### Fixed
+
+- Preserve explicit constructor parameter overlays after Python checkpoint restore, and keep staged controls in transaction-local rollback state. Checkpoints retain their existing model-owned contents and encoding. Keep initialization status and restored environment baselines consistent, and publish the model-synchronized clock after steps.
+- Make failed model registration retryable, reject declaration collisions and mixed lifecycle setup, isolate captured constructor kwargs per instance while preserving one-shot layer/Mesa initialization hooks, and keep constructor field names separate from strategy resources. Await asynchronous callable objects used as lifecycle callbacks.
+- Check every continuation point in the seed workflow at runtime and independently observe the overwritten seed before restore. Clarify that tutorial model-side `__post_init__` parameter checks are optional; frontend controls normally submit values within declared bounds.
+- Isolate stochastic example instances and DQN initialization/exploration from process-global RNGs; preserve non-default Mesa construction settings and seeds on reset.
+- Use synchronous toroidal flocking updates, correct resource-matrix coordinates and toroidal foraging distances, count HK contacts once, and advance Agents.jl models through their native clock.
+- Scope JS Schelling observers to definitions/sessions, remove obsolete model-owned browser timers and parameter APIs, and restore Mesa Schelling scientific state without private collector-history writes.
+
 ## @tensnap/agent [0.3.8] - 2026-10-21
 
 ### Fixed

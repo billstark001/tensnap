@@ -8,6 +8,9 @@ Step-by-step tutorials for learning TenSnap.
 - Tutorials 5-6 are still planned topics only and are not implemented yet.
 - For end-to-end reference code, `examples/python/`, `examples/python_mesa/`, and `packages/tensnap-python/README.md` remain the source of truth.
 - Tutorial code uses the current Python binding shorthand: decorators infer same-name fields and layer sources unless a selector such as `x="position[0]"` is needed.
+- Tutorials contain complete runnable models, entry points, explanations, and exercises. The repository's flock model additionally demonstrates monitors and exact checkpoint restore beyond Tutorial 2's core lesson.
+- Supplying `seed` is optional. The stochastic lessons use a default of 7 so unchanged reset/re-run experiments can be compared; seeds remain ordinary model parameters, with no TenSnap RNG subsystem.
+- Hand-written model-side parameter checks are optional. Frontend controls normally constrain values to their declared bounds; Tutorial 2 explains why its `__post_init__()` also checks direct Python configuration and how to omit that extra step.
 
 ## Tutorial List
 
@@ -18,7 +21,7 @@ Step-by-step tutorials for learning TenSnap.
    - Simple parameter controls
    - Introduction to the UI
 
-2. **[Flocking Behavior](./02-flocking.md)** - Runnable Reynolds' Boids flocking simulation
+2. **[Flocking Behavior](./02-flocking.md)** - Runnable synchronous Boids-inspired toroidal flocking variant
    - Agent-agent interactions with three behavioral rules
    - Heading and trajectory visualization
    - Measuring emergent properties
@@ -83,8 +86,8 @@ The `examples/` directory contains complete, working examples:
 **Standard Python Examples** (`examples/python/`):
 
 - **random_walk.py / random_walk_viz.py** - Random walk with charts and parameter controls
-- **flock.py / flock_viz.py** - Flocking/boids simulation
-- **hk.py / hk_viz.py** - Hegselmann-Krause opinion dynamics
+- **flock.py / flock_viz.py** - Synchronous Boids-inspired toroidal flocking
+- **hk.py / hk_viz.py** - HK-inspired continuous opinions with inertia, random contacts, and adaptive directed edges
 - **predator_prey.py / predator_prey_viz.py** - Predator-prey ecosystem with grass regrowth
 - **sirs.py / sirs_viz\_*.py** - SIRS epidemic model
 
@@ -94,7 +97,7 @@ The `examples/` directory contains complete, working examples:
 - **mushroom.py / mushroom_viz.py** - Mushroom foraging simulation
 - **sugarscape.py / sugarscape_viz.py** - Sugarscape resource collection model
 
-These examples demonstrate best practices and can serve as templates for your own models.
+These examples demonstrate binding patterns and explicitly named model variants. Read each model's scope and update schedule before adapting it; a teaching pattern need not be the preferred application structure. In particular, the Mesa Schelling adapter applies decorators to imported classes for demonstration and documents why that structure is not recommended for applications.
 
 ## Additional Resources
 

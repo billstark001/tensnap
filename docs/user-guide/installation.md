@@ -149,15 +149,18 @@ The built application will be in `packages/tensnap-tauri/src-tauri/target/releas
 
 ```python
 import tensnap
+
 print(tensnap.__version__)  # Should print version number
 
 # Test basic components
 from tensnap import SimulationScenario, TenSnapServer
 from tensnap.bindings import env
 
+
 @env(id="main")
 class Model:
     pass
+
 
 server = TenSnapServer(port=8765)
 scenario = SimulationScenario(port=8765)

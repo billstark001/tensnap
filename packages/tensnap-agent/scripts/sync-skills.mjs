@@ -20,6 +20,7 @@ const references = {
     'docs/user-guide/networking.md',
     'docs/maintainer-guide/projection-ownership.md',
     'docs/maintainer-guide/binding-ownership-and-topology.md',
+    'docs/maintainer-guide/reproducibility.md',
     'packages/protocol/SPECIFICATION.md',
   ],
 };

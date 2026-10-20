@@ -146,6 +146,7 @@ class Config:
     speed = 1.0
     population = 100
 
+
 scenario.add_all(config)
 ```
 
