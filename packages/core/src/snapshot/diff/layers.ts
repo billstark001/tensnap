@@ -1,5 +1,5 @@
 import type { ScenarioLayerSnapshot } from '../../scenario/types';
-import { compileFieldPath } from '../../scenario/query';
+import { compileFieldPath } from '../../scenario/query-schema';
 import { compareExactItems, compareIdentityItems, typedItemKey } from './items';
 import type { ComparisonStrategy, ResolvedComparisonPolicy } from './policy';
 import type { ChangeRef, VisitValue } from './types';

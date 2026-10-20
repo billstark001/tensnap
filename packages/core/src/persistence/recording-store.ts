@@ -10,7 +10,8 @@ import {
   CheckpointSchema,
 } from '@tensnap/protocol';
 import type { ScenarioSnapshot } from '../scenario';
-import { queryScenario, type ScenarioQuery, type QueryLocation } from '../scenario/query';
+import { queryScenario } from '../scenario/query';
+import { type ScenarioQuery, type QueryLocation } from '../scenario/query-schema';
 import { Scenario } from '../scenario/Scenario';
 import type { CapturedFrame, SnapshotFrame, SnapshotModelIdentity } from '../snapshot';
 import { ScenarioSnapshotSchema } from './project';

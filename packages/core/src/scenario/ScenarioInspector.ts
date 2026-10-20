@@ -1,9 +1,5 @@
-import {
-  queryScenario,
-  type ScenarioQuery,
-  type QueryLocation,
-  type ScenarioQueryResult,
-} from './query';
+import { queryScenario } from './query';
+import { type ScenarioQuery, type QueryLocation, type ScenarioQueryResult } from './query-schema';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { AgentRenderState, GraphEdge, Viewport } from '../environment';
 import { AgentStorage, EdgeStorage, getCoordOffsetValue } from '../environment';

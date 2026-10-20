@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AgentRefSchema, FieldPathSchema, compileFieldPath } from '../../scenario/query';
+import { AgentRefSchema, FieldPathSchema, compileFieldPath } from '../../scenario/query-schema';
 
 const comparison = z.enum(['identity', 'exact']);
 const keyFields = z.array(z.string().min(1).max(256)).min(1).max(16);

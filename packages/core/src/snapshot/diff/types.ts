@@ -1,4 +1,4 @@
-import type { QueryItem } from '../../scenario/query';
+import type { QueryItem } from '../../scenario/query-schema';
 
 export type ChangeRef = QueryItem['ref'];
 
