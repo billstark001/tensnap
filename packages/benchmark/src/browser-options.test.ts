@@ -19,6 +19,10 @@ describe('browser benchmark run options', () => {
   });
 
   it('rejects invalid scheduling settings', () => {
+    expect(resolveBrowserBenchmarkRunOptions({ diagnostics: true }).diagnostics).toBe(true);
+    expect(() => resolveBrowserBenchmarkRunOptions({ diagnostics: 'yes' as never })).toThrow(
+      'browserOptions.diagnostics',
+    );
     expect(() => resolveBrowserBenchmarkRunOptions('setTimeout' as never)).toThrow(
       'browserOptions must be an object',
     );

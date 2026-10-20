@@ -632,7 +632,11 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
-async function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 30_000): Promise<T> {
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = 30_000,
+): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
@@ -670,7 +674,7 @@ export async function allocateLoopbackPort(): Promise<number> {
   });
 }
 
-async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer> {
+export async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer> {
   const configFile = path.join(repositoryRoot, 'packages/benchmark/vite.config.ts');
   const { preview } = await import('vite');
   // Calling Vite's programmatic build API from TSX fails to resolve Vite's own
@@ -1146,6 +1150,7 @@ export async function runProtocolBrowserReplicate(
           index,
           block: index,
           timingsMs: result.stats.timings,
+          ...(result.stats.diagnostics ? { diagnostics: result.stats.diagnostics } : {}),
           metrics: result.stats.mutationTimings
             ? { browserMutationMs: result.stats.mutationTimings }
             : {},
@@ -1273,6 +1278,7 @@ async function runBrowserWorkloadReplicate(
         index,
         block: index,
         timingsMs: result.stats.timings,
+        ...(result.stats.diagnostics ? { diagnostics: result.stats.diagnostics } : {}),
         metrics: result.stats.mutationTimings
           ? { browserMutationMs: result.stats.mutationTimings }
           : {},
@@ -1650,7 +1656,7 @@ export async function captureStableExternalBrowserScreenshot(
   throw new Error(`External browser did not reach a visually stable frame within ${timeoutMs} ms.`);
 }
 
-async function waitForWebSocketEndpoint(
+export async function waitForWebSocketEndpoint(
   endpoint: string,
   timeoutMs: number,
   server: StartedExternalServer,
@@ -1951,6 +1957,7 @@ async function runExternalBrowserReplicate(
             browserVersion: browser.version(),
             sample: {
               ...sample,
+              ...(result.stats.diagnostics ? { diagnostics: result.stats.diagnostics } : {}),
               effectiveValidation: result.stats.effectiveValidation
                 ? { frontend: result.stats.effectiveValidation }
                 : undefined,

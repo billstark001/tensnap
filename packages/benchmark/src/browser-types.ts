@@ -7,6 +7,8 @@ export type BenchmarkRuntimeMode = 'production';
 
 /** Scheduling policy for the production Web host during a browser benchmark. */
 export interface BrowserBenchmarkRunOptions {
+  /** Diagnostic runs add observers and must not replace publication measurements. */
+  readonly diagnostics?: boolean;
   /** Defaults to rAF to preserve the original frame-latency measurement. */
   readonly renderTriggerMode?: RenderTriggerMode;
   /** Zero means no configured TPS cap. */
@@ -17,6 +19,7 @@ export interface BrowserBenchmarkRunOptions {
 
 /** Fully normalized options received by a mounted benchmark host. */
 export interface ResolvedBrowserBenchmarkRunOptions {
+  diagnostics?: boolean;
   renderTriggerMode: RenderTriggerMode;
   maxTps: number;
   maxRenderFps: number;
@@ -71,6 +74,7 @@ export interface MetricSummary {
 }
 
 export interface BrowserBenchmarkStats {
+  diagnostics?: BrowserRunDiagnostics;
   effectiveValidation?: { send: ProtocolValidationLevel; receive: ProtocolValidationLevel };
   caseName: string;
   category: BrowserBenchmarkCategory;
@@ -87,4 +91,15 @@ export interface BrowserBenchmarkStats {
   stageTimings?: Record<string, number[]>;
   /** Renderer-owned state captured after the final render-complete barrier. */
   snapshot?: unknown;
+}
+
+export interface BrowserRunDiagnostics {
+  /** Browser performance.now() timestamps, including warmup. */
+  actions: {
+    requestId: string;
+    dispatchMs: number;
+    resultAppliedMs?: number;
+    completedMs: number;
+  }[];
+  rafTimestampsMs: number[];
 }

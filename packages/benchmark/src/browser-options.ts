@@ -27,12 +27,16 @@ export function resolveBrowserBenchmarkRunOptions(
     throw new Error('browserOptions must be an object.');
   }
   const renderTriggerMode = options?.renderTriggerMode ?? 'requestAnimationFrame';
+  if (options?.diagnostics !== undefined && typeof options.diagnostics !== 'boolean') {
+    throw new Error('browserOptions.diagnostics must be a boolean.');
+  }
   if (!RENDER_TRIGGER_MODES.has(renderTriggerMode)) {
     throw new Error(
       'browserOptions.renderTriggerMode must be auto, setTimeout, or requestAnimationFrame.',
     );
   }
   return {
+    ...(options?.diagnostics ? { diagnostics: true } : {}),
     renderTriggerMode,
     maxTps: nonNegativeInteger(options?.maxTps, 'browserOptions.maxTps', 0),
     maxRenderFps: nonNegativeInteger(options?.maxRenderFps, 'browserOptions.maxRenderFps', 0),

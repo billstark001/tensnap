@@ -8,6 +8,7 @@ import type {
 import type { BrowserBenchmarkCase } from '../browser-types';
 import type { BenchmarkCase } from '../browser-types';
 import type {
+  BrowserRunDiagnostics,
   BrowserBenchmarkRunOptions,
   ResolvedBrowserBenchmarkRunOptions,
 } from '../browser-types';
@@ -318,6 +319,7 @@ export interface BenchmarkCorrectness {
 }
 
 export interface BenchmarkReplicate {
+  readonly diagnostics?: BrowserRunDiagnostics;
   /** Observed policies; absent means unobserved, never inferred from a profile. */
   readonly effectiveValidation?: {
     readonly frontend?: {

@@ -1,10 +1,11 @@
 import type {
   RendererSessionOutboundDetail,
+  RendererSessionMessageDetail,
   RunStatus,
   RuntimeTaskSnapshot,
 } from '@tensnap/core/runtime';
 import { BrowserRunRenderBarrier } from '@tensnap/core/runtime/browser';
-import type { ActionInvokePayload } from '@tensnap/protocol';
+import type { ActionInvokePayload, ActionResultPayload } from '@tensnap/protocol';
 import { resolveBrowserBenchmarkRunOptions } from './browser-options';
 import type {
   BenchmarkCase,
@@ -13,9 +14,11 @@ import type {
   MountedComponentBenchmark,
   MountedModelBenchmark,
   ResolvedBrowserBenchmarkRunOptions,
+  BrowserRunDiagnostics,
 } from './browser-types';
 
 interface TimingResult {
+  diagnostics?: BrowserRunDiagnostics;
   timings: number[];
   mutationTimings?: number[];
   stageTimings?: Record<string, number[]>;
@@ -33,10 +36,26 @@ async function measureModelRun(
   const totalSteps = frames + warmupFrames;
   const timings: number[] = [];
   let dispatchIndex = 0;
-  let activeDispatch: { index: number; startedAt: number } | null = null;
+  let activeDispatch: {
+    index: number;
+    startedAt: number;
+    requestId: string;
+    resultAppliedMs?: number;
+  } | null = null;
+  const diagnostics: BrowserRunDiagnostics | undefined = options.diagnostics
+    ? { actions: [], rafTimestampsMs: [] }
+    : undefined;
   return new Promise<TimingResult>((resolve, reject) => {
     let settled = false;
+    let rafHandle: number | undefined;
+    const observeRaf = (timestamp: number) => {
+      diagnostics!.rafTimestampsMs.push(timestamp);
+      rafHandle = requestAnimationFrame(observeRaf);
+    };
+    if (diagnostics) rafHandle = requestAnimationFrame(observeRaf);
     const cleanup = () => {
+      if (rafHandle !== undefined) cancelAnimationFrame(rafHandle);
+      if (diagnostics) mounted.session.removeEventListener('message', onMessage);
       mounted.session.removeEventListener('outbound', onOutbound);
       mounted.session.removeEventListener('run:status', onRunStatus);
     };
@@ -51,6 +70,12 @@ async function measureModelRun(
       if (!activeDispatch) return;
       if (activeDispatch.index >= warmupFrames)
         timings.push(completedAt - activeDispatch.startedAt);
+      diagnostics?.actions.push({
+        requestId: activeDispatch.requestId,
+        dispatchMs: activeDispatch.startedAt,
+        resultAppliedMs: activeDispatch.resultAppliedMs,
+        completedMs: completedAt,
+      });
       activeDispatch = null;
     };
     const onOutbound = ((event: Event) => {
@@ -60,8 +85,20 @@ async function measureModelRun(
       if (payload.id !== actionId) return;
       const now = performance.now();
       completeActiveCycle(now);
-      activeDispatch = { index: dispatchIndex, startedAt: now };
+      activeDispatch = { index: dispatchIndex, startedAt: now, requestId: payload.request_id };
       dispatchIndex += 1;
+    }) as EventListener;
+    const onMessage = ((event: Event) => {
+      const { message } = (event as CustomEvent<RendererSessionMessageDetail>).detail;
+      if (
+        message.type === 'action_result' &&
+        activeDispatch &&
+        activeDispatch.resultAppliedMs === undefined &&
+        (message.payload as ActionResultPayload).id === actionId &&
+        (message.payload as ActionResultPayload).request_id === activeDispatch.requestId
+      ) {
+        activeDispatch.resultAppliedMs = performance.now();
+      }
     }) as EventListener;
     const onRunStatus = ((event: Event) => {
       const status = (event as CustomEvent<RunStatus | null>).detail;
@@ -78,6 +115,7 @@ async function measureModelRun(
           ? 'actionToRenderCompleteMs'
           : 'actionToRunCompletionMs';
       settle({
+        ...(diagnostics ? { diagnostics } : {}),
         timings,
         // rAF is the comparable next-paint boundary. Timeout/auto are scheduler
         // completion modes and must not be labelled as visible-frame latency.
@@ -87,6 +125,7 @@ async function measureModelRun(
       });
     }) as EventListener;
     mounted.session.addEventListener('outbound', onOutbound);
+    if (diagnostics) mounted.session.addEventListener('message', onMessage);
     mounted.session.addEventListener('run:status', onRunStatus);
     try {
       mounted.session.run.start({ mode: 'bounded', actionId, maxSteps: totalSteps, record: false });
@@ -173,6 +212,7 @@ export async function runBrowserBenchmark(
       measuredFrames: result.timings.length,
       stopReason: result.stopReason,
       timings: result.timings,
+      ...(result.diagnostics ? { diagnostics: result.diagnostics } : {}),
       ...(result.mutationTimings ? { mutationTimings: result.mutationTimings } : {}),
       ...(result.stageTimings ? { stageTimings: result.stageTimings } : {}),
       ...(mounted.kind === 'model' ? { snapshot: mounted.snapshot() } : {}),

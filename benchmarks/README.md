@@ -185,6 +185,45 @@ Keep those retained exports unchanged. Rerun the twelve error protocol browser c
 
 Mesa reuses neighbor counts across satisfaction, segregation, data collection and visual-size projection for the same occupancy/group state. Moving, regrouping or removing an agent invalidates the counts; threshold changes reuse threshold-independent counts. Collection and per-agent records remain enabled, and seeded transition/restore tests compare against uncached scans. Kernel-only runs (`collect_data=False`) bypass the cache: their single scan per state has no reuse to amortize dictionary overhead. The dispatcher still waits for the selected production barrier. A response missing an rAF boundary can add a display period; moving a slow-mode fraction across 50% can change the median sharply. Reports therefore include mean intervals and measured cycles per second alongside medians. These rates describe measured action cycles, not independent compositor FPS.
 
+For diagnostic repeats, set `browserOptions.diagnostics: true` on a copy of the profile. Samples retain browser-clock dispatch, action-result application and cycle-completion timestamps (including warmup), plus independent rAF timestamps. This adds observers and must not replace publication measurements. Compare response time and the remaining post-result wait separately for explicit rAF and timeout modes. The more detailed timeout diagnostic below also captures simulator stages, thread CPU time, GC and process resource counters. The exact environmental trigger of the historical full batches was not recorded.
+
+An October 20 diagnostic used Chromium 153.0.8010.12, the 50×50 Mesa profile, seed 20260718, threshold 0.8, five warmup plus 245 measured actions, uncapped scheduling, and effective frontend send/receive error validation. Temporarily preloading the original model restored repeated neighbor scans: rAF median/mean were 32.3/29.72 ms, compared with 16.7–16.9/18.03–19.33 ms in two cached-model repeats. Independent rAF cadence remained approximately 16.7 ms. Timeout medians were 18.8 ms without reuse and 16.7 ms with reuse; median post-result waits were approximately 2 ms in both. Every condition produced the same canonical final-state hash. Separate 500-action checks with diagnostics disabled matched the original model’s seeded final-state hash in both modes. This is a same-policy diagnostic of the repeated-work/frame-boundary mechanism, not a complete publication rerun or proof of the historical trigger.
+
+
+### Retained timeout fast/slow traces
+
+[The October 20 diagnostic bundle](../artifacts/timeout-cadence-2026-10-20/manifest.json) retains browser action/message/timer records, Python stage/CPU/GC/resource records, Chromium DevTools timelines, model/collector source snapshots and SHA-256 checksums. The fast and slow cases use the original uncached model, seed 20260718, the same 50×50/0.8-threshold profile, five warmup plus 495 measured actions, explicit uncapped timeout scheduling, effective frontend validation off, and default server scheduling. They came from a four-repeat sequence with **no injected delay or policy change**. The final-state hashes match.
+
+| Diagnostic quantity | Fast repeat | Slow repeat |
+| --- | ---: | ---: |
+| Cycle median / mean, ms | 17.2 / 18.76 | 29.7 / 45.45 |
+| Measured actions/s, from mean | 53.3 | 22.0 |
+| Dispatch to applied result median, ms | 15.3 | 25.8 |
+| Post-result wait median, ms | 1.9 | 2.1 |
+| Actual requested-1-ms timer median, ms | 1.9 | 2.0 |
+| Server action wall / thread CPU median, ms | 13.68 / 13.46 | 23.98 / 21.20 |
+| Model / projection wall medians, ms | 6.74 / 5.84 | 11.79 / 9.26 |
+
+The reproduced timeout slowdown is in simulator processing and off-CPU time. It does not show a timer clamped to a frame period. The slow repeat also records 102 major page faults across two actions and more involuntary context switches; the increased thread CPU duration across model and projection remains visible outside those faulting actions. Recorded GC accounts for about 316 ms in the slow measured sequence versus 94 ms in the fast sequence, so its direct duration alone does not explain the whole-run difference. The traces identify where time grows; they do not establish whether CPU placement/frequency, competing load, or another host resource change initiated the historical full-batch switch. Browser and Python timestamps use independent clocks and must be joined by request ID, not subtracted as absolute times. Server coroutine completion may follow response delivery.
+
+A separately labelled macOS scheduling control clamps only the child server to background QoS: its timeout median rises from 16.6 to 65.3 ms, then returns to 16.7 ms after restoring default policy. Its actual timer remains around 1.3–1.9 ms. This establishes sensitivity to server execution policy, not evidence that the historical batches used that clamp. Never pool this control with the unchanged-policy repeats.
+
+The existing same-state neighbor-count reuse removes redundant work without changing collection, projection, transitions or the timeout contract. Fresh 500-action checks with the cached model produced cycle medians of 16.6 ms with effective frontend off and 16.7 ms with error; both match the original model's final-state hash. Their full traces and source hashes are in the bundle's `cached-off` and `cached-error` directories. An uncapped timeout loop still follows simulator throughput under host contention; it does not promise a fixed display rate.
+
+The reusable command rebuilds the production browser bundle, fixes the seed across repeats, captures effective validation, rejects incomplete correlations/page errors, and refuses an existing output directory:
+
+```bash
+pnpm --filter @tensnap/benchmark diagnose:timeout \
+  --out artifacts/timeout-repeat/results --repetitions 4 --actions 500
+# Historical frontend policy and original model, kept separate from the corrected runs:
+pnpm --filter @tensnap/benchmark diagnose:timeout \
+  --out artifacts/timeout-original-repeat/results --repetitions 4 --actions 500 \
+  --validation off \
+  --model-source artifacts/timeout-cadence-2026-10-20/controls/uncached-model.py
+```
+
+Create the output's parent directory first. The default validation is error. Optional `--server-policy background` (macOS only) is a deliberately changed scheduling control; `--no-chromium-trace` omits the large DevTools timeline while retaining stage/timer records. The POSIX Python probe writes a startup marker containing the raw-byte model SHA-256, then buffers all measured records in memory and writes the final trace at shutdown. The launcher verifies that marker before starting actions. New diagnostic manifests use schema version 2 and raw-byte file/diff hashes; the archived version 1 manifests retain their original hash conventions. Failed runs record their error/status and preserve available browser, Chromium and server evidence while shutting down both processes. The reported state hash follows local invariant validation; it is not an independently computed expected trajectory. These are instrumented diagnostic runs, not replacement publication measurements. The initial retained collector's raw request field predates its explicit off override; its manifest records that metadata correction, while the observed effective policies and raw traces remain unchanged.
+
 ## Process and CPU measurements
 
 Node and harness-owned browser process measurements use deltas between `process.resourceUsage()` snapshots; cumulative process totals are never written as one replicate's CPU cost. External command subjects run under `/usr/bin/time -p` on supported Unix hosts so CPU time describes the child command. For external browser servers, a portable process-tree CPU value is not available and the field is `null` rather than a misleading harness value. Latency is the primary publication measurement.
