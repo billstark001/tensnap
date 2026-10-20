@@ -56,6 +56,50 @@ test('bundles executable resources and omits installation receipts', () => {
   }
 });
 
+test('resolves nested local references while ignoring anchors, external links and fenced examples', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tensnap-skill-references-'));
+  try {
+    const source = join(root, 'source');
+    mkdirSync(join(source, 'references', 'nested'), { recursive: true });
+    writeFileSync(
+      join(source, 'SKILL.md'),
+      content + '\n[Guide](references/nested/guide.md#details)\n',
+    );
+    writeFileSync(
+      join(source, 'references/nested/guide.md'),
+      '[Home](../../SKILL.md) [Here](#details) [Source](https://example.com/source) ' +
+        '[Email](mailto:example@example.com)\n```md\n[Example](missing.md)\n```\n',
+    );
+    const target = join(root, 'output');
+    const bundled = bundleSkill(source, target, 'demo', '2.0.0');
+    assert.equal(Object.keys(bundled.files).length, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const link of ['missing.md', '../../outside.md', 'nested', '/SKILL.md']) {
+  test(`rejects unresolved nested reference ${link} before writing a bundle`, () => {
+    const root = mkdtempSync(join(tmpdir(), 'tensnap-skill-missing-reference-'));
+    try {
+      const source = join(root, 'source');
+      mkdirSync(join(source, 'references/nested'), { recursive: true });
+      writeFileSync(join(source, 'SKILL.md'), content);
+      writeFileSync(join(source, 'references/guide.md'), `[Missing](${link}#details)\n`);
+      writeFileSync(join(source, 'references/nested/existing.md'), 'Present resource');
+      writeFileSync(join(root, 'outside.md'), 'Outside the skill');
+      const output = join(root, 'output');
+      assert.throws(
+        () => bundleSkill(source, output, 'demo', '2.0.0'),
+        /Missing skill reference in references\/guide\.md/,
+      );
+      assert(!existsSync(output));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
 for (const kind of ['root-link', 'entrypoint-link', 'resource-link', 'empty-directory']) {
   test(`rejects ${kind} before writing metadata through a link or producing an incomplete bundle`, () => {
     const root = mkdtempSync(join(tmpdir(), 'tensnap-skill-link-build-'));
