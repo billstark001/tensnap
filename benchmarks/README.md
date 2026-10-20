@@ -32,6 +32,13 @@ The language implementations intentionally remain independent so they are readab
 
 ## Quick start
 
+Agent CLI control, bounded-query and long-history collection benchmarks are described in [`agent/v1`](agent/v1/README.md). They are included in the root evaluation matrix and can also run alone:
+
+```sh
+pnpm evaluation run --spec benchmarks/evaluation/agent-cli-v1.json --python python3 \
+  --smoke --out benchmark-results/agent-cli-evaluation-smoke
+```
+
 For the complete current paper matrix, follow the [evaluation setup and commands](evaluation/README.md). It supplies the current scientific locks, source preflight, recovery, separate gzip archives and checked tables:
 
 ```bash

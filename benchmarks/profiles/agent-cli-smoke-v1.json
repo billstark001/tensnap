@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 2,
+  "id": "agent-cli-v1-smoke",
+  "description": "Diagnostic smoke for agent CLI control, bounded queries and long-history collection; not publication measurements.",
+  "suites": [
+    "node"
+  ],
+  "repetitions": 2,
+  "warmupActions": 0,
+  "measuredActions": 1,
+  "encodings": [
+    "json"
+  ],
+  "validation": [
+    "error"
+  ],
+  "requireCleanGit": false,
+  "processIsolation": "required",
+  "randomizedBlocks": true,
+  "comparisons": [
+    {
+      "id": "schelling-control",
+      "baseline": "control-http-batch",
+      "treatments": [
+        "control-cli-batch",
+        "control-cli-single"
+      ],
+      "metric": "cycle"
+    }
+  ],
+  "workloads": [
+    {
+      "id": "control-cli-single",
+      "system": "Schelling cli-single",
+      "primaryMetric": "cycle",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": {
+        "grid": "12x12",
+        "steps": 3,
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "control",
+        "control": "cli-single",
+        "gridSize": 12,
+        "steps": 3,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "stateEquivalenceGroup": "agent-schelling-control"
+    },
+    {
+      "id": "control-cli-batch",
+      "system": "Schelling cli-batch",
+      "primaryMetric": "cycle",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": {
+        "grid": "12x12",
+        "steps": 3,
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "control",
+        "control": "cli-batch",
+        "gridSize": 12,
+        "steps": 3,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "stateEquivalenceGroup": "agent-schelling-control"
+    },
+    {
+      "id": "control-http-batch",
+      "system": "Schelling http-batch",
+      "primaryMetric": "cycle",
+      "featureLevel": "agents+charts+monitor",
+      "dimensions": {
+        "grid": "12x12",
+        "steps": 3,
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "control",
+        "control": "http-batch",
+        "gridSize": 12,
+        "steps": 3,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "stateEquivalenceGroup": "agent-schelling-control"
+    },
+    {
+      "id": "query-12-snapshot-cli",
+      "system": "Schelling 12 snapshot via cli",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "snapshot",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "snapshot",
+        "transport": "cli",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "query-12-snapshot-http",
+      "system": "Schelling 12 snapshot via http",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "snapshot",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "snapshot",
+        "transport": "http",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "query-12-monitor-cli",
+      "system": "Schelling 12 monitor via cli",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "monitor",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "monitor",
+        "transport": "cli",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "query-12-monitor-http",
+      "system": "Schelling 12 monitor via http",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "monitor",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "monitor",
+        "transport": "http",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "query-12-agent-cli",
+      "system": "Schelling 12 agent via cli",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "agent",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "agent",
+        "transport": "cli",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "query-12-neighbors-cli",
+      "system": "Schelling 12 neighbors via cli",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "neighbors",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "neighbors",
+        "transport": "cli",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "query-12-cell-cli",
+      "system": "Schelling 12 cell via cli",
+      "primaryMetric": "cycle",
+      "featureLevel": "frozen-scene-query",
+      "dimensions": {
+        "grid": "12x12",
+        "query": "cell",
+        "prepSteps": 2
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "query",
+        "query": "cell",
+        "transport": "cli",
+        "gridSize": 12,
+        "prepSteps": 2,
+        "seed": 20260718
+      },
+      "warmupActions": 1,
+      "measuredActions": 2
+    },
+    {
+      "id": "collection-40-12-none",
+      "system": "Random walk none (40 agents, 12 actions)",
+      "primaryMetric": "cycle",
+      "featureLevel": "live-state",
+      "dimensions": {
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "retainedTransitions": 12
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "collection",
+        "collection": "none",
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "prepSteps": 0,
+        "retainedFrames": 4,
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "collection-40-12-archive",
+      "system": "Random walk archive (40 agents, 12 actions)",
+      "primaryMetric": "cycle",
+      "featureLevel": "full-history",
+      "dimensions": {
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "retainedTransitions": 12
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "collection",
+        "collection": "archive",
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "prepSteps": 0,
+        "retainedFrames": 4,
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "collection-40-12-full-history",
+      "system": "Random walk full-history (40 agents, 12 actions)",
+      "primaryMetric": "cycle",
+      "featureLevel": "full-history",
+      "dimensions": {
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "retainedTransitions": 12
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "collection",
+        "collection": "full-history",
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "prepSteps": 0,
+        "retainedFrames": 4,
+        "seed": 20260718
+      }
+    },
+    {
+      "id": "collection-40-12-rolling",
+      "system": "Random walk rolling (40 agents, 12 actions)",
+      "primaryMetric": "cycle",
+      "featureLevel": "rolling-history",
+      "dimensions": {
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "retainedTransitions": 4
+      },
+      "module": "../agent/v1/benchmark.ts",
+      "config": {
+        "case": "collection",
+        "collection": "rolling",
+        "agentCount": 40,
+        "changedAgents": 4,
+        "steps": 12,
+        "prepSteps": 0,
+        "retainedFrames": 4,
+        "seed": 20260718
+      }
+    }
+  ],
+  "artifactExtension": {
+    "module": "benchmarks/agent/v1/report.ts",
+    "sources": {
+      "benchmarks/agent/v1/benchmark.ts": "76d2b8ddfff5fce01c9f1d6cac53ba599baa8dde95c6b51ba48c8c1b1703ef61",
+      "benchmarks/agent/v1/cleanup.ts": "1261523f3138dd2629dcece11a3d1dd58a3880f08183bd896de8ce0d0a8b2be3",
+      "benchmarks/agent/v1/host.ts": "c814293a69f40f9f6e64361272ca9bb729d1f67e6a2df436a0fe0753b07bb9fa",
+      "benchmarks/agent/v1/measurement.ts": "ce4a9a23ed0062db711f7630177b00829017e6568cbb8eba1a06495264d05730",
+      "benchmarks/agent/v1/oracle.ts": "02d5484569ec7445d0239e2d9341409fa5159a88631746a3b4d69f8d80765ec9",
+      "benchmarks/agent/v1/package.json": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8",
+      "benchmarks/agent/v1/report.ts": "14601e7f4c148c28796c38c40b79648ec0d0be765f3d2f703748467ad8a68d78",
+      "benchmarks/agent/v1/resource-probe.mjs": "c94a54d234ab2373fba26d66447c208c603f044162e4ee70a0d7d7df0009d9c8",
+      "benchmarks/agent/v1/run.ts": "af5e068c82de1d3896629b33b0ac070c267b6490439f30d1a1c7e5983aa4cab0",
+      "benchmarks/v0.3/random-walk/model.ts": "878169df5c0703054ef4f999f687c06cd3aa9ccedfee8a3f3a2321561b6d4dff",
+      "examples/js/src/models/schelling.ts": "dcd4cc39e1be7efab70defc00a66619b7685f8c4436d5f830c5e953ebe9b2e89"
+    }
+  }
+}

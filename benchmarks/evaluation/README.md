@@ -4,6 +4,17 @@ This directory declares the paper experiment matrix, table selectors, scientific
 
 ## Environment
 
+Agent CLI v1 is part of the default matrix. To evaluate only its control, bounded-query and long-history workloads, use the [standalone specification](agent-cli-v1.json) and [subject guide](../agent/v1/README.md):
+
+```sh
+pnpm evaluation plan --spec benchmarks/evaluation/agent-cli-v1.json --smoke
+pnpm evaluation run --spec benchmarks/evaluation/agent-cli-v1.json --python python3 \
+  --smoke --out benchmark-results/agent-cli-evaluation-smoke
+pnpm evaluation verify --python python3 --input benchmark-results/agent-cli-evaluation-smoke
+```
+
+Node-only specifications check native Node dependencies and a standard-library Python archiver. The full paper environment below remains required for the default matrix. An experiment may declare a separate `smokeProfile`; that explicit diagnostic matrix is used by both `plan --smoke` and `run --smoke`. Profiles can contribute offline verification and result tables through the generic `artifactExtension` interface; subject-specific rules stay in their versioned source directories.
+
 Use Python 3.13 on the recorded macOS arm64 environment. The complete Python lock includes Mesa, Solara, NetLogo bridge dependencies and CPU PyTorch. Its `ipyvue` and `ipyvuetify` pins retain the Vue 2 widgets used by Solara 1.57.3. Import the local Python binding through the orchestrator's `PYTHONPATH`, rather than a separately installed TenSnap release.
 
 ```sh
