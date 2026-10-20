@@ -5,12 +5,8 @@ import { join } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { Scenario } from '@tensnap/core/scenario';
 import { createSingleSnapshot, frameFromRecording } from '@tensnap/core/snapshot';
-import {
-  readCapturedFrame,
-  saveCapturedFrame,
-  compareCapturedFrames,
-  FrameSaveError,
-} from './frame-files';
+import { readCapturedFrame, saveCapturedFrame, compareCapturedFrames } from './frame-files';
+import { FrameSaveError } from './frame-errors';
 import { RenderBatchError } from './painter';
 import { exportRecordingFrame } from './recording-files';
 import { encodeRecordingFile } from '@tensnap/core/persistence';

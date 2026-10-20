@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DaemonStartupError, startDetachedDaemon } from './daemon-startup';
-import { isProcessAlive } from './context';
+import { isProcessAlive } from './context-paths';
 import { classifyCliError } from '../cli';
 
 vi.mock('node:fs/promises', async (importOriginal) => {

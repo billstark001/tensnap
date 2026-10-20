@@ -6,7 +6,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { decodeProtocolMessage, encodeProtocolMessage } from '@tensnap/protocol';
 import { RenderPersistenceError } from './painter';
 import { AgentRuntime } from './AgentRuntime';
-import { resolveRuntimeContextPaths } from './context';
+import { resolveRuntimeContextPaths } from './context-paths';
 import type { RendererSession, RendererClient } from '@tensnap/core/runtime';
 import { readCapturedFrame } from './frame-files';
 

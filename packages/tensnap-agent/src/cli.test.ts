@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { classifyCliError, CliRequestError, createProgram, main } from './cli';
-import { CLI_VERSION } from './skills';
-import { resolveRuntimeContextPaths, writeRuntimeControl } from './runtime/context';
+import { CLI_VERSION } from './version';
+import { resolveRuntimeContextPaths } from './runtime/context-paths';
+import { writeRuntimeControl } from './runtime/context';
 
 it.each(['Infinity', '-Infinity', 'NaN'])('rejects non-finite numeric flags: %s', async (value) => {
   await expect(main(['run', 'start', 'step', '--max-steps', value])).rejects.toThrow(

@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { main } from '../../../packages/tensnap-agent/src/cli';
-import { resolveRuntimeContextPaths } from '../../../packages/tensnap-agent/src/runtime/context';
+import { resolveRuntimeContextPaths } from '../../../packages/tensnap-agent/src/runtime/context-paths';
 import {
   commandTimeoutMs,
   completionArgs,

@@ -218,11 +218,19 @@ syncBuiltinESMExports();
       `
     import assert from 'node:assert/strict';
     import { createDefaultRootLayout, encodeProjectFile, decodeProjectFile, encodeRecordingFile, decodeRecordingFile, RecordingStoreWriter, RecordingStoreReader, RecordingPlayback } from '@tensnap/core/persistence';
-    import { Scenario } from '@tensnap/core/scenario';
+    import { Scenario, ScenarioQuerySchema, compileFieldPath } from '@tensnap/core/scenario';
+    import * as querySchemas from '@tensnap/core/scenario/query-schema';
     import { createSingleSnapshot, diffCapturedFrames } from '@tensnap/core/snapshot';
     import { RecordingCollection, validateCollectionConfig } from '@tensnap/core/runtime';
-    import { NodeRecordingStore } from '@tensnap/agent/runtime';
+    import { NodeRecordingStore, FrameSaveError, resolveRuntimeContextPaths } from '@tensnap/agent/runtime';
     assert.equal(typeof window, 'undefined');
+    // Core currently bundles each published entry independently: validate its
+    // public contracts rather than requiring cross-entry object identity.
+    const query = { selector: { kind: 'metadata' }, fields: ['/time'] };
+    assert.deepEqual(ScenarioQuerySchema.parse(query), querySchemas.ScenarioQuerySchema.parse(query));
+    assert.deepEqual(compileFieldPath('/a~1b'), querySchemas.compileFieldPath('/a~1b'));
+    assert.equal(typeof FrameSaveError, 'function');
+    assert.equal(resolveRuntimeContextPaths({ contextName: 'Published Import' }).contextName, 'published-import');
     const scene = new Scenario().dump();
     const snapshot = createSingleSnapshot(scene, { id: 'published-import' });
     const project = { version: 3, source: { kind: 'snapshot', snapshot_id: 'published-import' }, mainView: createDefaultRootLayout(), scenario: scene, snapshots: [snapshot] };
@@ -314,6 +322,15 @@ syncBuiltinESMExports();
     );
     assert.equal((await run(['skills', 'list'])).data.skills.length, 2);
     assert.equal((await run(['skills', 'install', '--all'])).data.results[0].status, 'unchanged');
+    // Online inspection must reach the runtime check without loading native rendering.
+    for (const args of [
+      ['param', 'list'],
+      ['monitor', 'get', 'population'],
+    ]) {
+      const response = await run([...args, '--context', 'missing-canvas'], 3);
+      assert.equal(response.error.category, 'execution_failed');
+      assert.match(response.error.message, /No running daemon found/);
+    }
     const failedStartup = await run(['runtime', 'up', '--context', 'missing-canvas'], 3);
     assert.equal(failedStartup.error.category, 'execution_failed');
     assert.equal(failedStartup.data.exitCode, 3);
