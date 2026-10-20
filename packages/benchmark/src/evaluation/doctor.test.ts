@@ -62,6 +62,23 @@ describe('evaluation environment probes', () => {
     );
   });
 
+  it('probes only native Node and the standard-library archiver for Node-only evaluation', async () => {
+    vi.mocked(execute).mockResolvedValue('{}');
+    const environment = await inspectEnvironment(context, {
+      ...specification,
+      environment: 'node',
+    });
+    expect(environment).toHaveProperty('native');
+    expect(environment).not.toHaveProperty('julia');
+    expect(environment).not.toHaveProperty('pythonFreezeSha256');
+    expect(chromium.launch).not.toHaveBeenCalled();
+    expect(
+      vi
+        .mocked(execute)
+        .mock.calls.some(([, executable]) => executable === 'julia' || executable === 'go'),
+    ).toBe(false);
+  });
+
   it.each([
     '/another-checkout/packages/tensnap-julia/src/TenSnap.jl',
     path.join(root, 'packages/tensnap-julia-other/src/TenSnap.jl'),

@@ -132,6 +132,21 @@ function completeNodeArtifact(): BenchmarkArtifact {
 }
 
 describe('benchmark artifact schema v2', () => {
+  it('checks retained semantic evidence against hashes during offline verification', () => {
+    const artifact = completeNodeArtifact();
+    const sample = artifact.runs[0]!.samples[0]!;
+    Object.assign(sample, {
+      semanticEvidence: { state: { time: 1 }, expectedState: { time: 1 } },
+      correctness: {
+        ...sample.correctness,
+        stateHash: sha256({ time: 1 }),
+        expectedStateHash: sha256({ time: 1 }),
+      },
+    });
+    expect(() => verifyArtifact(artifact)).not.toThrow();
+    (sample.semanticEvidence!.state as { time: number }).time = 2;
+    expect(() => verifyArtifact(artifact)).toThrow(/retained semantic evidence/);
+  });
   it('waits for three identical screenshots before accepting a visual checkpoint', async () => {
     const frames = [
       Buffer.from('loading-1'),

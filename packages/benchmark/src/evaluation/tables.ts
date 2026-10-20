@@ -6,13 +6,10 @@ import { readBenchmark } from './experiments';
 import { workflowHosts } from './workflow';
 import type { WorkflowReport } from './workflow';
 import type { EvaluationBatch } from './types';
+import { extensionTables, validateResultTables } from '../node/artifact-extensions';
+import type { BenchmarkResultTable } from '../harness/types';
 
-export interface ResultTable {
-  id: string;
-  caption: string;
-  columns: { key: string; label: string }[];
-  rows: Record<string, string | number>[];
-}
+export type ResultTable = BenchmarkResultTable;
 interface TableSelection {
   protocol: { operation: string; runId: string }[];
   schelling: {
@@ -55,6 +52,11 @@ export async function buildTables(
   const tables: ResultTable[] = [];
   const has = (id: string) =>
     batch.specification.experiments.some((experiment) => experiment.id === id);
+  for (const experiment of batch.specification.experiments) {
+    if (experiment.kind !== 'benchmark') continue;
+    const artifact = await readBenchmark(path.join(evidence, 'raw', experiment.id));
+    tables.push(...(await extensionTables(root, artifact)));
+  }
   if (has('protocol-core')) {
     const artifact = await readBenchmark(path.join(evidence, 'raw/protocol-core'));
     tables.push({
@@ -227,6 +229,7 @@ export async function buildTables(
       ],
     });
   }
+  validateResultTables(tables);
   return tables;
 }
 
@@ -290,6 +293,7 @@ export async function writeTables(
   tables: ResultTable[],
   batch: EvaluationBatch,
 ): Promise<void> {
+  validateResultTables(tables);
   await mkdir(directory, { recursive: true });
   await writeJson(path.join(directory, 'results.json'), {
     mode: batch.mode,

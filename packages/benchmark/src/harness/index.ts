@@ -1,6 +1,8 @@
 export { createWebScenarioCase, type WebScenarioCaseDefinition } from './web';
 export type {
   BenchmarkArtifact,
+  BenchmarkArtifactExtension,
+  BenchmarkResultTable,
   BenchmarkConfig,
   BenchmarkCorrectness,
   BenchmarkEnvironment,

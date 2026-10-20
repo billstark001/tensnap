@@ -48,8 +48,10 @@ export async function runExperiment(
   const log = path.join(batch, 'logs', `${experiment.id}.log`);
   await mkdir(path.dirname(output), { recursive: true });
   if (experiment.kind === 'benchmark') {
-    const sourceProfile = path.resolve(context.repositoryRoot, experiment.profile!);
-    const profile = await loadBenchmarkProfile(context.repositoryRoot, experiment.profile!);
+    const relativeProfile =
+      mode === 'smoke' ? (experiment.smokeProfile ?? experiment.profile!) : experiment.profile!;
+    const sourceProfile = path.resolve(context.repositoryRoot, relativeProfile);
+    const profile = await loadBenchmarkProfile(context.repositoryRoot, relativeProfile);
     const recordedProfile = path.join(batch, 'profiles', `${experiment.id}.json`);
     // Smoke runs from its generated copy with absolute modules. Publication runs
     // use the original profile path and retain an unchanged copy as evidence.

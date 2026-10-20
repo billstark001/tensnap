@@ -103,6 +103,10 @@ export interface ExternalBrowserContext extends ExternalProcessContext {
 /** The final JSON object emitted by an external framework on stdout. */
 export interface ExternalBenchmarkResult {
   readonly schemaVersion: 1;
+  /** Observed measurement boundaries, interpreted by an optional subject extension. */
+  readonly measurementEvidence?: unknown;
+  /** Retain both explicit semantic inputs for offline hash reconstruction. */
+  readonly retainSemanticEvidence?: boolean;
   readonly timingsMs: readonly number[];
   readonly metrics?: Readonly<Record<string, number | readonly number[]>>;
   readonly state?: unknown;
@@ -256,6 +260,12 @@ export interface BenchmarkSemanticValidator {
 
 export interface BenchmarkProfile {
   readonly schemaVersion: 2;
+  /** Optional trusted repository-relative module exporting a BenchmarkArtifactExtension. */
+  readonly artifactExtension?: {
+    readonly module: string;
+    /** Immutable source dependencies that determine the offline oracle and tables. */
+    readonly sources: Readonly<Record<string, string>>;
+  };
   readonly id: string;
   readonly description: string;
   readonly suites: readonly BenchmarkSuite[];
@@ -272,6 +282,19 @@ export interface BenchmarkProfile {
   readonly randomizedBlocks?: boolean;
   readonly comparisons?: readonly BenchmarkComparison[];
   readonly workloads: readonly BenchmarkProfileWorkload[];
+}
+
+export interface BenchmarkResultTable {
+  id: string;
+  caption: string;
+  columns: { key: string; label: string }[];
+  rows: Record<string, string | number>[];
+}
+
+/** Offline contributions must be deterministic and must never start measured workloads. */
+export interface BenchmarkArtifactExtension {
+  verify(artifact: BenchmarkArtifact): void | Promise<void>;
+  tables?(artifact: BenchmarkArtifact): BenchmarkResultTable[] | Promise<BenchmarkResultTable[]>;
 }
 
 export interface BenchmarkProfileWorkload {
@@ -319,6 +342,8 @@ export interface BenchmarkCorrectness {
 }
 
 export interface BenchmarkReplicate {
+  readonly measurementEvidence?: unknown;
+  readonly semanticEvidence?: { readonly state: unknown; readonly expectedState: unknown };
   readonly diagnostics?: BrowserRunDiagnostics;
   /** Observed policies; absent means unobserved, never inferred from a profile. */
   readonly effectiveValidation?: {

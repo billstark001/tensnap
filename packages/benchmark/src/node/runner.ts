@@ -60,6 +60,7 @@ import type {
   ProtocolBenchmarkWorkload,
 } from '../harness/types';
 import { resolveBrowserBenchmarkRunOptions } from '../browser-options';
+import { loadArtifactExtension, verifyExtensionSources } from './artifact-extensions';
 import type { ResolvedBrowserBenchmarkRunOptions, BrowserBenchmarkStats } from '../browser-types';
 import {
   journalSampleWithImages,
@@ -158,6 +159,18 @@ function numberOption(value: unknown, name: string, minimum: number): number {
 }
 
 export function validateProfile(value: unknown): BenchmarkProfile {
+  const extension = (value as { artifactExtension?: unknown } | null)?.artifactExtension;
+  if (
+    extension !== undefined &&
+    (!extension ||
+      typeof extension !== 'object' ||
+      typeof (extension as { module?: unknown }).module !== 'string' ||
+      !(extension as { module: string }).module.trim() ||
+      !(extension as { sources?: unknown }).sources ||
+      Array.isArray((extension as { sources: unknown }).sources) ||
+      typeof (extension as { sources: unknown }).sources !== 'object')
+  )
+    throw new Error('artifactExtension must declare a source module and source hashes.');
   if (typeof value !== 'object' || value === null)
     throw new Error('Benchmark profile must be an object.');
   const profile = value as Partial<BenchmarkProfile>;
@@ -314,6 +327,7 @@ export async function loadProfileWorkloads(
   profilePath: string,
   profile: BenchmarkProfile,
 ): Promise<ResolvedProfileWorkload[]> {
+  await verifyExtensionSources(path.resolve(import.meta.dirname, '../../../..'), profile);
   return Promise.all(
     profile.workloads.map(async (entry) => {
       const modulePath = path.resolve(path.dirname(profilePath), entry.module);
@@ -1356,6 +1370,12 @@ export function externalResultSample(
   }
   const state = result.correctness?.state ?? result.state ?? null;
   const expectedState = result.correctness?.expectedState ?? result.expectedState ?? state;
+  if (
+    result.retainSemanticEvidence &&
+    ((result.correctness?.state ?? result.state) === undefined ||
+      (result.correctness?.expectedState ?? result.expectedState) === undefined)
+  )
+    throw new Error('Retained semantic evidence requires explicit observed and expected states.');
   const stateHash = sha256(state);
   const expectedStateHash = sha256(expectedState);
   const valid = result.correctness?.valid ?? stateHash === expectedStateHash;
@@ -1381,6 +1401,10 @@ export function externalResultSample(
       stateHash,
       expectedStateHash,
     },
+    ...(result.retainSemanticEvidence ? { semanticEvidence: { state, expectedState } } : {}),
+    ...(result.measurementEvidence === undefined
+      ? {}
+      : { measurementEvidence: result.measurementEvidence }),
     process,
     ...(Object.keys(stages).length > 0 ? { stagesMs: stages } : {}),
     ...(visual ? { visual } : {}),
@@ -2957,6 +2981,12 @@ export function verifyArtifact(artifact: BenchmarkArtifact): void {
       throw new Error(`${run.workload.id}/${run.suite} has duplicate or missing replicate blocks.`);
     for (const sample of run.samples) {
       if (
+        sample.semanticEvidence &&
+        (sha256(sample.semanticEvidence.state) !== sample.correctness.stateHash ||
+          sha256(sample.semanticEvidence.expectedState) !== sample.correctness.expectedStateHash)
+      )
+        throw new Error(`${run.id} retained semantic evidence does not match its hashes.`);
+      if (
         !sample.correctness.valid ||
         sample.correctness.stateHash !== sample.correctness.expectedStateHash
       ) {
@@ -3042,6 +3072,11 @@ export async function verifyArtifactSourceFiles(
           throw new Error(`Visual checkpoint ${checkpoint} does not match ${relativePath}.`);
       }
     }
+  const extension = await loadArtifactExtension(
+    path.resolve(import.meta.dirname, '../../../..'),
+    loaded,
+  );
+  await extension?.verify(loaded);
 }
 
 export async function verifyArtifactFiles(

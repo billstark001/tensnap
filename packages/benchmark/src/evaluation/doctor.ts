@@ -48,6 +48,42 @@ export async function inspectEnvironment(
   specification: EvaluationSpecification,
 ): Promise<Record<string, unknown>> {
   const locks = await checkProfileLocks(context.repositoryRoot, specification);
+  if (specification.environment === 'node') {
+    // Node-only batches need native painting/SQLite and Python's standard-library archiver.
+    // They do not require the scientific Python, Go, Julia, NetLogo or browser environments.
+    const native = await execute(
+      context,
+      process.execPath,
+      [
+        '-e',
+        'const c=require("canvas"); require("node:sqlite"); console.log(JSON.stringify({canvas:c.version,sqlite:true}))',
+      ],
+      {
+        cwd: path.join(context.repositoryRoot, 'packages/tensnap-agent'),
+        quiet: true,
+        capture: 'stdout',
+      },
+    );
+    return {
+      host: {
+        os: platform(),
+        release: release(),
+        arch: arch(),
+        cpu: cpus()[0]?.model,
+        memoryBytes: totalmem(),
+      },
+      node: process.version,
+      pnpm: await execute(context, 'pnpm', ['--version'], { quiet: true }),
+      native: JSON.parse(native),
+      archivePython: await execute(
+        context,
+        context.python,
+        ['-c', 'import platform, tarfile, gzip; print(platform.python_version())'],
+        { quiet: true },
+      ),
+      locks,
+    };
+  }
   const pythonCode = [
     'import importlib.metadata as m, json, platform, tensnap, mesa, solara, torch, pynetlogo, jpype, PIL',
     'names=["mesa","solara","ipyvue","ipyvuetify","torch","pynetlogo","jpype1","Pillow","websockets","msgpack","numpy"]',
