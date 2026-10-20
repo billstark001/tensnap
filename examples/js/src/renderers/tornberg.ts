@@ -19,13 +19,30 @@ export const DEFAULT_TORNBERG_CONFIG: TornbergConfig = {
   homophilyH: 8,
   networkType: 'moore',
   updatesPerTick: 200,
+  seed: 7,
 };
 
 interface TornbergRuntime {
+  rng: { state: number };
   config: TornbergConfig;
   state: TornbergState;
   stepCount: number;
   lastMetrics: TornbergMetrics;
+}
+
+// Each model runtime owns its stream; projection and layout reads do not draw from it.
+function nextRandom(rng: { state: number }): number {
+  rng.state = (rng.state + 0x6d2b79f5) >>> 0;
+  let value = Math.imul(rng.state ^ (rng.state >>> 15), 1 | rng.state);
+  value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+  return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+}
+
+function initializeRuntime(runtime: TornbergRuntime): void {
+  runtime.rng.state = runtime.config.seed ?? 7;
+  runtime.state = initializeTornberg(runtime.config, () => nextRandom(runtime.rng));
+  runtime.stepCount = 0;
+  runtime.lastMetrics = computeTornbergMetrics(runtime.state);
 }
 
 function createCultureColor(agent: { features: number[] }, numTraits: number): string {
@@ -109,8 +126,10 @@ const builder = modelBuilder(
   {
     defaults: DEFAULT_TORNBERG_CONFIG,
     create(config): TornbergRuntime {
-      const state = initializeTornberg(config);
+      const rng = { state: config.seed ?? 7 };
+      const state = initializeTornberg(config, () => nextRandom(rng));
       return {
+        rng,
         config: { ...config },
         state,
         stepCount: 0,
@@ -118,14 +137,12 @@ const builder = modelBuilder(
       };
     },
     init(runtime) {
-      runtime.state = initializeTornberg(runtime.config);
-      runtime.stepCount = 0;
-      runtime.lastMetrics = computeTornbergMetrics(runtime.state);
+      initializeRuntime(runtime);
     },
     step(runtime) {
       const updatesPerTick = Math.max(1, Math.floor(runtime.config.updatesPerTick ?? 1));
       for (let i = 0; i < updatesPerTick; i++) {
-        stepTornberg(runtime.state);
+        stepTornberg(runtime.state, () => nextRandom(runtime.rng));
       }
       runtime.stepCount += 1;
       if (runtime.stepCount % SORTING_SAMPLE_INTERVAL === 0) {
@@ -134,9 +151,7 @@ const builder = modelBuilder(
       return true;
     },
     reset(runtime) {
-      runtime.state = initializeTornberg(runtime.config);
-      runtime.stepCount = 0;
-      runtime.lastMetrics = computeTornbergMetrics(runtime.state);
+      initializeRuntime(runtime);
     },
     time(runtime) {
       return runtime.stepCount;
@@ -153,6 +168,13 @@ builder.paramsFromConfig<TornbergConfig>({
     Object.assign(runtime.config, patch);
   },
   fields: {
+    seed: numberField({
+      label: 'Seed (next reset)',
+      min: 0,
+      max: 0xffffffff,
+      integer: true,
+      runtime: false,
+    }),
     width: numberField({ label: 'Grid Width', integer: true, runtime: false }),
     height: numberField({ label: 'Grid Height', integer: true, runtime: false }),
     numFeatures: numberField({ label: 'Feature Count', integer: true, runtime: false }),

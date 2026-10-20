@@ -23,25 +23,25 @@ abstract class Turtle {
 
   constructor(
     public config: TurtleConfig,
-    public world: World,
+    public world: RandomWorld,
   ) {
     this.position = this.randomPosition();
     this.energy = 0;
-    this.heading = Math.random() * 360;
+    this.heading = this.world.random() * 360;
   }
 
   private randomPosition(): Position {
     return {
-      x: Math.random() * this.world.width,
-      y: Math.random() * this.world.height,
+      x: this.world.random() * this.world.width,
+      y: this.world.random() * this.world.height,
     };
   }
 
   move(): void {
     // Turn right by random amount up to 50 degrees
-    this.heading += Math.random() * 50;
+    this.heading += this.world.random() * 50;
     // Turn left by random amount up to 50 degrees
-    this.heading -= Math.random() * 50;
+    this.heading -= this.world.random() * 50;
 
     // Move forward 1 step
     const radians = (this.heading * Math.PI) / 180;
@@ -71,7 +71,7 @@ abstract class Turtle {
 }
 
 class Sheep extends Turtle {
-  constructor(world: World, gainFromFood: number) {
+  constructor(world: RandomWorld, gainFromFood: number) {
     super(
       {
         shape: 'sheep',
@@ -81,7 +81,7 @@ class Sheep extends Turtle {
       },
       world,
     );
-    this.energy = Math.random() * (2 * gainFromFood);
+    this.energy = this.world.random() * (2 * gainFromFood);
   }
 
   eatGrass(patches: Patch[][], gainFromFood: number): void {
@@ -95,12 +95,12 @@ class Sheep extends Turtle {
   }
 
   reproduce(reproduceRate: number): Sheep | null {
-    if (Math.random() * 100 < reproduceRate) {
+    if (this.world.random() * 100 < reproduceRate) {
       this.energy = this.energy / 2;
       const offspring = new Sheep(this.world, 0);
       offspring.energy = this.energy;
       offspring.position = { ...this.position };
-      offspring.heading = Math.random() * 360;
+      offspring.heading = this.world.random() * 360;
       offspring.move();
       return offspring;
     }
@@ -109,7 +109,7 @@ class Sheep extends Turtle {
 }
 
 class Wolf extends Turtle {
-  constructor(world: World, gainFromFood: number) {
+  constructor(world: RandomWorld, gainFromFood: number) {
     super(
       {
         shape: 'wolf',
@@ -119,7 +119,7 @@ class Wolf extends Turtle {
       },
       world,
     );
-    this.energy = Math.random() * (2 * gainFromFood);
+    this.energy = this.world.random() * (2 * gainFromFood);
   }
 
   eatSheep(sheep: Sheep[], gainFromFood: number): Sheep | null {
@@ -141,12 +141,12 @@ class Wolf extends Turtle {
   }
 
   reproduce(reproduceRate: number): Wolf | null {
-    if (Math.random() * 100 < reproduceRate) {
+    if (this.world.random() * 100 < reproduceRate) {
       this.energy = this.energy / 2;
       const offspring = new Wolf(this.world, 0);
       offspring.energy = this.energy;
       offspring.position = { ...this.position };
-      offspring.heading = Math.random() * 360;
+      offspring.heading = this.world.random() * 360;
       offspring.move();
       return offspring;
     }
@@ -163,11 +163,12 @@ class Patch {
     public y: number,
     modelVersion: ModelVersion,
     grassRegrowthTime: number,
+    random: () => number,
   ) {
     if (modelVersion === 'sheep-wolves-grass') {
-      this.color = Math.random() < 0.5 ? 'green' : 'brown';
+      this.color = random() < 0.5 ? 'green' : 'brown';
       this.countdown =
-        this.color === 'green' ? grassRegrowthTime : Math.floor(Math.random() * grassRegrowthTime);
+        this.color === 'green' ? grassRegrowthTime : Math.floor(random() * grassRegrowthTime);
     } else {
       this.color = 'green';
       this.countdown = 0;
@@ -191,6 +192,10 @@ export interface World {
   height: number;
 }
 
+interface RandomWorld extends World {
+  random: () => number;
+}
+
 // Main Model Class
 export class WolfSheepModel {
   private sheep: Sheep[] = [];
@@ -198,9 +203,11 @@ export class WolfSheepModel {
   private patches: Patch[][] = [];
   private ticks: number = 0;
   private maxSheep: number;
+  private rngState = 0;
+  private world: RandomWorld;
 
   constructor(
-    private world: World,
+    world: World,
     private config: {
       modelVersion: ModelVersion;
       initialNumberSheep: number;
@@ -211,12 +218,22 @@ export class WolfSheepModel {
       sheepReproduce: number;
       wolfReproduce: number;
       showEnergy: boolean;
+      seed?: number;
     },
   ) {
+    this.world = { ...world, random: () => this.random() };
     this.maxSheep = 30000; // Can be adjusted based on platform
   }
 
+  private random(): number {
+    this.rngState = (this.rngState + 0x6d2b79f5) >>> 0;
+    let value = Math.imul(this.rngState ^ (this.rngState >>> 15), 1 | this.rngState);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  }
+
   setup(): void {
+    this.rngState = this.config.seed ?? 7;
     this.sheep = [];
     this.wolves = [];
     this.patches = [];
@@ -231,6 +248,7 @@ export class WolfSheepModel {
           y,
           this.config.modelVersion,
           this.config.grassRegrowthTime,
+          this.world.random,
         );
       }
     }
@@ -395,6 +413,7 @@ export class WolfSheepModel {
 }
 
 export interface WolfSheepConfig {
+  seed?: number;
   modelVersion: ModelVersion;
   initialNumberSheep: number;
   initialNumberWolves: number;

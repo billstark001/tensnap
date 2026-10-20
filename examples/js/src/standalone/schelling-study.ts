@@ -14,7 +14,6 @@ export interface SchellingStudyOptions {
   density: number;
   balance: number;
   thresholds: number[];
-  warmupSteps: number;
   steps: number;
   seeds: number;
   seed: number;
@@ -24,11 +23,10 @@ export interface SchellingStudyOptions {
 export interface SchellingTrialResult {
   readonly threshold: number;
   readonly seed: number;
-  readonly elapsedMs: number;
   readonly satisfiedPct: number;
   readonly segregationIndex: number;
   readonly stepsRun: number;
-  readonly converged: boolean;
+  readonly termination: 'satisfied' | 'jammed' | 'limit';
   readonly lastMoved: number;
 }
 
@@ -38,16 +36,16 @@ export interface SchellingStudyRow {
   readonly meanSegregationIndex: number;
   readonly meanLastMoved: number;
   readonly meanSteps: number;
-  readonly convergedRuns: number;
+  readonly satisfiedRuns: number;
+  readonly jammedRuns: number;
+  readonly limitRuns: number;
 }
 
 export interface SchellingStudyResult {
   readonly options: SchellingStudyOptions;
   readonly trials: readonly SchellingTrialResult[];
   readonly rows: readonly SchellingStudyRow[];
-  readonly elapsedMs: number;
   readonly totalTicks: number;
-  readonly msPerTick: number;
   readonly satisfiedPct: number;
   readonly segregationIndex: number;
   readonly actualSteps: number;
@@ -59,7 +57,6 @@ export const DEFAULT_SCHELLING_STUDY_OPTIONS: SchellingStudyOptions = {
   density: DEFAULT_SCHELLING_CONFIG.density,
   balance: DEFAULT_SCHELLING_CONFIG.balance,
   thresholds: [0.3, 0.5, 0.7, 0.9],
-  warmupSteps: 0,
   steps: 1_000,
   seeds: 8,
   seed: 7,
@@ -74,7 +71,6 @@ function optionValues(argv: readonly string[]): Map<string, string | true> {
     'density',
     'balance',
     'thresholds',
-    'warmup-steps',
     'steps',
     'seeds',
     'seed',
@@ -118,17 +114,6 @@ function positiveInteger(
   return value;
 }
 
-function nonNegativeInteger(
-  values: Map<string, string | true>,
-  name: string,
-  fallback: number,
-): number {
-  const value = finiteNumber(values, name, fallback);
-  if (!Number.isInteger(value) || value < 0)
-    throw new Error(`--${name} must be a non-negative integer.`);
-  return value;
-}
-
 export function parseSchellingThresholds(value: string): number[] {
   const thresholds = value
     .split(',')
@@ -166,7 +151,6 @@ export function parseSchellingStudyOptions(
       thresholdsRaw === undefined
         ? [...defaults.thresholds]
         : parseSchellingThresholds(thresholdsRaw as string),
-    warmupSteps: nonNegativeInteger(values, 'warmup-steps', defaults.warmupSteps),
     steps: positiveInteger(values, 'steps', defaults.steps),
     seeds: positiveInteger(values, 'seeds', defaults.seeds),
     seed: Math.trunc(finiteNumber(values, 'seed', defaults.seed)),
@@ -181,48 +165,48 @@ export function runSchellingTrial(
 ): Omit<SchellingTrialResult, 'threshold' | 'seed'> {
   const model = new SchellingModel(config);
   model.initialize();
-  const started = performance.now();
-  let stepsRun = 0;
-  let converged = false;
-  for (let step = 0; step < steps; step += 1) {
-    stepsRun += 1;
+  const { stepsRun, stopped } = advanceSchellingTrial(model, steps, mode);
+  return summarizeSchellingTrial(model, stepsRun, stopped);
+}
+
+export function advanceSchellingTrial(
+  model: SchellingModel,
+  steps: number,
+  mode: SchellingStudyMode,
+) {
+  for (let tick = 1; tick <= steps; tick++) {
     const moved = model.step();
-    if (mode === 'convergence' && !moved) {
-      converged = true;
-      break;
-    }
+    if (mode === 'convergence' && !moved) return { stepsRun: tick, stopped: true };
   }
-  const elapsedMs = performance.now() - started;
+  return { stepsRun: steps, stopped: false };
+}
+
+export function summarizeSchellingTrial(
+  model: SchellingModel,
+  stepsRun: number,
+  stopped: boolean,
+): Omit<SchellingTrialResult, 'threshold' | 'seed'> {
   const statistics = model.getStatistics();
+  const allSatisfied = statistics.satisfiedCount === statistics.totalAgents;
   return {
-    elapsedMs,
     satisfiedPct: statistics.satisfactionRate,
     segregationIndex: statistics.segregationIndex,
     stepsRun,
-    converged,
     lastMoved: statistics.lastMoved,
+    termination: stopped ? (allSatisfied ? 'satisfied' : 'jammed') : 'limit',
   };
 }
 
-export function runSchellingStudy(options: SchellingStudyOptions): SchellingStudyResult {
+export function runSchellingStudy(
+  options: SchellingStudyOptions,
+  trialRunner: typeof runSchellingTrial = runSchellingTrial,
+): SchellingStudyResult {
   const baseConfig = {
     gridWidth: options.width,
     gridHeight: options.height,
     density: options.density,
     balance: options.balance,
   };
-  if (options.warmupSteps > 0) {
-    runSchellingTrial(
-      {
-        ...baseConfig,
-        similarityThreshold: options.thresholds[0]!,
-        seed: options.seed,
-      },
-      options.warmupSteps,
-      'steady',
-    );
-  }
-
   const trials: SchellingTrialResult[] = [];
   for (const threshold of options.thresholds) {
     for (let seedOffset = 0; seedOffset < options.seeds; seedOffset += 1) {
@@ -230,7 +214,7 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
       trials.push({
         threshold,
         seed,
-        ...runSchellingTrial(
+        ...trialRunner(
           { ...baseConfig, similarityThreshold: threshold, seed },
           options.steps,
           options.mode,
@@ -239,7 +223,6 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
     }
   }
 
-  const elapsedMs = trials.reduce((total, trial) => total + trial.elapsedMs, 0);
   const totalTicks = trials.reduce((total, trial) => total + trial.stepsRun, 0);
   const trialCount = trials.length;
   const rows = options.thresholds.map((threshold) => {
@@ -253,16 +236,16 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
       meanLastMoved:
         selected.reduce((total, trial) => total + trial.lastMoved, 0) / selected.length,
       meanSteps: selected.reduce((total, trial) => total + trial.stepsRun, 0) / selected.length,
-      convergedRuns: selected.filter((trial) => trial.converged).length,
+      satisfiedRuns: selected.filter((trial) => trial.termination === 'satisfied').length,
+      jammedRuns: selected.filter((trial) => trial.termination === 'jammed').length,
+      limitRuns: selected.filter((trial) => trial.termination === 'limit').length,
     };
   });
   return {
     options,
     trials,
     rows,
-    elapsedMs,
     totalTicks,
-    msPerTick: totalTicks === 0 ? 0 : elapsedMs / totalTicks,
     satisfiedPct: trials.reduce((total, trial) => total + trial.satisfiedPct, 0) / trialCount,
     segregationIndex:
       trials.reduce((total, trial) => total + trial.segregationIndex, 0) / trialCount,
@@ -272,7 +255,7 @@ export function runSchellingStudy(options: SchellingStudyOptions): SchellingStud
 
 export function formatSchellingStudyCsv(result: SchellingStudyResult): string {
   const lines = [
-    'threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs',
+    'threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,satisfied_runs,jammed_runs,limit_runs',
   ];
   for (const row of result.rows) {
     lines.push(
@@ -282,19 +265,11 @@ export function formatSchellingStudyCsv(result: SchellingStudyResult): string {
         row.meanSegregationIndex.toFixed(4),
         row.meanLastMoved.toFixed(2),
         row.meanSteps.toFixed(2),
-        row.convergedRuns,
+        row.satisfiedRuns,
+        row.jammedRuns,
+        row.limitRuns,
       ].join(','),
     );
   }
-  lines.push(
-    'performance_metric,total_ticks,elapsed_ms,tpms,mspt',
-    [
-      'performance',
-      result.totalTicks,
-      result.elapsedMs.toFixed(3),
-      (result.elapsedMs === 0 ? 0 : result.totalTicks / result.elapsedMs).toFixed(6),
-      result.msPerTick.toFixed(6),
-    ].join(','),
-  );
   return `${lines.join('\n')}\n`;
 }

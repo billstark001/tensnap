@@ -12,6 +12,8 @@ export type AxelrodNeighborhood = 'von-neumann' | 'moore' | 'extended';
 
 /** Configuration parameters for the Axelrod model */
 export interface AxelrodConfig {
+  /** Initialization seed used by the example host; RNG injection remains caller-owned. */
+  seed?: number;
   /** Grid width; total agent count = width × height */
   width: number;
   /** Grid height */

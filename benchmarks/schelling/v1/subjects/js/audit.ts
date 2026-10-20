@@ -1,6 +1,9 @@
 // Publication audit sidecar; not part of the teaching Schelling example.
 // Loaded only by the Node WebSocket launcher when explicitly requested.
-import type { SchellingConfig, SchellingModel } from '../models/schelling';
+import type {
+  SchellingConfig,
+  SchellingModel,
+} from '../../../../../examples/js/src/models/schelling';
 
 interface LiveInternals {
   config: SchellingConfig;
