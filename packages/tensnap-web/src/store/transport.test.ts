@@ -15,6 +15,10 @@ import { createScenarioStore } from './scenario/store';
 import { createTransportStore } from './transport';
 import { useSettingsStore } from './settings';
 import { WebSocketConnectionError, WebSocketManagerImpl } from '@/transport';
+import {
+  RendererToSimulatorMessageSchema,
+  SimulatorToRendererMessageSchema,
+} from '@tensnap/protocol';
 
 class DeferredTransport implements ISimulatorTransport {
   readonly encoding: ProtocolEncoding = 'json';
@@ -273,6 +277,87 @@ describe('transport store reconnect state', () => {
       useSettingsStore.getState().setServerMessageValidation(originalServer);
     }
   });
+
+  it.each(['off', 'error'] as const)(
+    'keeps explicit %s validation through initialization and reconnect',
+    async (policy) => {
+      const original = useSettingsStore.getState();
+      const sockets: any[] = [];
+      class Socket {
+        static OPEN = 1;
+        readyState = 0;
+        onopen?: () => void;
+        onmessage?: (event: { data: string }) => void;
+        send = vi.fn();
+        close() {
+          this.readyState = 3;
+        }
+        constructor() {
+          sockets.push(this);
+        }
+        open() {
+          this.readyState = 1;
+          this.onopen?.();
+        }
+      }
+      vi.stubGlobal('WebSocket', Socket);
+      const sendSchema = vi.spyOn(RendererToSimulatorMessageSchema, 'safeParse');
+      const receiveSchema = vi.spyOn(SimulatorToRendererMessageSchema, 'safeParse');
+      const store = createTransportStore(createScenarioStore(), policy);
+      const transport = new WebSocketManagerImpl('benchmark', 'ws://unused.test', false, 'strict');
+      try {
+        useSettingsStore.setState({
+          clientMessageValidation: 'off',
+          serverMessageValidation: 'off',
+        });
+        const initialized = store.getState().initialize(transport);
+        sockets[0].open();
+        await initialized;
+        for (let round = 0; round < 2; round++) {
+          const active = store.getState().transport as WebSocketManagerImpl;
+          useSettingsStore.setState({
+            clientMessageValidation: 'warning',
+            serverMessageValidation: 'warning',
+          });
+          useSettingsStore.setState({
+            clientMessageValidation: 'off',
+            serverMessageValidation: 'off',
+          });
+          expect(active.clientMessageValidation).toBe(policy);
+          expect(active.serverMessageValidation).toBe(policy);
+          sendSchema.mockClear();
+          receiveSchema.mockClear();
+          active.send({
+            type: 'action_invoke',
+            payload: { id: 'start', request_id: 'diagnostic' },
+          });
+          sockets[round].onmessage({
+            data: JSON.stringify({ type: 'metadata_update', payload: { time: 1 } }),
+          });
+          expect(sendSchema).toHaveBeenCalledTimes(policy === 'off' ? 0 : 1);
+          expect(receiveSchema).toHaveBeenCalledTimes(policy === 'off' ? 0 : 1);
+          if (policy === 'error')
+            expect(() =>
+              active.send({ type: 'action_invoke', payload: { id: 42 } } as any),
+            ).toThrow();
+          if (round === 0) {
+            const reconnected = store.getState().reconnect();
+            sockets[1].open();
+            sockets[1].onmessage({
+              data: JSON.stringify({ type: 'metadata_update', payload: { time: 0 } }),
+            });
+            await reconnected;
+          }
+        }
+      } finally {
+        store.getState().destroy();
+        useSettingsStore.setState(original);
+        sendSchema.mockRestore();
+        receiveSchema.mockRestore();
+        vi.unstubAllGlobals();
+      }
+    },
+  );
 
   it('keeps the current transport alive until a replacement connects', async () => {
     const useScenarioStore = createScenarioStore();

@@ -57,13 +57,14 @@ export const browserWorkload: BrowserBenchmarkWorkload<TenSnapWebConfig> = {
   description: 'Production TenSnap Web host connected to an external Schelling simulator.',
   supportedSuites: ['browser'],
   resolveConfig: resolveTenSnapWebConfig,
-  createBrowserCase({ config }): BrowserBenchmarkCase {
+  createBrowserCase({ config, validation = 'off' }): BrowserBenchmarkCase {
     return {
       case: createWebScenarioCase({
         name: 'External Schelling TenSnap Web',
         category: 'tensnap',
         variant: 'external-simulator',
         config,
+        validation,
         width: config.width ?? 900,
         height: config.height ?? 700,
         createTransport: () =>

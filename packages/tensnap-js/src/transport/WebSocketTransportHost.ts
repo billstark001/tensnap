@@ -45,8 +45,8 @@ export class WebSocketTransportHost {
 
   private readonly connectionIdFactory: (socket: WebSocket) => string;
   private readonly sessionFactory: () => SimulatorSession;
-  private readonly rendererMessageValidation: ProtocolValidationLevel;
-  private readonly simulatorMessageValidation: ProtocolValidationLevel;
+  readonly rendererMessageValidation: ProtocolValidationLevel;
+  readonly simulatorMessageValidation: ProtocolValidationLevel;
   private readonly onValidationWarning?: (warning: ProtocolValidationWarning) => void;
   private readonly onValidationError?: (error: unknown) => void;
   private readonly onSimulatorMessage?: (

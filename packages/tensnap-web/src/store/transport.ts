@@ -1,4 +1,5 @@
 import type { StoreApi, UseBoundStore } from 'zustand';
+import type { ProtocolValidationLevel } from '@tensnap/protocol';
 import { create } from 'zustand';
 import type { ScenarioStore } from './scenario/types';
 import { generateUniqueId } from '@/utils/common';
@@ -45,7 +46,11 @@ export interface TransportStore {
   destroy: () => void;
 }
 
-export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>) =>
+export const createTransportStore = (
+  useScenarioStore: UseBoundStore<StoreApi<ScenarioStore>>,
+  /** A benchmark's explicit policy takes precedence for the lifetime of this store. */
+  validation?: ProtocolValidationLevel,
+) =>
   create<TransportStore>((set, get) => {
     const client = new RendererClient({ session: useScenarioStore.getState().session });
     let removeActiveConnectionListeners: (() => void) | null = null;
@@ -111,8 +116,8 @@ export const createTransportStore = (useScenarioStore: UseBoundStore<StoreApi<Sc
         useSettingsStore.getState();
       if (transport instanceof WebSocketManagerImpl) {
         transport.ip_family = ip_family ?? 'auto';
-        transport.clientMessageValidation = clientMessageValidation;
-        transport.serverMessageValidation = serverMessageValidation;
+        transport.clientMessageValidation = validation ?? clientMessageValidation;
+        transport.serverMessageValidation = validation ?? serverMessageValidation;
       }
     };
 

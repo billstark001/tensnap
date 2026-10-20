@@ -1,4 +1,5 @@
 import type { ISimulatorTransport } from '@tensnap/core';
+import type { ProtocolValidationLevel } from '@tensnap/protocol';
 import type { BenchmarkCase } from '../browser-types';
 
 export interface WebScenarioCaseDefinition {
@@ -9,6 +10,7 @@ export interface WebScenarioCaseDefinition {
   width: number;
   height: number;
   actionId?: string;
+  validation: ProtocolValidationLevel;
   createTransport(): ISimulatorTransport;
 }
 
@@ -26,6 +28,7 @@ export function createWebScenarioCase(definition: WebScenarioCaseDefinition): Be
         transport: definition.createTransport(),
         width: definition.width,
         height: definition.height,
+        validation: definition.validation,
         ...options,
       });
       return { kind: 'model', ...mounted };

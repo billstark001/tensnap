@@ -362,6 +362,7 @@ export const workload: BenchmarkWorkload<RandomWalkBenchmarkConfig> = {
       category: 'tensnap',
       variant: `ws-${encoding}`,
       config,
+      validation,
       width: config.width,
       height: config.height,
       createTransport() {

@@ -230,6 +230,7 @@ export interface ProtocolBrowserCaseOptions<TConfig extends BenchmarkConfig = Be
 
 export interface BrowserCaseOptions<TConfig extends BenchmarkConfig = BenchmarkConfig> {
   config: TConfig;
+  validation?: ProtocolValidationLevel;
 }
 
 export interface NodeBenchmarkCase {
@@ -317,6 +318,17 @@ export interface BenchmarkCorrectness {
 }
 
 export interface BenchmarkReplicate {
+  /** Observed policies; absent means unobserved, never inferred from a profile. */
+  readonly effectiveValidation?: {
+    readonly frontend?: {
+      readonly send: ProtocolValidationLevel;
+      readonly receive: ProtocolValidationLevel;
+    };
+    readonly server?: {
+      readonly send: ProtocolValidationLevel;
+      readonly receive: ProtocolValidationLevel;
+    };
+  };
   readonly index: number;
   /** The randomized block shared by all systems for a paired replicate. */
   readonly block: number;

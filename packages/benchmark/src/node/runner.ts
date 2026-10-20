@@ -60,7 +60,7 @@ import type {
   ProtocolBenchmarkWorkload,
 } from '../harness/types';
 import { resolveBrowserBenchmarkRunOptions } from '../browser-options';
-import type { ResolvedBrowserBenchmarkRunOptions } from '../browser-types';
+import type { ResolvedBrowserBenchmarkRunOptions, BrowserBenchmarkStats } from '../browser-types';
 import {
   journalSampleWithImages,
   readBenchmarkArtifact,
@@ -1123,17 +1123,11 @@ export async function runProtocolBrowserReplicate(
       const result = (await page.evaluate(() => window.__TENSNAP_BENCHMARK_RESULT__)) as {
         ok: boolean;
         error?: string;
-        stats?: {
-          timings: number[];
-          mutationTimings?: number[];
-          stageTimings?: Record<string, number[]>;
-          completedFrames: number;
-          measuredFrames: number;
-          stopReason: string;
-        };
+        stats?: BrowserBenchmarkStats;
       };
       if (!result.ok || !result.stats)
         throw failure(result.error ?? 'Browser benchmark did not return stats.');
+      assertFrontendValidation(result.stats.effectiveValidation, validation);
       if (observerError) throw observerError;
       const actionCount = warmupActions + measuredActions;
       const correctness = assertProtocolCorrectness(workload, config, validator, actionCount);
@@ -1158,6 +1152,13 @@ export async function runProtocolBrowserReplicate(
           messageCounts: counts,
           wireBytes,
           correctness,
+          effectiveValidation: {
+            frontend: result.stats.effectiveValidation,
+            server: {
+              send: host.simulatorMessageValidation,
+              receive: host.rendererMessageValidation,
+            },
+          },
           process: processMeasurement(processStartedAt, true),
           ...(result.stats.stageTimings ? { stagesMs: result.stats.stageTimings } : {}),
         },
@@ -1167,6 +1168,17 @@ export async function runProtocolBrowserReplicate(
     }
   } finally {
     await host.close();
+  }
+}
+
+function assertFrontendValidation(
+  effective: BrowserBenchmarkStats['effectiveValidation'],
+  requested: ProtocolValidationLevel,
+): void {
+  if (effective?.send !== requested || effective?.receive !== requested) {
+    throw new Error(
+      `Frontend validation differs from requested ${requested}: ${JSON.stringify(effective) ?? 'unobserved'}.`,
+    );
   }
 }
 
@@ -1234,14 +1246,7 @@ async function runBrowserWorkloadReplicate(
       error?: string;
       snapshot?: unknown;
       expectedState?: unknown;
-      stats?: {
-        timings: number[];
-        mutationTimings?: number[];
-        stageTimings?: Record<string, number[]>;
-        completedFrames: number;
-        measuredFrames: number;
-        stopReason: string;
-      };
+      stats?: BrowserBenchmarkStats;
     };
     if (!result.ok || !result.stats)
       throw new Error(result.error ?? `Browser workload ${workload.id} failed.`);
@@ -1273,6 +1278,9 @@ async function runBrowserWorkloadReplicate(
           : {},
         messageCounts: {},
         wireBytes: { ...EMPTY_BYTES },
+        effectiveValidation: result.stats.effectiveValidation
+          ? { frontend: result.stats.effectiveValidation }
+          : undefined,
         correctness: { valid: true, actionCount, stateHash, expectedStateHash },
         process: processMeasurement(processStartedAt, true),
         ...(result.stats.stageTimings ? { stagesMs: result.stats.stageTimings } : {}),
@@ -1875,18 +1883,14 @@ async function runExternalBrowserReplicate(
             ok: boolean;
             error?: string;
             snapshot?: unknown;
-            stats?: {
-              timings: number[];
-              mutationTimings?: number[];
-              stageTimings?: Record<string, number[]>;
-              completedFrames: number;
-              measuredFrames: number;
-              stopReason: string;
-              snapshot?: unknown;
-            };
+            stats?: BrowserBenchmarkStats;
           };
           if (!result.ok || !result.stats)
             throw new Error(result.error ?? 'External TenSnap browser workload failed.');
+          assertFrontendValidation(
+            result.stats.effectiveValidation,
+            spec.tensnapHarness.validation,
+          );
           const actionCount = warmupActions + measuredActions;
           if (
             result.stats.completedFrames !== actionCount ||
@@ -1932,7 +1936,15 @@ async function runExternalBrowserReplicate(
             index,
             externalWallMeasurement(startedAt),
           );
-          return { browserVersion: browser.version(), sample };
+          return {
+            browserVersion: browser.version(),
+            sample: {
+              ...sample,
+              effectiveValidation: result.stats.effectiveValidation
+                ? { frontend: result.stats.effectiveValidation }
+                : undefined,
+            },
+          };
         } finally {
           await browserServer.close();
         }

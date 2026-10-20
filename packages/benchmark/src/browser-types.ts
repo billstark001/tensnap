@@ -1,4 +1,5 @@
 import type { RendererSession } from '@tensnap/core/runtime';
+import type { ProtocolValidationLevel } from '@tensnap/protocol';
 import type { RenderTriggerMode } from '@tensnap/web/store';
 
 export type BrowserBenchmarkCategory = 'tensnap' | 'renderer-control' | 'external';
@@ -34,6 +35,9 @@ export interface MountedModelBenchmark {
   session: RendererSession;
   /** Canonical renderer-owned state after the render barrier has completed. */
   snapshot(): unknown;
+  validationPolicy?():
+    | { send: ProtocolValidationLevel; receive: ProtocolValidationLevel }
+    | undefined;
   destroy(): void;
 }
 
@@ -67,6 +71,7 @@ export interface MetricSummary {
 }
 
 export interface BrowserBenchmarkStats {
+  effectiveValidation?: { send: ProtocolValidationLevel; receive: ProtocolValidationLevel };
   caseName: string;
   category: BrowserBenchmarkCategory;
   variant?: string;

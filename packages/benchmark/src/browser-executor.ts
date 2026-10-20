@@ -176,6 +176,9 @@ export async function runBrowserBenchmark(
       ...(result.mutationTimings ? { mutationTimings: result.mutationTimings } : {}),
       ...(result.stageTimings ? { stageTimings: result.stageTimings } : {}),
       ...(mounted.kind === 'model' ? { snapshot: mounted.snapshot() } : {}),
+      ...(mounted.kind === 'model' && mounted.validationPolicy
+        ? { effectiveValidation: mounted.validationPolicy() }
+        : {}),
     };
   } finally {
     mounted.destroy();

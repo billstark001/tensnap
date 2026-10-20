@@ -32,7 +32,10 @@ async function main(): Promise<void> {
   if (!root) throw new Error('Benchmark root is missing.');
   const config = workload.resolveConfig(request.config);
   if (workload.kind === 'browser') {
-    const benchmark = workload.createBrowserCase({ config });
+    const benchmark = workload.createBrowserCase({
+      config,
+      validation: request.validation ?? 'off',
+    });
     const stats = await runBrowserBenchmark(
       benchmark.case,
       root,

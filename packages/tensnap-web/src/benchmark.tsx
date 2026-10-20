@@ -1,5 +1,7 @@
 import type { ChartConfig, ChartDataPoint, ISimulatorTransport, Scenario } from '@tensnap/core';
 import type { RendererSession } from '@tensnap/core/runtime';
+import type { ProtocolValidationLevel } from '@tensnap/protocol';
+import { WebSocketManagerImpl } from './transport';
 import { I18nProvider } from '@lingui/react';
 import { flushSync } from 'react-dom';
 import { createRoot, type Root } from 'react-dom/client';
@@ -21,11 +23,15 @@ export interface WebBenchmarkHostOptions {
   renderTriggerMode: RenderTriggerMode;
   maxTps: number;
   maxRenderFps: number;
+  validation: ProtocolValidationLevel;
 }
 
 export interface MountedWebBenchmark {
   session: RendererSession;
   snapshot(): unknown;
+  validationPolicy():
+    | { send: ProtocolValidationLevel; receive: ProtocolValidationLevel }
+    | undefined;
   destroy(): void;
 }
 
@@ -181,7 +187,7 @@ export async function mountWebBenchmark(
 
   const historyStore = createHistoryStore();
   const scenarioStore = createScenarioStore(historyStore);
-  const transportStore = createTransportStore(scenarioStore);
+  const transportStore = createTransportStore(scenarioStore, options.validation);
   const host = document.createElement('div');
   host.dataset.benchmarkHost = 'tensnap-web';
   host.style.width = `${options.width}px`;
@@ -220,6 +226,15 @@ export async function mountWebBenchmark(
     session: scenarioStore.getState().session,
     snapshot() {
       return scenarioStore.getState().session.scenario.dump();
+    },
+    validationPolicy() {
+      const transport = transportStore.getState().transport;
+      return transport instanceof WebSocketManagerImpl
+        ? {
+            send: transport.clientMessageValidation,
+            receive: transport.serverMessageValidation,
+          }
+        : undefined;
     },
     destroy() {
       transportStore.getState().destroy();
