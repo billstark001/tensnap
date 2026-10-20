@@ -1,4 +1,4 @@
-# Pure dynamics for the El Farol Bar Problem.
+# Adaptive-expectations bar inspired by El Farol (no competing predictor pool).
 #
 # This file intentionally has no TenSnap dependency. It can be used from tests,
 # scripts, notebooks, or other visualization front ends.
@@ -17,16 +17,18 @@ mutable struct ElFarolModel
     capacity::Int
     attendance::Int
     history::Vector{Int}
+    seed::Int
     rng::MersenneTwister
 end
 
 function make_model(; n=100, capacity=60, seed=42)
     rng = MersenneTwister(seed)
     agents = [Patron(i, false, capacity, 0.0) for i in 1:n]
-    return ElFarolModel(agents, capacity, 0, Int[], rng)
+    return ElFarolModel(agents, capacity, 0, Int[], seed, rng)
 end
 
 function initialize!(model::ElFarolModel)
+    Random.seed!(model.rng, model.seed)
     empty!(model.history)
     model.attendance = 0
     for agent in model.agents
@@ -37,6 +39,11 @@ function initialize!(model::ElFarolModel)
     return model
 end
 
+"""One synchronous week; inertia 0.7, five-week memory, Gaussian noise σ=8.
+
+Score is an outcome diagnostic and does not select strategies. These chosen
+constants define a teaching variant, not a calibrated attendance model.
+"""
 function advance!(model::ElFarolModel)
     recent = isempty(model.history) ? model.capacity : sum(model.history[max(1, end - 4):end]) / min(5, length(model.history))
     noise = randn(model.rng, length(model.agents)) .* 8

@@ -12,15 +12,19 @@ config = SchellingConfig(
 	density = parse_env(Float64, "TENSNAP_SCHELLING_DENSITY", DEFAULT_DENSITY),
 	balance = parse_env(Float64, "TENSNAP_SCHELLING_BALANCE", DEFAULT_BALANCE),
 	similarity_threshold = parse_env(Float64, "TENSNAP_SCHELLING_THRESHOLD", DEFAULT_SIMILARITY_THRESHOLD),
-	seed = parse_optional_env(Int, "TENSNAP_SCHELLING_SEED"),
+	seed = parse_env(Int, "TENSNAP_SCHELLING_SEED", 7),
 )
+include("audit.jl")
+audit_path = get(ENV, "TENSNAP_SCHELLING_AUDIT_STATE", "")
+observe = isempty(audit_path) ? (_ -> nothing) : (model -> write_schelling_audit!(audit_path, model, config))
 server_port = parse_env(Int, "TENSNAP_SERVER_PORT", 8765)
 scenario = create_schelling_scenario(
 	config;
 	port = server_port,
-	use_msgpack = true,
-	include_parameters = false,
-	include_charts = false,
+	use_msgpack = parse_env(Bool, "TENSNAP_USE_MSGPACK", true),
+    observe = observe,
+	include_parameters = !isempty(audit_path),
+	include_charts = !isempty(audit_path),
 )
 
 @info "Starting Julia Schelling benchmark subject" url="ws://localhost:$server_port"

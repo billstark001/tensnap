@@ -15,12 +15,17 @@ scenario = Scenario(
     port=server_port,
     use_msgpack=use_msgpack,
     model_id="examples.julia.el_farol",
-    state_schema_version="1",
+    state_schema_version="2",
     restore_hooks=restore_hooks(scene_restore();
         checkpoint_capture=capture_bar,
         checkpoint_restore=data -> restore_bar!(data, model)),
 )
 register_model!(scenario, model; init=initialize!, step=advance!, reset=initialize!)
+
+add_parameter!(scenario, parameter("seed";
+    label="Seed (next reset)", value=model.seed, step=1, allow_runtime_change=false,
+    getter=m -> m.seed, setter=(value, m) -> (m.seed = Int(value)),
+))
 
 add_parameter!(scenario, parameter("capacity";
     label="Bar capacity", value=model.capacity, min=1, max=100, step=1,

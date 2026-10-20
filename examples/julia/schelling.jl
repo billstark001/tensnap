@@ -14,7 +14,7 @@ Base.@kwdef mutable struct SchellingConfig
 	density::Float64 = DEFAULT_DENSITY
 	balance::Float64 = DEFAULT_BALANCE
 	similarity_threshold::Float64 = DEFAULT_SIMILARITY_THRESHOLD
-	seed::Union{Nothing, Int} = nothing
+	seed::Int = 7
 end
 
 schelling_group_color(group::Int) = group == 1 ? "#3498db" : "#e74c3c"
@@ -22,7 +22,6 @@ schelling_group_color(group::Int) = group == 1 ? "#3498db" : "#e74c3c"
 mutable struct SchellingProperties
 	similarity_threshold::Float64
 	last_swapped::Int
-	tick::Int
 end
 
 @agent struct SchellingAgent(GridAgent{2})
@@ -98,7 +97,6 @@ function schelling_model_step!(model)
 	end
 
 	abmproperties(model).last_swapped = swapped
-	abmproperties(model).tick += 1
 	return swapped > 0
 end
 
@@ -108,7 +106,7 @@ function initialize_schelling(;
 	density::Float64 = DEFAULT_DENSITY,
 	balance::Float64 = DEFAULT_BALANCE,
 	similarity_threshold::Float64 = DEFAULT_SIMILARITY_THRESHOLD,
-	seed = nothing,
+	seed::Int = 7,
 )
 	gridwidth = gridwidth > 0 ? gridwidth : DEFAULT_GRID_W
 	gridheight = gridheight > 0 ? gridheight : DEFAULT_GRID_H
@@ -118,7 +116,7 @@ function initialize_schelling(;
 						   similarity_threshold :
 						   DEFAULT_SIMILARITY_THRESHOLD
 
-	rng = isnothing(seed) ? Xoshiro() : Xoshiro(seed)
+	rng = Xoshiro(seed)
 
 	space = GridSpaceSingle(
 		(gridwidth, gridheight);
@@ -126,12 +124,14 @@ function initialize_schelling(;
 		metric = :chebyshev,
 	)
 
-	properties = SchellingProperties(similarity_threshold, 0, 0)
+	properties = SchellingProperties(similarity_threshold, 0)
 
 	model = StandardABM(
 		SchellingAgent,
 		space;
 		properties,
+        # Population is fixed: native vector storage preserves traversal across checkpoints.
+        container = Vector,
 		model_step! = schelling_model_step!,
 		rng,
 	)
@@ -141,7 +141,8 @@ function initialize_schelling(;
 	type1_threshold = density * balance
 
 	# Go 代码是 row-major: index -> x = index % width, y = index / width。
-	# Julia 坐标为 1-based；顺序不影响动力学，只影响同 seed 时的初始随机流对应关系。
+	# Julia coordinates are 1-based. Traversal order assigns RNG draws to cells
+	# and therefore affects each seeded realization.
 	for y in 1:gridheight, x in 1:gridwidth
 		value = rand(abmrng(model))
 		pos = (x, y)
@@ -166,3 +167,9 @@ initialize_schelling(config::SchellingConfig) = initialize_schelling(;
 	similarity_threshold = config.similarity_threshold,
 	seed = config.seed,
 )
+
+"""Advance through Agents.jl so its scheduler and clock remain authoritative."""
+function advance_schelling!(model)
+    Agents.step!(model, 1)
+    return abmproperties(model).last_swapped > 0
+end

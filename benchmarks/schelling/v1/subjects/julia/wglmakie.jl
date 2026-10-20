@@ -33,7 +33,7 @@ config = SchellingConfig(
 	density = parse_env(Float64, "TENSNAP_SCHELLING_DENSITY", DEFAULT_DENSITY),
 	balance = parse_env(Float64, "TENSNAP_SCHELLING_BALANCE", DEFAULT_BALANCE),
 	similarity_threshold = parse_env(Float64, "TENSNAP_SCHELLING_THRESHOLD", DEFAULT_SIMILARITY_THRESHOLD),
-	seed = parse_optional_env(Int, "TENSNAP_SCHELLING_SEED"),
+	seed = parse_env(Int, "TENSNAP_SCHELLING_SEED", 7),
 )
 host = parse_env(String, "BONITO_HOST", "127.0.0.1")
 port = parse_env(Int, "BONITO_PORT", 8768)

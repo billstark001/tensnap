@@ -38,7 +38,7 @@ function create_schelling_makie_app(
 	function step_current_model!()
 		lock(model_lock)
 		try
-			schelling_model_step!(current_model[])
+			advance_schelling!(current_model[])
 			notify(current_model)
 			revision[] += 1
 		finally

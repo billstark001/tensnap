@@ -9,7 +9,6 @@ Base.@kwdef struct SchellingStudyOptions
 	density::Float64 = DEFAULT_DENSITY
 	balance::Float64 = DEFAULT_BALANCE
 	thresholds::Vector{Float64} = [0.3, 0.5, 0.7, 0.9]
-	warmup_steps::Int = 0
 	steps::Int = 1000
 	seeds::Int = 8
 	seed::Int = 7
@@ -17,7 +16,7 @@ Base.@kwdef struct SchellingStudyOptions
 end
 
 function option_values(args)::Dict{String, String}
-	allowed = Set(["width", "height", "density", "balance", "thresholds", "warmup-steps", "steps", "seeds", "seed", "mode"])
+	allowed = Set(["width", "height", "density", "balance", "thresholds", "steps", "seeds", "seed", "mode"])
 	values = Dict{String, String}()
 	index = 1
 	while index <= length(args)
@@ -58,7 +57,6 @@ function parse_schelling_study_options(args = ARGS)::SchellingStudyOptions
 		density = parse(Float64, value("density", DEFAULT_DENSITY)),
 		balance = parse(Float64, value("balance", DEFAULT_BALANCE)),
 		thresholds = parse_thresholds(value("thresholds", "0.30,0.50,0.70,0.90")),
-		warmup_steps = parse(Int, value("warmup-steps", 0)),
 		steps = parse(Int, value("steps", 1000)),
 		seeds = parse(Int, value("seeds", 8)),
 		seed = parse(Int, value("seed", 7)),
@@ -67,36 +65,32 @@ function parse_schelling_study_options(args = ARGS)::SchellingStudyOptions
 	options.width > 0 && options.height > 0 || error("width and height must be positive")
 	0 <= options.density <= 1 && 0 <= options.balance <= 1 || error("density and balance must be values from 0 through 1")
 	options.steps > 0 && options.seeds > 0 || error("steps and seeds must be positive")
-	options.warmup_steps >= 0 || error("warmup-steps must be non-negative")
 	return options
 end
 
-function run_schelling_trial(config::SchellingConfig, steps::Int, mode::Symbol)
-	model = initialize_schelling(config)
-	steps_run = 0
-	converged = false
-	started_ns = time_ns()
-	for _ in 1:steps
-		steps_run += 1
-		moving = schelling_model_step!(model)
-		if mode == :convergence && !moving
-			converged = true
-			break
-		end
-	end
-	return (
-		threshold = config.similarity_threshold,
-		seed = config.seed,
-		satisfied = satisfied_pct(model),
-		segregation = segregation_index(model),
-		last_swapped = Agents.abmproperties(model).last_swapped,
-		steps_run = steps_run,
-		converged = converged,
-		elapsed_ns = time_ns() - started_ns,
-	)
+function advance_trial!(model, steps::Int, mode::Symbol)
+    for tick in 1:steps
+        moving = advance_schelling!(model)
+        mode == :convergence && !moving && return (tick, true)
+    end
+    return (steps, false)
 end
 
-function run_schelling_study(options::SchellingStudyOptions)
+function summarize_trial(model, config, steps_run, stopped)
+    all_satisfied = all(agent -> satisfied(agent, model), allagents(model))
+    return (threshold=config.similarity_threshold, seed=config.seed,
+        satisfied=satisfied_pct(model), segregation=segregation_index(model),
+        last_swapped=Agents.abmproperties(model).last_swapped, steps_run=steps_run,
+        termination=stopped ? (all_satisfied ? :satisfied : :jammed) : :limit)
+end
+
+function run_schelling_trial(config::SchellingConfig, steps::Int, mode::Symbol)
+    model = initialize_schelling(config)
+    steps_run, stopped = advance_trial!(model, steps, mode)
+    return summarize_trial(model, config, steps_run, stopped)
+end
+
+function run_schelling_study(options::SchellingStudyOptions; trial_runner = run_schelling_trial)
 	config_for(threshold, seed) = SchellingConfig(
 		gridwidth = options.width,
 		gridheight = options.height,
@@ -105,15 +99,12 @@ function run_schelling_study(options::SchellingStudyOptions)
 		similarity_threshold = threshold,
 		seed = seed,
 	)
-	if options.warmup_steps > 0
-		run_schelling_trial(config_for(options.thresholds[1], options.seed), options.warmup_steps, :steady)
-	end
 
 	trials = NamedTuple[]
 	rows = NamedTuple[]
 	for threshold in options.thresholds
 		threshold_trials = [
-			run_schelling_trial(config_for(threshold, options.seed + offset), options.steps, options.mode)
+			trial_runner(config_for(threshold, options.seed + offset), options.steps, options.mode)
 			for offset in 0:options.seeds-1
 		]
 		append!(trials, threshold_trials)
@@ -123,18 +114,18 @@ function run_schelling_study(options::SchellingStudyOptions)
 			mean_segregation = mean(row.segregation for row in threshold_trials),
 			mean_last_swapped = mean(row.last_swapped for row in threshold_trials),
 			mean_steps = mean(row.steps_run for row in threshold_trials),
-			converged_runs = count(row -> row.converged, threshold_trials),
+			satisfied_runs = count(row -> row.termination == :satisfied, threshold_trials),
+            jammed_runs = count(row -> row.termination == :jammed, threshold_trials),
+            limit_runs = count(row -> row.termination == :limit, threshold_trials),
 		))
 	end
 
 	total_ticks = sum(row.steps_run for row in trials)
-	total_elapsed_ns = sum(row.elapsed_ns for row in trials)
 	return (
 		options = options,
 		trials = trials,
 		rows = rows,
 		total_ticks = total_ticks,
-		total_elapsed_ns = total_elapsed_ns,
 		mean_satisfied = mean(row.satisfied for row in trials),
 		mean_segregation = mean(row.segregation for row in trials),
 		mean_last_swapped = mean(row.last_swapped for row in trials),
@@ -143,14 +134,9 @@ function run_schelling_study(options::SchellingStudyOptions)
 end
 
 function write_schelling_study_csv(result; io = stdout)
-	println(io, "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs")
+	println(io, "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,satisfied_runs,jammed_runs,limit_runs")
 	for row in result.rows
-		@printf(io, "%.2f,%.4f,%.4f,%.2f,%.2f,%d\n", row.threshold, row.mean_satisfied, row.mean_segregation, row.mean_last_swapped, row.mean_steps, row.converged_runs)
+		@printf(io, "%.2f,%.4f,%.4f,%.2f,%.2f,%d,%d,%d\n", row.threshold, row.mean_satisfied, row.mean_segregation, row.mean_last_swapped, row.mean_steps, row.satisfied_runs, row.jammed_runs, row.limit_runs)
 	end
-	elapsed_ms = result.total_elapsed_ns / 1_000_000
-	tpms = result.total_elapsed_ns == 0 ? 0.0 : result.total_ticks / elapsed_ms
-	mspt = result.total_ticks == 0 ? 0.0 : elapsed_ms / result.total_ticks
-	println(io, "performance_metric,total_ticks,elapsed_ms,tpms,mspt")
-	@printf(io, "performance,%d,%.3f,%.6f,%.6f\n", result.total_ticks, elapsed_ms, tpms, mspt)
 	return nothing
 end
