@@ -8,7 +8,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type StudyMode string
@@ -19,16 +18,15 @@ const (
 )
 
 type StudyOptions struct {
-	Width       int
-	Height      int
-	Density     float64
-	Balance     float64
-	Thresholds  []float64
-	WarmupSteps int
-	Steps       int
-	Seeds       int
-	Seed        int64
-	Mode        StudyMode
+	Width      int
+	Height     int
+	Density    float64
+	Balance    float64
+	Thresholds []float64
+	Steps      int
+	Seeds      int
+	Seed       int64
+	Mode       StudyMode
 }
 
 func DefaultStudyOptions() StudyOptions {
@@ -64,7 +62,6 @@ func RegisterStudyFlags(flags *flag.FlagSet) *StudyFlags {
 	flags.Float64Var(&values.options.Density, "density", defaults.Density, "Initial occupied density")
 	flags.Float64Var(&values.options.Balance, "balance", defaults.Balance, "Share of group 1 among occupied cells")
 	flags.IntVar(&values.options.Steps, "steps", defaults.Steps, "Maximum steps per trial")
-	flags.IntVar(&values.options.WarmupSteps, "warmup-steps", defaults.WarmupSteps, "Untimed steps on an independent model")
 	flags.IntVar(&values.options.Seeds, "seeds", defaults.Seeds, "Number of seeds per threshold")
 	flags.Int64Var(&values.options.Seed, "seed", defaults.Seed, "Base random seed")
 	flags.StringVar(&values.thresholdsRaw, "thresholds", values.thresholdsRaw, "Comma-separated similarity thresholds")
@@ -112,8 +109,8 @@ func ValidateStudyOptions(options StudyOptions) error {
 	if options.Density < 0 || options.Density > 1 || options.Balance < 0 || options.Balance > 1 {
 		return fmt.Errorf("density and balance must be values from 0 through 1")
 	}
-	if options.Steps <= 0 || options.Seeds <= 0 || options.WarmupSteps < 0 {
-		return fmt.Errorf("steps and seeds must be positive; warmup-steps must be non-negative")
+	if options.Steps <= 0 || options.Seeds <= 0 {
+		return fmt.Errorf("steps and seeds must be positive")
 	}
 	if options.Mode != StudySteady && options.Mode != StudyConvergence {
 		return fmt.Errorf("mode must be steady or convergence")
@@ -131,8 +128,7 @@ type TrialResult struct {
 	Segregation float64
 	LastSwapped int
 	StepsRun    int
-	Converged   bool
-	Elapsed     time.Duration
+	Termination string
 }
 
 type StudyRow struct {
@@ -141,7 +137,9 @@ type StudyRow struct {
 	MeanSegregation float64
 	MeanLastSwapped float64
 	MeanSteps       float64
-	ConvergedRuns   int
+	SatisfiedRuns   int
+	JammedRuns      int
+	LimitRuns       int
 }
 
 type StudyResult struct {
@@ -149,7 +147,6 @@ type StudyResult struct {
 	Trials          []TrialResult
 	Rows            []StudyRow
 	TotalTicks      int
-	Elapsed         time.Duration
 	MeanSatisfied   float64
 	MeanSegregation float64
 	MeanLastSwapped float64
@@ -158,32 +155,41 @@ type StudyResult struct {
 
 func RunTrial(config Config, seed int64, steps int, mode StudyMode) TrialResult {
 	model := NewSeededModel(config, seed)
-	result := TrialResult{Threshold: config.SimilarityThreshold, Seed: seed}
-	started := time.Now()
-	for i := 0; i < steps; i++ {
-		result.StepsRun++
-		if moved := model.Step(); mode == StudyConvergence && moved == 0 {
-			result.Converged = true
-			break
-		}
-	}
-	result.Elapsed = time.Since(started)
-	result.Satisfied = model.SatisfiedPct()
-	result.Segregation = model.SegregationIndex()
-	result.LastSwapped = model.LastSwapped
-	return result
+	stepsRun, termination := AdvanceTrial(model, steps, mode)
+	return SummarizeTrial(model, seed, stepsRun, termination)
 }
 
-func RunStudy(options StudyOptions) (StudyResult, error) {
+// AdvanceTrial contains only model transitions. Measurement adapters wrap this call.
+func AdvanceTrial(model *Model, steps int, mode StudyMode) (int, string) {
+	for tick := 1; tick <= steps; tick++ {
+		moved := model.Step()
+		if mode == StudyConvergence && moved == 0 {
+			return tick, "stopped"
+		}
+	}
+	return steps, "limit"
+}
+
+func SummarizeTrial(model *Model, seed int64, steps int, termination string) TrialResult {
+	if termination == "stopped" {
+		termination = "satisfied"
+		for i, cell := range model.Cells {
+			if cell.Group != 0 && !model.Satisfied(i) {
+				termination = "jammed"
+				break
+			}
+		}
+	}
+	return TrialResult{Threshold: model.Config.SimilarityThreshold, Seed: seed,
+		Satisfied: model.SatisfiedPct(), Segregation: model.SegregationIndex(), LastSwapped: model.LastSwapped,
+		StepsRun: steps, Termination: termination}
+}
+
+func RunStudy(options StudyOptions, trialRunner func(Config, int64, int, StudyMode) TrialResult) (StudyResult, error) {
 	if err := ValidateStudyOptions(options); err != nil {
 		return StudyResult{}, err
 	}
 	base := Config{GridWidth: options.Width, GridHeight: options.Height, Density: options.Density, Balance: options.Balance}
-	if options.WarmupSteps > 0 {
-		warmup := base
-		warmup.SimilarityThreshold = options.Thresholds[0]
-		_ = RunTrial(warmup, options.Seed, options.WarmupSteps, StudySteady)
-	}
 
 	result := StudyResult{Options: options, Rows: make([]StudyRow, 0, len(options.Thresholds))}
 	for _, threshold := range options.Thresholds {
@@ -191,16 +197,20 @@ func RunStudy(options StudyOptions) (StudyResult, error) {
 		config.SimilarityThreshold = threshold
 		row := StudyRow{Threshold: threshold}
 		for run := 0; run < options.Seeds; run++ {
-			trial := RunTrial(config, options.Seed+int64(run), options.Steps, options.Mode)
+			trial := trialRunner(config, options.Seed+int64(run), options.Steps, options.Mode)
 			result.Trials = append(result.Trials, trial)
 			result.TotalTicks += trial.StepsRun
-			result.Elapsed += trial.Elapsed
 			row.MeanSatisfied += trial.Satisfied
 			row.MeanSegregation += trial.Segregation
 			row.MeanLastSwapped += float64(trial.LastSwapped)
 			row.MeanSteps += float64(trial.StepsRun)
-			if trial.Converged {
-				row.ConvergedRuns++
+			switch trial.Termination {
+			case "satisfied":
+				row.SatisfiedRuns++
+			case "jammed":
+				row.JammedRuns++
+			case "limit":
+				row.LimitRuns++
 			}
 		}
 		n := float64(options.Seeds)
@@ -225,25 +235,13 @@ func RunStudy(options StudyOptions) (StudyResult, error) {
 }
 
 func WriteStudyCSV(writer io.Writer, result StudyResult) error {
-	if _, err := fmt.Fprintln(writer, "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs"); err != nil {
+	if _, err := fmt.Fprintln(writer, "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,satisfied_runs,jammed_runs,limit_runs"); err != nil {
 		return err
 	}
 	for _, row := range result.Rows {
-		if _, err := fmt.Fprintf(writer, "%.2f,%.4f,%.4f,%.2f,%.2f,%d\n", row.Threshold, row.MeanSatisfied, row.MeanSegregation, row.MeanLastSwapped, row.MeanSteps, row.ConvergedRuns); err != nil {
+		if _, err := fmt.Fprintf(writer, "%.2f,%.4f,%.4f,%.2f,%.2f,%d,%d,%d\n", row.Threshold, row.MeanSatisfied, row.MeanSegregation, row.MeanLastSwapped, row.MeanSteps, row.SatisfiedRuns, row.JammedRuns, row.LimitRuns); err != nil {
 			return err
 		}
 	}
-	elapsedMS := float64(result.Elapsed) / float64(time.Millisecond)
-	tpms, mspt := 0.0, 0.0
-	if result.Elapsed > 0 {
-		tpms = float64(result.TotalTicks) / elapsedMS
-	}
-	if result.TotalTicks > 0 {
-		mspt = elapsedMS / float64(result.TotalTicks)
-	}
-	if _, err := fmt.Fprintln(writer, "performance_metric,total_ticks,elapsed_ms,tpms,mspt"); err != nil {
-		return err
-	}
-	_, err := fmt.Fprintf(writer, "performance,%d,%.3f,%.6f,%.6f\n", result.TotalTicks, elapsedMS, tpms, mspt)
-	return err
+	return nil
 }

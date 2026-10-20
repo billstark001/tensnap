@@ -1,8 +1,8 @@
 package schelling
 
-// This exact checkpoint supports the publication replay experiment. An ordinary
-// teaching host can use a simpler projected scene restore for agents, parameters,
-// and time; that approach need not preserve the RNG's position or the same future.
+// Exact continuation includes the model-owned math/rand position. Reconstructing
+// it replays all prior source draws: O(draws) restore time, not O(1). Checkpoints
+// require the same RNG implementation; they do not promise cross-version replay.
 
 import (
 	"fmt"
@@ -51,7 +51,7 @@ func (m *Model) restoreCheckpoint(saved checkpoint) error {
 	m.LastSwapped = saved.LastSwapped
 	m.StepCount = saved.StepCount
 	m.Initialized = true
-	m.SetSeed(saved.RNGSeed)
+	m.resetRandom(saved.RNGSeed)
 	for i := uint64(0); i < draws; i++ {
 		m.rngSource.Int63()
 	}

@@ -14,10 +14,10 @@ type Config struct {
 	Beta            float64 `tensnap:"id=beta,label='Infection rate',min=0,max=1,step=0.1"`
 	Gamma           float64 `tensnap:"id=gamma,label='Recovery rate',min=0,max=1,step=0.1"`
 	Xi              float64 `tensnap:"id=xi,label='Loss of immunity rate',min=0,max=1,step=0.1"`
-	InitialInfected int     `tensnap:"id=initial_infected,label='Initial infected',min=0,max=10000,step=1,fixed=true"`
-	Rows            int     `tensnap:"id=rows,label='Grid rows',min=1,max=10000,step=1,fixed=true; height,scope=space"`
-	Cols            int     `tensnap:"id=cols,label='Grid columns',min=1,max=10000,step=1,fixed=true; width,scope=space"`
-	Seed            uint32
+	InitialInfected int     `tensnap:"id=initial_infected,label='Initial infected',min=0,max=10000,step=1,runtime=false"`
+	Rows            int     `tensnap:"id=rows,label='Grid rows',min=1,max=10000,step=1,runtime=false; height,scope=space"`
+	Cols            int     `tensnap:"id=cols,label='Grid columns',min=1,max=10000,step=1,runtime=false; width,scope=space"`
+	Seed            uint32  `tensnap:"id=seed,label='Seed (next reset)',min=0,max=4294967295,step=1,runtime=false"`
 }
 
 type Person struct {

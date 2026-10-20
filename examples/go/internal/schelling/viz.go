@@ -22,12 +22,16 @@ type VizModel struct {
 	model *Model
 }
 
-func NewVizModel(model *Model, auditHooks ...func(*Model)) *VizModel {
+func NewVizModel(model *Model, observers ...func(*Model) error) *VizModel {
 	viz := &VizModel{model: model}
-	version := "2"
-	var audit func(*Model)
-	if len(auditHooks) > 0 {
-		audit = auditHooks[0]
+	version := "3"
+	notify := func(model *Model) error {
+		for _, observe := range observers {
+			if err := observe(model); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	initFn := func(model *Model) error { model.Initialize(); return nil }
 	stepFn := func(model *Model) (bool, error) { return model.Step() > 0, nil }
@@ -38,29 +42,25 @@ func NewVizModel(model *Model, auditHooks ...func(*Model)) *VizModel {
 		viz.Model.SetTick(int64(saved.StepCount))
 		return nil
 	}
-	if audit != nil {
-		originalInit, originalStep, originalRestore := initFn, stepFn, restoreFn
-		initFn = func(model *Model) error {
-			err := originalInit(model)
-			if err == nil {
-				audit(model)
-			}
+	originalInit, originalStep, originalRestore := initFn, stepFn, restoreFn
+	initFn = func(model *Model) error {
+		if err := originalInit(model); err != nil {
 			return err
 		}
-		stepFn = func(model *Model) (bool, error) {
-			advanced, err := originalStep(model)
-			if err == nil {
-				audit(model)
-			}
+		return notify(model)
+	}
+	stepFn = func(model *Model) (bool, error) {
+		advanced, err := originalStep(model)
+		if err != nil {
 			return advanced, err
 		}
-		restoreFn = func(model *Model, saved checkpoint) error {
-			err := originalRestore(model, saved)
-			if err == nil {
-				audit(model)
-			}
+		return advanced, notify(model)
+	}
+	restoreFn = func(model *Model, saved checkpoint) error {
+		if err := originalRestore(model, saved); err != nil {
 			return err
 		}
+		return notify(model)
 	}
 	viz.Model = binding.NewModel(
 		model,
