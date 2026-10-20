@@ -339,6 +339,7 @@ class BoundModelReinitializer:
             return parameter.getter
         model_attr = getattr(type(self.model), name, None)
         if inspect.isfunction(model_attr):
+
             def model_getter(
                 fn: Callable[[Any], Any] = model_attr,
                 model: Any = self.model,
@@ -374,11 +375,11 @@ class BoundModelReinitializer:
                     f"kwarg {binding.name!r} and model field {conflict!r} "
                     f"both publish parameter id {binding.parameter.id!r}."
                 )
+
             # Capture the name/default for this binding, not the loop's last one.
-            def getter(
-                name: str = binding.name, default: Any = binding.default
-            ) -> Any:
+            def getter(name: str = binding.name, default: Any = binding.default) -> Any:
                 return self._kwarg_values.get(name, default)
+
             sources[binding.name] = KwargValueSource(
                 kwarg_name=binding.name,
                 parameter_id=binding.parameter.id,
