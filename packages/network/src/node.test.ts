@@ -64,6 +64,63 @@ describe('IP-family listeners', () => {
     expect((replacement[0].address() as AddressInfo).port).toBe(port);
   });
 
+  it('reselects an ephemeral port when only IPv6 already owns the first IPv4 choice', async (context) => {
+    let blocker: Server[];
+    try {
+      blocker = await start('ipv6');
+    } catch (error) {
+      if (unavailableIPFamily(error)) return context.skip();
+      throw error;
+    }
+    const occupiedPort = (blocker[0].address() as AddressInfo).port;
+    const created: Server[] = [];
+    const listeners = await listenIPServers(
+      () => {
+        const server = createServer();
+        if (created.length === 0) {
+          const listen = server.listen.bind(server);
+          vi.spyOn(server, 'listen').mockImplementation((options: any) =>
+            listen({ ...options, port: occupiedPort }),
+          );
+        }
+        created.push(server);
+        return server;
+      },
+      { host: 'localhost', port: 0 },
+    );
+    active.push(...listeners);
+    expect(created).toHaveLength(4);
+    expect(created.slice(0, 2).every((server) => !server.listening)).toBe(true);
+    expect(listeners).toHaveLength(2);
+    expect(new Set(listeners.map((server) => (server.address() as AddressInfo).port)).size).toBe(1);
+    expect((listeners[0].address() as AddressInfo).port).not.toBe(occupiedPort);
+    expect(blocker[0].listening).toBe(true);
+  });
+
+  it('bounds ephemeral retries and releases every listener on repeated conflicts', async () => {
+    const created: Server[] = [];
+    await expect(
+      listenIPServers(
+        () => {
+          const server = createServer();
+          if (created.length % 2 === 1) {
+            vi.spyOn(server, 'listen').mockImplementation(() => {
+              queueMicrotask(() =>
+                server.emit('error', Object.assign(new Error('busy'), { code: 'EADDRINUSE' })),
+              );
+              return server;
+            });
+          }
+          created.push(server);
+          return server;
+        },
+        { host: 'localhost', port: 0 },
+      ),
+    ).rejects.toMatchObject({ code: 'EADDRINUSE' });
+    expect(created).toHaveLength(22);
+    expect(created.every((server) => !server.listening)).toBe(true);
+  });
+
   for (const unavailableIndex of [0, 1])
     it(`auto tolerates unavailable local family ${unavailableIndex} and keeps the other listener`, async (context) => {
       if (unavailableIndex === 0) {

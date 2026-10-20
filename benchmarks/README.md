@@ -181,6 +181,8 @@ Node and harness-owned browser process measurements use deltas between `process.
 
 Every external-browser replicate receives a fresh loopback port. On POSIX hosts, the runner terminates the external server's whole process group when the OS permits it, so wrappers such as `go run` cannot leave the compiled server listening after the replicate completes. If group signaling returns `EPERM` or `ESRCH`, cleanup falls back to the directly spawned Python/Julia/Node child.
 
+Harness-owned `localhost:0` WebSocket hosts bind IPv4 and IPv6 to the same port. An ephemeral port chosen on the first address can already be occupied on the other family. On that specific `EADDRINUSE` path the network listener now rolls back both listeners and retries up to ten times; an explicitly configured port still fails on conflict. External processes still have a small allocation-to-bind race because their selected port cannot be reserved across an arbitrary child process launch.
+
 ## Statistical inference
 
 Profiles use 15 randomized, process-isolated replicate blocks. Action median/P95 values pool the declared measured actions; P95 uses nearest rank `ceil(n × 0.95)`. Confidence intervals resample one median per independent replicate, never correlated individual actions. A 500-step kernel reports one total per replicate, so with 15 replicates its P95/P99 equal the maximum total, not a single-step tail latency. Model-step table medians divide the median 500-step total by 500. Declared comparisons use randomized-block paired ratios and differences; ratios below one favour the treatment. Diagnostic runs with fewer blocks must not be presented as submission confidence intervals.
