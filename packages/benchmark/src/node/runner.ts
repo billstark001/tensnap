@@ -1504,6 +1504,7 @@ async function runExternalProcessReplicate(
 interface StartedExternalServer {
   readonly process: ReturnType<typeof spawn>;
   readonly stderr: () => string;
+  assertRunning(): void;
   stop(): Promise<void>;
 }
 
@@ -1562,8 +1563,10 @@ async function waitForExternalProcessTree(
   }
 }
 
-function startExternalServer(command: ExternalCommand): StartedExternalServer {
+export function startExternalServer(command: ExternalCommand): StartedExternalServer {
   let stderr = '';
+  let startupError: Error | undefined;
+  let stopPromise: Promise<void> | undefined;
   // A detached POSIX child becomes a process-group leader. Stopping the whole
   // group also terminates wrappers such as `go run` and the server they spawn.
   const grouped = platform() !== 'win32';
@@ -1577,26 +1580,41 @@ function startExternalServer(command: ExternalCommand): StartedExternalServer {
   child.stderr.on('data', (data: string) => {
     stderr += data;
   });
+  child.once('error', (error) => {
+    startupError = error;
+  });
+  const stop = async () => {
+    let trackGroup = signalExternalProcessTree(child, grouped, 'SIGTERM');
+    try {
+      await withTimeout(
+        waitForExternalProcessTree(child, trackGroup),
+        `External server ${command.executable} shutdown`,
+        10_000,
+      );
+    } catch {
+      trackGroup = signalExternalProcessTree(child, trackGroup, 'SIGKILL');
+      await withTimeout(
+        waitForExternalProcessTree(child, trackGroup),
+        `External server ${command.executable} forced shutdown`,
+        2_000,
+      );
+    }
+  };
   return {
     process: child,
     stderr: () => stderr,
-    async stop() {
-      let trackGroup = signalExternalProcessTree(child, grouped, 'SIGTERM');
-      try {
-        await withTimeout(
-          waitForExternalProcessTree(child, trackGroup),
-          `External server ${command.executable} shutdown`,
-          10_000,
+    assertRunning() {
+      if (startupError)
+        throw new Error(
+          `External server ${command.executable} failed to start: ${startupError.message}`,
+          { cause: startupError },
         );
-      } catch {
-        trackGroup = signalExternalProcessTree(child, trackGroup, 'SIGKILL');
-        await withTimeout(
-          waitForExternalProcessTree(child, trackGroup),
-          `External server ${command.executable} forced shutdown`,
-          2_000,
+      if (child.exitCode !== null || child.signalCode !== null)
+        throw new Error(
+          `External server exited ${child.exitCode ?? child.signalCode} before becoming ready.\n${stderr.slice(-4_000)}`,
         );
-      }
     },
+    stop: () => (stopPromise ??= stop()),
   };
 }
 
@@ -1632,14 +1650,6 @@ export async function captureStableExternalBrowserScreenshot(
   throw new Error(`External browser did not reach a visually stable frame within ${timeoutMs} ms.`);
 }
 
-function assertExternalServerRunning(server: StartedExternalServer): void {
-  if (server.process.exitCode !== null) {
-    throw new Error(
-      `External server exited ${server.process.exitCode} before becoming ready.\n${server.stderr().slice(-4_000)}`,
-    );
-  }
-}
-
 async function waitForWebSocketEndpoint(
   endpoint: string,
   timeoutMs: number,
@@ -1648,13 +1658,14 @@ async function waitForWebSocketEndpoint(
   const deadline = nowMs() + timeoutMs;
   let lastError = 'not attempted';
   while (nowMs() < deadline) {
-    assertExternalServerRunning(server);
+    server.assertRunning();
     const socket = new WebSocket(endpoint);
     try {
       await waitForWebSocketOpen(socket, {
         label: `External simulator ${endpoint} readiness`,
         timeoutMs: Math.min(2_000, Math.max(250, deadline - nowMs())),
       });
+      server.assertRunning();
       return;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
@@ -1676,7 +1687,7 @@ async function gotoWhenReady(
   const deadline = nowMs() + timeoutMs;
   let lastError = 'not attempted';
   while (nowMs() < deadline) {
-    if (server) assertExternalServerRunning(server);
+    server?.assertRunning();
     try {
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
