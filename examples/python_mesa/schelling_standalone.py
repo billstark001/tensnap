@@ -26,7 +26,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--density", type=float, default=DEFAULT_DENSITY)
     parser.add_argument("--balance", type=float, default=DEFAULT_BALANCE)
     parser.add_argument("--steps", type=int, default=DEFAULT_SCIENTIFIC_STEPS)
-    parser.add_argument("--warmup-steps", type=int, default=0)
     parser.add_argument("--seeds", type=int, default=DEFAULT_SCIENTIFIC_SEEDS)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--thresholds", default=DEFAULT_SCIENTIFIC_THRESHOLDS)
@@ -55,7 +54,6 @@ def main() -> None:
         balance=args.balance,
         mode=args.mode,
         collect_data=args.collect_data,
-        warmup_steps=args.warmup_steps,
     )
     print(format_sweep_csv(result))
 

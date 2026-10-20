@@ -7,10 +7,20 @@ import random
 from dataclasses import dataclass
 from typing import Any
 
-from tensnap import agent, agent_layer, env, grid_layer, params
+from tensnap import NumberParameter, agent, agent_layer, env, grid_layer, params
 
 
-@params(exclude=["world_size"])
+@params(
+    exclude=["world_size"],
+    custom_bindings={
+        "num_agents": NumberParameter(
+            "", min=0, max=10000, step=1, allow_runtime_change=False
+        ),
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+    },
+)
 @dataclass
 class RandomWalkConfig:
     """Configuration for the random-walk simulation."""
@@ -18,6 +28,7 @@ class RandomWalkConfig:
     num_agents: int = 20
     step_size: float = 0.5
     world_size: int = 50
+    seed: int = 7
 
 
 @agent(size=0.8, color="#2563EB")
@@ -29,12 +40,16 @@ class Walker:
         self.world_size = world_size
         self.x = world_size / 2.0
         self.y = world_size / 2.0
+        self.unwrapped_x = self.x
+        self.unwrapped_y = self.y
         self.total_distance = 0.0
 
-    def step(self, step_size: float) -> None:
-        angle = random.uniform(0.0, 2.0 * math.pi)
+    def step(self, step_size: float, rng: random.Random) -> None:
+        angle = rng.uniform(0.0, 2.0 * math.pi)
         dx = math.cos(angle) * step_size
         dy = math.sin(angle) * step_size
+        self.unwrapped_x += dx
+        self.unwrapped_y += dy
         self.x = (self.x + dx) % self.world_size
         self.y = (self.y + dy) % self.world_size
         self.total_distance += step_size
@@ -50,6 +65,8 @@ class Walker:
         return {
             "distance_from_center": self.distance_from_center(),
             "total_distance": self.total_distance,
+            "squared_displacement": (self.unwrapped_x - self.world_size / 2) ** 2
+            + (self.unwrapped_y - self.world_size / 2) ** 2,
         }
 
 
@@ -61,6 +78,7 @@ class RandomWalkSimulation:
 
     def __init__(self, config: RandomWalkConfig | None = None):
         self.config = config or RandomWalkConfig()
+        self.rng = random.Random(self.config.seed)
         self.walkers: list[Walker] = []
         self.time_step = 0
 
@@ -73,6 +91,7 @@ class RandomWalkSimulation:
         return self.config.world_size
 
     def initialize(self) -> None:
+        self.rng.seed(self.config.seed)
         self.walkers = [
             Walker(f"walker_{index}", self.config.world_size)
             for index in range(int(self.config.num_agents))
@@ -81,7 +100,7 @@ class RandomWalkSimulation:
 
     def step(self) -> None:
         for walker in self.walkers:
-            walker.step(self.config.step_size)
+            walker.step(self.config.step_size, self.rng)
         self.time_step += 1
 
     def get_average_distance(self) -> float:
@@ -89,4 +108,10 @@ class RandomWalkSimulation:
             return 0.0
         return sum(walker.distance_from_center() for walker in self.walkers) / len(
             self.walkers
+        )
+
+    def mean_squared_displacement(self) -> float:
+        """Unwrapped displacement: E[MSD] = ticks × step_size² for this independent walk."""
+        return sum(w.data["squared_displacement"] for w in self.walkers) / max(
+            len(self.walkers), 1
         )

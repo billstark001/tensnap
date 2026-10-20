@@ -103,6 +103,16 @@ class NamingGame(CheckpointModel):
     """Model authority for pair scheduling, payoffs and per-agent histories."""
 
     model_id = "examples.python_llm.naming_game"
+    state_fields = (
+        "agents",
+        "network",
+        "minority_order",
+        "successes",
+        "recent_edges",
+        "last_interaction",
+        "events",
+        "treatment_tick",
+    )
     config_type = NamingConfig
 
     def __init__(

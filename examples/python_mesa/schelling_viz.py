@@ -4,13 +4,10 @@ The split is for reuse with the benchmark server adapter; it is not required
 for an ordinary Mesa-to-TenSnap example.
 """
 
-import import_config
-
-import asyncio
 import argparse
+import asyncio
 
 from schelling_tensnap import run_schelling_server
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -32,7 +29,7 @@ if __name__ == "__main__":
                 "density": args.density,
                 "balance": args.balance,
                 "similarity_threshold": args.threshold,
-                "rng": args.seed,
+                "seed": args.seed,
                 "collect_data": not args.no_collect_data,
             },
             server_port=args.port,

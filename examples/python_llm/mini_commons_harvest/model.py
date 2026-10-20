@@ -92,6 +92,14 @@ class MiniCommons(CheckpointModel):
     """Own the resource grid and apply one validated local activation per tick."""
 
     model_id = "examples.python_llm.mini_commons_harvest"
+    state_fields = (
+        "agents",
+        "habitat",
+        "resources",
+        "components",
+        "messages",
+        "last_event",
+    )
     config_type = CommonsConfig
     capacity = 3
 

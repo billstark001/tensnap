@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
+import random
 from collections import deque
 from dataclasses import asdict, dataclass
-import random
 from typing import Deque, NamedTuple
 
 import torch
@@ -24,14 +24,15 @@ class Transition(NamedTuple):
 
 
 class ReplayBuffer:
-    def __init__(self, capacity: int) -> None:
+    def __init__(self, capacity: int, rng: random.Random) -> None:
+        self.rng = rng
         self._buffer: Deque[Transition] = deque(maxlen=capacity)
 
     def add(self, transition: Transition) -> None:
         self._buffer.append(transition)
 
     def sample(self, batch_size: int) -> list[Transition]:
-        return random.sample(self._buffer, batch_size)
+        return self.rng.sample(self._buffer, batch_size)
 
     def __len__(self) -> int:
         return len(self._buffer)
@@ -66,18 +67,29 @@ class DQNAgent:
         config: DQNConfig,
         device: Device,
         checkpoint_schema: str | None = None,
+        seed: int = 7,
     ) -> None:
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.config = config
         self.device = device
         self.checkpoint_schema = checkpoint_schema
-        self.policy_net = QNetwork(state_dim, action_dim, config.hidden_dim).to(device)
-        self.target_net = QNetwork(state_dim, action_dim, config.hidden_dim).to(device)
+        self.seed = seed
+        self.random = random.Random(seed)
+        # Linear layers initialize on CPU. Preserve the caller's CPU stream and
+        # leave GPU generators untouched; this model has no stochastic GPU layers.
+        with torch.random.fork_rng(devices=[]):
+            torch.random.default_generator.manual_seed(seed)
+            self.policy_net = QNetwork(state_dim, action_dim, config.hidden_dim).to(
+                device
+            )
+            self.target_net = QNetwork(state_dim, action_dim, config.hidden_dim).to(
+                device
+            )
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
         self.optimizer = torch.optim.Adam(self.policy_net.parameters(), lr=config.lr)
-        self.buffer = ReplayBuffer(config.buffer_size)
+        self.buffer = ReplayBuffer(config.buffer_size, self.random)
         self.total_steps = 0
         self.optimization_steps = 0
 
@@ -85,8 +97,8 @@ class DQNAgent:
         epsilon = 0.0 if greedy else self.current_epsilon()
         if not greedy:
             self.total_steps += 1
-        if random.random() < epsilon:
-            return random.randrange(self.action_dim)
+        if not greedy and self.random.random() < epsilon:
+            return self.random.randrange(self.action_dim)
         with torch.no_grad():
             q_values = self.policy_net(state.to(self.device).unsqueeze(0))
             return int(q_values.argmax(dim=1).item())
@@ -112,7 +124,9 @@ class DQNAgent:
             return None
         batch = self.buffer.sample(self.config.batch_size)
         states = torch.stack([t.state for t in batch]).to(self.device)
-        actions = torch.Tensor([t.action for t in batch]).to(self.device).unsqueeze(1)
+        actions = torch.tensor(
+            [t.action for t in batch], dtype=torch.long, device=self.device
+        ).unsqueeze(1)
         actions = actions.long()
         rewards = torch.Tensor([t.reward for t in batch]).to(self.device).unsqueeze(1)
         next_states = torch.stack([t.next_state for t in batch]).to(self.device)
@@ -153,12 +167,7 @@ class DQNAgent:
         torch.save(payload, path)
 
     def load(self, path: str) -> None:
-        try:
-            payload = torch.load(
-                path, map_location=str(self.device), weights_only=False
-            )
-        except TypeError:
-            payload = torch.load(path, map_location=str(self.device))
+        payload = torch.load(path, map_location=str(self.device), weights_only=True)
         saved_schema = payload.get("checkpoint_schema")
         if (
             self.checkpoint_schema is not None

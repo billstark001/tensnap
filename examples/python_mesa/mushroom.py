@@ -1,13 +1,15 @@
+"""Area-restricted search versus a persistent random-search control on a torus."""
+
 # region Imports
 
 import math
-import random
+from enum import Enum
 from typing import List, Tuple, cast
 
 import mesa
 from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
-
 from tensnap import (
+    NumberParameter,
     agent,
     agent_layer,
     bind_kwargs,
@@ -23,6 +25,12 @@ from tensnap import (
 # region Agents
 
 
+class MushroomState(str, Enum):
+    EMPTY = "empty"
+    AVAILABLE = "available"
+    COLLECTED = "collected"
+
+
 @agent(icon="arrow", color="blue")
 class Hunter(mesa.Agent):
     model: "ForagingModel"
@@ -35,8 +43,10 @@ class Hunter(mesa.Agent):
     def __init__(self, model: "ForagingModel", pos: Tuple[float, float]) -> None:
         super().__init__(model)
         self.pos = pos
-        self.time_since_last_found = 999
-        self.heading_arc = random.randint(0, 359)
+        self.time_since_last_found = 0
+        self.has_found = False
+        self.collected = 0
+        self.heading_arc = self.model.random.randint(0, 359)
 
     @property
     def heading(self) -> float:
@@ -44,10 +54,18 @@ class Hunter(mesa.Agent):
 
     def search(self) -> None:
         # rotate — 同时对角度取模，防止整数无限增长
-        if self.time_since_last_found <= 20:
-            self.heading_arc = (self.heading_arc + random.randint(-90, 90)) % 360
+        if (
+            self.model.area_restricted
+            and self.has_found
+            and self.time_since_last_found <= 20
+        ):
+            self.heading_arc = (
+                self.heading_arc + self.model.random.randint(-90, 90)
+            ) % 360
         else:
-            self.heading_arc = (self.heading_arc + random.randint(-10, 10)) % 360
+            self.heading_arc = (
+                self.heading_arc + self.model.random.randint(-10, 10)
+            ) % 360
 
         # advance
         x, y = self.pos
@@ -65,14 +83,14 @@ class Hunter(mesa.Agent):
         for dx, dy in Hunter._NEIGHBOR_OFFSETS:
             coord = ((grid_x + dx) % w, (grid_y + dy) % h)
             patch = patch_map.get(coord)
-            if patch and patch.color == "red":
+            if patch and patch.state == MushroomState.AVAILABLE:
                 red_cells.append(patch)
 
         if red_cells:
             self.time_since_last_found = 0
-            # 优化5：random.choice 替代 np.random.choice，
-            # 对小列表避免 numpy 的类型转换开销
-            random.choice(red_cells).color = "yellow"
+            self.has_found = True
+            self.collected += 1
+            self.model.random.choice(red_cells).state = MushroomState.COLLECTED
         else:
             self.time_since_last_found += 1
 
@@ -83,7 +101,15 @@ class Patch(CellAgent):
     def __init__(self, model: "ForagingModel", cell: Cell) -> None:
         super().__init__(model)
         self.cell = cell
-        self.color = "white"
+        self.state = MushroomState.EMPTY
+
+    @property
+    def color(self):
+        return {
+            MushroomState.EMPTY: "white",
+            MushroomState.AVAILABLE: "red",
+            MushroomState.COLLECTED: "yellow",
+        }[self.state]
 
 
 # endregion
@@ -106,7 +132,7 @@ class Patch(CellAgent):
     fields={
         "x": lambda _model, coord, _patch: coord[0],
         "y": lambda _model, coord, _patch: coord[1],
-        "data": lambda _model, _coord, patch: {"mushroom_state": patch.color},
+        "data": lambda _model, _coord, patch: {"mushroom_state": patch.state.value},
     },
     color=lambda _model, _coord, patch: patch.color,
     icon="square",
@@ -118,7 +144,13 @@ class Patch(CellAgent):
 @agent_layer("hunters", coord_offset="float")
 @grid_layer()
 @env()
-@bind_kwargs()
+@bind_kwargs(
+    custom_bindings={
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        )
+    }
+)
 class ForagingModel(mesa.Model):  # type: ignore[misc]
     def __init__(
         self,
@@ -127,14 +159,20 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         num_clusters: int = 4,
         patches_per_cluster: int = 20,
         num_turtles: int = 2,
+        seed: int = 7,
+        area_restricted: bool = True,
     ) -> None:
-        super().__init__()
+        super().__init__(rng=seed)
+        self.seed = seed
+        self.area_restricted = area_restricted
         self.width = width
         self.height = height
         self.grid = OrthogonalMooreGrid(
             (width, height), torus=True, capacity=1, random=self.random
         )
         self.num_clusters = num_clusters
+        self.patches_per_cluster = patches_per_cluster
+        self.num_turtles = num_turtles
         self.running = True
         self.hunters: List[Hunter] = []
         self.patches: List[Patch] = []
@@ -148,8 +186,8 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
 
         # 种植蘑菇，只在初始化时查找环形邻域。
         for _ in range(num_clusters):
-            center_x = random.randrange(width)
-            center_y = random.randrange(height)
+            center_x = self.random.randrange(width)
+            center_y = self.random.randrange(height)
             candidate_patches = cast(
                 List[Patch],
                 list(
@@ -158,13 +196,15 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
                     .agents
                 ),
             )
-            selected_patches = random.sample(candidate_patches, patches_per_cluster)
+            selected_patches = self.random.sample(
+                candidate_patches, patches_per_cluster
+            )
             for patch in selected_patches:
-                patch.color = "red"
+                patch.state = MushroomState.AVAILABLE
 
         # 删除不参与运算的 agent 列表，避免不必要的迭代开销
         for position, patch in list(self.patch_map.items()):
-            if patch.color == "white":
+            if patch.state == MushroomState.EMPTY:
                 patch.remove()
                 del self.patch_map[position]
             else:
@@ -172,14 +212,14 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
 
         # 创建猎人
         for _ in range(num_turtles):
-            x = random.randrange(width)
-            y = random.randrange(height)
+            x = self.random.randrange(width)
+            y = self.random.randrange(height)
             turtle = Hunter(self, (float(x), float(y)))
             self.hunters.append(turtle)
 
     def step(self) -> None:
         hunters_copy = self.hunters.copy()
-        random.shuffle(hunters_copy)
+        self.random.shuffle(hunters_copy)
         for hunter in hunters_copy:
             hunter.search()
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from statistics import mean
@@ -21,7 +20,6 @@ class NetLogoStudyOptions:
     density: float
     balance: float
     steps: int
-    warmup_steps: int
     seeds: int
     seed: int
     thresholds: tuple[float, ...]
@@ -34,8 +32,7 @@ class TrialResult:
     segregation: float
     last_swapped: int
     steps_run: int
-    converged: bool
-    elapsed_ns: int
+    termination: str
 
 
 @dataclass(frozen=True)
@@ -45,7 +42,9 @@ class StudyRow:
     mean_segregation: float
     mean_last_swapped: float
     mean_steps: float
-    converged_runs: int
+    satisfied_runs: int
+    jammed_runs: int
+    limit_runs: int
 
 
 @dataclass(frozen=True)
@@ -54,7 +53,6 @@ class StudyResult:
     rows: tuple[StudyRow, ...]
     trials: tuple[TrialResult, ...]
     total_ticks: int
-    total_elapsed_ns: int
     mean_satisfied: float
     mean_segregation: float
     mean_last_swapped: float
@@ -94,7 +92,6 @@ def add_study_arguments(
     parser.add_argument("--density", type=float, default=DEFAULT_DENSITY)
     parser.add_argument("--balance", type=float, default=DEFAULT_BALANCE)
     parser.add_argument("--steps", type=int, default=1000)
-    parser.add_argument("--warmup-steps", type=int, default=0)
     parser.add_argument("--seeds", type=int, default=8)
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument(
@@ -108,10 +105,8 @@ def add_study_arguments(
 
 
 def options_from_args(args: argparse.Namespace) -> NetLogoStudyOptions:
-    if args.steps <= 0 or args.seeds <= 0 or args.warmup_steps < 0:
-        raise SystemExit(
-            "--steps and --seeds must be positive; --warmup-steps must be non-negative"
-        )
+    if args.steps <= 0 or args.seeds <= 0:
+        raise SystemExit("--steps and --seeds must be positive")
     if not 0 <= args.density <= 1 or not 0 <= args.balance <= 1:
         raise SystemExit("--density and --balance must be values from 0 through 1")
     return NetLogoStudyOptions(
@@ -120,7 +115,6 @@ def options_from_args(args: argparse.Namespace) -> NetLogoStudyOptions:
         density=args.density,
         balance=args.balance,
         steps=args.steps,
-        warmup_steps=args.warmup_steps,
         seeds=args.seeds,
         seed=args.seed,
         thresholds=tuple(args.thresholds),
@@ -132,6 +126,15 @@ def netlogo_number(value: float | int) -> str:
     return str(value) if isinstance(value, int) else f"{value:.17g}"
 
 
+def advance_trial(workspace, steps, mode):
+    command = (
+        f"repeat {steps} [ advance ]"
+        if mode == "steady"
+        else f"run-scientific-trial {steps}"
+    )
+    workspace.command(command)
+
+
 def run_trial(
     workspace: Any,
     *,
@@ -141,6 +144,7 @@ def run_trial(
     density: float,
     balance: float,
     mode: str,
+    advance=advance_trial,
 ) -> TrialResult:
     workspace.command(
         " ".join(
@@ -153,12 +157,7 @@ def run_trial(
         )
     )
     workspace.command("setup")
-    started_ns = time.perf_counter_ns()
-    if mode == "steady":
-        workspace.command(f"repeat {steps} [ advance ]")
-    else:
-        workspace.command(f"run-scientific-trial {steps}")
-    elapsed_ns = time.perf_counter_ns() - started_ns
+    advance(workspace, steps, mode)
     steps_run = int(float(workspace.report("ticks")))
     last_swapped = int(float(workspace.report("swapped-last-step")))
     return TrialResult(
@@ -166,28 +165,25 @@ def run_trial(
         segregation=float(workspace.report("segregation-index")),
         last_swapped=last_swapped,
         steps_run=steps_run,
-        converged=last_swapped == 0,
-        elapsed_ns=elapsed_ns,
+        termination=(
+            "satisfied"
+            if bool(workspace.report("all? patches [satisfied?]"))
+            else "jammed"
+        )
+        if mode == "convergence" and last_swapped == 0
+        else "limit",
     )
 
 
-def run_study(workspace: Any, options: NetLogoStudyOptions) -> StudyResult:
+def run_study(
+    workspace: Any, options: NetLogoStudyOptions, *, trial_runner=run_trial
+) -> StudyResult:
     workspace.load_model(str(options.model_path))
-    if options.warmup_steps:
-        run_trial(
-            workspace,
-            threshold=options.thresholds[0],
-            seed=options.seed,
-            steps=options.warmup_steps,
-            density=options.density,
-            balance=options.balance,
-            mode="steady",
-        )
     rows: list[StudyRow] = []
     all_trials: list[TrialResult] = []
     for threshold in options.thresholds:
         trials = [
-            run_trial(
+            trial_runner(
                 workspace,
                 threshold=threshold,
                 seed=options.seed + offset,
@@ -206,7 +202,9 @@ def run_study(workspace: Any, options: NetLogoStudyOptions) -> StudyResult:
                 mean_segregation=mean(trial.segregation for trial in trials),
                 mean_last_swapped=mean(trial.last_swapped for trial in trials),
                 mean_steps=mean(trial.steps_run for trial in trials),
-                converged_runs=sum(trial.converged for trial in trials),
+                satisfied_runs=sum(t.termination == "satisfied" for t in trials),
+                jammed_runs=sum(t.termination == "jammed" for t in trials),
+                limit_runs=sum(t.termination == "limit" for t in trials),
             )
         )
     total_ticks = sum(trial.steps_run for trial in all_trials)
@@ -215,7 +213,6 @@ def run_study(workspace: Any, options: NetLogoStudyOptions) -> StudyResult:
         rows=tuple(rows),
         trials=tuple(all_trials),
         total_ticks=total_ticks,
-        total_elapsed_ns=sum(trial.elapsed_ns for trial in all_trials),
         mean_satisfied=mean(trial.satisfied for trial in all_trials),
         mean_segregation=mean(trial.segregation for trial in all_trials),
         mean_last_swapped=mean(trial.last_swapped for trial in all_trials),
@@ -232,20 +229,11 @@ def create_workspace(py_netlogo: Any, options: NetLogoStudyOptions) -> Any:
 
 def format_study_csv(result: StudyResult) -> str:
     lines = [
-        "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs"
+        "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,satisfied_runs,jammed_runs,limit_runs"
     ]
     lines.extend(
         f"{row.threshold:.2f},{row.mean_satisfied:.4f},{row.mean_segregation:.4f},"
-        f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.converged_runs}"
+        f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.satisfied_runs},{row.jammed_runs},{row.limit_runs}"
         for row in result.rows
-    )
-    elapsed_ms = result.total_elapsed_ns / 1_000_000
-    tpms = 0.0 if elapsed_ms == 0 else result.total_ticks / elapsed_ms
-    mspt = 0.0 if result.total_ticks == 0 else elapsed_ms / result.total_ticks
-    lines.extend(
-        [
-            "performance_metric,total_ticks,elapsed_ms,tpms,mspt",
-            f"performance,{result.total_ticks},{elapsed_ms:.3f},{tpms:.6f},{mspt:.6f}",
-        ]
     )
     return "\n".join(lines)

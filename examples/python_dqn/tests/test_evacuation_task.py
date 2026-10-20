@@ -11,8 +11,8 @@ from python_dqn.config import (
     build_evacuation_layout,
 )
 from python_dqn.dqn import DQNAgent
-from python_dqn.evidence import _derive_summary
 from python_dqn.envs import MesaEvacuationEnv
+from python_dqn.evidence import _derive_summary
 from python_dqn.model import EvacuationModel
 from python_dqn.policies import NoGuidePolicy, SafeExitHeuristicPolicy, evaluate_policy
 
@@ -152,3 +152,38 @@ def test_evidence_summary_is_derived_from_episode_rows() -> None:
     assert summary["reference100"]["dqn"]["episodes"] == 100
     assert summary["stability500"]["dqnByTrainingSeed"]["23"]["evacuated"] == 23
     assert summary["stability500"]["dqnAcrossTrainingSeeds"]["meanEvacuated"] == 26.2
+
+
+def test_agents_own_exploration_rng_and_leave_torch_initialization_stream_unchanged():
+    import random
+
+    import torch
+
+    from python_dqn.dqn import Transition
+
+    python_before = random.getstate()
+    torch_before = torch.get_rng_state().clone()
+    left = DQNAgent(16, 5, DQNConfig(hidden_dim=8), "cpu", seed=11)
+    right = DQNAgent(16, 5, DQNConfig(hidden_dim=8), "cpu", seed=11)
+    other = DQNAgent(16, 5, DQNConfig(hidden_dim=8), "cpu", seed=29)
+    assert torch.equal(torch_before, torch.get_rng_state())
+    assert all(
+        torch.equal(a, b)
+        for a, b in zip(left.policy_net.parameters(), right.policy_net.parameters())
+    )
+    state = torch.zeros(16)
+    for index in range(12):
+        for agent in (left, right, other):
+            agent.buffer.add(Transition(state, index % 5, float(index), state, False))
+    for _ in range(8):
+        assert left.select_action(state) == right.select_action(state)
+        left_random = left.random.getstate()
+        left.select_action(state, greedy=True)
+        assert left.random.getstate() == left_random
+        other.select_action(state)
+        other.buffer.sample(3)
+        assert [t.reward for t in left.buffer.sample(3)] == [
+            t.reward for t in right.buffer.sample(3)
+        ]
+    assert random.getstate() == python_before
+    assert torch.equal(torch_before, torch.get_rng_state())

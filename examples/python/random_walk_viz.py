@@ -6,10 +6,8 @@ import asyncio
 import os
 
 import import_config  # noqa: F401
-
-from tensnap import SimulationScenario, chart
-
 from random_walk import RandomWalkConfig, RandomWalkSimulation
+from tensnap import SimulationScenario, chart
 
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port, step_interval=0.1)
@@ -26,6 +24,11 @@ def track_distance() -> float:
 @chart("population", "Walker Count", color="#16A34A")
 def track_population() -> float:
     return float(len(model.walkers))
+
+
+@chart("msd", "Mean Squared Unwrapped Displacement", color="#7C3AED")
+def track_msd() -> float:
+    return model.mean_squared_displacement()
 
 
 async def main() -> None:

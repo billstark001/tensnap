@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import cast
 
 from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import Model
 from mesa.datacollection import DataCollector
-from tensnap.bindings import BindParameterConfig
 
 DEFAULT_GRID_W = 50
 DEFAULT_GRID_H = 50
@@ -21,16 +20,24 @@ class SchellingAgent(CellAgent):
     cell: Cell
     model: SchellingModel
 
-    def __setattr__(self, name: str, value: Any) -> None:
-        # Keep derived counts valid for exactly one occupancy/group state,
-        # including direct edits, removals, and checkpoint reconstruction.
-        if (
-            name in ("cell", "group")
-            and hasattr(self, "model")
-            and self.model._neighbor_counts
-        ):
-            self.model._neighbor_counts.clear()
-        super().__setattr__(name, value)
+    @property
+    def cell(self):
+        return CellAgent.cell.fget(self)
+
+    @cell.setter
+    def cell(self, value):
+        # Delegate occupancy bookkeeping to Mesa; invalidate only derived analysis.
+        CellAgent.cell.fset(self, value)
+        self.model._neighbor_counts.clear()
+
+    @property
+    def group(self):
+        return self._group
+
+    @group.setter
+    def group(self, value):
+        self._group = value
+        self.model._neighbor_counts.clear()
 
     def __init__(self, model: SchellingModel, cell: Cell, group: int) -> None:
         super().__init__(model)
@@ -41,21 +48,16 @@ class SchellingAgent(CellAgent):
         if threshold is None:
             threshold = cast(float, self.model.similarity_threshold)
 
-        if self.model.collect_data:
-            same_group, occupied_neighbors = self.model.neighbor_counts(self)
-        else:
-            # The kernel-only workload scans once per state. Avoid populating
-            # a dictionary it will discard as soon as the first agent moves.
-            same_group, occupied_neighbors = 0, 0
-            for neighbor in self.cell.get_neighborhood(radius=1).agents:
-                if cast(SchellingAgent, neighbor).group == self.group:
-                    same_group += 1
-                occupied_neighbors += 1
+        same_group, occupied_neighbors = self.model.neighbor_counts(self)
         return occupied_neighbors == 0 or same_group >= threshold * occupied_neighbors
 
 
 class SchellingModel(Model):
-    """A small Mesa implementation of Schelling's segregation model."""
+    """Batch-relocation Schelling variant on a bounded Moore grid.
+
+    Dissatisfaction is read from the old state; shuffled unhappy agents are paired
+    with shuffled cells that were empty at tick start. No moves may mean jamming.
+    """
 
     agents: list[SchellingAgent]
 
@@ -68,11 +70,10 @@ class SchellingModel(Model):
         balance: float = DEFAULT_BALANCE,
         similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
         collect_data: bool = True,
-        rng=None,
+        seed: int = 7,
     ) -> None:
-        if isinstance(rng, str):
-            rng = int(rng) if rng.strip() else None
-        super().__init__(rng=rng)
+        super().__init__(rng=seed)
+        self.seed = seed
 
         self.width = width if width > 0 else DEFAULT_GRID_W
         self.height = height if height > 0 else DEFAULT_GRID_H
@@ -110,7 +111,7 @@ class SchellingModel(Model):
         if self.collect_data:
             self.datacollector.collect(self)
 
-    @BindParameterConfig("number", id="similarityThreshold", min=0, max=1, step=0.05)
+    @property
     def similarity_threshold(self) -> float:
         return self._similarity_threshold
 
@@ -143,8 +144,9 @@ class SchellingModel(Model):
             self.datacollector.collect(self)
         return swapped > 0
 
-    def step(self) -> bool:
-        return self.advance()
+    def step(self) -> None:
+        """Use Mesa's normal step contract; last_swapped reports movement."""
+        self.advance()
 
     def satisfied_pct(self) -> float:
         occupied = len(self.agents)
@@ -153,7 +155,7 @@ class SchellingModel(Model):
         return sum(1 for agent in self.agents if agent.is_satisfied()) / occupied
 
     def neighbor_counts(self, agent: SchellingAgent) -> tuple[int, int]:
-        counts = self._neighbor_counts.get(agent) if self.collect_data else None
+        counts = self._neighbor_counts.get(agent)
         if counts is None:
             same, occupied = 0, 0
             for neighbor in agent.cell.get_neighborhood(radius=1).agents:
@@ -161,8 +163,7 @@ class SchellingModel(Model):
                 if cast(SchellingAgent, neighbor).group == agent.group:
                     same += 1
             counts = (same, occupied)
-            if self.collect_data:
-                self._neighbor_counts[agent] = counts
+            self._neighbor_counts[agent] = counts
         return counts
 
     def segregation_index(self) -> float:

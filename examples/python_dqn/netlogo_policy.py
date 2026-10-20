@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from pathlib import Path
-import random
+import os
 import sys
+from pathlib import Path
 from typing import Any
-
 
 UNTRAINED_GUIDE_MODEL = "untrained"
 
@@ -14,9 +13,15 @@ _device = "cpu"
 
 
 def _ensure_tensnap_source_path() -> None:
+    if os.environ.get("TENSNAP_USE_SOURCE", "0") != "1":
+        return
     repo_root = Path(__file__).resolve().parents[2]
     source_path = repo_root / "packages" / "tensnap-python"
-    if source_path.exists() and str(source_path) not in sys.path:
+    if not (source_path / "tensnap" / "__init__.py").is_file():
+        raise ImportError(
+            f"TENSNAP_USE_SOURCE requested but no TenSnap source exists at {source_path}"
+        )
+    if str(source_path) not in sys.path:
         sys.path.insert(0, str(source_path))
 
 
@@ -79,9 +84,6 @@ def setup(
         EvacuationModel,
     ) = _load_dependencies()
 
-    random.seed(seed)
-    torch.manual_seed(seed)
-
     exits, fire_sources, walls = build_evacuation_layout(width, height)
     env_config = EnvConfig(
         width=width,
@@ -99,6 +101,7 @@ def setup(
         DQNConfig(),
         device=_device,
         checkpoint_schema=checkpoint_schema,
+        seed=seed,
     )
 
     checkpoint_name = checkpoint_name or UNTRAINED_GUIDE_MODEL

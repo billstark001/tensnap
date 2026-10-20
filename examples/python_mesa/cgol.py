@@ -5,8 +5,8 @@ from typing import Any
 import mesa
 import numpy as np
 from _mesa_space import OrthogonalMooreGrid
-
 from tensnap import (
+    NumberParameter,
     bind_kwargs,
     chart,
     checkpoint,
@@ -30,7 +30,13 @@ def _nested_tuple(value: Any) -> Any:
     return value
 
 
-@bind_kwargs(exclude=["seed"])
+@bind_kwargs(
+    custom_bindings={
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        )
+    }
+)
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
 @scene_restore(time=mesa_clock_restore)
 @layer_restore(
@@ -50,7 +56,7 @@ def _nested_tuple(value: Any) -> Any:
 @grid_layer()
 @env(id="cgol_grid")
 class GameOfLife(mesa.Model):
-    def __init__(self, width: int = 50, height: int = 50, seed=None):
+    def __init__(self, width: int = 50, height: int = 50, seed: int = 7):
         super().__init__(rng=seed)
 
         self.seed = seed

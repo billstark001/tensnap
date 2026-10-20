@@ -21,6 +21,7 @@ class CheckpointModel:
     model_id: str
     config_type: Any
     checkpoint_version = 2
+    state_fields: tuple[str, ...] = ()
 
     def capture(self) -> dict:
         """Detach a complete continuation state, excluding credentials and paid usage."""
@@ -59,7 +60,7 @@ class CheckpointModel:
         candidate.policy_rng.setstate(
             tuples(json.loads(payload["policy_random_state"]))
         )
-        self.__dict__.update(candidate.__dict__)
+        self._install(candidate)
         if self.provider:
             self.provider.cursor = cursor
 
@@ -67,9 +68,14 @@ class CheckpointModel:
         """Start a fresh model with the current configuration and shared response cache."""
         config = self.config if seed is None else replace(self.config, seed=seed)
         replacement = type(self)(config, self.provider)
-        self.__dict__.update(replacement.__dict__)
+        self._install(replacement)
         if self.provider:
             self.provider.cursor = 0
+
+    def _install(self, candidate) -> None:
+        """Install declared model-owned state; retain the external provider and its costs."""
+        for name in ("config", "tick", "rng", "policy_rng", *self.state_fields):
+            setattr(self, name, getattr(candidate, name))
 
     def transaction_mark(self):
         """Remember stochastic cursors before a decision that can fail or be cancelled."""

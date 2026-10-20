@@ -12,7 +12,6 @@ import argparse
 import json
 import os
 import platform
-import random
 import shutil
 import subprocess
 from collections.abc import Iterable
@@ -142,13 +141,6 @@ def _require_clean_source(output: Path | None = None) -> None:
         raise SystemExit(
             "fire evidence requires a clean Git source tree; commit the declared implementation first"
         )
-
-
-def _set_training_seed(seed: int) -> None:
-    random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
 
 
 def _summary(rows: Iterable[dict[str, Any]]) -> dict[str, float]:
@@ -304,7 +296,6 @@ def build_artifact(output: Path, plan: EvidencePlan = DEFAULT_EVIDENCE_PLAN) -> 
     try:
         for seed in plan.training_seeds:
             print(f"training_seed={seed}", flush=True)
-            _set_training_seed(seed)
             seed_directory = checkpoints / f"seed-{seed}"
             artifacts = train_dqn(
                 env_config,

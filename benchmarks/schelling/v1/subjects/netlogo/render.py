@@ -41,7 +41,9 @@ def _netlogo_home(value: str | None) -> Path:
     for candidate in candidates:
         if candidate and Path(candidate).is_dir():
             return Path(candidate).resolve()
-    raise SystemExit("Set --netlogo-home or NETLOGO_HOME to a NetLogo 7.0.4 installation.")
+    raise SystemExit(
+        "Set --netlogo-home or NETLOGO_HOME to a NetLogo 7.0.4 installation."
+    )
 
 
 def _milliseconds(started_ns: int) -> float:
@@ -88,7 +90,9 @@ def _raster_groups(path: Path, width: int, height: int) -> tuple[list[int], int,
                 for x in range(left, left + patch_width)
             }
             if len(colors) != 1:
-                raise RuntimeError(f"patch ({column}, {height - 1 - row}) was not rendered as one color")
+                raise RuntimeError(
+                    f"patch ({column}, {height - 1 - row}) was not rendered as one color"
+                )
             color = next(iter(colors))
             if color not in reverse_colors:
                 raise RuntimeError(f"unexpected NetLogo view color {color}")
@@ -114,7 +118,9 @@ def main() -> None:
     parser.add_argument("--measured-actions", type=int, default=20)
     args = parser.parse_args()
     if args.warmup_actions < 0 or args.measured_actions <= 0:
-        raise SystemExit("warmup actions must be non-negative and measured actions positive")
+        raise SystemExit(
+            "warmup actions must be non-negative and measured actions positive"
+        )
 
     home = _netlogo_home(args.netlogo_home)
     workspace = pynetlogo.NetLogoLink(gui=False, netlogo_home=str(home))
@@ -160,7 +166,9 @@ def main() -> None:
             width, height, groups = _model_groups(workspace)
             raster, image_width, image_height = _raster_groups(png, width, height)
             if groups != raster:
-                raise RuntimeError("NetLogo patch state and exported view raster differ")
+                raise RuntimeError(
+                    "NetLogo patch state and exported view raster differ"
+                )
             png_bytes = png.read_bytes()
 
         tick = int(float(workspace.report("ticks")))
@@ -187,7 +195,9 @@ def main() -> None:
                         "patches": width * height,
                         "pngBytes": len(png_bytes),
                         "satisfiedPct": float(workspace.report("satisfied-pct")),
-                        "segregationIndex": float(workspace.report("segregation-index")),
+                        "segregationIndex": float(
+                            workspace.report("segregation-index")
+                        ),
                     },
                     "stagesMs": {
                         "modelTransitionMs": model_ms,
@@ -207,7 +217,9 @@ def main() -> None:
                     },
                     "visual": {
                         "checkpoints": {"final": digest},
-                        "inlinePngBase64": {"final": base64.b64encode(png_bytes).decode("ascii")},
+                        "inlinePngBase64": {
+                            "final": base64.b64encode(png_bytes).decode("ascii")
+                        },
                     },
                     "runtime": {
                         "python": platform.python_version(),

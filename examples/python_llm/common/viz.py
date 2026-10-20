@@ -66,7 +66,7 @@ class ModelView:
     @action("reseed", "Reset with next seed")
     async def reseed(self):
         self.model.config = replace(self.model.config, seed=(self.seed + 1) % 2**32)
-        await self.scenario._fire_reset()
+        await self.scenario.reset()
 
     def capture(self):
         return {"model": self.model.capture(), "selected_agent": self.selected_agent}
@@ -77,7 +77,7 @@ class ModelView:
         )
         self.model.restore(saved["model"])
         self._selected_agent = selected
-        self.scenario._time_step = self.model.tick
+        self.scenario.set_time_step(self.model.tick)
 
 
 def controls(extra):
@@ -118,8 +118,7 @@ async def build_scenario(model, view_type, port=8765):
     )
     scenario.add_actions({"reseed": view.reseed})
     scenario.parameters["selected_agent"].max = len(model.agents) - 1
-    # These private lifecycle hooks are also used by repository examples. Keep
-    # them here: the pure model has no dependency on scenario clocks or encoding.
+    # The adapter owns protocol clock synchronization; the model owns RNG state.
     scenario.configure_scene_restore(
         None,
         checkpoint_capture=view.capture,
@@ -132,7 +131,7 @@ async def build_scenario(model, view_type, port=8765):
         except BaseException:
             # Default handlers increment before invoking the model. An API
             # failure must not leave the protocol clock ahead of the model.
-            scenario._time_step = model.tick
+            scenario.set_time_step(model.tick)
             raise
 
     await scenario.register_model_handler(model_step=step, model_reset=model.reset)

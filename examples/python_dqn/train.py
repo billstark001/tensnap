@@ -85,6 +85,7 @@ def train_dqn(
             dqn_config,
             device=device,
             checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+            seed=train_config.seed,
         )
         train_config.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         summaries: list[EpisodeSummary] = []

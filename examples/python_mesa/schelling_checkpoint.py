@@ -1,16 +1,14 @@
-"""Optional exact Schelling checkpoint for the headless publication experiment.
+"""Exact continuation of scientific state and both model-owned RNGs.
 
-This is not required for the teaching example. A much smaller projected scene
-restore can move agents, parameters, and time back, but may omit RNG state and
-other private fields needed to replay the same future exactly.
+DataCollector/chart history is observational output and starts a new segment on
+restore. The checkpoint uses no private collector fields. Historical schema-2
+checkpoints require their original source revision.
 """
 
-import copy
 import json
 
-from tensnap import cleanup_mesa_model_step, restore_mesa_model_time
-
 from schelling import SchellingAgent, SchellingModel
+from tensnap import cleanup_mesa_model_step, restore_mesa_model_time
 
 
 def _tuples(value):
@@ -19,6 +17,7 @@ def _tuples(value):
 
 def capture_checkpoint(model: SchellingModel) -> dict:
     return {
+        "seed": model.seed,
         "width": model.width,
         "height": model.height,
         "density": model.density,
@@ -35,17 +34,10 @@ def capture_checkpoint(model: SchellingModel) -> dict:
             {"id": a.unique_id, "coordinate": list(a.cell.coordinate), "group": a.group}
             for a in model.agents
         ],
-        "collector": {
-            "model_vars": copy.deepcopy(model.datacollector.model_vars),
-            "collection_steps": list(model.datacollector._collection_steps),
-            "agent_records": {
-                str(k): v for k, v in model.datacollector._agent_records.items()
-            },
-        },
     }
 
 
-def restore_checkpoint(model: SchellingModel, saved: dict) -> None:
+def _apply_checkpoint(model: SchellingModel, saved: dict) -> None:
     if not isinstance(saved, dict) or not isinstance(saved.get("agents"), list):
         raise ValueError("invalid Schelling checkpoint")
     width, height = int(saved["width"]), int(saved["height"])
@@ -67,7 +59,7 @@ def restore_checkpoint(model: SchellingModel, saved: dict) -> None:
         balance=float(saved["balance"]),
         similarity_threshold=float(saved["similarity_threshold"]),
         collect_data=False,
-        rng=0,
+        seed=int(saved["seed"]),
     )
     for agent in saved["agents"]:
         x, y = agent["coordinate"]
@@ -81,12 +73,14 @@ def restore_checkpoint(model: SchellingModel, saved: dict) -> None:
     model.tick = int(saved["time"])
     model.last_swapped = int(saved["last_swapped"])
     model.running = bool(saved["running"])
-    collector = saved["collector"]
-    model.datacollector.model_vars = {
-        k: list(v) for k, v in collector["model_vars"].items()
-    }
-    model.datacollector._collection_steps = list(collector["collection_steps"])
-    model.datacollector._agent_records = {
-        float(k): [tuple(v) for v in records]
-        for k, records in collector["agent_records"].items()
-    }
+    if model.collect_data:
+        model.datacollector.collect(model)
+
+
+def restore_checkpoint(model: SchellingModel, saved: dict) -> None:
+    candidate = SchellingModel(width=1, height=1, density=0, collect_data=False)
+    try:
+        _apply_checkpoint(candidate, saved)
+    finally:
+        cleanup_mesa_model_step(candidate)
+    _apply_checkpoint(model, saved)

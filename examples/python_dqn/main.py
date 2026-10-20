@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import random
 
 import torch
 from torch.types import Device
@@ -90,13 +89,6 @@ def make_env_config(args: argparse.Namespace) -> EnvConfig:
     )
 
 
-def set_seed(seed: int) -> None:
-    random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
 def rollout(
     env_config: EnvConfig,
     episodes: int,
@@ -112,12 +104,7 @@ def rollout(
         netlogo_config=netlogo_config,
     )
     try:
-
-        class RandomAgent:
-            def select_action(self, state, greedy: bool = False) -> int:
-                return random.randrange(env.action_size)
-
-        agent = RandomAgent()
+        agent = RandomPolicy(seed)
         for episode in range(episodes):
             summary = run_episode(
                 env,
@@ -140,7 +127,6 @@ def rollout(
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
-    set_seed(args.seed)
     env_config = make_env_config(args)
     dqn_config = DQNConfig()
     netlogo_config = NetLogoEnvConfig(
@@ -199,6 +185,7 @@ def main() -> None:
             dqn_config,
             device=device,
             checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+            seed=args.seed,
         )
         env.close()
         agent.load(str(args.checkpoint))
@@ -264,6 +251,7 @@ def main() -> None:
         dqn_config,
         device=device,
         checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+        seed=args.seed,
     )
     env.close()
     agent.load(str(args.checkpoint))

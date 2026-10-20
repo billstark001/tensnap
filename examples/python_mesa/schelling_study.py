@@ -6,8 +6,8 @@ TenSnap requirement.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-import time
 from typing import Literal, Sequence
 
 from schelling import (
@@ -31,8 +31,7 @@ class TrialResult:
     segregation_index: float
     last_swapped: int
     steps_run: int
-    converged: bool
-    elapsed_ns: int
+    termination: Literal["satisfied", "jammed", "limit"]
 
 
 @dataclass(frozen=True)
@@ -42,26 +41,15 @@ class SweepRow:
     mean_segregation_index: float
     mean_last_swapped: float
     mean_steps: float
-    converged_runs: int
+    satisfied_runs: int
+    jammed_runs: int
+    limit_runs: int
 
 
 @dataclass(frozen=True)
 class SweepResult:
     rows: tuple[SweepRow, ...]
     total_ticks: int
-    total_elapsed_ns: int
-
-    @property
-    def elapsed_ms(self) -> float:
-        return self.total_elapsed_ns / 1_000_000
-
-    @property
-    def ms_per_tick(self) -> float:
-        return 0.0 if self.total_ticks == 0 else self.elapsed_ms / self.total_ticks
-
-    @property
-    def ticks_per_ms(self) -> float:
-        return 0.0 if self.total_elapsed_ns == 0 else self.total_ticks / self.elapsed_ms
 
 
 def parse_thresholds(raw: str) -> list[float]:
@@ -90,25 +78,33 @@ def run_trial(
         balance=balance,
         similarity_threshold=threshold,
         collect_data=collect_data,
-        rng=seed,
+        seed=seed,
     )
-    steps_run = 0
-    converged = False
-    started_ns = time.perf_counter_ns()
-    for _ in range(steps):
-        steps_run += 1
-        moving = model.advance()
-        if mode == "convergence" and not moving:
-            converged = True
-            break
-    elapsed_ns = time.perf_counter_ns() - started_ns
+    steps_run, stopped = advance_trial(model, steps, mode)
+    return summarize_trial(model, steps_run, stopped)
+
+
+def advance_trial(model, steps: int, mode: StudyMode) -> tuple[int, bool]:
+    """Run scientific transitions only; no movement is a stopping event, not satisfaction."""
+    for tick in range(1, steps + 1):
+        model.step()
+        # Mesa owns step() and may discard the user callback return value.
+        if mode == "convergence" and model.last_swapped == 0:
+            return tick, True
+    return steps, False
+
+
+def summarize_trial(model, steps_run: int, stopped: bool) -> TrialResult:
+    satisfied = model.satisfied_pct()
+    all_satisfied = all(agent.is_satisfied() for agent in model.agents)
     return TrialResult(
-        satisfied_pct=model.satisfied_pct(),
+        satisfied_pct=satisfied,
         segregation_index=model.segregation_index(),
         last_swapped=model.last_swapped,
         steps_run=steps_run,
-        converged=converged,
-        elapsed_ns=elapsed_ns,
+        termination=("satisfied" if all_satisfied else "jammed")
+        if stopped
+        else "limit",
     )
 
 
@@ -124,35 +120,19 @@ def run_sweep(
     balance: float = DEFAULT_BALANCE,
     mode: StudyMode = "convergence",
     collect_data: bool = True,
-    warmup_steps: int = 0,
+    trial_runner: Callable[..., TrialResult] = run_trial,
 ) -> SweepResult:
     if mode not in ("steady", "convergence"):
         raise ValueError("mode must be steady or convergence")
-    if seeds <= 0 or steps <= 0 or warmup_steps < 0:
-        raise ValueError(
-            "seeds and steps must be positive and warmup_steps non-negative"
-        )
+    if seeds <= 0 or steps <= 0:
+        raise ValueError("seeds and steps must be positive")
     if not thresholds:
         raise ValueError("at least one threshold is required")
-    if warmup_steps:
-        run_trial(
-            threshold=thresholds[0],
-            seed=seed,
-            steps=warmup_steps,
-            width=width,
-            height=height,
-            density=density,
-            balance=balance,
-            mode="steady",
-            collect_data=collect_data,
-        )
-
     rows: list[SweepRow] = []
     total_ticks = 0
-    total_elapsed_ns = 0
     for threshold in thresholds:
         trials = tuple(
-            run_trial(
+            trial_runner(
                 threshold=threshold,
                 seed=seed + offset,
                 steps=steps,
@@ -166,7 +146,6 @@ def run_sweep(
             for offset in range(seeds)
         )
         total_ticks += sum(trial.steps_run for trial in trials)
-        total_elapsed_ns += sum(trial.elapsed_ns for trial in trials)
         rows.append(
             SweepRow(
                 threshold=threshold,
@@ -175,22 +154,23 @@ def run_sweep(
                 / seeds,
                 mean_last_swapped=sum(trial.last_swapped for trial in trials) / seeds,
                 mean_steps=sum(trial.steps_run for trial in trials) / seeds,
-                converged_runs=sum(1 for trial in trials if trial.converged),
+                satisfied_runs=sum(
+                    trial.termination == "satisfied" for trial in trials
+                ),
+                jammed_runs=sum(trial.termination == "jammed" for trial in trials),
+                limit_runs=sum(trial.termination == "limit" for trial in trials),
             )
         )
-    return SweepResult(tuple(rows), total_ticks, total_elapsed_ns)
+    return SweepResult(tuple(rows), total_ticks)
 
 
 def format_sweep_csv(result: SweepResult) -> str:
     rows = [
-        "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,converged_runs",
+        "threshold,mean_satisfied_pct,mean_segregation_index,mean_last_swapped,mean_steps,satisfied_runs,jammed_runs,limit_runs",
         *(
             f"{row.threshold:.2f},{row.mean_satisfied_pct:.4f},{row.mean_segregation_index:.4f},"
-            f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.converged_runs}"
+            f"{row.mean_last_swapped:.2f},{row.mean_steps:.2f},{row.satisfied_runs},{row.jammed_runs},{row.limit_runs}"
             for row in result.rows
         ),
-        "performance_metric,total_ticks,elapsed_ms,tpms,mspt",
-        f"performance,{result.total_ticks},{result.elapsed_ms:.3f},"
-        f"{result.ticks_per_ms:.6f},{result.ms_per_tick:.6f}",
     ]
     return "\n".join(rows)
