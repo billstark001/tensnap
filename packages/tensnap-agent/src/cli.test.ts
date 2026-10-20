@@ -210,6 +210,8 @@ describe('agent CLI', () => {
         captureFile,
         '--time',
         '5',
+        '--parameters',
+        '[{"id":"seed","value":42}]',
         '--context',
         context.contextName,
         '--context-dir',
@@ -245,7 +247,11 @@ describe('agent CLI', () => {
     }
     expect(requests).toEqual([
       { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' }, time: 3 },
-      { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' }, time: 5 },
+      {
+        checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' },
+        time: 5,
+        parameters: [{ id: 'seed', value: 42 }],
+      },
       { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' } },
     ]);
   });
@@ -385,7 +391,7 @@ it.each([
   ['runtime', 'status', '--version'],
   ['runtime', 'up', '--encoding', 'invalid'],
   ['runtime', 'up', '--simulator-url', 'http://localhost'],
-  ['scene', 'restore', '--parameters', '[]'],
+  ['scene', 'restore', '--parameters', '{}'],
   ['scene', 'restore', '--envs', '{}'],
   ['runtime', 'up', '--render-trigger', 'action-end'],
   ['runtime', 'status', 'extra'],

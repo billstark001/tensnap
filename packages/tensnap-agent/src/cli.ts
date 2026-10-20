@@ -658,7 +658,7 @@ export function createProgram(
   addOptions(sceneRestore, [
     new Option('--checkpoint <path>', 'Restore from a capture JSON file.'),
     numericOption('--time <number>', 'Override scene time.'),
-    jsonOption('--parameters <json>', 'Projected parameter object.', 'object'),
+    jsonOption('--parameters <json>', 'Projected parameter array of {id, value} entries.', 'array'),
     jsonOption('--envs <json>', 'Projected environment array.', 'array'),
     numericOption('--history-time <number>', 'Renderer-local chart boundary.'),
     jsonOption('--replacement-charts <json>', 'Saved renderer chart groups.', 'array'),

@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/agent",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Headless TenSnap simulator CLI with bounded runs, scene rendering, recordings, and offline agent skills.",
   "keywords": [
     "agent",

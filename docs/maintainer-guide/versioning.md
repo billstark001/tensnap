@@ -7,7 +7,8 @@ TenSnap uses independent package patch versions within the shared `0.3` release 
 | `@tensnap/web` | `0.3.9` | `packages/tensnap-web/package.json` |
 | `@tensnap/tauri` | `0.3.7` | `packages/tensnap-tauri/package.json`, `src-tauri/Cargo.toml` and generated `Cargo.lock` |
 | `@tensnap/core` | `0.3.6` | `packages/core/package.json` |
-| `@tensnap/agent`, `@tensnap/benchmark` | `0.3.7` | Each package's `package.json` |
+| `@tensnap/agent` | `0.3.8` | `packages/tensnap-agent/package.json` |
+| `@tensnap/benchmark` | `0.3.7` | `packages/benchmark/package.json` |
 | `@tensnap/js` | `0.3.5` | `packages/tensnap-js/package.json` |
 | `@tensnap/examples-js`, `@tensnap/web-common` | `0.3.4` | Each package's `package.json` |
 | `@tensnap/web-adapter` | `0.3.5` | `packages/web-adapter/package.json` |
@@ -37,7 +38,7 @@ The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`
 3. Update `CHANGELOG.md` using its package-specific heading format, and update the dated version snapshot in this guide.
 4. Run `pnpm run check:versions` and the affected package tests before tagging.
 
-For a batch patch update, compare the release checkout with its upstream baseline and bump each affected package once, including changed examples and the workspace root when their own package content changes. A wrapper without a version still uses its native binding source. This patch prepares network 0.3.1, JS 0.3.5, agent/benchmark/Tauri 0.3.7 and Web 0.3.9. Core, protocol, shared UI/adapters, examples packages, native language bindings and the root retain their existing versions; the wire and persisted format versions remain unchanged.
+For a batch patch update, compare the release checkout with its upstream baseline and bump each affected package once, including changed examples and the workspace root when their own package content changes. A wrapper without a version still uses its native binding source. This checkout prepares network 0.3.1, JS 0.3.5, agent 0.3.8, benchmark/Tauri 0.3.7 and Web 0.3.9. Core, protocol, shared UI/adapters, examples packages, native language bindings and the root retain their existing versions; the wire and persisted format versions remain unchanged.
 
 The JS package publishes exact workspace dependency versions. The agent's executable bundles workspace code, while its library entry points retain external dependencies: publishing network alone does not update the old CLI. Rebuild and publish network, JS and agent in that order to deliver this fix. The Tauri version prepares a new build of the embedded Web/shared UI; changing its version alone does not produce an installer.
 

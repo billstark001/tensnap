@@ -26,6 +26,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## Unreleased
+
+## @tensnap/agent [0.3.8] - 2026-10-21
+
+### Fixed
+
+- Accept projected parameter arrays in CLI `scene restore --parameters` and `POST /v1/scene/restore`, enabling parameter overlays alongside checkpoint and projected-state restoration.
+- Use protocol-derived option types and document the `{id, value}` array shape; reject object maps before simulator dispatch.
+
 ## @tensnap/network [0.3.1] - 2026-10-21
 
 ### Fixed
