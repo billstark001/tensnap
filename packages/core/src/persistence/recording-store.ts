@@ -204,20 +204,7 @@ class Objects {
         throw new Error('Conflicting cached object reference.');
       return cached.value as T;
     }
-    const bytes = await this.backend.read(`objects/${ref.hash}`);
-    this.stats.bytesRead += bytes.length;
-    this.stats.objectsRead++;
-    if (bytes.length !== ref.bytes || (await storeHash(bytes)) !== ref.hash)
-      throw new Error(`Corrupt store object ${ref.hash}.`);
-    // Gzip's trailer declares the uncompressed size. Validate it before allocating a decode buffer.
-    if (
-      bytes.length < 18 ||
-      new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
-        bytes.length - 4,
-        true,
-      ) !== ref.decodedBytes
-    )
-      throw new Error('Invalid decoded object length.');
+    const bytes = await this.verify(ref);
     const raw = gunzipSync(bytes, { out: new Uint8Array(ref.decodedBytes) });
     if (raw.length !== ref.decodedBytes) throw new Error('Invalid decoded object length.');
     const decoded = decodeMessagePack<T>(raw);
@@ -231,6 +218,24 @@ class Objects {
       this.stats.peakCacheBytes = Math.max(this.stats.peakCacheBytes, this.stats.cacheBytes);
     }
     return value;
+  }
+  async verify(ref: StoreReference): Promise<Uint8Array> {
+    ref = referenceSchema.parse(ref);
+    const bytes = await this.backend.read(`objects/${ref.hash}`);
+    this.stats.bytesRead += bytes.length;
+    this.stats.objectsRead++;
+    if (bytes.length !== ref.bytes || (await storeHash(bytes)) !== ref.hash)
+      throw new Error(`Corrupt store object ${ref.hash}.`);
+    // Check the gzip trailer before allocating any decoded scene buffer.
+    if (
+      bytes.length < 18 ||
+      new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(
+        bytes.length - 4,
+        true,
+      ) !== ref.decodedBytes
+    )
+      throw new Error('Invalid decoded object length.');
+    return bytes;
   }
   async put(value: unknown): Promise<StoreReference> {
     const raw = encode(value);
@@ -287,6 +292,8 @@ export class RecordingStoreWriter {
   private tail?: StoreReference;
   private streamTail?: StoreReference;
   private readonly objects: Objects;
+  private readonly dependencies?: LRUCache<string, { hashes: string[]; bytes: number }>;
+  private readonly dependencyCacheBytes: number;
   private readonly options: RecordingStoreOptions;
   private chain: Promise<void> = Promise.resolve();
   private pendingBytes = 0;
@@ -304,9 +311,18 @@ export class RecordingStoreWriter {
     private readonly release: () => Promise<void>,
   ) {
     this.options = structuredClone(options);
+    const cacheBytes = options.cacheBytes ?? 1024 * 1024;
+    // Share the existing decoded-cache budget with lightweight GC references.
+    // Tiny caches and evicted entries fall back to verified boundary reads.
+    this.dependencyCacheBytes = options.mode === 'rolling' ? Math.floor(cacheBytes / 2) : 0;
+    if (this.dependencyCacheBytes)
+      this.dependencies = new LRUCache({
+        maxSize: this.dependencyCacheBytes,
+        sizeCalculation: (entry) => entry.bytes,
+      });
     this.objects = new Objects(
       backend,
-      options.cacheBytes ?? 1024 * 1024,
+      cacheBytes - this.dependencyCacheBytes,
       () =>
         (this.options.maxStoredBytes ?? Infinity) -
         this.metadataBytes -
@@ -517,15 +533,12 @@ export class RecordingStoreWriter {
       stream: streamChanged,
     });
     const generation = this.nextGeneration++;
-    let count = (this.rootValue?.count ?? 0) + 1;
     const firstFrame =
       this.options.mode === 'rolling'
         ? Math.max(this.rootValue?.firstFrame ?? frame, frame - this.options.maxFrames!)
         : (this.rootValue?.firstFrame ?? frame);
-    if (this.options.mode === 'rolling') {
-      count = 0;
-      for await (const _row of this.backend.frameIndex(firstFrame, frame)) count++;
-    }
+    // append admits only contiguous frames, including exports with a nonzero origin.
+    const count = frame - firstFrame + 1;
     const root: RecordingStoreRoot = {
       kind: 'tensnap-recording-store',
       version: 1,
@@ -561,8 +574,17 @@ export class RecordingStoreWriter {
     if (total > (this.options.maxStoredBytes ?? Infinity))
       throw new Error('Full recording storage budget exhausted.');
     await this.publish(root);
+    if (this.dependencies) this.rememberDependencies(segment.hash, boundary);
     this.tail = segment;
     this.streamTail = stream;
+  }
+  private rememberDependencies(hash: string, boundary: StoredBoundary): string[] {
+    const hashes = [boundary.stream.hash, ...boundary.assets.map((asset) => asset.ref.hash)];
+    if (this.dependencies) {
+      const bytes = encode({ hash, hashes }).length;
+      if (bytes <= this.dependencyCacheBytes) this.dependencies.set(hash, { hashes, bytes });
+    }
+    return hashes;
   }
   private async putMetadata(key: string, bytes: Uint8Array) {
     if (
@@ -620,9 +642,20 @@ export class RecordingStoreWriter {
       const visitBoundary = async (ref: StoreReference): Promise<void> => {
         if (reachable.has(ref.hash)) return;
         reachable.add(ref.hash);
-        const boundary = boundarySchema.parse(await this.objects.get(ref)) as StoredBoundary;
-        reachable.add(boundary.stream.hash);
-        for (const asset of boundary.assets) reachable.add(asset.ref.hash);
+        // Verify the immutable bytes even on a reference-cache hit, before any
+        // pruning. A matching hash reuses the schema-checked dependencies from
+        // publication without decompressing and validating the full scene again.
+        const cached = this.dependencies?.get(ref.hash);
+        let hashes: string[];
+        if (cached) {
+          await this.objects.verify(ref);
+          hashes = cached.hashes;
+        } else
+          hashes = this.rememberDependencies(
+            ref.hash,
+            boundarySchema.parse(await this.objects.get(ref)) as StoredBoundary,
+          );
+        for (const hash of hashes) reachable.add(hash);
       };
       for (const generation of keepGenerations) {
         const root = rootSchema.parse(
@@ -641,6 +674,7 @@ export class RecordingStoreWriter {
           removedBytes += (await this.backend.read(key)).length;
           await this.backend.remove(key);
           this.objects.forget(key.slice(8));
+          this.dependencies?.delete(key.slice(8));
         }
         if (key.startsWith('roots/') && !keepGenerations.has(Number(key.slice(6))))
           await this.removeMetadata(key);
