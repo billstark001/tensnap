@@ -26,6 +26,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/network [0.3.1] - 2026-10-21
+
+### Fixed
+
+- Retry a dual-stack `port=0` bind when the port selected for the first address is occupied on the second address. Roll back partial listeners before each retry, cap retries at ten, and keep explicit-port conflicts fatal.
+
+## @tensnap/js [0.3.5] - 2026-10-21
+
+### Added
+
+- Expose the WebSocket host's actual renderer-message and simulator-message validation levels as read-only properties for policy inspection.
+
+### Fixed
+
+- Consume `@tensnap/network` 0.3.1 so simulator hosts receive the ephemeral-port collision fix.
+
+## @tensnap/agent [0.3.7] - 2026-10-21
+
+### Fixed
+
+- Rebuild the CLI with `@tensnap/network` 0.3.1 so dual-stack control listeners retry ephemeral-port collisions. The generated package also requires the corrected network version for its external library entry points.
+
+## @tensnap/web [0.3.9] - 2026-10-21
+
+### Fixed
+
+- Preserve a benchmark host's explicit validation policy through initialization, settings updates and reconnect. Read effective validation from the currently active transport. Interactive hosts continue to use the global validation settings.
+
+## @tensnap/benchmark [0.3.7] - 2026-10-21
+
+### Added
+
+- Add opt-in correlated action/result/completion and rAF timestamps, plus `diagnose:timeout` for browser timers/messages, Chromium traces and POSIX Python model/projection/collection, thread CPU, GC and resource counters. Verify probe startup and complete correlations, and preserve available traces on failed runs.
+- Include mean intervals and measured cycles per second in new Markdown/CSV reports, retaining the original report layout for byte-for-byte verification of historical exports.
+
+### Changed
+
+- Reuse same-state neighbor counts in the repository's Mesa Schelling example across statistics, collection and projection. Occupancy/group changes invalidate counts; kernel-only workloads bypass the cache. Seeded transitions, collected records and checkpoint restoration remain covered by regression checks. This example change does not alter the Python distribution.
+
+### Fixed
+
+- Propagate requested frontend validation through both browser workload branches, record the actual directional policies and reject mismatches. Document the historical samples whose frontend validation was off despite an error request.
+- Handle external server spawn failures and signal-based exits during readiness checks. Make shutdown idempotent so repeated cleanup does not signal retired process groups.
+- Preserve native timer callback receivers and binary/malformed WebSocket delivery in diagnostic probes; reject missing/duplicate trace records and exclude timers outside the measured window. Use raw-byte file hashes and distinguish local invariant checks from an independently replayed expected trajectory.
+
+## @tensnap/tauri [0.3.7] - 2026-10-21
+
+### Fixed
+
+- Refresh the embedded Web/shared UI with the menu placement, remembered dialog geometry and export-theme fixes introduced after the 0.3.6 desktop build. Keep the app manifest and Cargo package/lock versions aligned.
+
 ## @tensnap/web [0.3.8] - 2026-10-20
 
 ### Added

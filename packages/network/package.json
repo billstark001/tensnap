@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/network",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Shared IP-family policy and listener utilities for TenSnap transports.",
   "license": "MIT",
   "repository": {
