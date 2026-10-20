@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import List, cast
-
-from tensnap.bindings import BindParameterConfig
+from typing import Any, cast
 
 from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import Model
 from mesa.datacollection import DataCollector
+from tensnap.bindings import BindParameterConfig
 
 DEFAULT_GRID_W = 50
 DEFAULT_GRID_H = 50
@@ -20,31 +19,45 @@ class SchellingAgent(CellAgent):
     """One occupied cell in the Schelling grid."""
 
     cell: Cell
-    model: "SchellingModel"
+    model: SchellingModel
 
-    def __init__(self, model: "SchellingModel", cell: Cell, group: int) -> None:
+    def __setattr__(self, name: str, value: Any) -> None:
+        # Keep derived counts valid for exactly one occupancy/group state,
+        # including direct edits, removals, and checkpoint reconstruction.
+        if (
+            name in ("cell", "group")
+            and hasattr(self, "model")
+            and self.model._neighbor_counts
+        ):
+            self.model._neighbor_counts.clear()
+        super().__setattr__(name, value)
+
+    def __init__(self, model: SchellingModel, cell: Cell, group: int) -> None:
         super().__init__(model)
         self.cell = cell
         self.group = group
 
-    def is_satisfied(self: "SchellingAgent", threshold: float | None = None) -> bool:
+    def is_satisfied(self: SchellingAgent, threshold: float | None = None) -> bool:
         if threshold is None:
             threshold = cast(float, self.model.similarity_threshold)
 
-        same_group = 0
-        occupied_neighbors = 0
-        for neighbor in self.cell.get_neighborhood(radius=1).agents:
-            if cast(SchellingAgent, neighbor).group == self.group:
-                same_group += 1
-            occupied_neighbors += 1
-
+        if self.model.collect_data:
+            same_group, occupied_neighbors = self.model.neighbor_counts(self)
+        else:
+            # The kernel-only workload scans once per state. Avoid populating
+            # a dictionary it will discard as soon as the first agent moves.
+            same_group, occupied_neighbors = 0, 0
+            for neighbor in self.cell.get_neighborhood(radius=1).agents:
+                if cast(SchellingAgent, neighbor).group == self.group:
+                    same_group += 1
+                occupied_neighbors += 1
         return occupied_neighbors == 0 or same_group >= threshold * occupied_neighbors
 
 
 class SchellingModel(Model):
     """A small Mesa implementation of Schelling's segregation model."""
 
-    agents: "List[SchellingAgent]"
+    agents: list[SchellingAgent]
 
     def __init__(
         self,
@@ -77,6 +90,7 @@ class SchellingModel(Model):
         self.last_swapped = 0
         self.tick = 0
         self.collect_data = collect_data
+        self._neighbor_counts: dict[SchellingAgent, tuple[int, int]] = {}
         self._populate()
         self.initialized = True
 
@@ -138,16 +152,24 @@ class SchellingModel(Model):
             return 0.0
         return sum(1 for agent in self.agents if agent.is_satisfied()) / occupied
 
+    def neighbor_counts(self, agent: SchellingAgent) -> tuple[int, int]:
+        counts = self._neighbor_counts.get(agent) if self.collect_data else None
+        if counts is None:
+            same, occupied = 0, 0
+            for neighbor in agent.cell.get_neighborhood(radius=1).agents:
+                occupied += 1
+                if cast(SchellingAgent, neighbor).group == agent.group:
+                    same += 1
+            counts = (same, occupied)
+            if self.collect_data:
+                self._neighbor_counts[agent] = counts
+        return counts
+
     def segregation_index(self) -> float:
         total_ratio = 0.0
         count = 0
         for agent in self.agents:
-            same = 0
-            occupied_neighbors = 0
-            for neighbor in agent.cell.get_neighborhood(radius=1).agents:
-                occupied_neighbors += 1
-                if cast(SchellingAgent, neighbor).group == agent.group:
-                    same += 1
+            same, occupied_neighbors = self.neighbor_counts(agent)
             if occupied_neighbors > 0:
                 total_ratio += same / occupied_neighbors
                 count += 1
