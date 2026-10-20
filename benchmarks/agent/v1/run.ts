@@ -12,6 +12,7 @@ import type { ExternalBenchmarkResult } from '../../../packages/benchmark/src/ha
 import { readRecordingBoundary } from '../../../packages/tensnap-agent/src/runtime/recording-files';
 import { resolveConfig } from './benchmark';
 import { finishResources } from './cleanup';
+import { commandTimeoutMs, completionArgs, runWaitBody } from './deadlines';
 import {
   assertRun,
   observeRun,
@@ -129,8 +130,8 @@ async function cli<T>(args: string[], online = true) {
   const started = performance.now();
   const { stdout } = await execute(
     process.execPath,
-    [cliPath, ...args, ...(online ? common : ['--output-version', '1'])],
-    { cwd: root, timeout: 900_000, maxBuffer: 64 * 1024 * 1024 },
+    [cliPath, ...completionArgs(args, online), ...(online ? common : ['--output-version', '1'])],
+    { cwd: root, timeout: commandTimeoutMs, maxBuffer: 64 * 1024 * 1024 },
   );
   const elapsedMs = performance.now() - started;
   const envelope = JSON.parse(stdout) as { ok: boolean; schemaVersion: number; data: T };
@@ -141,7 +142,7 @@ async function cli<T>(args: string[], online = true) {
 async function http<T>(route: string, body?: unknown) {
   const started = performance.now();
   const response = await fetch(`${baseUrl}${route}`, {
-    signal: AbortSignal.timeout(900_000),
+    signal: AbortSignal.timeout(commandTimeoutMs),
     ...(body === undefined
       ? {}
       : {
@@ -161,9 +162,10 @@ async function batch(steps: number) {
     actionId: 'start',
     maxSteps: steps,
   });
-  const settled = await http<{ run: RunStatus }>(`/v1/runs/${accepted.data.run.id}/wait`, {
-    until: 'settled',
-  });
+  const settled = await http<{ run: RunStatus }>(
+    `/v1/runs/${accepted.data.run.id}/wait`,
+    runWaitBody(),
+  );
   return { run: settled.data.run, transactionsMs: [accepted.elapsedMs, settled.elapsedMs] };
 }
 async function diskBytes(path: string): Promise<number> {

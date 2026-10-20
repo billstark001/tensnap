@@ -342,7 +342,7 @@
   "artifactExtension": {
     "module": "benchmarks/agent/v1/report.ts",
     "sources": {
-      "benchmarks/agent/v1/benchmark.ts": "76d2b8ddfff5fce01c9f1d6cac53ba599baa8dde95c6b51ba48c8c1b1703ef61",
+      "benchmarks/agent/v1/benchmark.ts": "21baf3a76cb60a9596f77308c5f84dabd6b2ae358de0129e8100c32d0b349576",
       "benchmarks/agent/v1/cleanup.ts": "1261523f3138dd2629dcece11a3d1dd58a3880f08183bd896de8ce0d0a8b2be3",
       "benchmarks/agent/v1/host.ts": "c814293a69f40f9f6e64361272ca9bb729d1f67e6a2df436a0fe0753b07bb9fa",
       "benchmarks/agent/v1/measurement.ts": "ce4a9a23ed0062db711f7630177b00829017e6568cbb8eba1a06495264d05730",
@@ -350,9 +350,10 @@
       "benchmarks/agent/v1/package.json": "609158e6c5fbc237939fa3ddf7faab80ab690bdc0c8d584414a885130103c4e8",
       "benchmarks/agent/v1/report.ts": "14601e7f4c148c28796c38c40b79648ec0d0be765f3d2f703748467ad8a68d78",
       "benchmarks/agent/v1/resource-probe.mjs": "c94a54d234ab2373fba26d66447c208c603f044162e4ee70a0d7d7df0009d9c8",
-      "benchmarks/agent/v1/run.ts": "af5e068c82de1d3896629b33b0ac070c267b6490439f30d1a1c7e5983aa4cab0",
+      "benchmarks/agent/v1/run.ts": "a48e3df94a89f9adc6c3d5106aa0e474092d097600faf7b66067e63862c66eed",
       "benchmarks/v0.3/random-walk/model.ts": "878169df5c0703054ef4f999f687c06cd3aa9ccedfee8a3f3a2321561b6d4dff",
-      "examples/js/src/models/schelling.ts": "dcd4cc39e1be7efab70defc00a66619b7685f8c4436d5f830c5e953ebe9b2e89"
+      "examples/js/src/models/schelling.ts": "dcd4cc39e1be7efab70defc00a66619b7685f8c4436d5f830c5e953ebe9b2e89",
+      "benchmarks/agent/v1/deadlines.ts": "89543cff19fa6f199a48cb001785c2506e72086ca4662732e1f137d1b2c07fb3"
     }
   }
 }

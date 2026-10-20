@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import { replicateTimeoutMs } from './deadlines';
 import type {
   BenchmarkConfig,
   ExternalBenchmarkResult,
@@ -165,7 +166,7 @@ export const workload: ExternalProcessBenchmarkWorkload<AgentBenchmarkConfig> = 
       ],
       cwd: root,
       env: { TSX_TSCONFIG_PATH: path.join(root, 'packages/benchmark/tsconfig.json') },
-      timeoutMs: 900_000,
+      timeoutMs: replicateTimeoutMs,
     };
   },
   validateExternalResult(config, result, context) {

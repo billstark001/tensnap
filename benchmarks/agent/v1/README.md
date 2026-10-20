@@ -30,6 +30,8 @@ pnpm bench analyze --input benchmark-results/agent-cli-direct-smoke
 
 Samples record a digest of the built JavaScript alongside source/environment identity. Existing outputs are immutable. Resume requires identical source and environment; choose a fresh output after implementation changes.
 
+All action/run completion waits and archive finalization explicitly allow 10 minutes, rather than the CLI/runtime default of 30 seconds. CLI/HTTP transactions allow 11 minutes; an isolated replicate allows 15 minutes for startup, scientific/offline validation and teardown as well. Wait timeouts do not cancel or automatically retry a run. These are failure deadlines, not measured run limits; successful samples still include the entire requested workflow.
+
 ## Conditions
 
 | Workload | Full profile | Primary timing |
