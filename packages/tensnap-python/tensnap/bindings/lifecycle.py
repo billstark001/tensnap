@@ -23,6 +23,8 @@ from .mesa.utils import (
     is_mesa_model_class,
 )
 
+# region Shared types and helpers
+
 RegistryChanges: TypeAlias = dict[str, list[str]]
 CleanupCallback: TypeAlias = Callable[[], None]
 _MISSING = object()
@@ -66,6 +68,12 @@ class KwargValueSource:
     getter: Callable[[], Any]
 
 
+# endregion
+
+
+# region Constructor parameter inference
+
+
 def _parameter_type(annotation: Any | None, value: Any) -> ParameterType:
     annotation = unwrap_annotated_type(annotation)
     if annotation is bool or isinstance(value, bool):
@@ -86,7 +94,7 @@ def _make_parameter(
         return annotated_binding.to_parameter(field_name=name, value=value)
 
     p_type = _parameter_type(annotation, value)
-    custom = config.get_custom_binding(name, p_type) or {}
+    custom = dict(config.get_custom_binding(name, p_type) or {})
     custom.pop("type", None)
     return create_parameter(
         id=name,
@@ -97,33 +105,27 @@ def _make_parameter(
 
 
 def _static_init_kwargs(cls: type[Any]) -> dict[str, dict[str, Any]]:
-    sig = inspect.signature(cls.__init__)
+    signature = inspect.signature(cls.__init__)
     try:
         hints = get_type_hints(cls.__init__, include_extras=True)
     except (NameError, TypeError, AttributeError):
         hints = {}
+
     result: dict[str, dict[str, Any]] = {}
-    for name, param in sig.parameters.items():
-        if name == "self":
-            continue
-        if param.kind not in (
+    for name, param in signature.parameters.items():
+        if name == "self" or param.kind not in (
             inspect.Parameter.KEYWORD_ONLY,
             inspect.Parameter.POSITIONAL_OR_KEYWORD,
         ):
             continue
-
-        has_default = param.default is not inspect.Parameter.empty
+        default = param.default
+        annotation = (
+            None if param.annotation is inspect.Parameter.empty else param.annotation
+        )
         result[name] = {
-            "default": param.default if has_default else _MISSING,
-            "required": not has_default,
-            "annotation": hints.get(
-                name,
-                (
-                    param.annotation
-                    if param.annotation is not inspect.Parameter.empty
-                    else None
-                ),
-            ),
+            "default": _MISSING if default is inspect.Parameter.empty else default,
+            "required": default is inspect.Parameter.empty,
+            "annotation": hints.get(name, annotation),
         }
     return result
 
@@ -140,6 +142,12 @@ def _bind_init_arguments(
         return inspect.signature(cls.__init__).bind_partial(None, *args, **kwargs)
     except (TypeError, ValueError):
         return None
+
+
+# endregion
+
+
+# region Constructor binding declaration
 
 
 class BindKwargsConfig(BindParametersConfig):
@@ -181,19 +189,22 @@ class BindKwargsConfig(BindParametersConfig):
         bound = _bind_init_arguments(self.bound_class, args, kwargs)
         constructed: dict[str, Any] = {}
         if bound is not None:
-            sig = inspect.signature(self.bound_class.__init__)
+            signature = inspect.signature(self.bound_class.__init__)
             for name, value in bound.arguments.items():
                 if name == "self":
                     continue
-                param = sig.parameters.get(name)
-                if param is not None and param.kind is inspect.Parameter.VAR_KEYWORD:
+                parameter = signature.parameters.get(name)
+                if (
+                    parameter is not None
+                    and parameter.kind is inspect.Parameter.VAR_KEYWORD
+                ):
                     constructed.update(value)
                 else:
                     constructed[name] = value
-
         constructed.update(kwargs)
-        # Preserve class-level discovery from the first construction, while
-        # recording the actual arguments separately on every live instance.
+
+        # Only the initial construction seeds class discovery; the instance
+        # always retains its own actual inputs (including extra **kwargs).
         if not self._captured_defaults:
             self.dynamic_defaults.update(constructed)
             self._captured_defaults = True
@@ -207,41 +218,35 @@ class BindKwargsConfig(BindParametersConfig):
         default_overrides: Mapping[str, Any] | None = None,
     ) -> list[KwargBinding]:
         static = _static_init_kwargs(cls)
-        # Class-level inspection may use the first observed call, but a bound
-        # instance must never inherit extra **kwargs from another instance.
+        # Class discovery uses the first call; instance binding uses *its own*
+        # constructor inputs so **kwargs never leak between model instances.
         dynamic = dict(
             self.dynamic_defaults if default_overrides is None else default_overrides
         )
-
-        names = list(dict.fromkeys([*static, *dynamic]))
         bindings: list[KwargBinding] = []
-        for name in names:
+        for name in dict.fromkeys([*static, *dynamic]):
             if not self.evaluate_is_included([self], name):
                 continue
-
             info = static.get(name, {})
             static_default = info.get("default", _MISSING)
+            required = False
             if default_overrides is not None and name in default_overrides:
                 default = default_overrides[name]
-                required = False
             elif static_default is not _MISSING:
                 default = static_default
-                required = False
             elif name in dynamic:
                 default = dynamic[name]
-                required = False
             else:
                 default = None
                 required = bool(info.get("required", False))
-
             annotation = info.get("annotation")
             bindings.append(
                 KwargBinding(
-                    name=name,
-                    default=default,
-                    required=required,
-                    annotation=annotation,
-                    parameter=_make_parameter(name, default, annotation, self),
+                    name,
+                    default,
+                    required,
+                    annotation,
+                    _make_parameter(name, default, annotation, self),
                 )
             )
         return bindings
@@ -272,6 +277,12 @@ def get_bind_kwargs(
     return config.get_bindings(cls, default_overrides=default_overrides)
 
 
+# endregion
+
+
+# region In-place model reinitialization
+
+
 class BoundModelReinitializer:
     """
     Keep constructor kwargs as parameters and rebuild a model in place.
@@ -297,17 +308,12 @@ class BoundModelReinitializer:
         self._cleanup = (
             cleanup if cleanup is not None else default_cleanup_for_model(model)
         )
-        self.kwarg_bindings = list(
-            kwarg_bindings
-            if kwarg_bindings is not None
-            else get_bind_kwargs(
-                model.__class__,
-                default_overrides={
-                    **getattr(model, _CONSTRUCTED_KWARGS_ATTR, {}),
-                    **self.init_kwargs,
-                },
+        if kwarg_bindings is None:
+            constructed = getattr(model, _CONSTRUCTED_KWARGS_ATTR, {})
+            kwarg_bindings = get_bind_kwargs(
+                type(model), default_overrides={**constructed, **self.init_kwargs}
             )
-        )
+        self.kwarg_bindings = list(kwarg_bindings)
         if self.init_args:
             positional = inspect.signature(type(model).__init__).bind_partial(
                 model, *self.init_args
@@ -318,89 +324,74 @@ class BoundModelReinitializer:
                 if binding.name not in positional.arguments
             ]
         self._kwarg_sources: dict[str, KwargValueSource] = {}
-        # Constructor field names must never shadow strategy methods/resources.
+        # Never store constructor fields as attributes on the strategy itself.
         self._kwarg_values = {
             binding.name: getattr(model, binding.name, binding.default)
             for binding in self.kwarg_bindings
         }
         self.refresh_parameters()
 
+    def _model_parameter_getter(
+        self, name: str, parameter: Parameter
+    ) -> Callable[[], Any]:
+        """Honor an explicit getter before inspecting the bound model field."""
+        if parameter.getter is not None:
+            return parameter.getter
+        model_attr = getattr(type(self.model), name, None)
+        if inspect.isfunction(model_attr):
+            def model_getter(
+                fn: Callable[[Any], Any] = model_attr,
+                model: Any = self.model,
+            ) -> Any:
+                return fn(model)
+
+            return model_getter
+        return cast(Callable[[], Any], make_attr_getter(name, bind_target=self.model))
+
     def _refresh_kwarg_sources(
-        self,
-        model_parameters: Sequence[tuple[str, Parameter]] | None = None,
+        self, model_parameters: Sequence[tuple[str, Parameter]] | None = None
     ) -> None:
         model_parameters = list(model_parameters or [])
-        model_by_source = {
-            source_name: param for source_name, param in model_parameters
-        }
-        model_by_param_id = {
-            param.id: source_name for source_name, param in model_parameters
-        }
+        by_name = {name: param for name, param in model_parameters}
+        by_id = {param.id: name for name, param in model_parameters}
+        sources: dict[str, KwargValueSource] = {}
 
-        kwarg_sources: dict[str, KwargValueSource] = {}
         for binding in self.kwarg_bindings:
-            model_param = model_by_source.get(binding.name)
+            model_param = by_name.get(binding.name)
             if model_param is not None:
-                model_attr = getattr(self.model.__class__, binding.name, None)
-                getter: Callable[[], Any]
-                if model_param.getter is not None:
-                    getter = model_param.getter
-                elif inspect.isfunction(model_attr):
-                    model_fn = cast(Callable[[Any], Any], model_attr)
-
-                    def model_getter(
-                        fn: Callable[[Any], Any] = model_fn,
-                        model: Any = self.model,
-                    ) -> Any:
-                        return fn(model)
-
-                    getter = model_getter
-
-                else:
-                    getter = cast(
-                        Callable[[], Any],
-                        make_attr_getter(binding.name, bind_target=self.model),
-                    )
-                kwarg_sources[binding.name] = KwargValueSource(
+                sources[binding.name] = KwargValueSource(
                     kwarg_name=binding.name,
                     parameter_id=model_param.id,
                     owner="model",
-                    getter=getter,
+                    getter=self._model_parameter_getter(binding.name, model_param),
                 )
                 continue
 
-            conflicting_source = model_by_param_id.get(binding.parameter.id)
-            if conflicting_source is not None:
+            conflict = by_id.get(binding.parameter.id)
+            if conflict is not None:
                 raise ValueError(
                     "Constructor kwarg parameter id conflict: "
-                    f"kwarg {binding.name!r} and model field {conflicting_source!r} "
+                    f"kwarg {binding.name!r} and model field {conflict!r} "
                     f"both publish parameter id {binding.parameter.id!r}."
                 )
-
-            def kwarg_getter(
-                name: str = binding.name,
-                default: Any = binding.default,
+            # Capture the name/default for this binding, not the loop's last one.
+            def getter(
+                name: str = binding.name, default: Any = binding.default
             ) -> Any:
                 return self._kwarg_values.get(name, default)
-
-            kwarg_sources[binding.name] = KwargValueSource(
+            sources[binding.name] = KwargValueSource(
                 kwarg_name=binding.name,
                 parameter_id=binding.parameter.id,
                 owner="kwargs",
-                getter=kwarg_getter,
+                getter=getter,
             )
-
-        self._kwarg_sources = kwarg_sources
+        self._kwarg_sources = sources
 
     def _planned_model_parameters(self) -> list[tuple[str, Parameter]]:
-        parameter_configs = (
-            tuple(BindParametersConfig.get_configs(self.model.__class__))
-            if hasattr(self.model, "__class__")
-            else ()
+        configs = tuple(BindParametersConfig.get_configs(type(self.model)))
+        return get_parameter_metadata_from_object(
+            self.model, *(configs or (BindParametersConfig.EXCLUDE_ALL,))
         )
-        if not parameter_configs:
-            parameter_configs = (BindParametersConfig.EXCLUDE_ALL,)
-        return get_parameter_metadata_from_object(self.model, *parameter_configs)
 
     def refresh_parameters(self) -> None:
         """Resolve constructor values against the model's current declarations."""
@@ -432,22 +423,25 @@ class BoundModelReinitializer:
     def __tensnap_parameter_metadata__(
         self, *cfg_suggest: BindParametersConfig
     ) -> list[tuple[str, Parameter]]:
-        configs = list(cfg_suggest)
         parameters: list[tuple[str, Parameter]] = []
         for binding in self.kwarg_bindings:
             source = self._kwarg_sources.get(binding.name)
             if source is None or source.owner != "kwargs":
                 continue
-            if configs and not BindParametersConfig.evaluate_is_included(
-                configs, binding.name
+            if cfg_suggest and not BindParametersConfig.evaluate_is_included(
+                list(cfg_suggest), binding.name
             ):
                 continue
+
             def setter(value: Any, name: str = binding.name) -> None:
                 self._kwarg_values[name] = value
 
-            parameters.append((binding.name, binding.parameter.instantiate(
-                getter=source.getter, setter=setter,
-            )))
+            parameters.append(
+                (
+                    binding.name,
+                    binding.parameter.instantiate(getter=source.getter, setter=setter),
+                )
+            )
         return parameters
 
     def current_kwargs(self) -> dict[str, Any]:
@@ -469,3 +463,6 @@ class BoundModelReinitializer:
             self._cleanup()
         model_init = cast(Callable[..., None], type(self.model).__init__)
         model_init(self.model, *self.init_args, **kwargs)
+
+
+# endregion
