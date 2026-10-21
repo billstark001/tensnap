@@ -20,11 +20,8 @@ class SchellingAgent(CellAgent):
     cell: Cell
     model: SchellingModel
 
-    @property
-    def cell(self):
-        return CellAgent.cell.fget(self)
-
-    @cell.setter
+    # Reuse Mesa's getter directly; only writes need cache invalidation.
+    @CellAgent.cell.setter
     def cell(self, value):
         # Delegate occupancy bookkeeping to Mesa; invalidate only derived analysis.
         CellAgent.cell.fset(self, value)
@@ -45,10 +42,21 @@ class SchellingAgent(CellAgent):
         self.group = group
 
     def is_satisfied(self: SchellingAgent, threshold: float | None = None) -> bool:
+        model = self.model
         if threshold is None:
-            threshold = cast(float, self.model.similarity_threshold)
+            threshold = cast(float, model.similarity_threshold)
 
-        same_group, occupied_neighbors = self.model.neighbor_counts(self)
+        if model.collect_data:
+            same_group, occupied_neighbors = model.neighbor_counts(self)
+        else:
+            # Kernel steps scan each state once. Keep this hot path free of
+            # cache lookups, tuple allocation and the statistics helper call.
+            same_group, occupied_neighbors = 0, 0
+            group = self.group
+            for neighbor in self.cell.get_neighborhood(radius=1).agents:
+                occupied_neighbors += 1
+                if cast(SchellingAgent, neighbor).group == group:
+                    same_group += 1
         return occupied_neighbors == 0 or same_group >= threshold * occupied_neighbors
 
 
@@ -155,15 +163,20 @@ class SchellingModel(Model):
         return sum(1 for agent in self.agents if agent.is_satisfied()) / occupied
 
     def neighbor_counts(self, agent: SchellingAgent) -> tuple[int, int]:
-        counts = self._neighbor_counts.get(agent)
+        # Collection and projection reuse these threshold-independent counts.
+        # Statistics can also be read without collection; those reads must not
+        # populate a cache the next kernel move would immediately invalidate.
+        counts = self._neighbor_counts.get(agent) if self.collect_data else None
         if counts is None:
             same, occupied = 0, 0
+            group = agent.group
             for neighbor in agent.cell.get_neighborhood(radius=1).agents:
                 occupied += 1
-                if cast(SchellingAgent, neighbor).group == agent.group:
+                if cast(SchellingAgent, neighbor).group == group:
                     same += 1
             counts = (same, occupied)
-            self._neighbor_counts[agent] = counts
+            if self.collect_data:
+                self._neighbor_counts[agent] = counts
         return counts
 
     def segregation_index(self) -> float:
