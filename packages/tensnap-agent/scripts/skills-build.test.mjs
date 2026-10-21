@@ -32,13 +32,15 @@ test('parses quoted and multiline YAML, replaces the version, and preserves the 
   );
 });
 
-test('bundles executable resources and omits installation receipts', () => {
+test('bundles executable resources and omits receipts and npm-excluded Finder metadata', () => {
   const root = mkdtempSync(join(tmpdir(), 'tensnap-skill-build-'));
   try {
     const source = join(root, 'source');
     mkdirSync(join(source, 'scripts'), { recursive: true });
     writeFileSync(join(source, 'SKILL.md'), content);
     writeFileSync(join(source, '.tensnap-skill.json'), 'local installation state');
+    writeFileSync(join(source, '.DS_Store'), 'root Finder metadata');
+    writeFileSync(join(source, 'scripts/.DS_Store'), 'nested Finder metadata');
     writeFileSync(join(source, 'scripts/check.sh'), '#!/bin/sh\nexit 0\n');
     chmodSync(join(source, 'scripts/check.sh'), 0o755);
     const target = join(root, 'output');
@@ -46,6 +48,9 @@ test('bundles executable resources and omits installation receipts', () => {
     assert.deepEqual(skill.executables, ['scripts/check.sh']);
     assert(lstatSync(join(target, 'scripts/check.sh')).mode & 0o111);
     assert(!existsSync(join(target, '.tensnap-skill.json')));
+    assert(!existsSync(join(target, '.DS_Store')));
+    assert(!existsSync(join(target, 'scripts/.DS_Store')));
+    assert.deepEqual(Object.keys(skill.files).sort(), ['SKILL.md', 'scripts/check.sh']);
     assert.equal(readFileSync(join(source, 'SKILL.md'), 'utf8'), content);
     assert.equal(
       parse(readFileSync(join(target, 'SKILL.md'), 'utf8').split('---')[1]).metadata.version,

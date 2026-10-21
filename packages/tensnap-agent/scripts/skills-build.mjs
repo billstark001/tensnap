@@ -11,6 +11,8 @@ function readResources(root, prefix = '') {
     throw new Error(`Skill source must be a real directory: ${directory}`);
   const resources = [];
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    // npm always excludes Finder metadata, so it cannot be part of the integrity manifest.
+    if (entry.name === '.DS_Store') continue;
     if (!prefix && entry.name === '.tensnap-skill.json') continue;
     const path = prefix ? `${prefix}/${entry.name}` : entry.name;
     const absolute = join(root, path);

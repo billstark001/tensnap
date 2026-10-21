@@ -91,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use `@tensnap/network` 0.3.1 for dual-stack ephemeral-port retries and `@tensnap/core` 0.3.7 for lightweight query schemas and rolling recording optimizations, including external library dependencies.
 - Accept `{id, value}[]` parameter overlays in CLI and HTTP scene restoration; reject object maps before simulator dispatch.
 - Fix the bundled reproducibility guide's checkout-only workflow link and reject missing local skill references during builds.
+- Exclude Finder metadata from bundled skill integrity manifests so npm packing cannot invalidate builds from a local checkout.
 
 ## @tensnap/web [0.3.9] - 2026-10-21
 
