@@ -116,6 +116,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pass explicit CLI wait timeouts for long-running cases instead of inheriting the default 30-second wait.
 - Verify actual frontend validation policies, diagnostic correlations and raw-byte artifact hashes; document historical frontend-policy mismatches.
 - Handle external server spawn failures, signal exits and repeated cleanup safely.
+- Restore Mesa Schelling's uncached kernel path while preserving same-state UI statistics reuse and invalidation across model updates, reset and restore.
 
 ## @tensnap/tauri [0.3.7] - 2026-10-21
 
