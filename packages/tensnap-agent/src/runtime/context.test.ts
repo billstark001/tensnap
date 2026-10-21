@@ -8,8 +8,8 @@ import {
   readRuntimeControl,
   resolveRuntimeContextPaths,
   sanitizeContextName,
-  writeRuntimeControl,
-} from './context';
+} from './context-paths';
+import { writeRuntimeControl } from './context';
 
 describe('sanitizeContextName', () => {
   it('normalizes unsafe characters', () => {

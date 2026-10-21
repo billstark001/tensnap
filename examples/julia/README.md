@@ -15,7 +15,7 @@ pnpm --dir examples/julia run standalone:schelling
 pnpm --dir examples/julia run test
 ```
 
-The `test` command invokes native binding package tests through `test_package.jl`; it does not run every example or benchmark. The root package forwards the TenSnap demos:
+The `test` command first runs the example reproducibility/clock/checkpoint checks in `test_examples.jl`, then native binding tests through `test_package.jl`. It does not execute benchmark batches. The root package forwards the TenSnap demos:
 
 ```bash
 pnpm run dev:julia:el-farol
@@ -32,11 +32,11 @@ This file split is a repository reuse choice, not a requirement of the Julia bin
 
 ## Schelling Standalone Scientific Task
 
-`schelling_standalone.jl` runs the same heavy threshold-sweep task as the Python, NetLogo, and Go standalone scripts. For each similarity threshold it runs several seeds and prints CSV columns for final satisfaction, segregation, last-step movement, steps used, and convergence count. After all scientific rows are computed, it prints a separate performance row with `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`; timing is wrapped around each trial's step loop only, with no per-tick instrumentation in the model hot path.
+The standalone study shares the scientific transitions with the other language examples. CSV includes satisfaction, segregation, last movement, steps and separate `satisfied_runs`, `jammed_runs`, and `limit_runs`. In convergence mode, no movement stops the run; it can indicate satisfaction or a blocked full grid. Performance timing and warmup are supplied only by benchmark subjects.
 
 ```bash
 cd examples/julia
-julia --project=. schelling_standalone.jl --steps 1000 --warmup-steps 25 \
+julia --project=. schelling_standalone.jl --steps 1000 \
   --seeds 8 --thresholds 0.30,0.50,0.70,0.90 --mode convergence
 ```
 
@@ -53,7 +53,13 @@ Common environment parsing lives in `utils.jl` and is shared by all Julia entry 
 - `TENSNAP_SCHELLING_DENSITY`: initial occupied density, default `0.8`.
 - `TENSNAP_SCHELLING_BALANCE`: share of occupied agents in group 1, default `0.5`.
 - `TENSNAP_SCHELLING_THRESHOLD`: similarity threshold, default `0.7`.
-- `TENSNAP_SCHELLING_SEED`: optional integer seed.
+- `TENSNAP_SCHELLING_SEED`: integer initialization seed, default `7`.
 - `BONITO_HOST`: Makie host, default `127.0.0.1`.
 - `BONITO_PORT`: Makie port, default `8080`.
 - `BONITO_TICKS_PER_SECOND`: Makie run-loop speed, default `5`.
+
+## Reproducibility
+
+Seeds are ordinary initialization parameters. Editing a seed affects the next reset, and each instance owns its RNG. See the [example guide](../README.md) and [reproducibility contract](../../docs/maintainer-guide/reproducibility.md). Scientific code and normal launchers perform no publication audit file I/O; independent audit adapters live beside benchmark subjects.
+
+Run `instantiate` once after checkout or dependency changes. Ordinary launch commands do not run `Pkg.develop` or `Pkg.instantiate`. Schelling uses the native vector container for its fixed population, preserving traversal order across serialization. It advances through `Agents.step!`; `Agents.abmtime` is its authoritative scientific clock. Schema-3 Schelling and schema-2 bar checkpoints use Julia serialization and require matching source/package/runtime versions. The bar is an El Farol-inspired adaptive-expectations variant: a five-week attendance mean, inertia 0.7 and noise σ=8; diagnostic scores do not select competing predictors.

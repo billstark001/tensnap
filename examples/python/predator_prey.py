@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from tensnap import (
+    NumberParameter,
     agent,
     agent_layer,
     env,
@@ -23,7 +24,20 @@ SHEEP_ICON = f"asset:{SHEEP_ASSET_ID}"
 WOLF_ICON = f"asset:{WOLF_ASSET_ID}"
 
 
-@params(exclude=["width", "height"])
+@params(
+    exclude=["width", "height"],
+    custom_bindings={
+        "initial_sheep": NumberParameter(
+            "", min=0, max=10000, step=1, allow_runtime_change=False
+        ),
+        "initial_wolves": NumberParameter(
+            "", min=0, max=10000, step=1, allow_runtime_change=False
+        ),
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+    },
+)
 @dataclass
 class PredatorPreyConfig:
     width: int = 50
@@ -38,6 +52,7 @@ class PredatorPreyConfig:
     wolf_energy_loss: float = 1.0
     wolf_sight_radius: int = 5
     grass_regrowth_steps: int = 30
+    seed: int = 7
 
 
 @agent(size=1, color="#F8FAFC", icon=value(SHEEP_ICON))
@@ -84,6 +99,7 @@ class PredatorPreySimulation:
 
     def __init__(self, config: PredatorPreyConfig | None = None):
         self.config = config or PredatorPreyConfig()
+        self.rng = random.Random(self.config.seed)
         self.width = self.config.width
         self.height = self.config.height
         self.sheep: list[Sheep] = []
@@ -95,8 +111,8 @@ class PredatorPreySimulation:
 
     def _random_position(self) -> tuple[int, int]:
         return (
-            random.randrange(self.width),
-            random.randrange(self.height),
+            self.rng.randrange(self.width),
+            self.rng.randrange(self.height),
         )
 
     def _spawn_sheep(self, x: int, y: int, energy: float | None = None) -> Sheep:
@@ -104,7 +120,7 @@ class PredatorPreySimulation:
             f"sheep_{self._next_sheep_id}",
             x,
             y,
-            energy if energy is not None else random.uniform(4.0, 8.0),
+            energy if energy is not None else self.rng.uniform(4.0, 8.0),
         )
         self._next_sheep_id += 1
         return sheep
@@ -114,12 +130,13 @@ class PredatorPreySimulation:
             f"wolf_{self._next_wolf_id}",
             x,
             y,
-            energy if energy is not None else random.uniform(10.0, 16.0),
+            energy if energy is not None else self.rng.uniform(10.0, 16.0),
         )
         self._next_wolf_id += 1
         return wolf
 
     def initialize(self) -> None:
+        self.rng.seed(self.config.seed)
         self.width = self.config.width
         self.height = self.config.height
         self.time_step = 0
@@ -139,7 +156,7 @@ class PredatorPreySimulation:
             self.wolves.append(self._spawn_wolf(x, y))
 
     def _move_random(self, x: int, y: int) -> tuple[int, int]:
-        dx, dy = random.choice(((1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)))
+        dx, dy = self.rng.choice(((1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)))
         return ((x + dx) % self.width, (y + dy) % self.height)
 
     def _toroidal_delta(self, source: int, target: int, size: int) -> int:
@@ -190,7 +207,7 @@ class PredatorPreySimulation:
             next_sheep.append(sheep)
 
             if (
-                random.random() * 100 < self.config.sheep_reproduce_rate
+                self.rng.random() * 100 < self.config.sheep_reproduce_rate
                 and sheep.energy >= 6.0
             ):
                 sheep.energy *= 0.5
@@ -237,7 +254,7 @@ class PredatorPreySimulation:
             next_wolves.append(wolf)
 
             if (
-                random.random() * 100 < self.config.wolf_reproduce_rate
+                self.rng.random() * 100 < self.config.wolf_reproduce_rate
                 and wolf.energy >= 14.0
             ):
                 wolf.energy *= 0.5

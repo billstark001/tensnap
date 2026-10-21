@@ -1,7 +1,11 @@
 import type { Command } from 'commander';
 import { Option } from 'commander';
 import type { IPFamily } from '@tensnap/network';
-import type { ProtocolEncoding, ProtocolValidationLevel } from '@tensnap/protocol';
+import type {
+  ProtocolEncoding,
+  ProtocolValidationLevel,
+  SceneRestorePayload,
+} from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 import type { SkillOptions } from './skills';
 import type { ScenarioQuery, FieldPath } from '@tensnap/core/scenario';
@@ -52,7 +56,7 @@ export interface CliOptions extends SkillOptions {
   retention?: 'rolling' | 'bounded';
   label?: string;
   time?: number;
-  parameters?: Record<string, unknown>;
+  parameters?: SceneRestorePayload['parameters'];
   envs?: unknown[];
   chartPolicy?: 'preserve' | 'replace' | 'truncate';
   env?: string;

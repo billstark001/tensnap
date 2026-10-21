@@ -17,19 +17,16 @@ import asyncio
 import os
 from pathlib import Path
 
-# Optional: switch between pip-installed and source tensnap (same as import_config.py)
-from . import import_config as import_config  # noqa: F401
-
-import torch
-from torch.types import Device
-
 from tensnap import (
     BoundModelReinitializer,
     SimulationScenario,
     action,
     param,
 )
+from torch.types import Device
 
+# Optional: switch between pip-installed and source tensnap (same as import_config.py)
+from . import import_config  # noqa: F401
 from .config import FIRE_EVACUATION_CHECKPOINT_SCHEMA, DQNConfig, EnvConfig
 from .dqn import DQNAgent
 from .guide_models import (
@@ -90,14 +87,13 @@ class GuideModelManager:
         self._guide_model = value
 
     def _new_dqn_agent(self, seed: int | None = None) -> DQNAgent:
-        if seed is not None:
-            torch.manual_seed(seed)
         return DQNAgent(
             self.model.state_size,
             self.model.action_size,
             self.dqn_config,
             device=self.device,
             checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+            seed=7 if seed is None else seed,
         )
 
     @action("resetGuideModel", "Reset Guide Model")
@@ -115,23 +111,36 @@ class GuideModelManager:
         print(f"Guide model loaded: {self._loaded_guide_model}")
 
 
-def configure_visualization_scenario(
+async def configure_visualization_scenario(
     scenario: SimulationScenario,
     env_config: EnvConfig,
     dqn_config: DQNConfig,
     device: Device,
     guide_model_dir: Path,
-) -> tuple[EvacuationModel, BoundModelReinitializer, GuideModelManager]:
+) -> tuple[EvacuationModel, GuideModelManager]:
     model = EvacuationModel(env_config)
     model_reinitializer = BoundModelReinitializer(model, init_args=(env_config,))
     guide_mgr = GuideModelManager(model, dqn_config, device, guide_model_dir)
 
     scenario.add_parameters(env_config)
-    model_reinitializer.register_model(scenario)
-    model_reinitializer.configure_reinit(scenario)
     scenario.add_all(guide_mgr)
 
-    return model, model_reinitializer, guide_mgr
+    def step() -> bool:
+        if not model.running or model.is_done():
+            model.running = False
+            return False
+        state = model.get_state()
+        action = guide_mgr.dqn_agent.select_action(state, greedy=True)
+        _, _, done, _ = model.env_step(action)
+        return not done
+
+    await scenario.register_model(
+        model,
+        reinitializer=model_reinitializer,
+        model_step=step,
+        after_reinitialize=guide_mgr.reset_guide_model,
+    )
+    return model, guide_mgr
 
 
 # ---------------------------------------------------------------------------
@@ -150,29 +159,13 @@ async def main() -> None:
     device: Device = "cpu"
     guide_model_dir = guide_model_dir_from_env()
 
-    model, model_reinitializer, guide_mgr = configure_visualization_scenario(
+    await configure_visualization_scenario(
         scenario,
         env_config,
         dqn_config,
         device,
         guide_model_dir,
     )
-
-    async def init():
-        await model_reinitializer.model_init()
-        guide_mgr.reset_guide_model()
-
-    def step() -> bool:
-        if not model.running or model.is_done():
-            model.running = False
-            return False
-
-        state = model.get_state()
-        action = guide_mgr.dqn_agent.select_action(state, greedy=True)
-        _, _, done, _ = model.env_step(action)
-        return not done
-
-    await scenario.register_model_handler(init, step, init)
 
     print(f"TenSnap DQN Evacuation started on ws://localhost:{server_port}")
     await scenario.run()

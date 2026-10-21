@@ -283,6 +283,7 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
         created: list[dict[TItemFieldKeys, Any]] = []
         updated: list[dict[TItemFieldKeys, Any]] = []
         deleted: list[Any] = []
+        projector: Callable[[TItem], dict[TItemFieldKeys, Any]]
         if self.item_projection_type == _ITEM_PROJ_TYPE_STATIC:
             assert self.item_projector is not None
             projector = self._scan_projector or self.item_projector
@@ -290,8 +291,10 @@ class LayerBinding(Generic[TLayer, TLayerFieldKeys, TItem, TItemFieldKeys]):
             assert self.item_dynamic_projector is not None
             item_dynamic_projector = self._scan_projector or self.item_dynamic_projector
 
-            def projector(item: TItem) -> dict[TItemFieldKeys, Any]:
+            def dynamic_projector(item: TItem) -> dict[TItemFieldKeys, Any]:
                 return item_dynamic_projector(layer, item)
+
+            projector = dynamic_projector
 
         current_ids = set()
         current_items: dict[Any, dict[TItemFieldKeys, Any]] = {

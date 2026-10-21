@@ -3,7 +3,7 @@ import json
 import os
 
 import solara
-
+from config import model_kwargs_from_environment
 from mesa.visualization import (
     Slider,
     SolaraViz,
@@ -11,15 +11,14 @@ from mesa.visualization import (
     make_plot_component,
 )
 from mesa.visualization.components import AgentPortrayalStyle
-
-from model import SchellingModel, SchellingAgent
-from config import model_kwargs_from_environment
+from model import SchellingAgent, SchellingModel
 from state import canonical_state
-
 
 MODEL_KWARGS = model_kwargs_from_environment()
 try:
-    TICKS_PER_SECOND = max(1, int(os.environ.get("TENSNAP_SCHELLING_TICKS_PER_SECOND", "60")))
+    TICKS_PER_SECOND = max(
+        1, int(os.environ.get("TENSNAP_SCHELLING_TICKS_PER_SECOND", "60"))
+    )
 except ValueError:
     TICKS_PER_SECOND = 60
 
@@ -55,13 +54,16 @@ model_params = {
     "density": Slider("Density", MODEL_KWARGS["density"], 0.01, 1.0, 0.01, dtype=float),  # type: ignore
     "balance": Slider("Balance", MODEL_KWARGS["balance"], 0.0, 1.0, 0.01, dtype=float),  # type: ignore
     "similarity_threshold": Slider(
-        "Similarity threshold", MODEL_KWARGS["similarity_threshold"], 0.0, 1.0, 0.01, dtype=float  # type: ignore
+        "Similarity threshold",
+        MODEL_KWARGS["similarity_threshold"],
+        0.0,
+        1.0,
+        0.01,
+        dtype=float,  # type: ignore
     ),
-    "rng": {
-        "type": "InputText",
-        "value": "" if MODEL_KWARGS["rng"] is None else str(MODEL_KWARGS["rng"]),
-        "label": "Random seed",
-    },
+    "seed": Slider(
+        "Seed (initialization)", MODEL_KWARGS["seed"], 0, 2**31 - 1, 1, dtype=int
+    ),
 }
 
 model = SchellingModel(**MODEL_KWARGS)
@@ -85,5 +87,5 @@ page = SolaraViz(
     ],  # type: ignore
     model_params=model_params,
     play_interval=max(1, round(1000 / TICKS_PER_SECOND)),
-    name="Schelling model: Go-equivalent dynamics",
+    name="Schelling batch relocation",
 )

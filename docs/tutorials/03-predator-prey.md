@@ -19,6 +19,7 @@ In this tutorial, you will:
 - completed [Tutorial 1: Simple Random Walk](./01-random-walk.md)
 - ideally completed [Tutorial 2: Flocking Behavior](./02-flocking.md)
 - Python 3.10+
+- the matching binding installed as described in [Tutorial 1](./01-random-walk.md#setup)
 
 ## What We Are Building
 
@@ -41,7 +42,7 @@ It also publishes three charts:
 - wolf population
 - fraction of grass currently available
 
-The default parameter values are intentionally aligned with the built-in `examples/js` wolf-sheep preset for world size, initial populations, food gain, grass regrowth, and reproduction defaults. The movement and interaction rules in this tutorial remain simpler than the built-in adapter.
+Some default values are shared with the `examples/js` wolf-sheep preset, but this Python model has its own rules. It uses a species-ordered schedule: regrow grass, update sheep and their births, then update wolves and their births. Newborn sheep can be eaten by wolves in that same tick; newborn animals do not take their own turn until the next tick. Treat this as a spatial stochastic teaching model, not a numerical implementation of Lotka–Volterra equations or a cross-language replication of another preset.
 
 ## Step 1: Create the Simulation File
 
@@ -58,6 +59,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from tensnap import (
+    NumberParameter,
     agent,
     agent_layer,
     env,
@@ -73,7 +75,20 @@ SHEEP_ICON = f"asset:{SHEEP_ASSET_ID}"
 WOLF_ICON = f"asset:{WOLF_ASSET_ID}"
 
 
-@params(exclude=["width", "height"])
+@params(
+    exclude=["width", "height"],
+    custom_bindings={
+        "initial_sheep": NumberParameter(
+            "", min=0, max=10000, step=1, allow_runtime_change=False
+        ),
+        "initial_wolves": NumberParameter(
+            "", min=0, max=10000, step=1, allow_runtime_change=False
+        ),
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+    },
+)
 @dataclass
 class PredatorPreyConfig:
     width: int = 50
@@ -88,6 +103,7 @@ class PredatorPreyConfig:
     wolf_energy_loss: float = 1.0
     wolf_sight_radius: int = 5
     grass_regrowth_steps: int = 30
+    seed: int = 7
 
 
 @agent(size=1, color="#F8FAFC", icon=value(SHEEP_ICON))
@@ -134,6 +150,7 @@ class PredatorPreySimulation:
 
     def __init__(self, config: PredatorPreyConfig | None = None):
         self.config = config or PredatorPreyConfig()
+        self.rng = random.Random(self.config.seed)
         self.width = self.config.width
         self.height = self.config.height
         self.sheep: list[Sheep] = []
@@ -145,8 +162,8 @@ class PredatorPreySimulation:
 
     def _random_position(self) -> tuple[int, int]:
         return (
-            random.randrange(self.width),
-            random.randrange(self.height),
+            self.rng.randrange(self.width),
+            self.rng.randrange(self.height),
         )
 
     def _spawn_sheep(self, x: int, y: int, energy: float | None = None) -> Sheep:
@@ -154,7 +171,7 @@ class PredatorPreySimulation:
             f"sheep_{self._next_sheep_id}",
             x,
             y,
-            energy if energy is not None else random.uniform(4.0, 8.0),
+            energy if energy is not None else self.rng.uniform(4.0, 8.0),
         )
         self._next_sheep_id += 1
         return sheep
@@ -164,12 +181,13 @@ class PredatorPreySimulation:
             f"wolf_{self._next_wolf_id}",
             x,
             y,
-            energy if energy is not None else random.uniform(10.0, 16.0),
+            energy if energy is not None else self.rng.uniform(10.0, 16.0),
         )
         self._next_wolf_id += 1
         return wolf
 
     def initialize(self) -> None:
+        self.rng.seed(self.config.seed)
         self.width = self.config.width
         self.height = self.config.height
         self.time_step = 0
@@ -189,7 +207,7 @@ class PredatorPreySimulation:
             self.wolves.append(self._spawn_wolf(x, y))
 
     def _move_random(self, x: int, y: int) -> tuple[int, int]:
-        dx, dy = random.choice(((1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)))
+        dx, dy = self.rng.choice(((1, 0), (-1, 0), (0, 1), (0, -1), (0, 0)))
         return ((x + dx) % self.width, (y + dy) % self.height)
 
     def _toroidal_delta(self, source: int, target: int, size: int) -> int:
@@ -240,7 +258,7 @@ class PredatorPreySimulation:
             next_sheep.append(sheep)
 
             if (
-                random.random() * 100 < self.config.sheep_reproduce_rate
+                self.rng.random() * 100 < self.config.sheep_reproduce_rate
                 and sheep.energy >= 6.0
             ):
                 sheep.energy *= 0.5
@@ -287,7 +305,7 @@ class PredatorPreySimulation:
             next_wolves.append(wolf)
 
             if (
-                random.random() * 100 < self.config.wolf_reproduce_rate
+                self.rng.random() * 100 < self.config.wolf_reproduce_rate
                 and wolf.energy >= 14.0
             ):
                 wolf.energy *= 0.5
@@ -327,6 +345,12 @@ class PredatorPreySimulation:
 - `@agent()` discovers the sheep and wolf fields, while `@agent_layer("sheep")` and `@agent_layer("wolves")` use same-name model attributes as their item sources.
 - `@matrix_agent_layer` reads the grass timer matrix directly. It derives cell coordinates and dimensions, supplies square icons and unit size, and projects the color and timer without creating grass agent objects.
 - Sheep and wolf icons use asset references (`asset:<id>`), so the same SVGs can be reused across many synchronized items without inlining image data into every agent payload.
+
+### Resource coordinates and randomness
+
+`grass_timer[row][column]` is row-major, with row zero at the top. The agent world has an upward y-axis, so a sheep at `(x, y)` eats from `grass_timer[height - 1 - y][x]`. The matrix layer uses the same convention when deriving its cell coordinates. A zero timer means edible grass; positive values count down once at the beginning of each tick.
+
+All movement, initial energies, and reproduction draws use `self.rng`, the model's own generator. Supplying a seed is optional: `PredatorPreyConfig()` uses the lesson default 7; passing `seed=42` selects another repeatable experiment. Reset reconstructs the population and RNG from the chosen configuration. The seed and initial sheep/wolf counts apply on reset; feeding, reproduction, sight, and regrowth settings affect subsequent steps. Reproduction rates are percentages per tick, subject to the explicit energy thresholds in the code.
 
 ## Step 2: Create the Visualization Entry Point
 
@@ -440,7 +464,10 @@ await scenario.server.publish_asset(
 and then, on the agent class:
 
 ```python
-icon = "asset:wolf-sheep:sheep"
+@agent(size=1, color="#F8FAFC", icon=value("asset:wolf-sheep:sheep"))
+class Sheep:
+    # Keep the existing agent implementation here.
+    ...
 ```
 
 That is the whole pattern:
@@ -477,7 +504,6 @@ pnpm dev:py:predator-prey
 ### Option B: Run from a standalone directory
 
 ```bash
-pip install tensnap
 python predator_prey_viz.py
 ```
 
@@ -491,20 +517,23 @@ If you copy this example outside the repository, keep `sheep.svg` and `wolf.svg`
 - sheep rendered with the shared sheep SVG asset
 - wolves rendered with the shared wolf SVG asset
 - charts for sheep count, wolf count, and available grass fraction
+- initialization controls for populations and seed, plus runtime controls for the interaction rules
 
 ## How to Read the Result
 
 - if sheep population explodes, the grass fraction will usually drop first
 - if wolves overconsume sheep, wolf population later collapses from starvation
-- the system often oscillates rather than converging to a fixed point
+- population curves can oscillate, or one or both species can become extinct; a single seed does not establish a general ecological outcome
 
 This is the first tutorial where entity creation and deletion are part of the normal runtime path, so it is a good reference for how the current Python binding surface handles lifecycle-heavy simulations.
 
+When comparing parameters, reset with the same seed to inspect a paired example, then repeat over several seeds to see whether the pattern persists. The grass fraction is the number of cells with timer zero divided by all cells, not total stored food or biomass.
+
 ## Exercises
 
-### Exercise 1: Make Wolves Faster Hunters
+### Exercise 1: Compare Hunting Rules
 
-Increase `wolf_sight_radius` and `wolf_gain_from_food`, then compare the resulting oscillation curves.
+Increase `wolf_sight_radius` and `wolf_gain_from_food`, then compare the population curves across several seeds. Sight changes which sheep a wolf can target; it does not increase the number of cells moved per tick. Keep initial counts and the update schedule fixed during this comparison.
 
 ### Exercise 2: Add a Second Grass Metric
 

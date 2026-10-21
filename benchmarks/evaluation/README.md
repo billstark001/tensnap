@@ -4,6 +4,17 @@ This directory declares the paper experiment matrix, table selectors, scientific
 
 ## Environment
 
+Agent CLI v1 is part of the default matrix. To evaluate only its control, bounded-query and long-history workloads, use the [standalone specification](agent-cli-v1.json) and [subject guide](../agent/v1/README.md):
+
+```sh
+pnpm evaluation plan --spec benchmarks/evaluation/agent-cli-v1.json --smoke
+pnpm evaluation run --spec benchmarks/evaluation/agent-cli-v1.json --python python3 \
+  --smoke --out benchmark-results/agent-cli-evaluation-smoke
+pnpm evaluation verify --python python3 --input benchmark-results/agent-cli-evaluation-smoke
+```
+
+Node-only specifications check native Node dependencies and a standard-library Python archiver. The full paper environment below remains required for the default matrix. An experiment may declare a separate `smokeProfile`; that explicit diagnostic matrix is used by both `plan --smoke` and `run --smoke`. Profiles can contribute offline verification and result tables through the generic `artifactExtension` interface; subject-specific rules stay in their versioned source directories.
+
 Use Python 3.13 on the recorded macOS arm64 environment. The complete Python lock includes Mesa, Solara, NetLogo bridge dependencies and CPU PyTorch. Its `ipyvue` and `ipyvuetify` pins retain the Vue 2 widgets used by Solara 1.57.3. Import the local Python binding through the orchestrator's `PYTHONPATH`, rather than a separately installed TenSnap release.
 
 ```sh
@@ -24,7 +35,7 @@ Source checks exclude `benchmark-results/`, `evaluation-results/`, the selected 
 
 ## Current checkout profiles
 
-The current experiment specification continues to select `evaluation-2026-schelling-ui-js-v2.json`, with refreshed package/lock fingerprints for the 2026-10-19 checkout. `schelling-ui-js-v2.json` is its standalone counterpart. Package-version or dependency-lock changes alone do not require a new profile version: update `environmentLocks` hashes in place only in the latest active profile version, verify them, and run into a fresh output directory. Leave superseded versions such as v1 unchanged, including their existing hashes. Add a new profile version when scientific workloads, conditions, measurement semantics, metrics or comparison interpretation change. A hash refresh is not new performance evidence. Recorded batches retain their embedded profiles and original checksums.
+The current experiment specification continues to select `evaluation-2026-schelling-ui-js-v2.json`, with package/lock fingerprints checked for the 2026-10-21 patch preparation. `schelling-ui-js-v2.json` is its standalone counterpart. Package-version or dependency-lock changes alone do not require a new profile version: update `environmentLocks` hashes in place only in the latest active profile version, verify them, and run into a fresh output directory. Leave superseded versions such as v1 unchanged, including their existing hashes. Add a new profile version when scientific workloads, conditions, measurement semantics, metrics or comparison interpretation change. The validation fix restores the already-declared error policy, so it does not change the profile IDs or declared conditions. Reusing Mesa statistics changes implementation cost while preserving the model trajectory and collection contract. Both corrections require fresh execution for current measurements; they do not relabel old samples. A hash refresh is not new performance evidence. Recorded batches retain their embedded profiles and original checksums.
 
 ## Commands
 
@@ -117,6 +128,8 @@ Readers verify the referenced file hash and load the original samples in memory,
 CSV preserves numeric precision. LaTeX rounds fractional display values to three decimal places and requires `booktabs`, `tabularx` and `array`. The exporter additionally retains the recording storage metrics, all sixteen conformance properties and the Fire/DQN policy/stability results. It does not edit manuscript prose or widen scientific claims. Table selectors are retained in the evidence archive for later exports.
 
 ## Published batch and source changes
+
+The historical TenSnap Web samples predate the [frontend validation correction](../README.md#browser-validation-and-cadence-corrections-32-34): frontend checks were off, including conditions that requested error validation. Protocol browser error conditions still exercised server validation; external simulator server validation was not observed. The data remain historical observations, not validated end-to-end throughput or an estimate of frontend validation overhead. Corrected runs require a fresh output; retained exports and checksums stay unchanged.
 
 The complete batch is `benchmark-results/evaluation-full-2026-10-09`, publicly retained at [c959a34](https://github.com/billstark001/tensnap/tree/c959a345dee17b2bc6e10f8573d0088f2bf5e553/benchmark-results/evaluation-full-2026-10-09). The measured source is `c80c882396beb4b4da0703616b8af7c10de0534b`; execution started October 10, 2026 at 09:17 JST. All seven profiles retain 15 blocks; the batch contains 112 performance conditions and 1,680 replicates.
 

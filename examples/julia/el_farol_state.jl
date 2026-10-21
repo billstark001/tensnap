@@ -4,12 +4,15 @@ using Serialization
 function capture_bar(model::ElFarolModel)
     io = IOBuffer()
     serialize(io, (agents=deepcopy(model.agents), capacity=model.capacity,
-        attendance=model.attendance, history=copy(model.history), rng=deepcopy(model.rng)))
+        attendance=model.attendance, history=copy(model.history), seed=model.seed, rng=deepcopy(model.rng)))
     return take!(io)
 end
 
 function restore_bar!(data, model::ElFarolModel)
     state = deserialize(IOBuffer(data))
+    state.seed isa Int || error("invalid bar seed")
+    state.rng isa MersenneTwister || error("invalid bar RNG")
+    model.seed = state.seed
     model.agents = state.agents
     model.capacity = state.capacity
     model.attendance = state.attendance

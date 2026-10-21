@@ -175,8 +175,14 @@ Some Schelling launchers are intentionally thin. Visualization commands delegate
 cd packages/tensnap-python
 ruff format tensnap/  # Format code
 ruff check tensnap/   # Lint
-mypy tensnap/         # Type check
+python -m pyright -p ../../pyrightconfig.json --warnings  # Type check
 ```
+
+Python type checks use the root `pyrightconfig.json` in basic mode, targeting Python 3.10. The shared scope is `packages/tensnap-python/tensnap` and `packages/tensnap-python/tests/typing`; runtime tests, examples and build outputs are outside the batch check. Pylance reads the same root configuration when the repository is opened in VS Code. Select the same development interpreter in the editor and terminal so dependencies resolve consistently. The development extra pins the Pyright version used by local checks and CI.
+
+Pylance can still report diagnostics in an opened runtime test or example outside this batch scope; `include` controls file discovery, not diagnostic suppression. To check such a file from the CLI, pass its path explicitly with `-p pyrightconfig.json` from the repository root. Use `python -c 'import tensnap; print(tensnap.__file__)'` to check runtime imports separately: a different interpreter or an older installed package can resolve differently from the workspace paths used by static analysis.
+
+Run `pnpm --filter @tensnap/python typecheck` from the repository root for types alone, or `pnpm --filter @tensnap/python lint` for the same Pyright and Ruff checks used by CI. The Ruff checks retain the package's lint exclusions while checking Python 3.10 import compatibility across all library source files.
 
 Repository-wide frontend/tooling lint can be run from the workspace root:
 

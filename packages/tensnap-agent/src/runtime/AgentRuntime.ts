@@ -1,3 +1,4 @@
+import type { RuntimeContextPaths } from './context-paths';
 import { listRecordingFiles } from './recording-catalog';
 import { NodeRecordingStore } from './NodeRecordingStore';
 import { saveCapturedFrame, readCapturedFrame } from './frame-files';
@@ -70,7 +71,6 @@ import type {
 import {
   appendRuntimeLog,
   ensureRuntimeContext,
-  type RuntimeContextPaths,
   writeRuntimeControl,
   writeSceneSnapshot,
   writeRunRecording,

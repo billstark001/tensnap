@@ -2,11 +2,14 @@ import asyncio
 import random
 import sys
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import numpy as np
+import pytest
 
-from tensnap import SimulationScenario, mesa_model_time
+from tensnap import SimulationScenario, chart, cleanup_mesa_model_step, mesa_model_time
 from tensnap.bindings import scene_restore_binding
+from tensnap.bindings.basic.restore import encode_checkpoint
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "examples" / "python"))
@@ -14,6 +17,123 @@ sys.path.insert(0, str(REPO_ROOT / "examples" / "python_mesa"))
 
 from cgol import GameOfLife  # noqa: E402
 from flock import FlockConfig, FlockSimulation  # noqa: E402
+
+
+@pytest.mark.asyncio
+async def test_scenario_checkpoint_rebinds_constructor_parameters_before_reset():
+    model = GameOfLife(width=5, height=4, seed=7)
+    scenario = SimulationScenario()
+    scenario.server.send = AsyncMock()
+    await scenario.register_model(model, model_time=lambda: int(mesa_model_time(model)))
+
+    # A separately registered chart is outside the model's lifecycle inventory.
+    @chart("external", "External")
+    def external_chart():
+        return 1
+
+    scenario.add_charts({"external": external_chart})
+    await scenario._advance_step()
+    saved = model.capture_checkpoint()
+    saved_board = model.alive.copy()
+    scenario.set_parameter("width", 8)
+    scenario.set_parameter("height", 7)
+    scenario.set_parameter("seed", 42)
+    await scenario.reset()
+    assert (model.width, model.height, model.seed) == (8, 7, 42)
+
+    await scenario._on_scene_restore(
+        None,
+        {
+            "request_id": "constructor-restore",
+            "model_id": scenario.model_id,
+            "checkpoint": encode_checkpoint(saved, use_msgpack=False),
+        },
+    )
+    assert scenario._scene_restore_results["constructor-restore"]["status"] == "ok"
+    assert scenario._time_step == mesa_model_time(model) == 1
+    assert scenario.dump_parameters() == {"width": 5, "height": 4, "seed": 7}
+    assert np.array_equal(model.alive, saved_board)
+    assert "external" in scenario.charts
+    await scenario.reset()
+    reference = GameOfLife(width=5, height=4, seed=7)
+    assert np.array_equal(model.alive, reference.alive)
+    assert len(scenario._handlers) == 1
+    cleanup_mesa_model_step(model)
+    cleanup_mesa_model_step(reference)
+
+
+@pytest.mark.asyncio
+async def test_registered_model_can_continue_a_checkpoint_before_its_first_step():
+    reference = GameOfLife(width=5, height=4, seed=7)
+    for _ in range(3):
+        reference.step()
+    saved = reference.capture_checkpoint()
+    reference.step()
+    model = GameOfLife(width=8, height=7, seed=42)
+    scenario = SimulationScenario()
+    scenario.server.send = AsyncMock()
+    await scenario.register_model(model, model_time=lambda: int(mesa_model_time(model)))
+    await scenario._on_scene_restore(
+        None,
+        {
+            "request_id": "before-first-step",
+            "model_id": scenario.model_id,
+            "checkpoint": encode_checkpoint(saved, use_msgpack=False),
+        },
+    )
+    assert scenario._scene_restore_results["before-first-step"]["status"] == "ok"
+    await scenario._advance_step()
+    assert np.array_equal(model.alive, reference.alive)
+    assert scenario._time_step == mesa_model_time(model) == 4
+    cleanup_mesa_model_step(model)
+    cleanup_mesa_model_step(reference)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_msgpack", [False, True])
+async def test_cgol_wire_checkpoint_keeps_bytes_with_explicit_parameter_overlay(
+    use_msgpack,
+):
+    model = GameOfLife(width=5, height=4, seed=7)
+    scenario = SimulationScenario(use_msgpack=use_msgpack)
+    scenario.server.send = AsyncMock()
+    await scenario.register_model(model, model_time=lambda: int(mesa_model_time(model)))
+    scenario.set_parameter("width", 8)
+    scenario.set_parameter("seed", 42)
+    model_data = model.capture_checkpoint()
+    parameters = [
+        {"id": name, "value": value}
+        for name, value in scenario.dump_parameters().items()
+    ]
+    await scenario._on_scene_capture(None, {"request_id": "capture-controls"})
+    checkpoint = dict(scenario.server.send.call_args.args[2])
+    assert checkpoint["checkpoint"] == encode_checkpoint(
+        model_data, use_msgpack=use_msgpack
+    )
+    assert checkpoint["checkpoint"]["encoding"] == "application/octet-stream"
+    projection = _projected_env(scenario, "cgol_grid")
+    scenario.set_parameter("width", 9)
+    scenario.set_parameter("seed", 99)
+    await scenario.reset()
+    assert (model.width, model.seed) == (9, 99)
+    await scenario._on_scene_restore(
+        None,
+        {
+            **checkpoint,
+            "envs": [projection],
+            "parameters": parameters,
+            "request_id": "restore-controls",
+        },
+    )
+    assert scenario._scene_restore_results["restore-controls"]["status"] == "ok"
+    assert (model.width, model.seed) == (5, 7)
+    assert scenario.get_parameter("width") == 8
+    assert scenario.get_parameter("seed") == 42
+    await scenario.reset()
+    reference = GameOfLife(width=8, height=4, seed=42)
+    assert np.array_equal(model.alive, reference.alive)
+    cleanup_mesa_model_step(model)
+    cleanup_mesa_model_step(reference)
 
 
 def _flock_state(model: FlockSimulation) -> list[tuple]:
@@ -50,8 +170,7 @@ def _restore_projected(
 
 
 def test_flock_checkpoint_restores_exact_next_step() -> None:
-    random.seed(17)
-    model = FlockSimulation(FlockConfig(num_agents=8))
+    model = FlockSimulation(FlockConfig(num_agents=8, seed=17))
     model.initialize()
     model.step()
     checkpoint = model.capture_checkpoint()
@@ -72,8 +191,7 @@ def test_flock_checkpoint_restores_exact_next_step() -> None:
 
 
 def test_flock_projected_restore_replaces_visible_birds_and_time() -> None:
-    random.seed(31)
-    model = FlockSimulation(FlockConfig(num_agents=3))
+    model = FlockSimulation(FlockConfig(num_agents=3, seed=31))
     model.initialize()
     random_state = random.getstate()
     restored_time = 12

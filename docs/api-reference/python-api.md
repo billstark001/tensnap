@@ -164,19 +164,28 @@ These decorators project model data without allocating agent wrapper objects. Th
 
 ```python
 from tensnap import (
-    SimulationScenario, SourceBatch, SourceChange,
-    env, map_agent_layer, matrix_agent_layer, scene_restore,
+    SimulationScenario,
+    SourceBatch,
+    SourceChange,
+    env,
+    map_agent_layer,
+    matrix_agent_layer,
+    scene_restore,
 )
+
 
 @scene_restore(validate=lambda _payload: None)
 @map_agent_layer(
     "flags",
     color=lambda _model, _key, value: "#22c55e" if value else "#ef4444",
-    revision="revision", changes="changes_since",
+    revision="revision",
+    changes="changes_since",
 )
 @matrix_agent_layer(
     "cells",
-    color=lambda _model, _row, _col, value: "#60a5fa" if value == "water" else "#a3e635",
+    color=lambda _model, _row, _col, value: (
+        "#60a5fa" if value == "water" else "#a3e635"
+    ),
 )
 @env("world")
 class Model:
@@ -197,6 +206,7 @@ class Model:
         self.revision += 1
         self.events.append((self.revision, SourceChange("update", "gate")))
 
+
 model = Model()
 scenario = SimulationScenario(model_id="example.keyed-sources")
 scenario.add_all(model)
@@ -212,7 +222,7 @@ Incremental caches and source snapshots own nested projected dictionaries and li
 
 Field selectors, literal values, and eligible expression lambdas are compiled into one projection function. A lambda is inlined only when its source is unambiguous and its body uses fixed positional arguments without external names, defaults, inner scopes, or assignment expressions. Other callables run normally. The generated function's `inline_diagnostics` dictionary gives the reason for each callable field. Literal objects are bound in the compiler's environment rather than reconstructed from `repr`. Same-line lambda ambiguity falls back on Python 3.10; newer interpreters use code-position metadata when it is present.
 
-Layer constructor keyword arguments use `Unpack[TypedDict]` typing (PEP 692). Concrete built-in layer option sets are closed and their item projector fields retain the layer's item-key type. Extensible metadata uses a PEP 728 `extra_items` TypedDict; its `Mapping[str, ProjectorFieldForInit]` alternative keeps custom keys usable with mypy until mypy supports `extra_items`. Shared splitters keep same-name metadata inference while rejecting unknown direct options at runtime. Python 3.10 or later is required; `typing-extensions>=4.13.0` provides the PEP 728 runtime support before Python 3.15.
+Layer constructor keyword arguments use `Unpack[TypedDict]` typing (PEP 692). Concrete built-in layer option sets are closed and their item projector fields retain the layer's item-key type. Extensible metadata accepts a PEP 728 `extra_items` TypedDict or a `Mapping` whose values are `ProjectorFieldForInit`, preserving typed metadata keys. Pyright checks these contracts alongside library source. Shared splitters keep same-name metadata inference while rejecting unknown direct options at runtime. Python 3.10 or later is required; `typing-extensions>=4.13.0` provides the PEP 728 runtime support before Python 3.15.
 
 ## `SimulationScenario`
 
@@ -250,7 +260,7 @@ Before any other simulator frame, each connection receives `simulator_info` with
 
 `add_all(...)` is the normal high-level path. It registers any available environment/layer, action, and chart bindings on the target and returns changed registry ids grouped by kind. For undecorated targets with no explicit parameter config, it uses `BindParametersConfig.EXCLUDE_ALL` so incidental public attributes are not exposed. Attach `@params(...)` or pass a `BindParametersConfig(...)` to opt fields into parameter discovery.
 
-`dry_run=True` returns the registry ids that would be registered without mutating scenario state. This is used by the Mesa reinitializer and is also useful for custom registration lifecycles.
+`dry_run=True` returns the registry ids that would be registered without mutating scenario state. It is useful for planning custom registration lifecycles.
 
 ### Environment and layer registration
 
@@ -306,25 +316,37 @@ Monitor values are replace-only current state. Metadata changes use `monitor_del
 
 Projected restore is opt-in through `restore(payload)`. Exact checkpoint support is advertised only when both checkpoint callbacks are configured. Capture returns model data and restore receives decoded model data; TenSnap infers `application/octet-stream` for bytes and MessagePack for other protocol data. The wire `{encoding, data}` object is never passed to model callbacks. Use `restore=None` (for example `@scene_restore(None, checkpoint_capture="capture", checkpoint_restore="restore_checkpoint")`) when the model supports exact checkpoints but has no projected-state inverse.
 
+Capture stores only the data returned by the model checkpoint hook. Registering constructor controls does not add lifecycle fields or change the checkpoint encoding. To retain staged UI parameter values, save them with the scene snapshot and supply the existing `parameters` overlay on restore, when projected restore is supported. This overlay uses the protocol array form, for example `[{"id": "seed", "value": 42}]`. A model promising checkpoint-only recovery of pending initialization choices must include those choices in its own checkpoint, alongside the active model and RNG state.
+
 Restore validates identity/schema/instance guards before mutation, applies the checkpoint before projected fields, replays the complete final declarations, environment items, monitor values and time without chart messages, caches each `request_id`, and uses a pre-restore checkpoint for rollback when both hooks are available.
 
 For a declarative inverse, attach `@layer_restore` to the class that declares the layer. The binding uses that layer's ID, item projection, item keys, and dependencies to validate and reconcile complete snapshots. If a class declares multiple layers, specify `layer_id`. `delete` receives a key record such as `{"id": "a"}`; `create` and `update` receive complete projected item records.
 
 ```python
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")
-@scene_restore(time="restore_time", before_apply="prepare_model", after_apply="rebuild_indices")
+@scene_restore(
+    time="restore_time", before_apply="prepare_model", after_apply="rebuild_indices"
+)
 @layer_restore(create="create_item", update="update_item", delete="delete_item")
 @agent_layer("agents", items_projector=lambda model: model.agent_records())
 @env("main")
-class Model:
-    ...
+class Model: ...
 ```
 
 Use `@layer_restore(replace="restore_items")` for an array-backed layer and `@layer_restore(metadata="restore_metadata")` for a metadata-only layer. `time` may be omitted when only the scenario owns time. A checkpoint includes private RNG, scheduler, and collector state when exact continuation is required. `RestoreValue` gives a time inverse access to the model and an optional pre-apply validator. Both callbacks receive `(model, value)` and may be async. For a Mesa model using its default one-step schedule, import `mesa_clock_restore` from `tensnap.bindings.mesa` and pass it as `time=`. TenSnap validates that the projected time is a nonnegative integer and moves Mesa's next step event to the following tick. This works with Mesa 3.0 through 4.0.0a0; Mesa 3.0–3.3 use `steps`, Mesa 3.4 uses `steps` and `time`, and event-backed Mesa 3.5/4.0 uses `time` plus its default schedule. Models with a separate simulator, other pending events, or additional recurring event generators need a model-owned checkpoint that restores the complete scheduler state. The generic clock adapter rejects those event-backed cases before changing the model. If checkpoint import replaces the object registered as a layer target, set `target="get_new_target"` on `@layer_restore` so the binding refreshes it. The existing whole-payload callback remains available.
 
+### Initialization and stochastic state
+
+Seed is an ordinary model initialization parameter; TenSnap owns no generator. Use model-owned `random.Random` / NumPy generators or Mesa's `random` and `rng`. Mark initialization fields with `allow_runtime_change=False`. Constructor-only parameters discovered by `BoundModelReinitializer` default to that metadata; explicit custom metadata may override it. Existing model-owned runtime parameters retain their declarations.
+
+`await scenario.reset()` performs the existing handler reset, chart clear and state reconciliation. Bound actions can await it under serialized action dispatch. `scenario.set_time_step(tick)` sets the protocol clock from a lifecycle/checkpoint callback without publishing or advancing any model; `tick` must be a nonnegative integer. A checkpoint adapter uses this public method after restoring model time. Framework clocks still need their native inverse.
+
+Reuse paired checkpoint hooks for current RNG positions; a seed alone only restarts initialization. See the [reproducibility contract](../maintainer-guide/reproducibility.md).
+
 ### Handlers and runtime
 
 - `register_handler(handler) -> None`
+- `register_model(model, *, reinitializer=None, model_step=None, model_time=None, after_reinitialize=None, observe=None) -> BoundModelReinitializer`
 - `register_model_handler(model_init=None, model_step=None, model_reset=None) -> None`
 - `run() -> None`
 
@@ -406,8 +428,7 @@ scenario.add_layer_binding(
         layer_type="agent",
         item_keys=("id",),
         items_projector=lambda model: [
-            {"id": agent.id, "x": agent.x, "y": agent.y}
-            for agent in model.agents
+            {"id": agent.id, "x": agent.x, "y": agent.y} for agent in model.agents
         ],
     ),
     my_model,
@@ -418,43 +439,52 @@ scenario.add_layer_binding(
 
 The Mesa integration lives under `tensnap.bindings.mesa`, while the generic constructor-driven lifecycle helpers, including `default_cleanup_for_model(...)`, now live under `tensnap.bindings.lifecycle`.
 
-### `BoundModelReinitializer`
+### `SimulationScenario.register_model` and `BoundModelReinitializer`
 
 ```python
-from tensnap import (
-    BoundModelReinitializer,
-    SimulationScenario,
-    bind_kwargs,
-)
+from tensnap import BoundModelReinitializer, SimulationScenario, bind_kwargs
 
 
-@bind_kwargs(include=["width", "height"])
+@bind_kwargs(include=["width", "height", "seed"])
 class MyMesaModel:
+    # Keep the scientific model's constructor and native step implementation.
     ...
 
-scenario = SimulationScenario(port=8765)
-model = MyMesaModel(width=50, height=50)
-reinitializer = BoundModelReinitializer(model)
 
-reinitializer.register_model(scenario)
-reinitializer.configure_reinit(scenario)
-await scenario.register_model_handler(
-    model_init=reinitializer.model_init,
-    model_step=model.step,
-    model_reset=reinitializer.model_reset,
-)
+scenario = SimulationScenario(port=8765)
+model = MyMesaModel(width=50, height=50)  # seed may use the model's default
+await scenario.register_model(model)
 await scenario.run()
 ```
 
-`BoundModelReinitializer` is the recommended Mesa lifecycle helper. It registers the decorated model through `scenario.add_all(model)`, adds constructor kwargs as resettable parameters when they are not already exposed by the model, and rebuilds the model in place on init/reset.
+`await scenario.register_model(model, *, reinitializer=None, model_step=None, model_time=None, after_reinitialize=None, observe=None)` registers one model's declarations and lifecycle. It returns the construction strategy. A second model lifecycle on the same scenario is rejected, including mixing this registration with `register_model_handler`. Additional explicit charts, actions or environments can still use the targeted registration APIs. Model declarations may not duplicate existing IDs in their registry. Failed registration removes its own declarations and handler so setup can be corrected and retried.
 
-Constructor kwargs come from `bind_kwargs(...)`, static `__init__` defaults, captured dynamic defaults from construction, or `init_kwargs` passed to `BoundModelReinitializer`. When a model already exposes a constructor field as a model parameter, the reinitializer keeps the model-owned parameter and only adds non-conflicting kwargs. `configure_reinit(...)` now automatically applies `default_cleanup_for_model(model)` when no cleanup is provided and the model is a Mesa model.
+The scenario registers decorated environments, parameters, actions, charts, monitors and restore hooks. On initialization/reset it rebuilds the model in place, replaces the previous model-owned registry inventory and registers its new declarations. If construction raises before changing the model, the previous controls remain available for correction and retry. Separately registered content remains outside that inventory. Without `model_step`, stepping resolves `model.step` after each reconstruction so Mesa's native wrapper and clock stay current. A custom step callback can supply model-specific stopping or policy behavior.
+
+`BoundModelReinitializer` owns construction choices and cleanup, with no scenario reference or registration methods. Constructor kwargs come from `bind_kwargs(...)`, `__init__` defaults, captured arguments for that instance, model attributes, or explicit `init_kwargs`. Model-owned parameters keep their declarations and stable IDs; only additional constructor kwargs become extra controls. Constructor-only controls default to `allow_runtime_change=False` and store their values separately from strategy methods and attributes.
+
+For non-UI constructor options or positional resources, provide a strategy explicitly:
+
+```python
+reinitializer = BoundModelReinitializer(
+    model,
+    init_kwargs={"collect_data": False},  # excluded by this model's bind_kwargs
+)
+await scenario.register_model(model, reinitializer=reinitializer)
+```
+
+`init_kwargs` retains excluded construction options rather than exposing them as controls. `init_args` retains positional constructor resources without also passing them as keyword arguments. Default Mesa cleanup removes its old step wrapper before reconstruction; a custom `cleanup` callback may be supplied on the strategy.
+
+Checkpoint callbacks still belong to the model and use the existing paired declarations or scenario constructor. After applying a checkpoint, the scenario refreshes construction choices from restored model attributes, then applies explicit projected parameter overrides. Constructor controls without a corresponding restored model attribute retain their current values; checkpoint-only restore does not recover UI values that the model never saved. The scenario re-registers declarations and primes publication state against the restored model. Combined checkpoint/projection requests validate layer topology against the restored configuration. When rollback hooks are available, a failed restore recovers the previous staged constructor controls and initialization status from transaction-local memory; these rollback values are not serialized. A `model_time` callback synchronizes protocol time after registration, initialization/reset, step and restore; it must return a nonnegative integer. For Mesa's default step-count clock, use `model_time=lambda: int(mesa_model_time(model))`.
+
+`after_reinitialize()` runs after reconstruction and declaration registration, for application work such as rebuilding a guide policy. The optional `observe(model)` callback runs after registration, initialization/reset, step and successful restore; it can be asynchronous. Benchmark adapters use it for audit output. Ordinary examples need no observer, and TenSnap neither requires a seed nor manages a model's RNG.
+
+The former reinitializer-owned `register_model`, `configure_reinit`, `reinitialize`, `model_init` and `model_reset` entry points are removed. Replace their registration/setup sequence with `await scenario.register_model(...)`; invoke `await scenario.reset()` for a complete reset. There are no forwarding aliases.
 
 Related generic helpers exported from `tensnap.bindings.lifecycle`:
 
 - `bind_kwargs(...)`
 - `get_bind_kwargs(...)`
-- `reinitialize_registered_model(...)`
 - `merge_registry_changes(...)`
 - `default_cleanup_for_model(...)`
 
@@ -471,7 +501,7 @@ Mesa-specific cleanup helpers that remain under `tensnap.bindings.mesa`:
 
 Compatibility re-exports from `tensnap.bindings.mesa` remain available for one release cycle, but they now emit deprecation warnings that point to `tensnap.bindings.lifecycle`.
 
-`MesaSimulationHandler` remains available for compatibility, but new examples prefer `BoundModelReinitializer` plus `register_model_handler(...)` so registration and reset behavior are explicit.
+`MesaSimulationHandler` remains deprecated. New constructor-driven examples use `await scenario.register_model(...)`; explicit callback-only applications can still use `register_model_handler(...)`.
 
 ## Low-level server lifecycle and deprecated spellings
 

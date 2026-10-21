@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/js",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "JavaScript bindings and postMessage transport primitives for TenSnap",
   "license": "MIT",
   "repository": {

@@ -14,6 +14,7 @@ def audit_state(model: SchellingModel) -> dict:
     return {
         "time": model.tick,
         "state": {
+            "seed": model.seed,
             "width": model.width,
             "height": model.height,
             "density": model.density,

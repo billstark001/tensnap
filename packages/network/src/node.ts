@@ -42,7 +42,7 @@ export interface ListenIPOptions {
   backlog?: number;
 }
 
-/** Only absence of a local address family permits auto to degrade. Never hide EADDRINUSE. */
+/** Only absence of a local address family permits auto to degrade. */
 export function unavailableIPFamily(error: unknown): boolean {
   return ['EAFNOSUPPORT', 'EPROTONOSUPPORT', 'EADDRNOTAVAIL'].includes(
     (error as NodeJS.ErrnoException | null)?.code ?? '',
@@ -80,6 +80,17 @@ export async function listenIPServers<T extends Server>(
     return true;
   });
   if (!targets.length) throw new Error(`No ${family} listen address for ${host}.`);
+  return listenResolvedIPServers(createServer, options, targets);
+}
+
+async function listenResolvedIPServers<T extends Server>(
+  createServer: () => T,
+  options: ListenIPOptions,
+  targets: Array<{ address: string; family: number }>,
+  ephemeralRetries = 0,
+): Promise<T[]> {
+  const family = parseIPFamily(options.ip_family);
+  const host = (options.host ?? '').replace(/^\[|\]$/g, '');
   const servers: T[] = [];
   let port = options.port;
   try {
@@ -117,6 +128,25 @@ export async function listenIPServers<T extends Server>(
         port = (server.address() as AddressInfo).port;
       } catch (error) {
         if (!servers.includes(server)) await closeIPServers([server]);
+        // Port 0 is chosen by the first address family only. The same port may
+        // already belong to another service on a later address. Roll back and
+        // ask the OS for a new port instead of aborting a benchmark at random.
+        // Explicit ports still fail, and auto never drops a conflicting family.
+        if (
+          options.port === 0 &&
+          servers.length > 0 &&
+          (error as NodeJS.ErrnoException).code === 'EADDRINUSE' &&
+          ephemeralRetries < 10
+        ) {
+          await closeIPServers(servers);
+          servers.length = 0;
+          return await listenResolvedIPServers(
+            createServer,
+            options,
+            targets,
+            ephemeralRetries + 1,
+          );
+        }
         if (
           family === 'auto' &&
           (!host || host.toLowerCase() === 'localhost') &&

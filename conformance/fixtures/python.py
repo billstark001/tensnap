@@ -51,8 +51,12 @@ class Model:
     def new_agent(self):
         agent_id = self.next_id
         self.next_id += 1
-        return Agent(agent_id, agent_id % 64, (agent_id // 64) % 64,
-                     "I" if agent_id % 4 == 1 else "S")
+        return Agent(
+            agent_id,
+            agent_id % 64,
+            (agent_id // 64) % 64,
+            "I" if agent_id % 4 == 1 else "S",
+        )
 
     def seed(self, count: int):
         self.agents = []
@@ -62,8 +66,10 @@ class Model:
             self.agents.append(self.new_agent())
 
     def counts(self):
-        return {key: sum(agent.health == key for agent in self.agents)
-                for key in ("S", "I", "R")}
+        return {
+            key: sum(agent.health == key for agent in self.agents)
+            for key in ("S", "I", "R")
+        }
 
     def snapshot(self):
         return {
@@ -99,14 +105,22 @@ class Model:
     def population(self):
         return len(self.agents)
 
-    @chart("health", "Health states", data_list=[
-        {"id": "susceptible", "label": "Susceptible", "color": "#3498db"},
-        {"id": "infected", "label": "Infected", "color": "#e74c3c"},
-        {"id": "recovered", "label": "Recovered", "color": "#2ecc71"},
-    ])
+    @chart(
+        "health",
+        "Health states",
+        data_list=[
+            {"id": "susceptible", "label": "Susceptible", "color": "#3498db"},
+            {"id": "infected", "label": "Infected", "color": "#e74c3c"},
+            {"id": "recovered", "label": "Recovered", "color": "#2ecc71"},
+        ],
+    )
     def health_chart(self):
         counts = self.counts()
-        return {"susceptible": counts["S"], "infected": counts["I"], "recovered": counts["R"]}
+        return {
+            "susceptible": counts["S"],
+            "infected": counts["I"],
+            "recovered": counts["R"],
+        }
 
     def step(self):
         self.steps += 1
@@ -153,8 +167,12 @@ class Model:
         self.rng = int(saved["rng"])
         self.queue = list(saved["queue"])
         self._speed = int(saved["speed"])
-        self.agents = [Agent(int(agent["id"]), int(agent["x"]), int(agent["y"]), str(agent["health"]))
-                       for agent in saved["agents"]]
+        self.agents = [
+            Agent(
+                int(agent["id"]), int(agent["x"]), int(agent["y"]), str(agent["health"])
+            )
+            for agent in saved["agents"]
+        ]
         self.next_id = int(saved["next_id"])
         self.base_population = int(saved["base_population"])
         self.births = int(saved["births"])
@@ -180,10 +198,12 @@ async def main():
     )
     scenario.add_all(model)
     await scenario.register_model_handler(model_step=model.step)
+
     async def publish():
         await scenario._handlers[0]._push_env_updates()
         await scenario.broadcast_charts(scenario._time_step)
         await scenario.broadcast_monitors()
+
     model.publish = publish
     await scenario.run()
 

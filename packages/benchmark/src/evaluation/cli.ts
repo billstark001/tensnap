@@ -21,8 +21,8 @@ process.once('SIGTERM', cancel);
 const help = `TenSnap paper evaluation
 
   pnpm evaluation plan [--smoke] [--spec PATH]
-  pnpm evaluation doctor [--python PATH]
-  pnpm evaluation run --out DIRECTORY [--smoke] [--gzip-level 0..9]
+  pnpm evaluation doctor [--python PATH] [--spec PATH]
+  pnpm evaluation run --out DIRECTORY [--smoke] [--spec PATH] [--gzip-level 0..9]
   pnpm evaluation resume --input DIRECTORY [--gzip-level 0..9]
   pnpm evaluation verify --input DIRECTORY_OR_TAR_GZ
   pnpm evaluation export --input DIRECTORY_OR_TAR_GZ --out DIRECTORY [--gzip-level 0..9]
@@ -34,6 +34,8 @@ exports data.tar.gz, figures.tar.gz and CSV/LaTeX tables, then removes raw copie
 No figures remain outside the archives. Gzip defaults to level 6.
 Verify/export accept legacy evidence.tar.gz and paired data/figures archives.
 Smoke is diagnostic: one replicate, short browser actions, two Fire/DQN episodes.
+Use --spec for a workload-specific batch. Experiments may declare an explicit
+smokeProfile with a smaller diagnostic workload matrix.
 Resume validates the original source and environment before accepting prior work.
 All commands accept --work-dir and --cache-dir. Defaults relative to the checkout:
   benchmark-results/.work   temporary extraction and runtime scratch space

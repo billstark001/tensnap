@@ -16,6 +16,7 @@ export const DEFAULT_AXELROD_CONFIG: AxelrodConfig = {
   numTraits: 10,
   neighborhood: 'moore',
   updatesPerTick: 200,
+  seed: 7,
 };
 
 interface AxelrodRuntime {
@@ -34,7 +35,7 @@ function nextRandom(rng: { state: number }): number {
 }
 
 function randomize(runtime: AxelrodRuntime): void {
-  runtime.rng.state = Math.floor(Math.random() * 4294967296);
+  runtime.rng.state = runtime.config.seed ?? 7;
   runtime.state = initializeAxelrod(runtime.config, () => nextRandom(runtime.rng));
   runtime.stepCount = 0;
   runtime.lastMetrics = computeAxelrodMetrics(runtime.state);
@@ -237,7 +238,7 @@ const builder = modelBuilder(
   {
     defaults: DEFAULT_AXELROD_CONFIG,
     create(config): AxelrodRuntime {
-      const rng = { state: Math.floor(Math.random() * 4294967296) };
+      const rng = { state: config.seed ?? 7 };
       const state = initializeAxelrod(config, () => nextRandom(rng));
       return {
         config: { ...config },
@@ -318,6 +319,13 @@ builder.paramsFromConfig<AxelrodConfig>({
     Object.assign(runtime.config, patch);
   },
   fields: {
+    seed: numberField({
+      label: 'Seed (next reset)',
+      min: 0,
+      max: 0xffffffff,
+      integer: true,
+      runtime: false,
+    }),
     width: numberField({ label: 'Grid Width', integer: true, runtime: false }),
     height: numberField({ label: 'Grid Height', integer: true, runtime: false }),
     numFeatures: numberField({ label: 'Feature Count', integer: true, runtime: false }),

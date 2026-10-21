@@ -136,6 +136,8 @@ EnvironmentView  (owns a Leafer instance + resize handling)
 
 Storage classes are reactive data containers. Layers subscribe to them and re-render on change. `EdgeLayer` runs d3-force layout and writes computed positions back to `AgentStorage`. `BackgroundStorage` revokes only blob URLs it created from raw image bytes; asset URLs passed in from `AssetStore` remain owned by the asset store.
 
+Clients that only validate bounded queries can import schemas and field-path helpers from `@tensnap/core/scenario/query-schema`. This entry has no scenario engine, rendering or persistence dependencies. The existing `@tensnap/core/scenario` exports use the same schemas and helpers.
+
 ## Testing & Benchmarks
 
 ```bash

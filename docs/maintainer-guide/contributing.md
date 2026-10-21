@@ -251,8 +251,10 @@ ruff format tensnap/
 ruff check tensnap/
 
 # Type check
-mypy tensnap/
+python -m pyright -p ../../pyrightconfig.json --warnings
 ```
+
+Pyright and Pylance share the repository-root `pyrightconfig.json` in basic mode. Local checks and CI cover library source and `tests/typing`. From the repository root, `pnpm --filter @tensnap/python lint` runs the shared Pyright and Ruff checks; see [development setup](development-setup.md#code-quality) for details.
 
 ### TypeScript/React Code Style
 

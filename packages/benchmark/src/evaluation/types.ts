@@ -6,11 +6,14 @@ export interface Experiment {
   id: string;
   kind: ExperimentKind;
   profile?: string;
+  /** Explicit small workload matrix for diagnostic execution, when declared. */
+  smokeProfile?: string;
 }
 
 export interface EvaluationSpecification {
   schemaVersion: 1;
   id: string;
+  environment?: 'paper' | 'node';
   experiments: Experiment[];
 }
 

@@ -14,6 +14,7 @@ import {
   mergeBenchmarkJournalSamples,
   readBenchmarkJournal,
   renderReport,
+  renderAnalysisRunsCsv,
   sha256,
   signalExternalProcessTree,
   stableJson,
@@ -131,6 +132,21 @@ function completeNodeArtifact(): BenchmarkArtifact {
 }
 
 describe('benchmark artifact schema v2', () => {
+  it('checks retained semantic evidence against hashes during offline verification', () => {
+    const artifact = completeNodeArtifact();
+    const sample = artifact.runs[0]!.samples[0]!;
+    Object.assign(sample, {
+      semanticEvidence: { state: { time: 1 }, expectedState: { time: 1 } },
+      correctness: {
+        ...sample.correctness,
+        stateHash: sha256({ time: 1 }),
+        expectedStateHash: sha256({ time: 1 }),
+      },
+    });
+    expect(() => verifyArtifact(artifact)).not.toThrow();
+    (sample.semanticEvidence!.state as { time: number }).time = 2;
+    expect(() => verifyArtifact(artifact)).toThrow(/retained semantic evidence/);
+  });
   it('waits for three identical screenshots before accepting a visual checkpoint', async () => {
     const frames = [
       Buffer.from('loading-1'),
@@ -286,6 +302,13 @@ describe('benchmark artifact schema v2', () => {
     expect(() => verifyArtifact(artifact)).not.toThrow();
 
     const withoutComparisons = renderReport(artifact);
+    expect(withoutComparisons).not.toContain('Measured cycles/s');
+    const current = { ...artifact, harness: { ...artifact.harness, reportVersion: 2 as const } };
+    expect(renderReport(current)).toContain('Mean ms | Measured cycles/s');
+    expect(renderAnalysisRunsCsv(current).split('\n')[0]).toContain(
+      'mean_ms,cycle_mean_ms,measured_cycles_per_second',
+    );
+    expect(renderAnalysisRunsCsv(artifact)).not.toContain('cycle_mean_ms');
     expect(withoutComparisons).toContain('in-process (not suitable for submission)\n\n| Suite');
     expect(withoutComparisons).toContain('| 0 / 0 |\n\nRaw measurements');
     expect(withoutComparisons).not.toContain('\n\n\n');

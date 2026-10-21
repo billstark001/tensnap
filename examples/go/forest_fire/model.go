@@ -13,7 +13,7 @@ type Config struct {
 	Height    int     `tensnap:"height,scope=space"`
 	Growth    float64 `tensnap:"id=growth,label='Tree growth probability',min=0,max=1,step=0.001"`
 	Lightning float64 `tensnap:"id=lightning,label='Lightning probability',min=0,max=1,step=0.0001"`
-	Seed      uint32
+	Seed      uint32  `tensnap:"id=seed,label='Seed (next reset)',min=0,max=4294967295,step=1,runtime=false"`
 }
 
 type Snapshot struct {

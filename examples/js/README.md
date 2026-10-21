@@ -103,3 +103,11 @@ Renderer authors should declare metadata, parameters, environments, layers, char
 ## IP family
 
 See the [networking guide](../../docs/user-guide/networking.md) for `auto` (default), `ipv4`, and `ipv6` policies, IPv6 URLs, and shared ephemeral ports.
+
+## Randomness and scientific scope
+
+Every built-in example runtime owns its random stream and exposes seed as an ordinary initialization parameter (default 7). Reset repeats the initial experiment; changing seed stages the next reset. Functional model helpers still accept caller-owned RNG functions. No generator is installed in TenSnap core, and model code does not own a browser run timer.
+
+Schelling uses checkpoint schema 3, with both the configured reset seed and current RNG position. Its optional observer is supplied to `createSchellingExample(observe)` and scoped to that definition; the normal manifest has none. The publication subject alone reads the audit environment variable and writes sidecars. Axelrod also supports exact checkpoint continuation. Tornberg and Wolf/Sheep demonstrate seeded reset without advertising exact restore.
+
+Scientific sweep CSV distinguishes `satisfied_runs`, `jammed_runs`, and `limit_runs`; timers, warmup and performance rows live in benchmark subjects. Schelling uses bounded Moore neighborhoods and batch relocation. Axelrod/Tornberg ticks contain `updatesPerTick` asynchronous micro-updates; Tornberg's sorting diagnostics refresh every five ticks. Wolf/Sheep uses continuous wrapped motion with fixed array activation order, a NetLogo-inspired teaching variant rather than a trace-equivalent NetLogo implementation. See the [example guide](../README.md) and [reproducibility contract](../../docs/maintainer-guide/reproducibility.md).

@@ -34,13 +34,12 @@ ItemGetterForInit: TypeAlias = (
 )
 
 
-# mypy 2.3 does not model PEP 728's extra_items argument; Pyright checks it.
-class LayerMetadataKwargs(TypedDict, extra_items=ProjectorFieldForInit):  # type: ignore[call-arg]
+class LayerMetadataKwargs(TypedDict, extra_items=ProjectorFieldForInit):
     """Extensible selector map for custom layer metadata (PEP 728)."""
 
 
-# Keep custom metadata usable in mypy until it implements extra_items. Pyright
-# checks the PEP 728 branch; all alternatives constrain metadata values.
+# Accept typed mappings as well as extensible literal metadata,
+# preserving key inference.
 LayerMetadataOptions: TypeAlias = (
     LayerMetadataKwargs
     | Mapping[TMetadataKeys, ProjectorFieldForInit]

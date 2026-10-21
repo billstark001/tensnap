@@ -16,15 +16,14 @@ server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(
     port=server_port,
     model_id="examples.python.flock",
-    state_schema_version="1",
+    state_schema_version="2",
 )
 
 config = FlockConfig()
 model = FlockSimulation(config)
 
 
-# These two model-wide dynamics share a chart group. Returning a dict keyed by
-# series id also keeps this example compatible with older v0.3 installations.
+# These two model-wide diagnostics share a chart with named series.
 @chart(
     "average_speed",
     "Flock Dynamics",

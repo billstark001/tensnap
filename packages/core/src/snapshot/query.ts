@@ -1,4 +1,5 @@
-import { queryScenario, type ScenarioQuery } from '../scenario/query';
+import { queryScenario } from '../scenario/query';
+import { type ScenarioQuery } from '../scenario/query-schema';
 import { materializeSnapshot, SnapshotPlayer } from './SnapshotRecorder';
 import type { Snapshot } from './types';
 import { exactValueEqual } from './diff/equality';

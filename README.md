@@ -217,6 +217,8 @@ if __name__ == "__main__":
 
 The complete paper evaluation is retained at [frozen snapshot c959a34](https://github.com/billstark001/tensnap/tree/c959a345dee17b2bc6e10f8573d0088f2bf5e553/benchmark-results/evaluation-full-2026-10-09), measured from source `c80c882`. Its directory name contains October 9, but execution metadata records October 10, 2026. The checked export separates `data.tar.gz` from `figures.tar.gz`; reports and full-precision tables remain outside. See the [evaluation guide](benchmarks/evaluation/README.md) for offline verification, extraction and fresh execution. Git can track published evidence while source checks exclude generated execution directories.
 
+The historical TenSnap Web samples predate the [frontend validation correction](benchmarks/README.md#browser-validation-and-cadence-corrections-32-34): frontend checks were off, including conditions that requested error validation. Protocol browser error conditions still exercised server validation; external simulator server validation was not observed. The data remain historical observations, not validated end-to-end throughput or an estimate of frontend validation overhead. Corrected runs require a fresh output; retained exports and checksums stay unchanged.
+
 ## Notes on the Current Research Release
 
 TenSnap's 0.3 release line is a research release. Its current evidence covers implemented routes and repository models; "platform agnostic" is an architectural scope claim, not a claim that every host is equally easy or fast to support. Likewise, the integrity-preserving boundary reduces opportunities for state, parameter, identity, and timing drift, but does not replace mapping tests or scientific validation.

@@ -34,8 +34,8 @@ def attach_class_metadata(owner: type[Any], name: str, metadata: Any) -> None:
     setattr(owner, name, metadata)
 
 
-def append_class_metadata(owner: type[Any], name: str, item: T) -> None:
+def append_class_metadata(owner: type[Any], name: str, item: object) -> None:
     require_class(owner, name)
-    entries = list(getattr(owner, name, ()))
+    entries: list[Any] = list(getattr(owner, name, ()))
     entries.append(item)
     attach_class_metadata(owner, name, entries)

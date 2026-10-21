@@ -1,14 +1,14 @@
 {
-  "include": ["packages/tensnap-python"],
-  "exclude": ["**/node_modules", "**/__pycache__", ".git"],
+  "include": ["packages/tensnap-python/tensnap", "packages/tensnap-python/tests/typing"],
+  "exclude": ["**/node_modules", "**/__pycache__", "**/build", "**/dist", ".git"],
   "pythonVersion": "3.10",
   "typeCheckingMode": "basic",
   "reportMissingImports": "none",
   "reportMissingModuleSource": "none",
+  "extraPaths": ["packages/tensnap-python"],
   "executionEnvironments": [
     {
-      "root": "packages/tensnap-python",
-      "extraPaths": ["packages/tensnap-python"]
+      "root": "packages/tensnap-python"
     },
     {
       "root": "examples",

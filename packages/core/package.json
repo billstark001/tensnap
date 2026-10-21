@@ -1,6 +1,6 @@
 {
   "name": "@tensnap/core",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Core scenario, runtime, and rendering primitives for TenSnap",
   "keywords": [
     "agent-based-modeling",
@@ -43,6 +43,7 @@
     "./snapshot": "./src/snapshot/index.ts",
     "./scenario": "./src/scenario/index.ts",
     "./scenario/browser": "./src/scenario/browser.ts",
+    "./scenario/query-schema": "./src/scenario/query-schema.ts",
     "./transport": "./src/transport/index.ts",
     "./utils": "./src/utils/index.ts",
     "./persistence": "./src/persistence/index.ts"
@@ -134,6 +135,10 @@
       "./scenario/browser": {
         "types": "./dist/scenario/browser.d.ts",
         "import": "./dist/scenario/browser.js"
+      },
+      "./scenario/query-schema": {
+        "types": "./dist/scenario/query-schema.d.ts",
+        "import": "./dist/scenario/query-schema.js"
       },
       "./transport": {
         "types": "./dist/transport/index.d.ts",

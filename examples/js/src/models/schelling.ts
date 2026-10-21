@@ -26,7 +26,7 @@ export interface SchellingConfig {
   similarityThreshold: number;
   density: number;
   balance: number;
-  /** Optional deterministic seed for reproducible runs. It is not a UI parameter. */
+  /** Initialization parameter; edits take effect at the next reset. */
   seed?: number;
 }
 
@@ -39,6 +39,7 @@ export const DEFAULT_SCHELLING_CONFIG: SchellingConfig = {
   similarityThreshold: 0.7,
   density: 0.8,
   balance: 0.5,
+  seed: 7,
 };
 
 interface Agent {
@@ -59,7 +60,7 @@ export type SchellingAgentUpdate = Pick<GridAgentState, 'id'> &
 
 export class SchellingModel {
   private config: Required<Omit<SchellingConfig, 'seed'>>;
-  private readonly seed: number | undefined;
+  private seed: number;
   private rngState = 0;
   private agents: Agent[] = [];
   private agentChanges = new Map<Agent, AgentChange>();
@@ -81,9 +82,6 @@ export class SchellingModel {
   private unsatisfiedSet: Set<Agent> = new Set();
 
   private timeStep: number = 0;
-  private isRunning: boolean = false;
-  private intervalId: number | null = null;
-  private readonly eventHandlers: { [event: string]: Function[] } = {};
   private satisfiedCount: number = 0;
   private segregationIndex: number = 0;
   private lastMoved: number = 0;
@@ -95,7 +93,7 @@ export class SchellingModel {
 
   constructor(config: SchellingConfig) {
     const { seed, ...modelConfig } = config;
-    this.seed = SchellingModel.normalizeSeed(seed);
+    this.seed = SchellingModel.normalizeSeed(seed ?? 7);
     this.config = {
       agentSize: 1,
       agentSizeUnsatisfied: (config.agentSize ?? 1) * 0.6,
@@ -112,10 +110,11 @@ export class SchellingModel {
     return Math.min(1, Math.max(0, value));
   }
 
-  private static normalizeSeed(value: number | undefined): number | undefined {
-    return typeof value === 'number' && Number.isFinite(value)
-      ? Math.trunc(value) >>> 0
-      : undefined;
+  private static normalizeSeed(value: number): number {
+    if (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) {
+      throw new Error('Seed must be an unsigned 32-bit integer.');
+    }
+    return value;
   }
 
   /** Mulberry32 keeps both seeded and default runs replayable from a checkpoint. */
@@ -126,22 +125,6 @@ export class SchellingModel {
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4_294_967_296;
   };
-
-  // ── Event handling ──────────────────────────────────────────────────────────
-
-  on(event: string, handler: Function) {
-    (this.eventHandlers[event] ??= []).push(handler);
-  }
-
-  off(event: string, handler: Function) {
-    if (this.eventHandlers[event]) {
-      this.eventHandlers[event] = this.eventHandlers[event].filter((h) => h !== handler);
-    }
-  }
-
-  private emit(event: string, ...args: any[]) {
-    this.eventHandlers[event]?.forEach((handler) => handler(...args));
-  }
 
   // ── Empty-spots pool ────────────────────────────────────────────────────────
 
@@ -164,7 +147,7 @@ export class SchellingModel {
   // ── Initialization ──────────────────────────────────────────────────────────
 
   initialize() {
-    this.rngState = this.seed ?? Math.floor(Math.random() * 4_294_967_296);
+    this.rngState = this.seed;
     this.agents = [];
     this.agentChanges.clear();
     this.unsatisfiedSet = new Set();
@@ -366,8 +349,6 @@ export class SchellingModel {
   // ── Simulation step ─────────────────────────────────────────────────────────
 
   step(): boolean {
-    this.emit('step_start', { timeStep: this.timeStep });
-
     // O(U) snapshot instead of O(N) filter; satisfaction is maintained incrementally
     const unsatisfied = Array.from(this.unsatisfiedSet);
     this.shuffleArray(unsatisfied);
@@ -384,7 +365,6 @@ export class SchellingModel {
 
     this.segregationIndex = this.calculateSegregationIndex();
     this.lastMoved = moved;
-    this.emit('step_end', { timeStep: this.timeStep });
     this.timeStep++;
     return moved > 0;
   }
@@ -563,9 +543,8 @@ export class SchellingModel {
   }
 
   captureCheckpointData(): ProtocolValue {
-    // Optional exact replay support for the publication experiment. A simpler
-    // scene restore can recover visible agents and time, but not necessarily
-    // the RNG and cache order needed for the same future trajectory.
+    // RNG position and pool iteration order both determine future random moves.
+    // Visible coordinates alone are insufficient for exact continuation.
     return {
       config: this.getConfig() as unknown as Record<string, ProtocolValue>,
       time: this.timeStep,
@@ -578,6 +557,12 @@ export class SchellingModel {
   }
 
   restoreCheckpointData(data: unknown): void {
+    const candidate = new SchellingModel(this.getConfig());
+    candidate.applyCheckpointData(data);
+    this.applyCheckpointData(data);
+  }
+
+  private applyCheckpointData(data: unknown): void {
     if (typeof data !== 'object' || data === null || Array.isArray(data)) {
       throw new Error('Schelling checkpoint must be an object.');
     }
@@ -684,98 +669,11 @@ export class SchellingModel {
     };
   }
 
-  getParameters() {
-    const paramDefs: Array<{
-      id: keyof Omit<SchellingConfig, 'seed'> | string;
-      type: string;
-      label: string;
-      value?: any;
-      min?: number;
-      max?: number;
-      step?: number;
-      allow_runtime_change: boolean;
-    }> = [
-      {
-        id: 'gridWidth',
-        type: 'number',
-        label: 'Grid Width',
-        min: 10,
-        max: 100,
-        step: 1,
-        allow_runtime_change: false,
-      },
-      {
-        id: 'gridHeight',
-        type: 'number',
-        label: 'Grid Height',
-        min: 10,
-        max: 100,
-        step: 1,
-        allow_runtime_change: false,
-      },
-      {
-        id: 'similarityThreshold',
-        type: 'number',
-        label: 'Similarity Threshold',
-        min: 0,
-        max: 1,
-        step: 0.05,
-        allow_runtime_change: true,
-      },
-      {
-        id: 'density',
-        type: 'number',
-        label: 'Density',
-        min: 0,
-        max: 1,
-        step: 0.05,
-        allow_runtime_change: false,
-      },
-      {
-        id: 'balance',
-        type: 'number',
-        label: 'Balance',
-        min: 0,
-        max: 1,
-        step: 0.05,
-        allow_runtime_change: false,
-      },
-    ];
-    return paramDefs.map((p) => ({ ...p, value: this.config[p.id as keyof typeof this.config] }));
-  }
-
-  updateParameter(id: string, value: any) {
-    (this.config as any)[id] =
-      typeof value === 'number' && ['similarityThreshold', 'density', 'balance'].includes(id)
-        ? SchellingModel.clamp01(value)
-        : value;
-    if (id === 'similarityThreshold') this.updateAllSatisfaction(true);
-  }
-
-  // ── Simulation control ──────────────────────────────────────────────────────
-
-  start() {
-    if (this.isRunning) return;
-    this.isRunning = true;
-    this.intervalId = window.setInterval(() => this.step(), 50);
-  }
-
-  stop() {
-    if (!this.isRunning) return;
-    this.isRunning = false;
-    if (this.intervalId !== null) {
-      window.clearInterval(this.intervalId);
-      this.intervalId = null;
-    }
-  }
-
   reset() {
-    this.stop();
     this.initialize();
   }
 
   destroy() {
-    this.stop();
     this.agents = [];
     this.agentChanges.clear();
     this.grid = [];
@@ -785,16 +683,14 @@ export class SchellingModel {
     this.lastMoved = 0;
   }
 
-  getIsRunning(): boolean {
-    return this.isRunning;
-  }
-
   getConfig(): SchellingConfig {
-    return { ...this.config };
+    return { ...this.config, seed: this.seed };
   }
 
   updateConfig(updates: Partial<SchellingConfig>) {
-    Object.assign(this.config, updates);
+    const { seed, ...patch } = updates;
+    if (seed !== undefined) this.seed = SchellingModel.normalizeSeed(seed);
+    Object.assign(this.config, patch);
     if (updates.similarityThreshold !== undefined) {
       this.config.similarityThreshold = SchellingModel.clamp01(updates.similarityThreshold);
     }

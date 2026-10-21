@@ -3,7 +3,6 @@ package schelling
 import (
 	"math/rand"
 	"strconv"
-	"time"
 )
 
 const (
@@ -25,9 +24,10 @@ type Cell struct {
 }
 
 type Config struct {
+	Seed                int64   `tensnap:"id=seed,label='Seed (next reset)',min=0,max=4294967295,step=1,runtime=false"`
 	GridWidth           int     `tensnap:"id=gridWidth,label='Grid Width',min=10,max=200,step=1,runtime=false; width,scope=space"`
 	GridHeight          int     `tensnap:"id=gridHeight,label='Grid Height',min=10,max=200,step=1,runtime=false; height,scope=space"`
-	SimilarityThreshold float64 `tensnap:"id=similarityThreshold,label='Similarity Threshold',min=0,max=1,step=0.05,runtime=true,aliases=threshold"`
+	SimilarityThreshold float64 `tensnap:"id=similarityThreshold,label='Similarity Threshold',min=0,max=1,step=0.05,runtime=true"`
 	Density             float64 `tensnap:"id=density,label=Density,min=0,max=1,step=0.05,runtime=false"`
 	Balance             float64 `tensnap:"id=balance,label=Balance,min=0,max=1,step=0.05,runtime=false"`
 }
@@ -61,6 +61,7 @@ func DefaultConfig() Config {
 		SimilarityThreshold: defaultSimilarityThreshold,
 		Density:             defaultDensity,
 		Balance:             defaultBalance,
+		Seed:                7,
 	}
 }
 
@@ -68,7 +69,6 @@ func NewModel(cfg Config) *Model {
 	model := &Model{
 		Config: cfg,
 	}
-	model.SetSeed(time.Now().UnixNano())
 	if model.Config.GridWidth <= 0 {
 		model.Config.GridWidth = defaultGridW
 	}
@@ -90,13 +90,14 @@ func NewModel(cfg Config) *Model {
 
 // NewSeededModel constructs a reproducible model ready for stepping.
 func NewSeededModel(cfg Config, seed int64) *Model {
-	model := NewModel(cfg)
-	model.SetSeed(seed)
-	model.Initialize()
-	return model
+	cfg.Seed = seed
+	return NewModel(cfg)
 }
 
-func (m *Model) SetSeed(seed int64) {
+// RNGPosition exposes a read-only position for independent diagnostic observers.
+func (m *Model) RNGPosition() (int64, uint64) { return m.rngSeed, m.rngSource.draws }
+
+func (m *Model) resetRandom(seed int64) {
 	m.rngSeed = seed
 	m.rngSource = &countingSource{source: rand.NewSource(seed)}
 	m.rng = rand.New(m.rngSource)
@@ -201,6 +202,7 @@ func (m *Model) SegregationIndex() float64 {
 }
 
 func (m *Model) Initialize() {
+	m.resetRandom(m.Config.Seed)
 	m.StepCount = 0
 	m.RebuildCells()
 	m.Populate()

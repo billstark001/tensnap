@@ -8,6 +8,7 @@ import type {
 import type { BrowserBenchmarkCase } from '../browser-types';
 import type { BenchmarkCase } from '../browser-types';
 import type {
+  BrowserRunDiagnostics,
   BrowserBenchmarkRunOptions,
   ResolvedBrowserBenchmarkRunOptions,
 } from '../browser-types';
@@ -102,6 +103,10 @@ export interface ExternalBrowserContext extends ExternalProcessContext {
 /** The final JSON object emitted by an external framework on stdout. */
 export interface ExternalBenchmarkResult {
   readonly schemaVersion: 1;
+  /** Observed measurement boundaries, interpreted by an optional subject extension. */
+  readonly measurementEvidence?: unknown;
+  /** Retain both explicit semantic inputs for offline hash reconstruction. */
+  readonly retainSemanticEvidence?: boolean;
   readonly timingsMs: readonly number[];
   readonly metrics?: Readonly<Record<string, number | readonly number[]>>;
   readonly state?: unknown;
@@ -230,6 +235,7 @@ export interface ProtocolBrowserCaseOptions<TConfig extends BenchmarkConfig = Be
 
 export interface BrowserCaseOptions<TConfig extends BenchmarkConfig = BenchmarkConfig> {
   config: TConfig;
+  validation?: ProtocolValidationLevel;
 }
 
 export interface NodeBenchmarkCase {
@@ -254,6 +260,12 @@ export interface BenchmarkSemanticValidator {
 
 export interface BenchmarkProfile {
   readonly schemaVersion: 2;
+  /** Optional trusted repository-relative module exporting a BenchmarkArtifactExtension. */
+  readonly artifactExtension?: {
+    readonly module: string;
+    /** Immutable source dependencies that determine the offline oracle and tables. */
+    readonly sources: Readonly<Record<string, string>>;
+  };
   readonly id: string;
   readonly description: string;
   readonly suites: readonly BenchmarkSuite[];
@@ -270,6 +282,19 @@ export interface BenchmarkProfile {
   readonly randomizedBlocks?: boolean;
   readonly comparisons?: readonly BenchmarkComparison[];
   readonly workloads: readonly BenchmarkProfileWorkload[];
+}
+
+export interface BenchmarkResultTable {
+  id: string;
+  caption: string;
+  columns: { key: string; label: string }[];
+  rows: Record<string, string | number>[];
+}
+
+/** Offline contributions must be deterministic and must never start measured workloads. */
+export interface BenchmarkArtifactExtension {
+  verify(artifact: BenchmarkArtifact): void | Promise<void>;
+  tables?(artifact: BenchmarkArtifact): BenchmarkResultTable[] | Promise<BenchmarkResultTable[]>;
 }
 
 export interface BenchmarkProfileWorkload {
@@ -317,6 +342,20 @@ export interface BenchmarkCorrectness {
 }
 
 export interface BenchmarkReplicate {
+  readonly measurementEvidence?: unknown;
+  readonly semanticEvidence?: { readonly state: unknown; readonly expectedState: unknown };
+  readonly diagnostics?: BrowserRunDiagnostics;
+  /** Observed policies; absent means unobserved, never inferred from a profile. */
+  readonly effectiveValidation?: {
+    readonly frontend?: {
+      readonly send: ProtocolValidationLevel;
+      readonly receive: ProtocolValidationLevel;
+    };
+    readonly server?: {
+      readonly send: ProtocolValidationLevel;
+      readonly receive: ProtocolValidationLevel;
+    };
+  };
   readonly index: number;
   /** The randomized block shared by all systems for a paired replicate. */
   readonly block: number;
@@ -429,6 +468,8 @@ export interface BenchmarkArtifact {
     readonly package: '@tensnap/benchmark';
     readonly version: string;
     readonly gitSha: string | null;
+    /** Missing means the original report layout, retained for evidence verification. */
+    readonly reportVersion?: 2;
   };
   readonly implementation: {
     readonly gitSha: string | null;

@@ -10,10 +10,16 @@ SCHELLING_DYNAMICS_VERSION == 1 || error("benchmark adapter requires Schelling d
 function benchmark_args(args)
 	study_args = String[]
 	benchmark_json = false
+    warmup_steps = 0
 	index = 1
 	while index <= length(args)
 		argument = args[index]
-		if argument == "--benchmark-json"
+		if argument == "--warmup-steps"
+            index += 1
+            warmup_steps = parse(Int, args[index])
+        elseif startswith(argument, "--warmup-steps=")
+            warmup_steps = parse(Int, split(argument, "="; limit=2)[2])
+        elseif argument == "--benchmark-json"
 			benchmark_json = true
 		elseif startswith(argument, "--benchmark-json=")
 			benchmark_json = lowercase(split(argument, "="; limit = 2)[2]) in ("true", "1", "yes")
@@ -28,16 +34,34 @@ function benchmark_args(args)
 		end
 		index += 1
 	end
-	return study_args, benchmark_json
+	return study_args, benchmark_json, warmup_steps
 end
 
-study_args, benchmark_json = benchmark_args(ARGS)
+study_args, benchmark_json, warmup_steps = benchmark_args(ARGS)
 options = parse_schelling_study_options(study_args)
-result = run_schelling_study(options)
+warmup_steps >= 0 || error("warmup steps must be nonnegative")
+elapsed_ns = Ref(UInt64(0))
+function measured_trial(config, steps, mode)
+    model = initialize_schelling(config)
+    started = time_ns()
+    steps_run, stopped = advance_trial!(model, steps, mode)
+    elapsed_ns[] += time_ns() - started
+    return summarize_trial(model, config, steps_run, stopped)
+end
+if warmup_steps > 0
+    measured_trial(SchellingConfig(gridwidth=options.width, gridheight=options.height,
+        density=options.density, balance=options.balance,
+        similarity_threshold=options.thresholds[1], seed=options.seed), warmup_steps, :steady)
+    elapsed_ns[] = 0
+end
+result = run_schelling_study(options; trial_runner=measured_trial)
 write_schelling_study_csv(result)
+elapsed_ms = elapsed_ns[] / 1_000_000
+mspt = result.total_ticks == 0 ? 0.0 : elapsed_ms / result.total_ticks
+println("performance_metric,total_ticks,elapsed_ms,tpms,mspt")
+@printf("performance,%d,%.3f,%.6f,%.6f\n", result.total_ticks, elapsed_ms, elapsed_ms == 0 ? 0 : result.total_ticks / elapsed_ms, mspt)
 
 if benchmark_json
-	elapsed_ms = result.total_elapsed_ns / 1_000_000
 	mspt = result.total_ticks == 0 ? 0.0 : elapsed_ms / result.total_ticks
 	valid = 0 <= result.mean_satisfied <= 1 &&
 		0 <= result.mean_segregation <= 1 &&

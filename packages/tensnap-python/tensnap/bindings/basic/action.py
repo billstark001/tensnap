@@ -38,10 +38,10 @@ def action(  # noqa: PLR0913
             if iscoroutinefunction(func_orig):
 
                 @wraps(func_orig)
-                async def method_wrapper(*args: Any, **kwargs: Any) -> Any:
+                async def async_method_wrapper(*args: Any, **kwargs: Any) -> Any:
                     return await func_orig(*args, **kwargs)
 
-                wrapped_func = method_wrapper
+                wrapped_func = async_method_wrapper
             else:
 
                 @wraps(func_orig)

@@ -9,13 +9,12 @@ Or from the repo root via the package.json script:
 
 from __future__ import annotations
 
-# ruff: noqa: E402
-
-from pathlib import Path
 import sys
 
+# ruff: noqa: E402
+from pathlib import Path
+
 import solara
-import torch
 from mesa import Agent
 from mesa.visualization import (
     Slider,
@@ -146,14 +145,13 @@ class SolaraEvacuationModel(EvacuationModel):
         self._sync_cell_markers()
 
     def _new_dqn_agent(self, seed: int | None = None) -> DQNAgent:
-        if seed is not None:
-            torch.manual_seed(seed)
         return DQNAgent(
             self.state_size,
             self.action_size,
             config=DQNConfig(),
             device=self.device,
             checkpoint_schema=FIRE_EVACUATION_CHECKPOINT_SCHEMA,
+            seed=7 if seed is None else seed,
         )
 
     def _load_guide_model(self) -> None:

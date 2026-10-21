@@ -193,7 +193,9 @@ class TestSimulationScenario:
         changes = scenario.add_all(model)
 
         assert changes["monitors"] == ["status"]
-        assert scenario.server.simulator_info_payload["capabilities"] == [
+        info = scenario.server.simulator_info_payload
+        assert info is not None
+        assert info["capabilities"] == [
             "monitor",
             "scene.restore.checkpoint",
             "scene.restore.projected",
@@ -203,7 +205,7 @@ class TestSimulationScenario:
         assert model.restored == {"time": 4}
 
         ws = object()
-        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        scenario.server.send = AsyncMock()
         await scenario.broadcast_monitors(ws)
         scenario.server.send.assert_awaited_once_with(
             ws,
@@ -213,7 +215,9 @@ class TestSimulationScenario:
 
         scenario.server.send.reset_mock()
         await scenario._on_scene_capture(ws, {"request_id": "capture-1"})
-        capture_payload = scenario.server.send.await_args.args[2]
+        capture_call = scenario.server.send.await_args
+        assert capture_call is not None
+        capture_payload = capture_call.args[2]
         assert capture_payload["checkpoint"]["encoding"] == "application/msgpack"
 
         scenario.server.send.reset_mock()
@@ -254,14 +258,18 @@ class TestSimulationScenario:
 
         model = Model()
         scenario.add_all(model)
-        assert scenario.server.simulator_info_payload["capabilities"] == [
+        info = scenario.server.simulator_info_payload
+        assert info is not None
+        assert info["capabilities"] == [
             "scene.restore.checkpoint"
         ]
 
-        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        scenario.server.send = AsyncMock()
         ws = object()
         await scenario._on_scene_capture(ws, {"request_id": "capture-only"})
-        checkpoint = scenario.server.send.await_args.args[2]["checkpoint"]
+        capture_call = scenario.server.send.await_args
+        assert capture_call is not None
+        checkpoint = capture_call.args[2]["checkpoint"]
         model.value = 9
         await scenario._on_scene_restore(
             ws,
@@ -309,10 +317,12 @@ class TestSimulationScenario:
         registration = scenario.environments["world"].layers["agents"]
         registration.seed_item_deltas_from_state(registration.build_state())
 
-        scenario.server.send = AsyncMock()  # type: ignore[method-assign]
+        scenario.server.send = AsyncMock()
         ws = object()
         await scenario._on_scene_capture(ws, {"request_id": "capture-cache"})
-        checkpoint = scenario.server.send.await_args.args[2]["checkpoint"]
+        capture_call = scenario.server.send.await_args
+        assert capture_call is not None
+        checkpoint = capture_call.args[2]["checkpoint"]
 
         agents[0] = {"id": "a1", "x": 2}
         _, pre_restore_updates, _ = registration.build_item_deltas()
@@ -715,7 +725,7 @@ class TestSimulationScenario:
         scenario.server.broadcast = AsyncMock()
         scenario.server.broadcast_metadata_update = AsyncMock()
 
-        await scenario._fire_reset()
+        await scenario.reset()
 
         calls = [
             (call.args[0], call.args[1])
@@ -732,6 +742,57 @@ class TestSimulationScenario:
         )
         assert calls.count(create) == 1
         assert delete_index < calls.index(create)
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("field", ["env_id", "layer_id"])
+    @pytest.mark.parametrize("invalid_id", [None, 1, [], {}])
+    async def test_scoped_action_rejects_non_string_target_ids(
+        self, scenario: SimulationScenario, field, invalid_id
+    ):
+        class Model:
+            calls = 0
+
+            @action("scoped", scope="layer")
+            def scoped(self, *, target):
+                self.calls += 1
+
+        model = Model()
+        scenario.add_actions(model)
+        scenario.add_environment_binding(EnvironmentBinding(id="world", type="2d"))
+        scenario.add_layer_binding(
+            "world",
+            LayerBinding(
+                layer_id="birds",
+                layer_type="agent",
+                item_keys=("id",),
+                items_projector=lambda _target: [],
+            ),
+            model,
+        )
+        scenario.server.send_action_result = AsyncMock()
+        target = {"type": "layer", "env_id": "world", "layer_id": "birds"}
+        target[field] = invalid_id
+
+        await scenario._on_action_invoke(
+            object(), {"id": "scoped", "request_id": "invalid-id", "target": target}
+        )
+
+        assert model.calls == 0
+        scenario.server.send_action_result.assert_awaited_once()
+        result_call = scenario.server.send_action_result.await_args
+        assert result_call is not None
+        assert result_call.kwargs["error"]["code"] == "invalid_target"
+
+        scenario.server.send_action_result.reset_mock()
+        target[field] = "world" if field == "env_id" else "birds"
+        await scenario._on_action_invoke(
+            object(), {"id": "scoped", "request_id": "valid-id", "target": target}
+        )
+        assert model.calls == 1
+        scenario.server.send_action_result.assert_awaited_once()
+        result_call = scenario.server.send_action_result.await_args
+        assert result_call is not None
+        assert "error" not in result_call.kwargs
 
     @pytest.mark.asyncio
     async def test_action_start_serializes_action_handlers(

@@ -50,7 +50,7 @@ pip install -e .  # Editable install for development
 Or with optional development dependencies:
 
 ```bash
-pip install -e ".[dev]"  # Includes pytest, coverage tools, mypy and Ruff
+pip install -e ".[dev]"  # Includes pytest, coverage tools, Pyright and Ruff
 ```
 
 #### 3. Install JavaScript Dependencies
@@ -149,15 +149,18 @@ The built application will be in `packages/tensnap-tauri/src-tauri/target/releas
 
 ```python
 import tensnap
+
 print(tensnap.__version__)  # Should print version number
 
 # Test basic components
 from tensnap import SimulationScenario, TenSnapServer
 from tensnap.bindings import env
 
+
 @env(id="main")
 class Model:
     pass
+
 
 server = TenSnapServer(port=8765)
 scenario = SimulationScenario(port=8765)
@@ -226,7 +229,7 @@ The development installation includes:
 - **pytest**: Testing framework
 - **pytest-asyncio**: Async test support
 - **pytest-cov**: Code coverage
-- **mypy**: Static type checking
+- **Pyright**: Static type checking with the shared repository configuration
 - **ruff**: Python linting and formatting used by the package scripts
 
 ### JavaScript Development Tools

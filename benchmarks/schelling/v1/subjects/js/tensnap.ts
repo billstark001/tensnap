@@ -1,3 +1,6 @@
+import { writeFileSync, renameSync } from 'node:fs';
+import { createSchellingExample } from '../../../../../examples/js/src/renderers/schelling';
+import { schellingAuditState } from './audit';
 // Publication environment adapter over the production example WebSocket host.
 import type { SchellingConfig } from '../../../../../examples/js/src/models/schelling';
 import { startJsExampleWebSocketDemo } from '../../../../../examples/js/src/entries/main-ws';
@@ -22,7 +25,16 @@ function configFromEnvironment(): SchellingConfig {
 }
 
 async function main(): Promise<void> {
-  const demo = await startJsExampleWebSocketDemo('schelling', {
+  const auditPath = process.env.TENSNAP_SCHELLING_AUDIT_STATE;
+  const definition = createSchellingExample(
+    auditPath
+      ? (model) => {
+          writeFileSync(`${auditPath}.tmp`, JSON.stringify(schellingAuditState(model)));
+          renameSync(`${auditPath}.tmp`, auditPath);
+        }
+      : undefined,
+  );
+  const demo = await startJsExampleWebSocketDemo(definition, {
     port: numberEnv('TENSNAP_SERVER_PORT', 8765),
     encoding: 'json',
     config: configFromEnvironment(),

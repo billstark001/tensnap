@@ -16,7 +16,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	result, err := shared.RunStudy(options)
+	result, err := shared.RunStudy(options, shared.RunTrial)
 	if err != nil {
 		panic(err)
 	}

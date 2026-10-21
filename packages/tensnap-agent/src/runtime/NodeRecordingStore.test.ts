@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, it, expect } from 'vitest';
+import { afterEach, it, expect, vi } from 'vitest';
 import { RecordingStoreReader, RecordingStoreWriter } from '@tensnap/core/persistence';
 import { Scenario } from '@tensnap/core/scenario';
 import { NodeRecordingStore } from './NodeRecordingStore';
@@ -38,6 +38,138 @@ function input(scenario: Scenario, frame: number, time = frame) {
     },
   };
 }
+it.each([1, 2, 128])(
+  'counts rolling transitions without scanning the index (budget %i)',
+  async (maxFrames) => {
+    const backend = new NodeRecordingStore(await directory());
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'count',
+      mode: 'rolling',
+      maxFrames,
+    });
+    const scan = vi.spyOn(backend, 'frameIndex');
+    const scene = new Scenario();
+    // Exported stores may start above zero. Repeated/nonmonotonic model times
+    // must not affect the contiguous frame count or its baseline boundary.
+    for (let frame = 10; frame < 10 + maxFrames + 4; frame++) {
+      await writer.append(input(scene, frame, frame % 3));
+      expect(writer.status.root).toMatchObject({
+        firstFrame: Math.max(10, frame - maxFrames),
+        lastFrame: frame,
+        count: Math.min(frame - 9, maxFrames + 1),
+      });
+    }
+    expect(scan).not.toHaveBeenCalled();
+    await writer.collect();
+    await writer.collect();
+    await writer.close();
+    const reader = await RecordingStoreReader.open(backend);
+    expect((await reader.recover()).complete).toBe(true);
+    await reader.close();
+    backend.close();
+  },
+);
+
+it.each([1, 512, 64 * 1024])(
+  'preserves pinned roots, streams and changed/shared assets with GC cache %i',
+  async (cacheBytes) => {
+    const backend = new NodeRecordingStore(await directory());
+    const writer = await RecordingStoreWriter.create(backend, {
+      id: 'gc',
+      mode: 'rolling',
+      maxFrames: 2,
+      cacheBytes,
+    });
+    const scene = new Scenario();
+    const asset = (hash: string) => {
+      scene.apply({
+        type: 'asset_metadata',
+        payload: { assets: [{ id: 'image', hash, mime: 'image/png', size: 1 }] },
+      });
+      scene.apply({
+        type: 'asset_data',
+        payload: {
+          id: 'image',
+          hash,
+          mime: 'image/png',
+          data: Uint8Array.of(hash === 'old' ? 1 : 2),
+        },
+      });
+    };
+    scene.apply({ type: 'chart_create', payload: { id: 'c', label: 'C' } });
+    asset('old');
+    await writer.append(input(scene, 0));
+    const pinned = await RecordingStoreReader.open(backend);
+    asset('new');
+    const currentKeys: string[] = [];
+    for (let frame = 1; frame <= 8; frame++) {
+      const update = {
+        type: 'chart_update' as const,
+        payload: { updates: [{ id: 'c', time: frame, value: frame }] },
+      };
+      scene.apply(update);
+      const boundary = input(scene, frame);
+      boundary.frame.messages.push(update as never);
+      await writer.append(boundary);
+      if (frame >= 6) currentKeys.push(`objects/${writer.status.root!.lastSegment.hash}`);
+      if (frame % 2 === 0 && frame < 8) await writer.collect();
+    }
+    const reads = vi.spyOn(backend, 'read');
+    await writer.collect();
+    const liveReads = reads.mock.calls.filter(([key]) => currentKeys.includes(key));
+    // Cached dependencies still verify immutable bytes before deleting anything.
+    expect(liveReads.length).toBeGreaterThan(0);
+    reads.mockRestore();
+    const old = await pinned.readFrame(0);
+    expect(old.scene.assets[0].data).toBe('data:image/png;base64,AQ==');
+    expect(old.scene.charts[0].data).toHaveLength(0);
+    const latest = await RecordingStoreReader.open(backend);
+    expect((await latest.readFrame(8)).scene.assets[0].data).toBe('data:image/png;base64,Ag==');
+    expect((await latest.readFrame(6)).scene.metadata.time).toBe(6);
+    expect((await latest.readFrame(8)).scene.charts[0].data.map((point) => point.time)).toEqual([
+      6, 7, 8,
+    ]);
+    await latest.close();
+    await pinned.close();
+    await writer.collect();
+    await writer.collect();
+    await writer.close();
+    const recovered = await RecordingStoreReader.open(backend);
+    expect(await recovered.recover()).toMatchObject({
+      complete: true,
+      committedRange: { from: 6, to: 8 },
+    });
+    await expect(recovered.readFrame(0)).rejects.toThrow(/range|index/);
+    await recovered.close();
+    backend.close();
+  },
+);
+it('detects corruption on a GC reference-cache hit before pruning committed data', async () => {
+  const path = await directory();
+  const backend = new NodeRecordingStore(path);
+  const writer = await RecordingStoreWriter.create(backend, {
+    id: 'gc-corruption',
+    mode: 'rolling',
+    maxFrames: 2,
+  });
+  const scene = new Scenario();
+  for (let frame = 0; frame < 4; frame++) await writer.append(input(scene, frame));
+  const root = writer.status.root!;
+  const key = `objects/${root.lastSegment.hash}`;
+  const db = new DatabaseSync(join(path, 'objects.sqlite'));
+  db.prepare('UPDATE objects SET bytes=? WHERE key=?').run(Uint8Array.of(0), key);
+  db.close();
+  const prune = vi.spyOn(backend, 'pruneIndex');
+  await expect(writer.collect()).rejects.toThrow(/Corrupt store object/);
+  expect(prune).not.toHaveBeenCalled();
+  writer.abort(new Error('corrupt recording'));
+  await writer.close().catch(() => {});
+  const reader = await RecordingStoreReader.open(backend);
+  expect((await reader.recover()).complete).toBe(false);
+  await expect(reader.readFrame(3)).rejects.toThrow(/Corrupt store object/);
+  await reader.close();
+  backend.close();
+});
 it('reads fixed generations and locates nonmonotonic time/request boundaries through bounded pages', async () => {
   const backend = new NodeRecordingStore(await directory());
   const writer = await RecordingStoreWriter.create(backend, { id: 's', mode: 'full-history' });

@@ -12,7 +12,7 @@ function schelling_audit_state(model, config::SchellingConfig)
 		for agent in Agents.allagents(model)]
 	sort!(agents; by = agent -> agent["internal_id"])
 	return Dict(
-		"time" => properties.tick,
+		"time" => Agents.abmtime(model),
 		"config" => Dict("gridWidth" => config.gridwidth, "gridHeight" => config.gridheight,
 			"density" => config.density, "balance" => config.balance,
 			"similarityThreshold" => properties.similarity_threshold, "seed" => config.seed),

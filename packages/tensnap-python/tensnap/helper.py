@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 from .models import EnvironmentRegistration, EnvironmentState
 from .protocol import (
+    ActionDeltas,
+    ParameterDeltas,
     copied_layer_items,
     layer_create_payload,
     layer_dependency_layer_ids,
@@ -164,7 +166,7 @@ async def send_env_snapshot(
 
 async def dispatch_cud(
     send_fn: Callable[..., Any],
-    deltas: dict[str, Any],
+    deltas: ActionDeltas | ParameterDeltas,
     create_type: MT,
     delete_type: MT,
     update_type: MT,

@@ -32,6 +32,13 @@ The language implementations intentionally remain independent so they are readab
 
 ## Quick start
 
+Agent CLI control, bounded-query and long-history collection benchmarks are described in [`agent/v1`](agent/v1/README.md). They are included in the root evaluation matrix and can also run alone:
+
+```sh
+pnpm evaluation run --spec benchmarks/evaluation/agent-cli-v1.json --python python3 \
+  --smoke --out benchmark-results/agent-cli-evaluation-smoke
+```
+
 For the complete current paper matrix, follow the [evaluation setup and commands](evaluation/README.md). It supplies the current scientific locks, source preflight, recovery, separate gzip archives and checked tables:
 
 ```bash
@@ -175,11 +182,31 @@ Only conditions with the same declared `featureLevel`, dimensions, semantic cont
 
 `browserOptions.renderTriggerMode` records scheduling policy. The default `requestAnimationFrame` mode measures scheduled dispatch intervals with a final run-completion boundary; its callback does not prove pixel presentation time. `setTimeout` measures maximum-throughput scheduling as `actionToRunCompletionMs`, and `auto` uses production cadence selection. Only rAF runs use `actionToRenderCompleteMs` and enter native-UI render-completion comparisons; results from different modes are not the same metric.
 
+### Browser validation and cadence corrections (#32, #34)
+
+The benchmark's requested validation policy takes precedence over interactive Web settings for the mounted host's lifetime, including manual and automatic reconnect. Each WebSocket sample records `effectiveValidation.frontend.send/receive`; protocol browser samples also record the server host's actual send/receive policies. External simulator server policies remain unobserved unless separately instrumented; a requested frontend `error` policy does not establish server validation. Protocol and external TenSnap runs fail if the observed frontend policy differs from the request. The transport-store regression test observes actual directional schema calls after initialization and reconnect, outside timing samples.
+
+The retained full batches dated October 9, 16, 18, and 19, 2026 predate this fix. Each contains 24 protocol browser conditions (six random-walk configurations × JSON/MessagePack × off/error) and eight external TenSnap Web conditions (Go, JS, Julia/Agents, Mesa × rAF/timeout). All ran with frontend validation off. The twelve protocol browser `error` rows exercised server validation only; the other twelve protocol rows requested off. All eight external Web conditions requested frontend error through their adapter, although their manifest's execution validation field is absent. These rows cannot establish frontend validation overhead or validated end-to-end throughput. Renderer component controls, Node/WS suites, native Solara/WGLMakie controls and kernel measurements do not traverse the affected host override. Final semantic hashes and evidence verification do not prove an effective validation policy.
+
+Keep those retained exports unchanged. Rerun the twelve error protocol browser conditions and eight external Web conditions per corrected evaluation in a fresh output after source review/commit, and update the corresponding paper policy descriptions, tables and figures. The off protocol rows can serve as an unchanged-policy control. Corrected timings and Mesa's statistics reuse constitute new measurements, not replacements for the old observations or a codec-only A/B comparison.
+
+Mesa reuses neighbor counts across satisfaction, segregation, data collection and visual-size projection for the same occupancy/group state. Adding, moving, regrouping or removing an agent invalidates the counts; threshold changes reuse threshold-independent counts. Reads retain Mesa's native cell getter, while writes delegate occupancy bookkeeping to Mesa before invalidating derived counts. Invalidation stays active when collection is disabled, so enabling it again cannot reuse counts from an earlier occupancy/group state. Collection and per-agent records remain enabled in the UI, and seeded transition/restore tests compare against uncached scans.
+
+Kernel-only runs (`collect_data=False`) scan satisfaction directly without calling the statistics helper or allocating cached count tuples. Explicit statistics reads in this mode also bypass dictionary reads and writes: their single scan per state has no reuse to amortize cache maintenance. Regression tests preserve both this performance contract and observation invariance, including both model-owned RNGs, charts, visual satisfaction, population edits, collection-mode changes, checkpoint restore and Mesa's native clock.
+
+The dispatcher still waits for the selected production barrier. A response missing an rAF boundary can add a display period; moving a slow-mode fraction across 50% can change the median sharply. Reports therefore include mean intervals and measured cycles per second alongside medians. These rates describe measured action cycles, not independent compositor FPS.
+
+For diagnostic repeats, set `browserOptions.diagnostics: true` on a copy of the profile. Samples retain browser-clock dispatch, action-result application and cycle-completion timestamps (including warmup), plus independent rAF timestamps. This adds observers and must not replace publication measurements. Compare response time and the remaining post-result wait separately for explicit rAF and timeout modes. The `diagnose:timeout` command also captures simulator stages, thread CPU time, GC and process resource counters. The exact environmental trigger of the historical full batches was not recorded.
+
+An October 20 diagnostic used Chromium 153.0.8010.12, the 50×50 Mesa profile, seed 20260718, threshold 0.8, five warmup plus 245 measured actions, uncapped scheduling, and effective frontend send/receive error validation. Temporarily preloading the original model restored repeated neighbor scans: rAF median/mean were 32.3/29.72 ms, compared with 16.7–16.9/18.03–19.33 ms in two cached-model repeats. Independent rAF cadence remained approximately 16.7 ms. Timeout medians were 18.8 ms without reuse and 16.7 ms with reuse; median post-result waits were approximately 2 ms in both. Every condition produced the same canonical final-state hash. Separate 500-action checks with diagnostics disabled matched the original model’s seeded final-state hash in both modes. This is a same-policy diagnostic of the repeated-work/frame-boundary mechanism, not a complete publication rerun or proof of the historical trigger.
+
 ## Process and CPU measurements
 
 Node and harness-owned browser process measurements use deltas between `process.resourceUsage()` snapshots; cumulative process totals are never written as one replicate's CPU cost. External command subjects run under `/usr/bin/time -p` on supported Unix hosts so CPU time describes the child command. For external browser servers, a portable process-tree CPU value is not available and the field is `null` rather than a misleading harness value. Latency is the primary publication measurement.
 
 Every external-browser replicate receives a fresh loopback port. On POSIX hosts, the runner terminates the external server's whole process group when the OS permits it, so wrappers such as `go run` cannot leave the compiled server listening after the replicate completes. If group signaling returns `EPERM` or `ESRCH`, cleanup falls back to the directly spawned Python/Julia/Node child.
+
+Harness-owned `localhost:0` WebSocket hosts bind IPv4 and IPv6 to the same port. An ephemeral port chosen on the first address can already be occupied on the other family. On that specific `EADDRINUSE` path the network listener now rolls back both listeners and retries up to ten times; an explicitly configured port still fails on conflict. External processes still have a small allocation-to-bind race because their selected port cannot be reserved across an arbitrary child process launch.
 
 ## Statistical inference
 

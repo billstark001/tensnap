@@ -2,18 +2,14 @@ import asyncio
 import os
 from typing import cast
 
-import numpy as np
-
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
-
+import numpy as np
+from sugarscape import SugarAgent, Sugarscape
 from tensnap import (
-    BoundModelReinitializer,
     SimulationScenario,
     chart,
 )
-
-from sugarscape import SugarAgent, Sugarscape
 
 # Setup global state
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
@@ -58,16 +54,9 @@ async def main() -> None:
         height=MODEL_HEIGHT,
         agent_count=AGENT_COUNT,
     )
-    reinitializer = BoundModelReinitializer(model)
     assert model is not None
 
-    reinitializer.register_model(scenario)
-    reinitializer.configure_reinit(scenario)
-    await scenario.register_model_handler(
-        model_init=reinitializer.model_init,
-        model_step=model.step,
-        model_reset=reinitializer.model_reset,
-    )
+    await scenario.register_model(model)
 
     scenario.add_all(globals())
 

@@ -17,7 +17,7 @@ function checkpointFor(seed: number): unknown {
 }
 
 describe('SchellingModel seed', () => {
-  it('replays a seeded model without exposing the seed as a UI parameter', () => {
+  it('replays a seeded model and retains its initialization seed', () => {
     expect(checkpointFor(20260718)).toEqual(checkpointFor(20260718));
     expect(
       new SchellingModel({
@@ -28,7 +28,7 @@ describe('SchellingModel seed', () => {
         similarityThreshold: 0.7,
         seed: 20260718,
       }).getConfig(),
-    ).not.toHaveProperty('seed');
+    ).toHaveProperty('seed', 20260718);
   });
 
   it.each([7, undefined])(

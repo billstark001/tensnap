@@ -1,24 +1,8 @@
-import { NodeRecordingStore } from './runtime/NodeRecordingStore';
-import { validateCollectionConfig, compileRunCondition } from '@tensnap/core/runtime';
+import { cliModules } from './cli-orchestrator';
 import { ArtifactInputError, isFileSystemFailure } from './runtime/artifact-errors';
-import {
-  readRecording,
-  readRecordingBoundary,
-  inspectRecordingBoundary,
-  withRecordingStore,
-  monitorStoreHistory,
-  isRecordingStore,
-  renderRecordingFrame,
-  exportRecordingFrame,
-} from './runtime/recording-files';
-import { readCapturedFrame, compareCapturedFrames, FrameSaveError } from './runtime/frame-files';
-import {
-  RecordingStoreWriter,
-  rebuildRecordingStoreIndex,
-  type RecordingSelection,
-} from '@tensnap/core/persistence';
-import { monitorHistory, diffCapturedFrames, ComparisonPolicySchema } from '@tensnap/core/snapshot';
-import { ScenarioQuerySchema, type ScenarioQuery } from '@tensnap/core/scenario';
+import { FrameSaveError } from './runtime/frame-errors';
+import type { RecordingSelection } from '@tensnap/core/persistence';
+import type { ScenarioQuery } from '@tensnap/core/scenario';
 import type { SceneRenderOptions } from './types';
 import { RenderBatchError } from './runtime/painter';
 import { DaemonStartupError, startDetachedDaemon } from './runtime/daemon-startup';
@@ -31,7 +15,7 @@ import {
   readRuntimeControl,
   resolveRuntimeContextPaths,
   type RuntimeContextPaths,
-} from './runtime/context';
+} from './runtime/context-paths';
 import { listenerUrl } from '@tensnap/network';
 import { Argument, Command, CommanderError, Help, Option } from 'commander';
 
@@ -45,7 +29,8 @@ import {
   selectionOptions,
   type CliOptions,
 } from './cli-options';
-import { CLI_VERSION, listSkills, installBundledSkills, SkillPersistenceError } from './skills';
+import { CLI_VERSION } from './version';
+import { SkillPersistenceError } from './skill-errors';
 
 const DEFAULT_RUNTIME_READY_TIMEOUT_MS = 10000;
 
@@ -160,7 +145,7 @@ function resolveRuntimeContextPathsFromOptions(options: CliOptions): RuntimeCont
 async function startForegroundDaemon(options: CliOptions): Promise<void> {
   // Metadata, skill installs, and HTTP clients do not need native headless painters.
   const { AgentRuntime, HeadlessEnvironmentPainter, HeadlessChartPainter, RuntimeControlServer } =
-    await import('./index');
+    await cliModules.load('daemon');
   const context = resolveRuntimeContextPathsFromOptions(options);
   const controlPort = options.port;
 
@@ -541,7 +526,7 @@ export function createProgram(
   const sceneInspect = scene.command('inspect').description('Inspect the current scene.');
   addOptions(sceneInspect, [jsonOption('--query <json>', 'Bounded scene query.', 'object')]);
   handle(sceneInspect, async (options) => {
-    const query = options.query === undefined ? undefined : parseQuery(options.query);
+    const query = options.query === undefined ? undefined : await parseQuery(options.query);
     const { baseUrl } = await requireRuntime(options);
     printJson(
       query ? { outputVersion: '1' } : options,
@@ -561,7 +546,7 @@ export function createProgram(
       new Option('--cursor <json>', 'Continue a query at the same revision.'),
     ]);
     handle(command, async (options, [id]) => {
-      const query = parseQuery({
+      const query = await parseQuery({
         selector: { kind: 'monitor', ...(id ? { id } : {}) },
         fields: options.fields,
         limit: options.limit,
@@ -591,7 +576,7 @@ export function createProgram(
   handle(agentInspect, async (options, [id]) => {
     const agentId = options.idType === 'number' ? Number(id) : id;
     const ref = { environmentId: options.env!, layerId: options.layer!, agentId };
-    const query = parseQuery({
+    const query = await parseQuery({
       selector:
         options.radius === undefined
           ? { kind: 'agent', ref }
@@ -658,7 +643,7 @@ export function createProgram(
   addOptions(sceneRestore, [
     new Option('--checkpoint <path>', 'Restore from a capture JSON file.'),
     numericOption('--time <number>', 'Override scene time.'),
-    jsonOption('--parameters <json>', 'Projected parameter object.', 'object'),
+    jsonOption('--parameters <json>', 'Projected parameter array of {id, value} entries.', 'array'),
     jsonOption('--envs <json>', 'Projected environment array.', 'array'),
     numericOption('--history-time <number>', 'Renderer-local chart boundary.'),
     jsonOption('--replacement-charts <json>', 'Saved renderer chart groups.', 'array'),
@@ -862,6 +847,7 @@ export function createProgram(
     const maxSteps = options.maxActions ?? options.maxSteps;
     let collection;
     if (options.collection) {
+      const { validateCollectionConfig, compileRunCondition } = await cliModules.load('conditions');
       try {
         collection = validateCollectionConfig(
           JSON.parse(await readFile(options.collection, 'utf8')),
@@ -1049,6 +1035,8 @@ export function createProgram(
     new Option('--snapshot-id <id>', 'Select a recording in a project file.'),
   ]);
   handle(recordingInfo, async (options, [file]) => {
+    const { isRecordingStore, withRecordingStore, readRecording } =
+      await cliModules.load('recording');
     if (await isRecordingStore(file)) {
       if (options.snapshotId) throw new CliInputError('--snapshot-id requires a project file.');
       printJson(
@@ -1094,7 +1082,13 @@ export function createProgram(
         throw new CliInputError('--output is required.');
     });
     handle(command, async (options, [file]) => {
-      const query = options.query === undefined ? undefined : parseQuery(options.query);
+      const {
+        renderRecordingFrame,
+        exportRecordingFrame,
+        inspectRecordingBoundary,
+        readRecordingBoundary,
+      } = await cliModules.load('recording');
+      const query = options.query === undefined ? undefined : await parseQuery(options.query);
       const selection = recordingSelection(options);
       if (verb === 'render')
         printJson(
@@ -1136,6 +1130,9 @@ export function createProgram(
     ),
   ]);
   handle(recover, async (options, [path]) => {
+    const { withRecordingStore } = await cliModules.load('recording');
+    const { NodeRecordingStore } = await cliModules.load('nodeStore');
+    const { rebuildRecordingStoreIndex } = await cliModules.load('persistence');
     if (options.rebuildIndex) {
       const backend = new NodeRecordingStore(path);
       try {
@@ -1155,6 +1152,9 @@ export function createProgram(
     new Option('--output <directory>', 'New output store.').makeOptionMandatory(),
   ]);
   handle(exportRange, async (options, [path]) => {
+    const { withRecordingStore } = await cliModules.load('recording');
+    const { NodeRecordingStore } = await cliModules.load('nodeStore');
+    const { RecordingStoreWriter } = await cliModules.load('persistence');
     if (
       options.from === undefined ||
       options.to === undefined ||
@@ -1207,8 +1207,8 @@ export function createProgram(
       throw new CliInputError('--from, --to and --output directory are required.');
     const { mkdir } = await import('node:fs/promises');
     const { join } = await import('node:path');
-    const { renderHistoricalFrame } = await import('./runtime/recording-files');
-    const { fixedRenderRequest } = await import('./runtime/frame-files');
+    const { renderHistoricalFrame, withRecordingStore } = await cliModules.load('recording');
+    const { fixedRenderRequest } = await cliModules.load('frames');
     let count = 0;
     await withRecordingStore(path, async (reader) => {
       for await (const captured of reader.range(options.from!, options.to!, {
@@ -1243,11 +1243,14 @@ export function createProgram(
     new Option('--snapshot-id <id>', 'Project recording ID.'),
   ]);
   handle(history, async (options, [file, monitorId]) => {
+    const { isRecordingStore, monitorStoreHistory, readRecording } =
+      await cliModules.load('recording');
+    const { monitorHistory } = await cliModules.load('snapshot');
     if (options.from === undefined || options.to === undefined)
       throw new CliInputError('--from and --to are required.');
     if (await isRecordingStore(file)) {
       if (options.snapshotId) throw new CliInputError('--snapshot-id requires a project file.');
-      parseQuery({ selector: { kind: 'monitor', id: monitorId }, fields: options.fields });
+      await parseQuery({ selector: { kind: 'monitor', id: monitorId }, fields: options.fields });
       printJson(
         { outputVersion: '1' },
         await monitorStoreHistory(file, {
@@ -1298,6 +1301,9 @@ export function createProgram(
         numericOption('--right-frame <index>', 'Right retained frame.').makeOptionMandatory(),
       ]);
     handle(command, async (options, [left, right]) => {
+      const { ComparisonPolicySchema, diffCapturedFrames } = await cliModules.load('snapshot');
+      const { readRecordingBoundary } = await cliModules.load('recording');
+      const { readCapturedFrame } = await cliModules.load('frames');
       if (
         (options.limit !== undefined && options.limit > 10000) ||
         (options.offset !== undefined &&
@@ -1408,6 +1414,7 @@ export function createProgram(
       .command('compare <left> <right>')
       .description('Compare saved scenes/charts and opaque checkpoint encodings offline.'),
     async (_options, [left, right]) => {
+      const { readCapturedFrame, compareCapturedFrames } = await cliModules.load('frames');
       const [a, b] = await Promise.all([readCapturedFrame(left), readCapturedFrame(right)]);
       printJson(
         { outputVersion: '1' },
@@ -1445,7 +1452,10 @@ export function createProgram(
       throw new CliInputError('--project-dir cannot be combined with --scope user.');
     }
   });
-  handle(skillList, async (options) => printJson(options, await listSkills(options)));
+  handle(skillList, async (options) => {
+    const { listSkills } = await cliModules.load('skills');
+    printJson(options, await listSkills(options));
+  });
   skillInstall.hook('preAction', (_parent, command) => {
     const options = command.optsWithGlobals<CliOptions>();
     const [name] = command.processedArgs;
@@ -1454,6 +1464,7 @@ export function createProgram(
     }
   });
   handle(skillInstall, async (options, [name]) => {
+    const { installBundledSkills } = await cliModules.load('skills');
     printJson(options, await installBundledSkills(name, options));
   });
   return program;
@@ -1703,7 +1714,8 @@ function usesMachineOutputByDefault(argv: string[]): boolean {
   );
 }
 
-function parseQuery(input: unknown): ScenarioQuery {
+async function parseQuery(input: unknown): Promise<ScenarioQuery> {
+  const { ScenarioQuerySchema } = await cliModules.load('query');
   const parsed = ScenarioQuerySchema.safeParse(input);
   if (!parsed.success) throw new CliInputError(parsed.error.message);
   return parsed.data;

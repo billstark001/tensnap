@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Scenario } from './Scenario';
-import { queryScenario, ScenarioQuerySchema } from './query';
+import { queryScenario } from './query';
+import { ScenarioQuerySchema } from './query-schema';
 import { queryRecording, monitorHistory } from '../snapshot/query';
 import { SnapshotRecorder, createSingleSnapshot } from '../snapshot';
 import type { SimulatorToRendererMessage } from '@tensnap/protocol';

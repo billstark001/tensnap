@@ -118,14 +118,19 @@ it('converts projected restore JSON and permits zero/negative finite times', asy
           '--time',
           time,
           '--parameters',
-          '{"speed":2}',
+          '[{"id":"speed","value":2}]',
           '--envs',
           '[]',
           '--chart-policy',
           'truncate',
         ])
       ).options,
-    ).toEqual({ time: Number(time), parameters: { speed: 2 }, envs: [], chartPolicy: 'truncate' });
+    ).toEqual({
+      time: Number(time),
+      parameters: [{ id: 'speed', value: 2 }],
+      envs: [],
+      chartPolicy: 'truncate',
+    });
   }
 });
 

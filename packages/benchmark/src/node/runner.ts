@@ -60,7 +60,8 @@ import type {
   ProtocolBenchmarkWorkload,
 } from '../harness/types';
 import { resolveBrowserBenchmarkRunOptions } from '../browser-options';
-import type { ResolvedBrowserBenchmarkRunOptions } from '../browser-types';
+import { loadArtifactExtension, verifyExtensionSources } from './artifact-extensions';
+import type { ResolvedBrowserBenchmarkRunOptions, BrowserBenchmarkStats } from '../browser-types';
 import {
   journalSampleWithImages,
   readBenchmarkArtifact,
@@ -158,6 +159,18 @@ function numberOption(value: unknown, name: string, minimum: number): number {
 }
 
 export function validateProfile(value: unknown): BenchmarkProfile {
+  const extension = (value as { artifactExtension?: unknown } | null)?.artifactExtension;
+  if (
+    extension !== undefined &&
+    (!extension ||
+      typeof extension !== 'object' ||
+      typeof (extension as { module?: unknown }).module !== 'string' ||
+      !(extension as { module: string }).module.trim() ||
+      !(extension as { sources?: unknown }).sources ||
+      Array.isArray((extension as { sources: unknown }).sources) ||
+      typeof (extension as { sources: unknown }).sources !== 'object')
+  )
+    throw new Error('artifactExtension must declare a source module and source hashes.');
   if (typeof value !== 'object' || value === null)
     throw new Error('Benchmark profile must be an object.');
   const profile = value as Partial<BenchmarkProfile>;
@@ -314,6 +327,7 @@ export async function loadProfileWorkloads(
   profilePath: string,
   profile: BenchmarkProfile,
 ): Promise<ResolvedProfileWorkload[]> {
+  await verifyExtensionSources(path.resolve(import.meta.dirname, '../../../..'), profile);
   return Promise.all(
     profile.workloads.map(async (entry) => {
       const modulePath = path.resolve(path.dirname(profilePath), entry.module);
@@ -632,7 +646,11 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
-async function withTimeout<T>(promise: Promise<T>, label: string, timeoutMs = 30_000): Promise<T> {
+export async function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = 30_000,
+): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
@@ -670,7 +688,7 @@ export async function allocateLoopbackPort(): Promise<number> {
   });
 }
 
-async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer> {
+export async function startBrowserServer(repositoryRoot: string): Promise<BrowserServer> {
   const configFile = path.join(repositoryRoot, 'packages/benchmark/vite.config.ts');
   const { preview } = await import('vite');
   // Calling Vite's programmatic build API from TSX fails to resolve Vite's own
@@ -1123,17 +1141,11 @@ export async function runProtocolBrowserReplicate(
       const result = (await page.evaluate(() => window.__TENSNAP_BENCHMARK_RESULT__)) as {
         ok: boolean;
         error?: string;
-        stats?: {
-          timings: number[];
-          mutationTimings?: number[];
-          stageTimings?: Record<string, number[]>;
-          completedFrames: number;
-          measuredFrames: number;
-          stopReason: string;
-        };
+        stats?: BrowserBenchmarkStats;
       };
       if (!result.ok || !result.stats)
         throw failure(result.error ?? 'Browser benchmark did not return stats.');
+      assertFrontendValidation(result.stats.effectiveValidation, validation);
       if (observerError) throw observerError;
       const actionCount = warmupActions + measuredActions;
       const correctness = assertProtocolCorrectness(workload, config, validator, actionCount);
@@ -1152,12 +1164,20 @@ export async function runProtocolBrowserReplicate(
           index,
           block: index,
           timingsMs: result.stats.timings,
+          ...(result.stats.diagnostics ? { diagnostics: result.stats.diagnostics } : {}),
           metrics: result.stats.mutationTimings
             ? { browserMutationMs: result.stats.mutationTimings }
             : {},
           messageCounts: counts,
           wireBytes,
           correctness,
+          effectiveValidation: {
+            frontend: result.stats.effectiveValidation,
+            server: {
+              send: host.simulatorMessageValidation,
+              receive: host.rendererMessageValidation,
+            },
+          },
           process: processMeasurement(processStartedAt, true),
           ...(result.stats.stageTimings ? { stagesMs: result.stats.stageTimings } : {}),
         },
@@ -1167,6 +1187,17 @@ export async function runProtocolBrowserReplicate(
     }
   } finally {
     await host.close();
+  }
+}
+
+function assertFrontendValidation(
+  effective: BrowserBenchmarkStats['effectiveValidation'],
+  requested: ProtocolValidationLevel,
+): void {
+  if (effective?.send !== requested || effective?.receive !== requested) {
+    throw new Error(
+      `Frontend validation differs from requested ${requested}: ${JSON.stringify(effective) ?? 'unobserved'}.`,
+    );
   }
 }
 
@@ -1234,14 +1265,7 @@ async function runBrowserWorkloadReplicate(
       error?: string;
       snapshot?: unknown;
       expectedState?: unknown;
-      stats?: {
-        timings: number[];
-        mutationTimings?: number[];
-        stageTimings?: Record<string, number[]>;
-        completedFrames: number;
-        measuredFrames: number;
-        stopReason: string;
-      };
+      stats?: BrowserBenchmarkStats;
     };
     if (!result.ok || !result.stats)
       throw new Error(result.error ?? `Browser workload ${workload.id} failed.`);
@@ -1268,11 +1292,15 @@ async function runBrowserWorkloadReplicate(
         index,
         block: index,
         timingsMs: result.stats.timings,
+        ...(result.stats.diagnostics ? { diagnostics: result.stats.diagnostics } : {}),
         metrics: result.stats.mutationTimings
           ? { browserMutationMs: result.stats.mutationTimings }
           : {},
         messageCounts: {},
         wireBytes: { ...EMPTY_BYTES },
+        effectiveValidation: result.stats.effectiveValidation
+          ? { frontend: result.stats.effectiveValidation }
+          : undefined,
         correctness: { valid: true, actionCount, stateHash, expectedStateHash },
         process: processMeasurement(processStartedAt, true),
         ...(result.stats.stageTimings ? { stagesMs: result.stats.stageTimings } : {}),
@@ -1342,6 +1370,12 @@ export function externalResultSample(
   }
   const state = result.correctness?.state ?? result.state ?? null;
   const expectedState = result.correctness?.expectedState ?? result.expectedState ?? state;
+  if (
+    result.retainSemanticEvidence &&
+    ((result.correctness?.state ?? result.state) === undefined ||
+      (result.correctness?.expectedState ?? result.expectedState) === undefined)
+  )
+    throw new Error('Retained semantic evidence requires explicit observed and expected states.');
   const stateHash = sha256(state);
   const expectedStateHash = sha256(expectedState);
   const valid = result.correctness?.valid ?? stateHash === expectedStateHash;
@@ -1367,6 +1401,10 @@ export function externalResultSample(
       stateHash,
       expectedStateHash,
     },
+    ...(result.retainSemanticEvidence ? { semanticEvidence: { state, expectedState } } : {}),
+    ...(result.measurementEvidence === undefined
+      ? {}
+      : { measurementEvidence: result.measurementEvidence }),
     process,
     ...(Object.keys(stages).length > 0 ? { stagesMs: stages } : {}),
     ...(visual ? { visual } : {}),
@@ -1496,6 +1534,7 @@ async function runExternalProcessReplicate(
 interface StartedExternalServer {
   readonly process: ReturnType<typeof spawn>;
   readonly stderr: () => string;
+  assertRunning(): void;
   stop(): Promise<void>;
 }
 
@@ -1554,8 +1593,10 @@ async function waitForExternalProcessTree(
   }
 }
 
-function startExternalServer(command: ExternalCommand): StartedExternalServer {
+export function startExternalServer(command: ExternalCommand): StartedExternalServer {
   let stderr = '';
+  let startupError: Error | undefined;
+  let stopPromise: Promise<void> | undefined;
   // A detached POSIX child becomes a process-group leader. Stopping the whole
   // group also terminates wrappers such as `go run` and the server they spawn.
   const grouped = platform() !== 'win32';
@@ -1569,26 +1610,41 @@ function startExternalServer(command: ExternalCommand): StartedExternalServer {
   child.stderr.on('data', (data: string) => {
     stderr += data;
   });
+  child.once('error', (error) => {
+    startupError = error;
+  });
+  const stop = async () => {
+    let trackGroup = signalExternalProcessTree(child, grouped, 'SIGTERM');
+    try {
+      await withTimeout(
+        waitForExternalProcessTree(child, trackGroup),
+        `External server ${command.executable} shutdown`,
+        10_000,
+      );
+    } catch {
+      trackGroup = signalExternalProcessTree(child, trackGroup, 'SIGKILL');
+      await withTimeout(
+        waitForExternalProcessTree(child, trackGroup),
+        `External server ${command.executable} forced shutdown`,
+        2_000,
+      );
+    }
+  };
   return {
     process: child,
     stderr: () => stderr,
-    async stop() {
-      let trackGroup = signalExternalProcessTree(child, grouped, 'SIGTERM');
-      try {
-        await withTimeout(
-          waitForExternalProcessTree(child, trackGroup),
-          `External server ${command.executable} shutdown`,
-          10_000,
+    assertRunning() {
+      if (startupError)
+        throw new Error(
+          `External server ${command.executable} failed to start: ${startupError.message}`,
+          { cause: startupError },
         );
-      } catch {
-        trackGroup = signalExternalProcessTree(child, trackGroup, 'SIGKILL');
-        await withTimeout(
-          waitForExternalProcessTree(child, trackGroup),
-          `External server ${command.executable} forced shutdown`,
-          2_000,
+      if (child.exitCode !== null || child.signalCode !== null)
+        throw new Error(
+          `External server exited ${child.exitCode ?? child.signalCode} before becoming ready.\n${stderr.slice(-4_000)}`,
         );
-      }
     },
+    stop: () => (stopPromise ??= stop()),
   };
 }
 
@@ -1624,15 +1680,7 @@ export async function captureStableExternalBrowserScreenshot(
   throw new Error(`External browser did not reach a visually stable frame within ${timeoutMs} ms.`);
 }
 
-function assertExternalServerRunning(server: StartedExternalServer): void {
-  if (server.process.exitCode !== null) {
-    throw new Error(
-      `External server exited ${server.process.exitCode} before becoming ready.\n${server.stderr().slice(-4_000)}`,
-    );
-  }
-}
-
-async function waitForWebSocketEndpoint(
+export async function waitForWebSocketEndpoint(
   endpoint: string,
   timeoutMs: number,
   server: StartedExternalServer,
@@ -1640,13 +1688,14 @@ async function waitForWebSocketEndpoint(
   const deadline = nowMs() + timeoutMs;
   let lastError = 'not attempted';
   while (nowMs() < deadline) {
-    assertExternalServerRunning(server);
+    server.assertRunning();
     const socket = new WebSocket(endpoint);
     try {
       await waitForWebSocketOpen(socket, {
         label: `External simulator ${endpoint} readiness`,
         timeoutMs: Math.min(2_000, Math.max(250, deadline - nowMs())),
       });
+      server.assertRunning();
       return;
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
@@ -1668,7 +1717,7 @@ async function gotoWhenReady(
   const deadline = nowMs() + timeoutMs;
   let lastError = 'not attempted';
   while (nowMs() < deadline) {
-    if (server) assertExternalServerRunning(server);
+    server?.assertRunning();
     try {
       await page.goto(url, {
         waitUntil: 'domcontentloaded',
@@ -1875,18 +1924,14 @@ async function runExternalBrowserReplicate(
             ok: boolean;
             error?: string;
             snapshot?: unknown;
-            stats?: {
-              timings: number[];
-              mutationTimings?: number[];
-              stageTimings?: Record<string, number[]>;
-              completedFrames: number;
-              measuredFrames: number;
-              stopReason: string;
-              snapshot?: unknown;
-            };
+            stats?: BrowserBenchmarkStats;
           };
           if (!result.ok || !result.stats)
             throw new Error(result.error ?? 'External TenSnap browser workload failed.');
+          assertFrontendValidation(
+            result.stats.effectiveValidation,
+            spec.tensnapHarness.validation,
+          );
           const actionCount = warmupActions + measuredActions;
           if (
             result.stats.completedFrames !== actionCount ||
@@ -1932,7 +1977,16 @@ async function runExternalBrowserReplicate(
             index,
             externalWallMeasurement(startedAt),
           );
-          return { browserVersion: browser.version(), sample };
+          return {
+            browserVersion: browser.version(),
+            sample: {
+              ...sample,
+              ...(result.stats.diagnostics ? { diagnostics: result.stats.diagnostics } : {}),
+              effectiveValidation: result.stats.effectiveValidation
+                ? { frontend: result.stats.effectiveValidation }
+                : undefined,
+            },
+          };
         } finally {
           await browserServer.close();
         }
@@ -2431,7 +2485,12 @@ async function collectArtifactContext(repositoryRoot: string): Promise<Benchmark
   ]);
   const gitSha = git(repositoryRoot, ['rev-parse', 'HEAD']);
   return {
-    harness: { package: '@tensnap/benchmark', version: packageJson.version, gitSha },
+    harness: {
+      package: '@tensnap/benchmark',
+      version: packageJson.version,
+      gitSha,
+      reportVersion: 2,
+    },
     implementation: { gitSha, dirty: status === null ? null : status.length > 0, lockfileSha256 },
     environment: await collectEnvironment(),
   };
@@ -2723,6 +2782,7 @@ function markdownNumber(value: number): string {
 }
 
 export function renderReport(artifact: BenchmarkArtifact): string {
+  const cadenceColumns = artifact.harness.reportVersion === 2;
   const rows = artifact.runs
     .map((run) => {
       const primaryMetric = run.execution.primaryMetric ?? 'cycle';
@@ -2741,10 +2801,13 @@ export function renderReport(artifact: BenchmarkArtifact): string {
         Object.entries(run.execution.dimensions ?? {})
           .map(([name, value]) => `${name}=${String(value)}`)
           .join(', ') || '-';
-      return `| ${run.suite} | ${run.workload.category} | ${run.system ?? run.profileWorkloadId ?? run.workload.id} | ${run.execution.featureLevel ?? '-'} | ${dimensions} | ${primaryMetric} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${primary.count} | ${markdownNumber(primary.medianMs)} | ${markdownNumber(primary.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
+      const cadence = cadenceColumns
+        ? ` ${markdownNumber(primary.meanMs)} | ${markdownNumber(1_000 / run.summary.cycle.meanMs)} |`
+        : '';
+      return `| ${run.suite} | ${run.workload.category} | ${run.system ?? run.profileWorkloadId ?? run.workload.id} | ${run.execution.featureLevel ?? '-'} | ${dimensions} | ${primaryMetric} | ${run.execution.encoding ?? '-'} | ${run.execution.validation ?? '-'} | ${primary.count} | ${markdownNumber(primary.medianMs)} |${cadence} ${markdownNumber(primary.p95Ms)} | ${markdownNumber(lower)}–${markdownNumber(upper)} | ${metrics} | ${run.summary.wireBytes.rendererToSimulator} / ${run.summary.wireBytes.simulatorToRenderer} |`;
     })
     .join('\n');
-  const mainTable = `| Suite | Category | Workload | Feature level | Dimensions | Primary metric | Encoding | Validation | Samples | Median ms | P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---|---|---|---:|---:|---:|---:|---|---:|\n${rows}`;
+  const mainTable = `| Suite | Category | Workload | Feature level | Dimensions | Primary metric | Encoding | Validation | Samples | Median ms |${cadenceColumns ? ' Mean ms | Measured cycles/s |' : ''} P95 ms | Independent-replicate median bootstrap 95% CI | Auxiliary metrics (median) | Wire bytes R→S / S→R |\n|---|---|---|---|---|---|---|---|---:|---:|${cadenceColumns ? '---:|---:|' : ''}---:|---:|---|---:|\n${rows}`;
   const comparisons =
     artifact.comparisons.length === 0
       ? ''
@@ -2758,6 +2821,7 @@ function csvCell(value: unknown): string {
 }
 
 export function renderAnalysisRunsCsv(artifact: BenchmarkArtifact): string {
+  const cadenceColumns = artifact.harness.reportVersion === 2;
   const header = [
     'run_id',
     'suite',
@@ -2772,6 +2836,7 @@ export function renderAnalysisRunsCsv(artifact: BenchmarkArtifact): string {
     'p95_ms',
     'ci95_low_ms',
     'ci95_high_ms',
+    ...(cadenceColumns ? ['mean_ms', 'cycle_mean_ms', 'measured_cycles_per_second'] : []),
   ];
   const rows = artifact.runs.map((run) => {
     const metric = run.execution.primaryMetric ?? 'cycle';
@@ -2790,6 +2855,9 @@ export function renderAnalysisRunsCsv(artifact: BenchmarkArtifact): string {
       summary.p95Ms,
       summary.bootstrapMedianCi95Ms[0],
       summary.bootstrapMedianCi95Ms[1],
+      ...(cadenceColumns
+        ? [summary.meanMs, run.summary.cycle.meanMs, 1_000 / run.summary.cycle.meanMs]
+        : []),
     ]
       .map(csvCell)
       .join(',');
@@ -2913,6 +2981,12 @@ export function verifyArtifact(artifact: BenchmarkArtifact): void {
       throw new Error(`${run.workload.id}/${run.suite} has duplicate or missing replicate blocks.`);
     for (const sample of run.samples) {
       if (
+        sample.semanticEvidence &&
+        (sha256(sample.semanticEvidence.state) !== sample.correctness.stateHash ||
+          sha256(sample.semanticEvidence.expectedState) !== sample.correctness.expectedStateHash)
+      )
+        throw new Error(`${run.id} retained semantic evidence does not match its hashes.`);
+      if (
         !sample.correctness.valid ||
         sample.correctness.stateHash !== sample.correctness.expectedStateHash
       ) {
@@ -2998,6 +3072,11 @@ export async function verifyArtifactSourceFiles(
           throw new Error(`Visual checkpoint ${checkpoint} does not match ${relativePath}.`);
       }
     }
+  const extension = await loadArtifactExtension(
+    path.resolve(import.meta.dirname, '../../../..'),
+    loaded,
+  );
+  await extension?.verify(loaded);
 }
 
 export async function verifyArtifactFiles(

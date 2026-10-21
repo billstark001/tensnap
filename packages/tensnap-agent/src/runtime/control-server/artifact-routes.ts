@@ -3,7 +3,7 @@ import type { RecordingOptions } from '@tensnap/core/snapshot';
 import type { AgentRuntime } from '../AgentRuntime';
 import { readJsonObject } from './json-body';
 import { invalid, validateFields } from './validation';
-import { FrameSaveError } from '../frame-files';
+import { FrameSaveError } from '../frame-errors';
 
 export function registerArtifactRoutes(app: Hono, runtime: AgentRuntime): void {
   app.get('/v1/recordings', async (c) => c.json({ recordings: await runtime.listRecordings() }));

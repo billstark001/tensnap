@@ -1,4 +1,4 @@
-import { compileFieldPath } from '../../scenario/query';
+import { compileFieldPath } from '../../scenario/query-schema';
 import { isPrefix } from './policy';
 import type { ResolvedComparisonPolicy } from './policy';
 import type { ChangeRef, SceneChange, VisitValue } from './types';

@@ -33,7 +33,7 @@ This partial split is for example/harness reuse, not a requirement of the Go bin
 
 ## Schelling Standalone Scientific Task
 
-The standalone script runs the same heavy threshold-sweep task as the Python, NetLogo, and Julia standalone scripts. For each similarity threshold it runs several seeds and prints CSV columns for final satisfaction, segregation, last-step movement, steps used, and convergence count. After all scientific rows are computed, it prints a separate performance row with `total_ticks`, `elapsed_ms`, `tpms`, and `mspt`; timing is wrapped around each trial's step loop only, with no per-tick instrumentation in the model hot path.
+The standalone study shares the scientific transitions with the other language examples. CSV includes satisfaction, segregation, last movement, steps and separate `satisfied_runs`, `jammed_runs`, and `limit_runs`. In convergence mode, no movement stops the run; it can indicate satisfaction or a blocked full grid. Performance timing and warmup are supplied only by benchmark subjects.
 
 ```bash
 cd examples/go
@@ -46,8 +46,14 @@ pnpm standalone:go:schelling
 Useful flags:
 
 ```bash
-go run ./standalone -steps=1000 -warmup-steps=25 -seeds=8 \
+go run ./standalone -steps=1000 -seeds=8 \
   -thresholds=0.30,0.50,0.70,0.90 -mode=convergence
 ```
 
 Use `-mode=steady` to run exactly the requested step count.
+
+## Reproducibility
+
+Seeds are ordinary initialization parameters. Editing a seed affects the next reset, and each instance owns its RNG. See the [example guide](../README.md) and [reproducibility contract](../../docs/maintainer-guide/reproducibility.md). Scientific code and normal launchers perform no publication audit file I/O; independent audit adapters live beside benchmark subjects.
+
+All three models expose initialization seed metadata. Schelling reset reseeds its own stream. Its schema-3 checkpoint retains the active stream separately from a pending next-reset seed. Restoring standard-library `math/rand` uses seed plus draw count and costs O(prior draws); use matching implementations for exact continuation. SIRS and Forest Fire retain their own generator states directly. Run `go test ./...` from this directory; benchmark adapter tests run from `../../benchmarks/schelling/v1/subjects/go`.

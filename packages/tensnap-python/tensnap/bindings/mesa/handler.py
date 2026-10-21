@@ -106,8 +106,7 @@ def build_default_layered_binder(
 
 
 @deprecated(
-    "MesaSimulationHandler is deprecated; use BoundModelReinitializer with "
-    "SimulationScenario.register_model_handler instead."
+    "MesaSimulationHandler is deprecated; use SimulationScenario.register_model instead."
 )
 class MesaSimulationHandler(DefaultSimulationHandler):
     """
@@ -229,22 +228,17 @@ class MesaSimulationHandler(DefaultSimulationHandler):
 
         self._auto_registered = self._register_auto(scenario)
 
-        def register_model(*, dry_run: bool = False) -> RegistryChanges:
-            registered = self._register_auto(scenario, dry_run=dry_run)
-            if not dry_run:
-                self._auto_registered = registered
-            return registered
-
-        self.model_reinitializer.configure_reinit(
-            scenario,
-            register_model=register_model,
-        )
-
     async def _model_init_impl(self) -> None:
         if self.on_model_init:
             await call_function(self.on_model_init, self.model)
         else:
-            await self.model_reinitializer.model_init()
+            scenario = self.scenario
+            assert scenario is not None
+            self._auto_registered = await scenario._reinitialize_registered_model(
+                self.model_reinitializer,
+                self._auto_registered,
+                lambda: self._register_auto(scenario),
+            )
 
     async def _model_step_impl(self) -> None:
         assert self.model is not None

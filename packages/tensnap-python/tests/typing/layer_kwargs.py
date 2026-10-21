@@ -1,4 +1,4 @@
-"""Static contract for typed layer options; checked by mypy and Pyright."""
+"""Pyright static contract for typed layer options."""
 
 from collections.abc import Mapping
 from typing import Literal

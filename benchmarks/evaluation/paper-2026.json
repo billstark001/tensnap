@@ -5,6 +5,12 @@
     { "id": "conformance", "kind": "conformance" },
     { "id": "schelling-workflow", "kind": "workflow" },
     {
+      "id": "agent-cli-v1",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/agent-cli-v1.json",
+      "smokeProfile": "benchmarks/profiles/agent-cli-smoke-v1.json"
+    },
+    {
       "id": "protocol-core",
       "kind": "benchmark",
       "profile": "benchmarks/profiles/evaluation-2026-paper-v0.3.json"

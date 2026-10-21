@@ -133,6 +133,8 @@ pnpm --filter @tensnap/agent test:package:ecosystem # also verify the Vercel ski
 
 The recording workflow test runs seeded Schelling through the built public CLI. It verifies recording persistence, checkpoint restore, chart history, deterministic re-run, classified target failure and identical offline rendering after shutdown.
 
+Command capabilities are loaded through `cli-orchestrator.ts` after argument parsing. Help, version and simple HTTP commands use lightweight context paths and error definitions; bounded query validation uses the standalone core schema entry. Daemon, recording, comparison and skill implementations load only when requested, with concurrent imports shared per capability. Public package exports and error identities remain unchanged; internal imports use the defining module directly.
+
 The publishing artifact is `packages/tensnap-agent/dist`, with its own npm manifest and README. Pack that directory with `npm pack ./packages/tensnap-agent/dist`, then install the resulting `.tgz` with npm. Packing the workspace source manifest directly with npm is unsupported because it contains `workspace:*` dependencies. The acceptance script builds and packs `network`, `protocol`, and `core` using the release workflow's pnpm pack step, then installs all artifacts with npm into an isolated directory and HOME. This permits testing unpublished dependency versions without modifying the registry. Publishing remains a separate release operation. The workspace development toolchain still requires Node 24; the installed agent package supports Node 22.
 
 MIT licensed.

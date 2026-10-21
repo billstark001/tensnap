@@ -9,7 +9,7 @@ TenSnap (`evac_viz.py`), Solara (`evac_viz_solara.py`), and NetLogo (`netlogo/ev
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install mesa torch tensnap solara
+pip install mesa 'torch>=2.1' tensnap solara
 # Optional, only for --env netlogo training:
 pip install pynetlogo
 ```
@@ -198,3 +198,9 @@ The NetLogo GUI keeps `use-python-policy?` on by default. Its bundled BehaviorSp
 
 - Parameter option lists are static after state sync. The guide model directory is scanned when the server starts; adding checkpoint files while the server is running requires restarting the simulator to refresh the enum choices.
 - A custom action can reload Python-side policy state, but the Python binding does not currently provide a compact helper for "run this action and immediately push a full visual refresh." The `Reset Guide Model` action therefore reloads the policy and the visible effect appears on the next step or reset.
+
+## Randomness and checkpoint scope
+
+The evacuation environment owns Mesa's RNGs. Each DQN agent owns its exploration/replay-sampling generator and initializes its linear networks under an isolated CPU torch RNG scope. Greedy evaluation consumes neither exploration draws nor training counters. Constructing or resetting a guide does not reseed another model's process-global streams. Policy loading uses the restricted `weights_only=True` loader (PyTorch 2.1 or later).
+
+Saved policy files contain state dictionaries, optimizer state, configuration and training counters. They support inference and warm starts; replay memory and random-stream positions are not saved, so they do not promise exact training continuation. TenSnap continuation checkpoints are a separate model-owned capability. Historical trained policies and retained outcome evidence are unchanged. Repository-source imports are opt-in through `TENSNAP_USE_SOURCE=1`, including the NetLogo policy bridge.

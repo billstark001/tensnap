@@ -4,6 +4,7 @@ import { loadProfileWorkloads, validateProfile } from '../node/runner';
 import type { BenchmarkProfile } from '../harness/types';
 import { hashBytes, readJson } from './files';
 import type { EvaluationSpecification, EvaluationMode } from './types';
+import { verifyExtensionSources } from '../node/artifact-extensions';
 
 export const defaultSpecification = 'benchmarks/evaluation/paper-2026.json';
 
@@ -14,6 +15,11 @@ export async function loadSpecification(
   const specification = await readJson<EvaluationSpecification>(path.resolve(root, file));
   if (specification.schemaVersion !== 1 || !specification.experiments.length)
     throw new Error('Unsupported or empty evaluation specification.');
+  if (
+    specification.environment !== undefined &&
+    !['paper', 'node'].includes(specification.environment)
+  )
+    throw new Error('Unsupported evaluation environment.');
   const ids = new Set<string>();
   for (const experiment of specification.experiments) {
     if (!/^[a-z][a-z0-9-]*$/.test(experiment.id) || ids.has(experiment.id))
@@ -23,6 +29,17 @@ export async function loadSpecification(
       throw new Error(`Unsupported experiment kind: ${experiment.kind}`);
     if ((experiment.kind === 'benchmark') !== Boolean(experiment.profile))
       throw new Error(`Only benchmark experiments declare a profile: ${experiment.id}`);
+    if (
+      experiment.smokeProfile !== undefined &&
+      (experiment.kind !== 'benchmark' ||
+        typeof experiment.smokeProfile !== 'string' ||
+        !experiment.smokeProfile)
+    )
+      throw new Error(
+        `Only benchmark experiments declare a nonempty smokeProfile: ${experiment.id}`,
+      );
+    if (specification.environment === 'node' && experiment.kind !== 'benchmark')
+      throw new Error('Node evaluation specifications support benchmark experiments only.');
   }
   return specification;
 }
@@ -44,7 +61,7 @@ export function diagnosticProfile(
 ): BenchmarkProfile {
   return validateProfile({
     ...profile,
-    id: `${profile.id}-smoke`,
+    id: profile.id.endsWith('-smoke') ? profile.id : `${profile.id}-smoke`,
     description: `Diagnostic only. ${profile.description}`,
     requireCleanGit: false,
     repetitions: 1,
@@ -84,8 +101,10 @@ export async function describePlan(
       rows.push(`  ${experiment.id}: ${experiment.kind}`);
       continue;
     }
-    const file = path.resolve(root, experiment.profile);
-    const original = await loadBenchmarkProfile(root, experiment.profile);
+    const relative =
+      mode === 'smoke' ? (experiment.smokeProfile ?? experiment.profile) : experiment.profile;
+    const file = path.resolve(root, relative);
+    const original = await loadBenchmarkProfile(root, relative);
     const profile = mode === 'smoke' ? diagnosticProfile(original, file) : original;
     const workloads = await loadProfileWorkloads(file, profile);
     let conditions = 0;
@@ -116,19 +135,25 @@ export async function checkProfileLocks(
   const fingerprints: Record<string, string> = {};
   for (const experiment of specification.experiments) {
     if (!experiment.profile) continue;
-    const file = path.resolve(root, experiment.profile);
-    const profile = await loadBenchmarkProfile(root, experiment.profile);
-    fingerprints[experiment.profile] = hashBytes(await readFile(file));
-    for (const workload of profile.workloads) {
-      const locks = workload.config?.environmentLocks as Record<string, string> | undefined;
-      for (const [relative, expected] of Object.entries(locks ?? {})) {
-        const actual = hashBytes(await readFile(path.resolve(root, relative)));
-        if (actual !== expected)
-          throw new Error(`Profile ${profile.id} has a stale environment lock: ${relative}`);
-        fingerprints[relative] = actual;
+    for (const relativeProfile of new Set([
+      experiment.profile,
+      ...(experiment.smokeProfile ? [experiment.smokeProfile] : []),
+    ])) {
+      const file = path.resolve(root, relativeProfile);
+      const profile = await loadBenchmarkProfile(root, relativeProfile);
+      await verifyExtensionSources(root, profile);
+      fingerprints[relativeProfile] = hashBytes(await readFile(file));
+      for (const workload of profile.workloads) {
+        const locks = workload.config?.environmentLocks as Record<string, string> | undefined;
+        for (const [relative, expected] of Object.entries(locks ?? {})) {
+          const actual = hashBytes(await readFile(path.resolve(root, relative)));
+          if (actual !== expected)
+            throw new Error(`Profile ${profile.id} has a stale environment lock: ${relative}`);
+          fingerprints[relative] = actual;
+        }
       }
+      await loadProfileWorkloads(file, profile);
     }
-    await loadProfileWorkloads(file, profile);
   }
   return fingerprints;
 }

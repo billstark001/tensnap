@@ -78,8 +78,7 @@ The server requires `websockets>=13`. For development, prefix a `serve` command 
 
 ### Route D: headless rules without the TenSnap binding
 
-Rule-mode `run` and `batch` do not need the binding or an inference client.
-Naming uses NetworkX for its contact network:
+Rule-mode `run` and `batch` do not need the binding or an inference client. Naming uses NetworkX for its contact network:
 
 ```bash
 python -m pip install 'networkx>=3.4,<4'

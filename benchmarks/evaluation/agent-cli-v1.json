@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "tensnap-agent-cli-v1",
+  "environment": "node",
+  "experiments": [
+    {
+      "id": "agent-cli-v1",
+      "kind": "benchmark",
+      "profile": "benchmarks/profiles/agent-cli-v1.json",
+      "smokeProfile": "benchmarks/profiles/agent-cli-smoke-v1.json"
+    }
+  ]
+}

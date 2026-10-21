@@ -10,9 +10,9 @@ All simulator listeners and renderer WebSocket connections accept the same local
 
 An explicit address still limits the binding scope: `127.0.0.1` is IPv4 loopback, `::1` is IPv6 loopback, `0.0.0.0` is IPv4 wildcard, and `::` is IPv6 wildcard. To request both wildcard families, omit the host (JS/Go) or use an empty host (Python/Julia). `ip_family` never expands an explicit literal into another family. A conflicting literal and policy is an error.
 
-Python and Julia default to `localhost`; the CLI control API also defaults to `localhost`. The JS simulator's omitted host and Go's `:8765` listen on all interfaces. IPv6 sockets are IPv6-only; auto uses a separate IPv4 socket. If the platform lacks one family, auto can use the remaining family for default/localhost bindings. Port conflicts, permission failures, and explicitly requested unavailable families fail startup. Partial startup rolls back all listeners, so a foreign service on the other family cannot silently split one endpoint between models.
+Python and Julia default to `localhost`; the CLI control API also defaults to `localhost`. The JS simulator's omitted host and Go's `:8765` listen on all interfaces. IPv6 sockets are IPv6-only; auto uses a separate IPv4 socket. If the platform lacks one family, auto can use the remaining family for default/localhost bindings. Explicit-port conflicts, permission failures, and explicitly requested unavailable families fail startup. Node listeners using `@tensnap/network` can retry the ephemeral-port conflict described below; this retry does not change the Python, Go or Julia listener implementations. Partial startup rolls back all listeners, so a foreign service on the other family cannot silently split one endpoint between models.
 
-For `port=0`, the first available listener chooses a port and the other listener uses that same port. Local listener creation tries IPv4 first; this determines the primary reported endpoint when both exist. Renderer auto connections retain the underlying library's address selection.
+For `port=0`, the first available listener chooses a port and the other listener uses that same port. In Node, that selected port can already be occupied on the second address family. On this specific `EADDRINUSE` path, `@tensnap/network` rolls back the partial listeners and retries up to ten times before failing. It never drops a conflicting family or retries an explicitly configured port. Local listener creation tries IPv4 first; this determines the primary reported endpoint when both exist. Renderer auto connections retain the underlying library's address selection.
 
 ## Simulators
 
@@ -59,7 +59,7 @@ console.log(host.urls); // All endpoints, with the same port
 await host.close();
 ```
 
-Always await `ready` before reading an ephemeral endpoint. `ready` rejects startup conflicts. For an externally supplied `server`, `serverOptions.server`, or `noServer` upgrade handler, configure the owning listener's family yourself and leave the host policy at `auto`; the transport cannot enforce socket options on an external server.
+Always await `ready` before reading an ephemeral endpoint. `ready` rejects explicit-port conflicts and ephemeral conflicts that exhaust the bounded retries. For an externally supplied `server`, `serverOptions.server`, or `noServer` upgrade handler, configure the owning listener's family yourself and leave the host policy at `auto`; the transport cannot enforce socket options on an external server.
 
 The JS example runner accepts `--ip-family auto|ipv4|ipv6` and `--port 0`.
 

@@ -5,8 +5,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { classifyCliError, CliRequestError, createProgram, main } from './cli';
-import { CLI_VERSION } from './skills';
-import { resolveRuntimeContextPaths, writeRuntimeControl } from './runtime/context';
+import { CLI_VERSION } from './version';
+import { resolveRuntimeContextPaths } from './runtime/context-paths';
+import { writeRuntimeControl } from './runtime/context';
 
 it.each(['Infinity', '-Infinity', 'NaN'])('rejects non-finite numeric flags: %s', async (value) => {
   await expect(main(['run', 'start', 'step', '--max-steps', value])).rejects.toThrow(
@@ -210,6 +211,8 @@ describe('agent CLI', () => {
         captureFile,
         '--time',
         '5',
+        '--parameters',
+        '[{"id":"seed","value":42}]',
         '--context',
         context.contextName,
         '--context-dir',
@@ -245,7 +248,11 @@ describe('agent CLI', () => {
     }
     expect(requests).toEqual([
       { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' }, time: 3 },
-      { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' }, time: 5 },
+      {
+        checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' },
+        time: 5,
+        parameters: [{ id: 'seed', value: 42 }],
+      },
       { checkpoint: { encoding: 'application/octet-stream', data: 'AQ==' } },
     ]);
   });
@@ -385,7 +392,7 @@ it.each([
   ['runtime', 'status', '--version'],
   ['runtime', 'up', '--encoding', 'invalid'],
   ['runtime', 'up', '--simulator-url', 'http://localhost'],
-  ['scene', 'restore', '--parameters', '[]'],
+  ['scene', 'restore', '--parameters', '{}'],
   ['scene', 'restore', '--envs', '{}'],
   ['runtime', 'up', '--render-trigger', 'action-end'],
   ['runtime', 'status', 'extra'],

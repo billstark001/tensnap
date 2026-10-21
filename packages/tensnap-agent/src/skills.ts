@@ -1,5 +1,6 @@
+import { CLI_VERSION, PACKAGE_URL } from './version';
+import { SkillPersistenceError } from './skill-errors';
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import {
   chmod,
   lstat,
@@ -25,16 +26,6 @@ export interface SkillOptions {
   force?: boolean;
 }
 
-function packageVersion(): string {
-  try {
-    return JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-    return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
-  }
-}
-
-export const CLI_VERSION = packageVersion();
 const RECEIPT = '.tensnap-skill.json';
 const PACKAGE = '@tensnap/agent';
 
@@ -62,11 +53,6 @@ interface Receipt extends FileSet {
 interface SkillTree extends FileSet {
   executables: string[];
   directories: string[];
-}
-
-export class SkillPersistenceError extends Error {
-  readonly category = 'persistence_failed';
-  readonly exitCode = 6;
 }
 
 async function stat(path: string) {
@@ -197,8 +183,8 @@ export async function loadSkillBundleFrom(root: string, version: string): Promis
 }
 
 async function loadSkillBundle(): Promise<{ root: string; bundle: SkillBundle }> {
-  for (const url of ['./skills/', '../dist/skills/']) {
-    const root = fileURLToPath(new URL(url, import.meta.url));
+  for (const url of ['./skills/', './dist/skills/']) {
+    const root = fileURLToPath(new URL(url, PACKAGE_URL));
     if (await stat(root)) return { root, bundle: await loadSkillBundleFrom(root, CLI_VERSION) };
   }
   throw new CliInputError(

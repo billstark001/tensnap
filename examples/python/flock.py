@@ -1,5 +1,5 @@
 # tensnap/examples/flock.py
-"""Pure flocking simulation without any visualization dependencies."""
+"""Synchronous Boids-inspired dynamics on a torus; see README.md for the rules."""
 
 import json
 import math
@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass, fields
 from typing import Any
 
 from tensnap import (
+    NumberParameter,
     agent,
     agent_layer,
     checkpoint,
@@ -28,7 +29,16 @@ def _nested_tuple(value: Any) -> Any:
     return value
 
 
-@params(exclude=r"world_.+")
+@params(
+    exclude=r"world_.+",
+    custom_bindings={
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+        "num_agents": NumberParameter("", step=1, allow_runtime_change=False),
+        "spawn_radius": NumberParameter("", allow_runtime_change=False),
+    },
+)
 @dataclass
 class FlockConfig:
     """Configuration for flocking simulation"""
@@ -41,21 +51,48 @@ class FlockConfig:
     world_width: float = 40.0
     world_height: float = 40.0
     spawn_radius: float = 10.0
+    seed: int = 7
+
+    def __post_init__(self):
+        """Optional model-side checks for direct Python and restored configuration."""
+        for name in ("world_width", "world_height"):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value <= 0:
+                raise ValueError(f"{name} must be finite and positive")
+        for name in (
+            "separation_distance",
+            "alignment_distance",
+            "cohesion_distance",
+            "max_speed",
+            "spawn_radius",
+        ):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative")
+        for name in ("num_agents", "seed"):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not math.isfinite(value)
+                or value < 0
+                or int(value) != value
+            ):
+                raise ValueError(f"{name} must be a nonnegative integer")
+            setattr(self, name, int(value))
 
 
 @agent(size=0.5, icon="arrow", color="#3498DB")
 class Bird:
     """A single bird agent in the flock"""
 
-    def __init__(self, bird_id: str, x: float, y: float, heading: float | None = None):
+    def __init__(self, bird_id: str, x: float, y: float, rng: random.Random):
         self.id = bird_id
         self.x = x
         self.y = y
-        self.heading = (
-            heading if heading is not None else random.uniform(0, 2 * math.pi)
-        )
-        self.vx = math.cos(self.heading) * random.uniform(0.2, 0.6)
-        self.vy = math.sin(self.heading) * random.uniform(0.2, 0.6)
+        self.heading = rng.uniform(0, 2 * math.pi)
+        speed = rng.uniform(0.2, 0.6)
+        self.vx = math.cos(self.heading) * speed
+        self.vy = math.sin(self.heading) * speed
 
     @classmethod
     def from_snapshot(
@@ -132,6 +169,7 @@ class FlockSimulation:
 
     def __init__(self, config: FlockConfig | None = None):
         self.config = config or FlockConfig()
+        self.rng = random.Random(self.config.seed)
         self.birds: list[Bird] = []
         self.time_step = 0
 
@@ -145,18 +183,24 @@ class FlockSimulation:
 
     def initialize(self) -> None:
         """Initialize the simulation with birds"""
+        self.config.__post_init__()
         self.birds.clear()
         self.time_step = 0
 
+        self.rng.seed(self.config.seed)
         # Create birds in the center area
         center_x = self.config.world_width / 2
         center_y = self.config.world_height / 2
         spawn_radius = self.config.spawn_radius
 
-        for i in range(int(self.config.num_agents + 0.5)):
-            x = center_x + random.uniform(-spawn_radius, spawn_radius)
-            y = center_y + random.uniform(-spawn_radius, spawn_radius)
-            bird = Bird(f"bird_{i}", x, y)
+        for i in range(self.config.num_agents):
+            x = (
+                center_x + self.rng.uniform(-spawn_radius, spawn_radius)
+            ) % self.config.world_width
+            y = (
+                center_y + self.rng.uniform(-spawn_radius, spawn_radius)
+            ) % self.config.world_height
+            bird = Bird(f"bird_{i}", x, y, self.rng)
             self.birds.append(bird)
 
     @monitor("flock_status", "Flock Status", render_hint="tree")
@@ -185,7 +229,7 @@ class FlockSimulation:
                 }
                 for bird in self.birds
             ],
-            "random_state": random.getstate(),
+            "random_state": self.rng.getstate(),
         }
         return json.dumps(checkpoint, separators=(",", ":")).encode("utf-8")
 
@@ -195,9 +239,12 @@ class FlockSimulation:
             raise TypeError("flock checkpoint must be bytes")
 
         state = json.loads(bytes(checkpoint).decode("utf-8"))
-        config_state = state["config"]
-        for field in fields(FlockConfig):
-            setattr(self.config, field.name, config_state[field.name])
+        config = FlockConfig(**state["config"])
+        rng = random.Random()
+        rng.setstate(_nested_tuple(state["random_state"]))
+        time_step = state["time_step"]
+        if isinstance(time_step, bool) or int(time_step) != time_step or time_step < 0:
+            raise ValueError("flock time must be nonnegative")
 
         birds: list[Bird] = []
         seen_ids: set[str] = set()
@@ -214,11 +261,18 @@ class FlockSimulation:
                 float(item["vx"]),
                 float(item["vy"]),
             )
+            if not all(
+                math.isfinite(value)
+                for value in (bird.x, bird.y, bird.heading, bird.vx, bird.vy)
+            ):
+                raise ValueError("bird state must be finite")
             birds.append(bird)
 
         self.birds = birds
-        self.time_step = int(state["time_step"])
-        random.setstate(_nested_tuple(state["random_state"]))
+        for field in fields(FlockConfig):
+            setattr(self.config, field.name, getattr(config, field.name))
+        self.time_step = int(time_step)
+        self.rng = rng
 
     def restore_space_metadata(self, metadata: dict[str, Any]) -> None:
         """Grid and agent dimensions are derived from the restored config."""
@@ -264,68 +318,52 @@ class FlockSimulation:
     def restore_time(self, time: float) -> None:
         self.time_step = int(time)
 
-    def update_bird(self, bird: Bird) -> None:
-        """Update a single bird using flocking rules"""
+    def next_velocity(self, bird: Bird) -> tuple[float, float]:
+        """Read the old population using minimum-image displacements on the torus."""
         sep_x = sep_y = align_x = align_y = coh_x = coh_y = 0.0
-        neighbors = 0
-
+        separation_neighbors = alignment_neighbors = cohesion_neighbors = 0
+        width, height = self.config.world_width, self.config.world_height
         for other in self.birds:
             if other.id == bird.id:
                 continue
-
-            dx = bird.x - other.x
-            dy = bird.y - other.y
-            dist = math.sqrt(dx * dx + dy * dy)
-
+            dx = (other.x - bird.x + width / 2) % width - width / 2
+            dy = (other.y - bird.y + height / 2) % height - height / 2
+            dist = math.hypot(dx, dy)
+            if 0 < dist < self.config.separation_distance:
+                separation_neighbors += 1
+                sep_x -= dx / dist
+                sep_y -= dy / dist
+            if 0 < dist < self.config.alignment_distance:
+                alignment_neighbors += 1
+                align_x += other.vx
+                align_y += other.vy
             if 0 < dist < self.config.cohesion_distance:
-                neighbors += 1
-
-                # Separation: avoid crowding
-                if dist < self.config.separation_distance:
-                    sep_x += dx / dist
-                    sep_y += dy / dist
-
-                # Alignment: match neighbors
-                if dist < self.config.alignment_distance:
-                    align_x += other.vx
-                    align_y += other.vy
-
-                # Cohesion: move toward center
-                coh_x += other.x
-                coh_y += other.y
-
-        if neighbors > 0:
-            # Combine forces
-            sep_x /= neighbors
-            sep_y /= neighbors
-            align_x /= neighbors
-            align_y /= neighbors
-            coh_x = (coh_x / neighbors) - bird.x
-            coh_y = (coh_y / neighbors) - bird.y
-
-            # Update velocity
-            force_x = sep_x * 1.5 + align_x + coh_x
-            force_y = sep_y * 1.5 + align_y + coh_y
-
-            bird.vx += force_x * 0.1
-            bird.vy += force_y * 0.1
-
-            # Speed limit
-            speed = math.sqrt(bird.vx * bird.vx + bird.vy * bird.vy)
-            if speed > self.config.max_speed:
-                bird.vx = (bird.vx / speed) * self.config.max_speed
-                bird.vy = (bird.vy / speed) * self.config.max_speed
+                cohesion_neighbors += 1
+                coh_x += dx
+                coh_y += dy
+        if separation_neighbors:
+            sep_x /= separation_neighbors
+            sep_y /= separation_neighbors
+        if alignment_neighbors:
+            align_x /= alignment_neighbors
+            align_y /= alignment_neighbors
+        if cohesion_neighbors:
+            coh_x /= cohesion_neighbors
+            coh_y /= cohesion_neighbors
+        vx = bird.vx + (1.5 * sep_x + align_x + coh_x) * 0.1
+        vy = bird.vy + (1.5 * sep_y + align_y + coh_y) * 0.1
+        speed = math.hypot(vx, vy)
+        if speed > self.config.max_speed:
+            vx *= self.config.max_speed / speed
+            vy *= self.config.max_speed / speed
+        return vx, vy
 
     def step(self) -> None:
-        """Perform one simulation step"""
-        # Update all birds
-        for bird in self.birds:
-            self.update_bird(bird)
-
-        # Update positions
-        for bird in self.birds:
+        """Compute every velocity before moving any bird (a synchronous tick)."""
+        velocities = [self.next_velocity(bird) for bird in self.birds]
+        for bird, (vx, vy) in zip(self.birds, velocities):
+            bird.vx, bird.vy = vx, vy
             bird.update_position(self.config.world_width, self.config.world_height)
-
         self.time_step += 1
 
     def get_average_speed(self) -> float:

@@ -1,15 +1,19 @@
-from typing import Tuple, cast
+"""Sugarscape-inspired gradient foraging: one-cell moves on a renewable field."""
+
+from typing import cast
 
 import numpy as np
 from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import DataCollector, Model
 from tensnap import (
+    NumberParameter,
     agent,
     agent_layer,
     bind_datacollector,
     bind_kwargs,
     env,
     grid_layer,
+    matrix_agent_layer,
     trajectory_layer,
 )
 
@@ -32,9 +36,13 @@ class SugarAgent(CellAgent):
         super().__init__(model)
         self.cell = cell
         # 使用模型中配置的范围参数
-        self.metabolism = float(np.random.uniform(*model.metabolism_range))
-        self.vision = int(np.random.randint(*model.vision_range))
-        self.sugar = float(np.random.uniform(*model.initial_sugar_range))
+        self.metabolism = float(
+            model.rng.uniform(model.metabolism_min, model.metabolism_max)
+        )
+        self.vision = int(model.rng.integers(model.vision_min, model.vision_max))
+        self.sugar = float(
+            model.rng.uniform(model.initial_sugar_min, model.initial_sugar_max)
+        )
 
     @property
     def data(self):
@@ -45,31 +53,31 @@ class SugarAgent(CellAgent):
         }
 
     def move(self):
-        neighbors_sugar = list(self.cell.get_neighborhood(radius=self.vision).cells)
-        np.random.shuffle(neighbors_sugar)
-        neighbors = list(self.cell.neighborhood.cells)
-        max_sugar = max(
-            neighbors_sugar,
-            key=lambda cell: self.model.sugar[cell.coordinate],
-            default=None,
-        )
-        if max_sugar is None:
-            return False
+        """Head one Moore-neighbor step toward the richest available visible cell.
 
-        possible_moves = [
-            cell for cell in neighbors if cell in neighbors_sugar and cell.is_empty
+        This gradient rule is a deliberate variant of the classic direct jump.
+        Staying is allowed when the current cell wins; ties are randomized.
+        """
+        visible = [
+            cell
+            for cell in self.cell.get_neighborhood(radius=self.vision).cells
+            if cell.is_empty
         ]
-        np.random.shuffle(possible_moves)
+        visible.append(self.cell)
+        self.model.random.shuffle(visible)
+        target = max(visible, key=lambda cell: self.model.sugar[cell.coordinate])
+        if target is self.cell:
+            return False
+        possible_moves = [
+            cell for cell in self.cell.neighborhood.cells if cell.is_empty
+        ]
+        self.model.random.shuffle(possible_moves)
         if not possible_moves:
             return False
-        new_pos = min(
+        self.cell = min(
             possible_moves,
-            key=lambda cell: (
-                abs(cell.coordinate[0] - max_sugar.coordinate[0])
-                + abs(cell.coordinate[1] - max_sugar.coordinate[1])
-            ),
+            key=lambda cell: self.model.distance(cell.coordinate, target.coordinate),
         )
-        self.cell = new_pos
         return True
 
     def dig(self):
@@ -88,45 +96,14 @@ class SugarAgent(CellAgent):
         self.starve()
 
 
-@agent(x="pos[0]", y="pos[1]", icon="square", size=1)
-class SugarPatchView:
-    """Presentation-only patch used to render the sugar field as a layer of square agents."""
-
-    def __init__(self, model: "Sugarscape", pos: Tuple[int, int]):
-        self.model = model
-        self.pos = pos
-        self.id = f"sugar:{pos[0]}:{pos[1]}"
-
-    @property
-    def data(self) -> dict[str, object]:
-        return {
-            "sugar": self.sugar,
-            "capacity": self.capacity,
-        }
-
-    @property
-    def sugar(self) -> int:
-        return int(self.model.sugar[self.pos])
-
-    @property
-    def capacity(self) -> int:
-        return int(self.model.sugar_max[self.pos])
-
-    @property
-    def color(self) -> str:
-        if self.sugar <= 0:
-            return "#6d3b13"
-        if self.sugar == 1:
-            return "#5c6887"
-        if self.sugar == 2:
-            return "#55a06b"
-        if self.sugar == 3:
-            return "#22c836"
-        return "#00ff00"
+def sugar_color(amount: int) -> str:
+    return ("#6d3b13", "#5c6887", "#55a06b", "#22c836", "#00ff00")[
+        min(max(int(amount), 0), 4)
+    ]
 
 
-def sugar_field_random(width: int, height: int):
-    return np.random.choice([4, 3, 2, 1], size=(width, height))
+def sugar_field_random(width: int, height: int, rng: np.random.Generator):
+    return rng.choice([4, 3, 2, 1], size=(width, height))
 
 
 def sugar_field_circular(width: int, height: int):
@@ -145,14 +122,30 @@ def sugar_field_circular(width: int, height: int):
 
 @env("sugarscape_env")
 @agent_layer("agents", z_index="z_agents")
-@agent_layer(
+@matrix_agent_layer(
     "sugar",
-    item_iterable_projector="sugar_patches",
-    z_index="z_sugar",
+    source="sugar_rows",
+    fields={
+        "data": lambda model, key, amount: {
+            "sugar": int(amount),
+            "capacity": int(model.sugar_max[key[1], model.height - 1 - key[0]]),
+        }
+    },
+    color=lambda _model, _row, _col, amount: sugar_color(amount),
+    icon="square",
+    size=1.0,
+    z_index=0,
+    restore=False,
 )
 @grid_layer()
-@trajectory_layer(agent_layer_id="sugar", width=False, length="t_length")
-@bind_kwargs()
+@trajectory_layer(agent_layer_id="agents", width=False, length=10)
+@bind_kwargs(
+    custom_bindings={
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        )
+    }
+)
 @bind_datacollector()
 class Sugarscape(Model):
     z_agents = 50
@@ -164,15 +157,22 @@ class Sugarscape(Model):
         width: int,
         height: int,
         agent_count: int,
-        seed=None,
+        seed: int = 7,
         grid_type: str = "circular",
         sugar_growth_rate: int = 1,
-        metabolism_range: Tuple[float, float] = (1.0, 4.0),
-        vision_range: Tuple[int, int] = (1, 6),
-        initial_sugar_range: Tuple[float, float] = (5.0, 25.0),
+        metabolism_min: float = 1.0,
+        metabolism_max: float = 4.0,
+        vision_min: int = 1,
+        vision_max: int = 6,
+        initial_sugar_min: float = 5.0,
+        initial_sugar_max: float = 25.0,
         torus: bool = True,
     ):
         super().__init__(rng=seed)
+        self.agent_count = agent_count
+        self.grid_type = grid_type
+        self.seed = seed
+        self.torus = torus
         self.width = width
         self.height = height
         self.grid = OrthogonalMooreGrid(
@@ -181,7 +181,7 @@ class Sugarscape(Model):
 
         # 根据grid_type选择糖田生成方式
         if grid_type == "random":
-            self.sugar = sugar_field_random(width, height)
+            self.sugar = sugar_field_random(width, height, self.rng)
         elif grid_type == "circular":
             self.sugar = sugar_field_circular(width, height)
         else:
@@ -191,14 +191,20 @@ class Sugarscape(Model):
 
         self.sugar_max = np.copy(self.sugar)
         self.sugar_growth_rate = sugar_growth_rate
-        self.sugar_patches = [
-            SugarPatchView(self, (x, y)) for x in range(width) for y in range(height)
-        ]
 
         # 保存智能体属性范围，供创建智能体时使用
-        self.metabolism_range = metabolism_range
-        self.vision_range = vision_range
-        self.initial_sugar_range = initial_sugar_range
+        if not (
+            0 < metabolism_min <= metabolism_max
+            and 1 <= vision_min < vision_max
+            and 0 <= initial_sugar_min <= initial_sugar_max
+        ):
+            raise ValueError("invalid metabolism, vision or initial sugar bounds")
+        self.metabolism_min, self.metabolism_max = metabolism_min, metabolism_max
+        self.vision_min, self.vision_max = vision_min, vision_max
+        self.initial_sugar_min, self.initial_sugar_max = (
+            initial_sugar_min,
+            initial_sugar_max,
+        )
 
         self.create_agents(agent_count)
 
@@ -210,8 +216,19 @@ class Sugarscape(Model):
             }
         )
 
+    @property
+    def sugar_rows(self):
+        """Expose existing x/y storage as renderer rows/columns without wrapper agents."""
+        return self.sugar.T[::-1]
+
+    def distance(self, source, target):
+        dx, dy = abs(source[0] - target[0]), abs(source[1] - target[1])
+        if self.torus:
+            dx, dy = min(dx, self.width - dx), min(dy, self.height - dy)
+        return dx + dy
+
     def create_agents(self, agent_count):
-        sequence = np.random.choice(
+        sequence = self.rng.choice(
             self.width * self.height, (agent_count,), replace=False
         )
         for w in sequence:
@@ -221,6 +238,7 @@ class Sugarscape(Model):
             SugarAgent(self, self.grid[position])
 
     def step(self):
+        # Random sequential activation, then field regrowth and data collection.
         self.agents.shuffle_do("step")
         # 使用配置的糖增长速率
         self.sugar[self.sugar < self.sugar_max] += self.sugar_growth_rate

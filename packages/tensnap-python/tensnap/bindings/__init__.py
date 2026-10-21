@@ -15,10 +15,10 @@ from tensnap.models.parameter import Parameter
 from tensnap.utils.layer_topology import order_layers
 
 from .basic import *  # noqa: F403
-from .basic.action import get_action_metadata_from_namespace
-from .basic.chart import get_chart_metadata_from_namespace
+from .basic.action import action as action, get_action_metadata_from_namespace
+from .basic.chart import chart as chart, get_chart_metadata_from_namespace
 from .basic.layer import BindLayerConfig
-from .basic.monitor import get_monitor_metadata_from_namespace
+from .basic.monitor import get_monitor_metadata_from_namespace, monitor as monitor
 from .basic.parameter import (
     BindParametersConfig,
     get_parameter_metadata_from_object,

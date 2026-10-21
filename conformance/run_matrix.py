@@ -111,8 +111,11 @@ def source_digest(binding: str) -> str:
         *source_dir.rglob(f"*{suffix}"),
         *sorted((HERE / "traces").glob("*.json")),
         *fixture_files,
-        *(path for path in (ROOT / "packages/network/src").rglob("*.ts")
-          if not path.name.endswith((".test.ts", ".bench.ts"))),
+        *(
+            path
+            for path in (ROOT / "packages/network/src").rglob("*.ts")
+            if not path.name.endswith((".test.ts", ".bench.ts"))
+        ),
         ROOT / "packages/network/package.json",
         manifest,
         HERE / "run_matrix.py",
@@ -220,15 +223,15 @@ def apply_agent_frames(
             continue
         if message["type"] == "item_create":
             for item in payload["items"]:
-                assert (
-                    item["id"] not in inventory
-                ), f"duplicate agent create: {item['id']}"
+                assert item["id"] not in inventory, (
+                    f"duplicate agent create: {item['id']}"
+                )
                 inventory[item["id"]] = dict(item)
         elif message["type"] == "item_update":
             for item in payload["items"]:
-                assert (
-                    item["id"] in inventory
-                ), f"update before agent create: {item['id']}"
+                assert item["id"] in inventory, (
+                    f"update before agent create: {item['id']}"
+                )
                 inventory[item["id"]].update(item)
         else:
             for key in payload["items"]:
@@ -928,9 +931,9 @@ async def missing_capability_probe(binding: str, encoding: str) -> dict[str, Any
                     capture_error = (
                         await receive_until(ws, "error", "no-cap-capture")
                     )[-1]["payload"]
-                    assert (
-                        capture_error["code"] == "unsupported_capability"
-                    ), capture_error
+                    assert capture_error["code"] == "unsupported_capability", (
+                        capture_error
+                    )
                     rejected = await restore(
                         ws,
                         encoding,
@@ -1056,9 +1059,9 @@ async def client_bridge(
                 rows = json.loads(stdout)
                 for row in ("atomic_sync", "reconnect"):
                     rows[row]["evidence"]["host_state_unchanged"] = True
-                assert set(rows) == set(
-                    ROWS
-                ), f"renderer client rows missing: {sorted(set(ROWS) - set(rows))}"
+                assert set(rows) == set(ROWS), (
+                    f"renderer client rows missing: {sorted(set(ROWS) - set(rows))}"
+                )
                 return rows
             finally:
                 if process.returncode is None:
@@ -1117,9 +1120,9 @@ async def run_one(binding: str, encoding: str) -> dict[str, Any]:
                         )
                     except ProbeFailure as error:
                         rows = error.rows
-                        rows[error.row][
-                            "detail"
-                        ] += f"; host: {log_path.read_text()[-3000:]}"
+                        rows[error.row]["detail"] += (
+                            f"; host: {log_path.read_text()[-3000:]}"
+                        )
                     except Exception as error:
                         rows = {
                             "_probe": {
@@ -1352,9 +1355,9 @@ def verify_retained(directory: Path, *, check_sources: bool = False) -> None:
         (binding, encoding) for binding in BINDINGS for encoding in ENCODINGS[binding]
     }
     runs = retained["runs"]
-    assert len(runs) == len(
-        expected_pairs
-    ), "incomplete or duplicate binding/encoding runs"
+    assert len(runs) == len(expected_pairs), (
+        "incomplete or duplicate binding/encoding runs"
+    )
     assert {(run["binding"], run["encoding"]) for run in runs} == expected_pairs
     assert (directory / "MATRIX.md").read_text() == markdown(retained)
     for row in ROWS:
@@ -1367,9 +1370,9 @@ def verify_retained(directory: Path, *, check_sources: bool = False) -> None:
             assert set(run[field]) == set(ROWS), f"incomplete {field}"
             assert all(outcome["status"] == "pass" for outcome in run[field].values())
         if check_sources:
-            assert run["source_sha256"] == source_digest(
-                run["binding"]
-            ), "stale source digest"
+            assert run["source_sha256"] == source_digest(run["binding"]), (
+                "stale source digest"
+            )
     assert all(row["status"] == "pass" for row in retained["client"]["rows"].values())
     assert retained["protocol_traces"]["status"] == "pass"
     assert retained["canaries"]["status"] == "pass"

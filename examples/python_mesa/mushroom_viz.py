@@ -2,18 +2,15 @@
 
 import asyncio
 import os
-from typing import cast
 
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
-
+from mushroom import ForagingModel, MushroomState
 from tensnap import (
-    BoundModelReinitializer,
     SimulationScenario,
     chart,
+    mesa_model_time,
 )
-
-from mushroom import ForagingModel, Hunter, Patch
 
 # endregion
 
@@ -48,31 +45,30 @@ NUM_HUNTERS = 2
 def mushroom_stats_chart() -> dict[str, int]:
     """Get mushroom statistics"""
     assert model is not None
-    if model:
-        red_count = 0
-        yellow_count = 0
-        for patch in cast(list[Patch], model.agents_by_type[Patch]):
-            if patch.color == "red":
-                red_count += 1
-            elif patch.color == "yellow":
-                yellow_count += 1
-        return {
-            "red_mushrooms": red_count,
-            "collected_mushrooms": yellow_count,
-        }
-    return {"red_mushrooms": 0, "collected_mushrooms": 0}
+    return {
+        "red_mushrooms": sum(p.state == MushroomState.AVAILABLE for p in model.patches),
+        "collected_mushrooms": sum(
+            p.state == MushroomState.COLLECTED for p in model.patches
+        ),
+    }
 
 
-@chart("hunter_efficiency", "Hunter Efficiency", color="#3498DB")
-def hunter_efficiency_chart() -> float:
-    """Calculate average time since last found mushroom"""
+@chart("harvest_rate", "Cumulative Mushrooms per Hunter per Tick", color="#3498DB")
+def harvest_rate_chart() -> float:
+    """Count harvested resources per hunter per elapsed tick; zero at initialization."""
     assert model is not None
-    if model:
-        hunters = [a for a in model.hunters if isinstance(a, Hunter)]
-        if hunters:
-            avg_time = sum(h.time_since_last_found for h in hunters) / len(hunters)
-            return avg_time
-    return 0.0
+    return sum(h.collected for h in model.hunters) / max(
+        len(model.hunters) * mesa_model_time(model), 1
+    )
+
+
+@chart("search_age", "Ticks Since Last Find", color="#9B59B6")
+def search_age_chart() -> float:
+    """Search age starts at zero; before a first find it is time since initialization."""
+    assert model is not None
+    return sum(h.time_since_last_found for h in model.hunters) / max(
+        len(model.hunters), 1
+    )
 
 
 # endregion
@@ -89,16 +85,9 @@ async def main() -> None:
         patches_per_cluster=PATCHES_PER_CLUSTER,
         num_turtles=NUM_HUNTERS,
     )
-    reinitializer = BoundModelReinitializer(model)
     assert model is not None
 
-    reinitializer.register_model(scenario)
-    reinitializer.configure_reinit(scenario)
-    await scenario.register_model_handler(
-        model_init=reinitializer.model_init,
-        model_step=model.step,
-        model_reset=reinitializer.model_reset,
-    )
+    await scenario.register_model(model)
 
     scenario.add_all(globals())
 

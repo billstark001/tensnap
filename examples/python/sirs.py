@@ -8,21 +8,21 @@ epidemiological model with support for three different interaction structures:
 - Erdős-Rényi network (agents interact through random connections)
 """
 
-import numpy as np
-import networkx as nx
-from typing import List, Tuple, Optional
 from enum import IntEnum
+from typing import List, Tuple
 
-
+import networkx as nx
+import numpy as np
 from tensnap import (
-    env,
-    params,
-    agent_layer,
-    edge_layer,
-    grid_layer,
+    NumberParameter,
     agent,
-    uniform_agent,
+    agent_layer,
     chart,
+    edge_layer,
+    env,
+    grid_layer,
+    params,
+    uniform_agent,
 )
 
 
@@ -106,7 +106,8 @@ class Environment:
         self.num_agents = num_agents
         self.agents: List[Agent] = []
 
-    def init(self):
+    def init(self, rng: np.random.Generator):
+        """Rebuild any stochastic topology using the simulation-owned RNG."""
         pass
 
     def get_neighbors(self, agent_id: int) -> List[int]:
@@ -145,9 +146,19 @@ class WellMixedEnvironment(Environment):
 
 
 @env(id="sirs_grid")
-@grid_layer(width="rows", height="cols")
+@grid_layer(width="width", height="height")
 @agent_layer("agents")
-@params(include=["rows", "cols"])
+@params(
+    include=["rows", "cols"],
+    custom_bindings={
+        "rows": NumberParameter(
+            "", min=1, max=10000, step=1, allow_runtime_change=False
+        ),
+        "cols": NumberParameter(
+            "", min=1, max=10000, step=1, allow_runtime_change=False
+        ),
+    },
+)
 class GridEnvironment(Environment):
     """
     Rectangular grid environment where agents interact with their spatial neighbors.
@@ -167,14 +178,27 @@ class GridEnvironment(Environment):
         super().__init__(rows * cols)
         self.rows = rows
         self.cols = cols
+        self._active_rows, self._active_cols = rows, cols
+
+    @property
+    def width(self):
+        return self._active_cols
+
+    @property
+    def height(self):
+        return self._active_rows
+
+    def init(self, rng: np.random.Generator):
+        self._active_rows, self._active_cols = self.rows, self.cols
+        self.num_agents = self.rows * self.cols
 
     def _id_to_coords(self, agent_id: int) -> Tuple[int, int]:
         """Convert agent ID to grid coordinates."""
-        return agent_id // self.cols, agent_id % self.cols
+        return agent_id // self._active_cols, agent_id % self._active_cols
 
     def _coords_to_id(self, row: int, col: int) -> int:
         """Convert grid coordinates to agent ID."""
-        return row * self.cols + col
+        return row * self._active_cols + col
 
     def get_neighbors(self, agent_id: int) -> List[int]:
         """
@@ -192,7 +216,7 @@ class GridEnvironment(Environment):
         # Check all 4 directions
         for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
             new_row, new_col = row + dr, col + dc
-            if 0 <= new_row < self.rows and 0 <= new_col < self.cols:
+            if 0 <= new_row < self._active_rows and 0 <= new_col < self._active_cols:
                 neighbors.append(self._coords_to_id(new_row, new_col))
 
         return neighbors
@@ -206,7 +230,17 @@ class GridEnvironment(Environment):
     item_iterable_projector="graph.edges",
     item_dynamic_projector="render_tensnap_edge",
 )
-@params(include=["num_agents", "connection_prob"])
+@params(
+    include=["num_agents", "connection_prob"],
+    custom_bindings={
+        "num_agents": NumberParameter(
+            "", min=1, max=10000, step=1, allow_runtime_change=False
+        ),
+        "connection_prob": NumberParameter(
+            "", min=0, max=1, allow_runtime_change=False
+        ),
+    },
+)
 class ERNetworkEnvironment(Environment):
     """
     Erdős-Rényi random network environment.
@@ -222,7 +256,6 @@ class ERNetworkEnvironment(Environment):
         Args:
             num_agents: Number of agents (nodes in the network)
             connection_prob: Probability of connection between any two agents
-            seed: Random seed for reproducibility (optional)
         """
         super().__init__(num_agents)
         self.num_agents = num_agents
@@ -236,9 +269,9 @@ class ERNetworkEnvironment(Environment):
             "width": 0.1,
         }
 
-    def init(self, seed: Optional[int] = None):
+    def init(self, rng: np.random.Generator):
         self.graph = nx.erdos_renyi_graph(
-            self.num_agents, self.connection_prob, seed=seed
+            self.num_agents, self.connection_prob, seed=rng
         )
 
     def get_neighbors(self, agent_id: int) -> List[int]:
@@ -254,7 +287,15 @@ class ERNetworkEnvironment(Environment):
         return list(self.graph.neighbors(agent_id))
 
 
-@params(include=["beta", "gamma", "xi", "initial_infected"])
+@params(
+    include=["beta", "gamma", "xi", "initial_infected", "seed"],
+    custom_bindings={
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+        "initial_infected": NumberParameter("", step=1, allow_runtime_change=False),
+    },
+)
 class SIRSSimulation:
     """
     SIRS epidemic simulation manager.
@@ -270,6 +311,7 @@ class SIRSSimulation:
         gamma: float,
         xi: float,
         initial_infected: int = 1,
+        seed: int = 7,
     ):
         """
         Initialize the SIRS simulation.
@@ -282,6 +324,7 @@ class SIRSSimulation:
             initial_infected: Number of initially infected agents
             seed: Random seed for reproducibility (optional)
         """
+        self.seed = seed
         self.environment = environment
         self.beta = beta
         self.gamma = gamma
@@ -290,22 +333,21 @@ class SIRSSimulation:
 
         self.init()
 
-        self.last_states: Tuple[int, int, int] = (0, 0, 0)  # S, I, R counts
-
     def init(self):
+        self.rng = np.random.default_rng(self.seed)
+        self.environment.init(self.rng)
         # Initialize agents
         self.agents = [Agent(i) for i in range(self.environment.num_agents)]
         self.environment.agents = self.agents
-        self.environment.init()
 
         if isinstance(self.environment, GridEnvironment):
-            for agent in self.agents:
-                row, col = self.environment._id_to_coords(agent.id)
-                agent.grid_x = col
-                agent.grid_y = row
+            for person in self.agents:
+                row, col = self.environment._id_to_coords(person.id)
+                person.grid_x = col
+                person.grid_y = row
 
         # Randomly select initial infected agents
-        initial_infected_ids = np.random.choice(
+        initial_infected_ids = self.rng.choice(
             self.environment.num_agents,
             size=min(self.initial_infected, self.environment.num_agents),
             replace=False,
@@ -320,8 +362,8 @@ class SIRSSimulation:
     def count_states(self, add_history: bool = False) -> Tuple[int, int, int]:
         """Count agents in each state."""
         counts = [0, 0, 0]
-        for agent in self.agents:
-            counts[agent.state] += 1
+        for person in self.agents:
+            counts[person.state] += 1
         if add_history:
             self.history["susceptible"].append(counts[0])
             self.history["infected"].append(counts[1])
@@ -330,31 +372,31 @@ class SIRSSimulation:
 
     def step(self) -> None:
         """Execute one time step of the simulation."""
-        new_states = [agent.state for agent in self.agents]
+        new_states = [person.state for person in self.agents]
 
-        for agent in self.agents:
-            if agent.is_susceptible():
+        for person in self.agents:
+            if person.is_susceptible():
                 # S -> I: Check for infection from neighbors
-                neighbors = self.environment.get_neighbors(agent.id)
+                neighbors = self.environment.get_neighbors(person.id)
                 for neighbor_id in neighbors:
                     if self.agents[neighbor_id].is_infected():
-                        if np.random.random() < self.beta:
-                            new_states[agent.id] = State.INFECTED
+                        if self.rng.random() < self.beta:
+                            new_states[person.id] = State.INFECTED
                             break
 
-            elif agent.is_infected():
+            elif person.is_infected():
                 # I -> R: Recovery
-                if np.random.random() < self.gamma:
-                    new_states[agent.id] = State.RECOVERED
+                if self.rng.random() < self.gamma:
+                    new_states[person.id] = State.RECOVERED
 
-            elif agent.is_recovered():
+            elif person.is_recovered():
                 # R -> S: Loss of immunity
-                if np.random.random() < self.xi:
-                    new_states[agent.id] = State.SUSCEPTIBLE
+                if self.rng.random() < self.xi:
+                    new_states[person.id] = State.SUSCEPTIBLE
 
         # Update all agents simultaneously
-        for agent, new_state in zip(self.agents, new_states):
-            agent.update_state(new_state)
+        for person, new_state in zip(self.agents, new_states):
+            person.update_state(new_state)
 
         # Record current state counts
         self.last_states = self.count_states(add_history=True)

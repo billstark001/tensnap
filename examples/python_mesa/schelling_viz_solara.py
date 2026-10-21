@@ -1,8 +1,6 @@
 import solara
-
 from mesa.visualization import Slider, SolaraViz, SpaceRenderer, make_plot_component
 from mesa.visualization.components import AgentPortrayalStyle
-
 from schelling import SchellingAgent, SchellingModel
 
 
@@ -38,7 +36,7 @@ model_params = {
         0.01,
         dtype=float,  # type: ignore
     ),
-    "rng": {"type": "InputText", "value": 42, "label": "Random seed"},
+    "seed": Slider("Seed (initialization)", 7, 0, 2**31 - 1, 1, dtype=int),
 }
 
 model = SchellingModel()
@@ -52,5 +50,5 @@ page = SolaraViz(
     renderer,
     components=[SatisfiedPlot, model_summary],  # type: ignore
     model_params=model_params,
-    name="Schelling model: Go-equivalent dynamics",
+    name="Schelling batch relocation",
 )

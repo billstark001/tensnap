@@ -79,7 +79,7 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
       replacementCharts: 'array',
       checkpoint: 'object',
       time: 'number',
-      parameters: 'object',
+      parameters: 'array',
       envs: 'array',
       expected_instance_id: 'string',
       state_schema_version: 'string',

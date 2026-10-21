@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AgentRuntime } from './AgentRuntime';
-import { resolveRuntimeContextPaths } from './context';
+import { resolveRuntimeContextPaths } from './context-paths';
 import { RuntimeControlServer } from './control-server';
 
 const tempDirs: string[] = [];
@@ -210,7 +210,7 @@ describe('RuntimeControlServer', () => {
       capabilities: ['scene.restore.checkpoint', 'scene.restore.projected'],
     });
     try {
-      attachConnectedTransport(renderer, (message) => {
+      const sent = attachConnectedTransport(renderer, (message) => {
         if (message.type === 'scene_capture') {
           renderer.handleIncoming({
             type: 'scene_capture_result',
@@ -247,11 +247,26 @@ describe('RuntimeControlServer', () => {
       const restore = await fetch(`${baseUrl}/v1/scene/restore`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ time: 8 }),
+        body: JSON.stringify({ time: 8, parameters: [{ id: 'speed', value: 2 }] }),
       });
       expect(restore.status).toBe(200);
       expect(await restore.json()).toMatchObject({ status: 'ok' });
       expect(runtime.inspectScene().time).toBe(8);
+      expect(sent).toContainEqual(
+        expect.objectContaining({
+          type: 'scene_restore',
+          payload: expect.objectContaining({ parameters: [{ id: 'speed', value: 2 }] }),
+        }),
+      );
+      const sentCount = sent.length;
+      const invalid = await fetch(`${baseUrl}/v1/scene/restore`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ parameters: { speed: 2 } }),
+      });
+      expect(invalid.status).toBe(400);
+      expect((await invalid.json()).error).toMatch(/parameters.*array/);
+      expect(sent).toHaveLength(sentCount);
     } finally {
       await server.close();
       await runtime.stop();

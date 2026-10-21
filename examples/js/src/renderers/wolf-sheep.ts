@@ -35,6 +35,7 @@ type AnimalObj = { position: { x: number; y: number }; heading: number; config: 
 
 export const DEFAULT_WOLF_SHEEP_CONFIG: WolfSheepConfig = {
   modelVersion: 'sheep-wolves-grass',
+  seed: 7,
   initialNumberSheep: 100,
   initialNumberWolves: 50,
   sheepGainFromFood: 4,
@@ -207,6 +208,13 @@ builder.paramsFromConfig<WolfSheepConfig>({
     runtime.model.updateConfig(patch as Partial<ReturnType<WolfSheepModel['getConfig']>>);
   },
   fields: {
+    seed: numberField({
+      label: 'Seed (next reset)',
+      min: 0,
+      max: 0xffffffff,
+      integer: true,
+      runtime: false,
+    }),
     modelVersion: enumField({
       label: 'Model Version',
       options: ['sheep-wolves', 'sheep-wolves-grass'],

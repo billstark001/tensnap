@@ -1,14 +1,13 @@
-from typing import List, Any, Dict
-
-import numpy as np
-import networkx as nx
 import random
+from typing import Any, Dict, List
 
-
+import networkx as nx
+import numpy as np
 from tensnap import (
-    env,
+    NumberParameter,
     agent_layer,
     edge_layer,
+    env,
     params,
 )
 
@@ -32,9 +31,19 @@ from tensnap import (
         "k_random",
         "rewire_prob",
         "edge_prob",
-    ]
+        "seed",
+    ],
+    custom_bindings={
+        "seed": NumberParameter(
+            "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+        "n_agents": NumberParameter(
+            "", min=1, max=10000, step=1, allow_runtime_change=False
+        ),
+        "edge_prob": NumberParameter("", min=0, max=1, allow_runtime_change=False),
+    },
 )
-class DiscreteHKModel:
+class AdaptiveNetworkHKModel:
     def __init__(
         self,
         n_agents: int,
@@ -44,9 +53,13 @@ class DiscreteHKModel:
         rewire_prob: float = 0.1,
         initial_opinions: List[float] | None = None,
         edge_prob: float = 0.1,
+        seed: int = 7,
     ):
         """
-        离散Hegselmann-Krause模型
+        HK-inspired continuous-opinion model on an adaptive directed network.
+
+        Opinions update synchronously; rewiring follows in agent ID order.
+        Random contacts are sampled from non-neighbors, so each contact has one vote.
 
         参数:
         n_agents: 主体数量
@@ -57,6 +70,9 @@ class DiscreteHKModel:
         initial_opinions: 初始意见分布
         edge_prob: 初始图的边概率
         """
+        self.seed = seed
+        self.random = random.Random(seed)
+        self.rng = np.random.default_rng(seed)
         self.n_agents = n_agents
         self.confidence_bound = confidence_bound
         self.influence_strength = influence_strength
@@ -96,9 +112,11 @@ class DiscreteHKModel:
         }
 
     def init(self):
+        self.random.seed(self.seed)
+        self.rng = np.random.default_rng(self.seed)
         # 初始化意见
         if self.initial_opinions is None:
-            self.opinions = np.random.uniform(-1, 1, self.n_agents)
+            self.opinions = self.rng.uniform(-1, 1, self.n_agents)
         else:
             raw = np.asarray(self.initial_opinions, dtype=float)
             if raw.ndim == 0:
@@ -111,10 +129,12 @@ class DiscreteHKModel:
                 raise ValueError(
                     f"initial_opinions length mismatch: expected {self.n_agents}, got {raw.size}."
                 )
-            self.opinions = raw.reshape(-1)
+            self.opinions = raw.reshape(-1).copy()
 
         # 创建有向E-R图
-        self.graph = nx.erdos_renyi_graph(self.n_agents, self.edge_prob, directed=True)
+        self.graph = nx.erdos_renyi_graph(
+            self.n_agents, self.edge_prob, directed=True, seed=self.random
+        )
 
         # 记录历史
         self.opinion_history = [self.opinions.copy()]
@@ -142,10 +162,13 @@ class DiscreteHKModel:
                 influence_count += 1
 
         # 随机k个主体的影响
-        all_agents = list(range(self.n_agents))
-        all_agents.remove(agent_id)  # 移除自己
+        all_agents = [
+            i for i in range(len(self.opinions)) if i != agent_id and i not in neighbors
+        ]
 
-        k_random_agents = random.sample(all_agents, min(self.k_random, len(all_agents)))
+        k_random_agents = self.random.sample(
+            all_agents, min(self.k_random, len(all_agents))
+        )
         for random_agent in k_random_agents:
             random_opinion = self.opinions[random_agent]
             if abs(current_opinion - random_opinion) <= self.confidence_bound:
@@ -179,7 +202,7 @@ class DiscreteHKModel:
         current_opinion = self.opinions[agent_id]
         compatible_agents = []
 
-        for other_agent in range(self.n_agents):
+        for other_agent in range(len(self.opinions)):
             if (
                 other_agent != agent_id
                 and abs(current_opinion - self.opinions[other_agent])
@@ -189,19 +212,19 @@ class DiscreteHKModel:
                 compatible_agents.append(other_agent)
 
         if compatible_agents:
-            return random.choice(compatible_agents)
+            return self.random.choice(compatible_agents)
         return None
 
     def rewire_connections(self) -> Dict[str, int]:
         """重新连接网络"""
         rewire_stats = {"disconnections": 0, "new_connections": 0}
 
-        for agent_id in range(self.n_agents):
+        for agent_id in range(len(self.opinions)):
             incompatible = self.find_incompatible_connections(agent_id)
 
-            if incompatible and random.random() < self.rewire_prob:
+            if incompatible and self.random.random() < self.rewire_prob:
                 # 随机选择一个不兼容的连接断开
-                to_disconnect = random.choice(incompatible)
+                to_disconnect = self.random.choice(incompatible)
                 self.graph.remove_edge(agent_id, to_disconnect)
                 rewire_stats["disconnections"] += 1
 
@@ -216,13 +239,13 @@ class DiscreteHKModel:
     def step(self) -> Dict[str, Any]:
         """执行一次迭代"""
         # 同步更新意见
-        new_opinions = np.zeros(self.n_agents)
-        for agent_id in range(self.n_agents):
+        new_opinions = np.zeros_like(self.opinions)
+        for agent_id in range(len(self.opinions)):
             new_opinions[agent_id] = self.calculate_opinion_influence(agent_id)
 
         self.opinions = new_opinions
 
-        # 同步重新连接
+        # Rewire sequentially using the newly committed opinions.
         rewire_stats = self.rewire_connections()
 
         # 记录历史

@@ -51,8 +51,7 @@ builder.env('world').agentLayer('agents', {
     item_projector=lambda agent: {"id": agent.id, "data": deepcopy(agent.data)},
     projector_owns_values=True,
 )
-class Model:
-    ...
+class Model: ...
 ```
 
 ```go
