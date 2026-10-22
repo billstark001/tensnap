@@ -15,6 +15,8 @@ from ._parameter_declarations import UNSET, BindParameterConfig, BindParametersC
 
 def type_hints(target: Any, names: Collection[str]) -> dict[str, Any]:
     """Resolve relevant annotations without swallowing name-resolution errors."""
+    if not isinstance(target, type):
+        target = inspect.unwrap(target)
     if not isinstance(target, type) and not hasattr(target, "__annotations__"):
         return {}
 
@@ -27,7 +29,7 @@ def type_hints(target: Any, names: Collection[str]) -> dict[str, Any]:
                 )
             )
         return result
-    return _selected_hints(target, names, inspect.unwrap(target).__globals__)
+    return _selected_hints(target, names, target.__globals__)
 
 
 def _selected_hints(
