@@ -26,6 +26,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/python [0.3.5] - 2026-10-23
+
+### Fixed
+
+- Resolve one parameter per source field before inference, preserving custom enums, class/constructor declaration priority, explicit private-name policies and current instance values. Reject ambiguous declarations and duplicate public IDs before registering a parameter batch ([#38](https://github.com/billstark001/tensnap/issues/38)).
+- Preserve getter/setter identity and copy only mutable parameter metadata. Serialization never traverses callback owners; omitted accessors are retained and explicit `None` clears them ([#41](https://github.com/billstark001/tensnap/issues/41)).
+- Exclude chart/monitor members from automatic controls before evaluating getters, skip inferred read-only properties and reject explicit controls without writable accessors. Discover inherited observers and actions once ([#42](https://github.com/billstark001/tensnap/issues/42)).
+- Use the same parameter-selection rules for lifecycle planning and explicit registration, preserving model-owned accessors and staged constructor values across reset and restore.
+
+### Changed
+
+- Separate parameter declarations, metadata resolution and source discovery behind the public binding API. Replace example workarounds with single declarations, native property setters and explicit initialization controls; retain Sugarscape enum choices and Schelling's `similarityThreshold` ID.
+- Cover real Python/Mesa, LLM and DQN examples with parameter inventory and reset regression tests. Remove whole-file Ruff exclusions and check library source, runtime tests, benchmarks and Python examples for lint and formatting.
+- Align the API reference, user/developer guides and example documentation with parameter precedence, copying, write access and constructor ownership.
+
+## @tensnap/agent [0.3.9] - 2026-10-23
+
+### Changed
+
+- Bundle the updated Python parameter-binding contract, ownership guide and binding skill with the offline CLI documentation.
+
+## @tensnap/tauri [0.3.9] - 2026-10-23
+
+### Changed
+
+- Prepare a new full-platform desktop release from the Python binding and repository cleanup release checkout, including the Windows executable and platform installers.
+
+## @tensnap/benchmark [0.3.8] - 2026-10-23
+
+### Changed
+
+- Clean lint findings in Python archive helpers and Schelling adapters, and format Julia benchmark adapters. Refresh current Julia environment fingerprints after the binding version bump. Scientific workloads, metrics, active profile versions and retained evidence are unchanged.
+
+## @tensnap/julia [0.3.4] - 2026-10-23
+
+### Changed
+
+- Apply the package's two-space Julia formatting to tests and benchmarks, and include them in package lint/format commands. Model and protocol behavior are unchanged.
+
+## @tensnap/examples-julia [0.3.4] - 2026-10-23
+
+### Changed
+
+- Format Julia example sources and tests consistently and replace placeholder lint/format commands with JuliaFormatter checks.
+
+## tensnap [0.3.4] - 2026-10-23
+
+### Fixed
+
+- Run conformance subprocess checks without blocking the async runner and bind each fingerprint canary's source path independently. Clean repository Python/Julia formatting findings, add root language-specific lint/format commands and document the expanded checks.
+
 ## @tensnap/web [0.3.10] - 2026-10-23
 
 ### Added

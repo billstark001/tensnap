@@ -105,7 +105,9 @@ class Aviary:
         self.birds = [Bird(1, (2, 3))]
 ```
 
-`SimulationScenario` registers the renderer-driven built-in actions `start`, `step`, and `reset` during construction. The initial synchronized state is always time `0`, and the first simulated tick emitted by `start` or `step` is `1`. For model lifecycle, use `await scenario.register_model(model)` to register declarations and constructor-driven stepping/reset. Use `scenario.add_all(target)` for separate declarations. Parameters are opt-in with `@params(...)` or an explicit config.
+`SimulationScenario` registers the renderer-driven built-in actions `start`, `step`, and `reset` during construction. The initial synchronized state is always time `0`, and the first simulated tick emitted by `start` or `step` is `1`. For model lifecycle, use `await scenario.register_model(model)` to register declarations and constructor-driven stepping/reset. Use `scenario.add_all(target)` for separate declarations. Explicit parameter declarations are included by default; `@params(...)` or a supplied config opts plain attributes into automatic discovery.
+
+Declare each control once by source field, using `Annotated[..., param(...)]`, a `@param` getter with a same-name setter, or ordered `custom_bindings`. Instance readback uses the current value. Explicit metadata takes priority over scalar inference; chart/monitor getters stay observations unless explicitly declared as writable controls. Constructor-only controls stage values for reset, while model-owned controls retain their accessors. See the [parameter contract](../../docs/api-reference/python-api.md#parameter-declarations-and-discovery) for precedence, complete custom definitions and conflict validation.
 
 The older manual `register_model_handler(model_init=None, model_step=None, model_reset=None)` path lets explicit adapters keep `reset` distinct from `init`. If `model_reset` is omitted, the default handler falls back to `model_init`.
 

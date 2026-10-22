@@ -27,7 +27,7 @@ from tensnap.models import (
 )
 from tensnap.protocol import compute_chart_deltas
 from tensnap.scenario import DefaultSimulationHandler, SimulationScenario
-from tensnap.server import ServerToClientMessageType as MT
+from tensnap.server import ServerToClientMessageType as MessageType
 
 
 class TestSimulationScenario:
@@ -63,7 +63,7 @@ class TestSimulationScenario:
                 layer_id="agents",
                 layer_type="agent",
                 item_keys=("id",),
-                items_projector=lambda layer: list(layer),
+                items_projector=list,
             ),
             agents,
         )
@@ -128,6 +128,10 @@ class TestSimulationScenario:
             @BindParameterConfig("number", id="speed", min=0.0, max=100.0)
             def speed(self):
                 return self._speed
+
+            @speed.setter
+            def speed(self, value):
+                self._speed = value
 
         changes = scenario.add_parameters(Config())
 
@@ -209,7 +213,7 @@ class TestSimulationScenario:
         await scenario.broadcast_monitors(ws)
         scenario.server.send.assert_awaited_once_with(
             ws,
-            MT.MONITOR_UPDATE,
+            MessageType.MONITOR_UPDATE,
             {"id": "status", "value": {"value": 2}},
         )
 
@@ -233,9 +237,9 @@ class TestSimulationScenario:
         assert model.value == 2
         assert model.restored["time"] == 7
         message_types = [call.args[1] for call in scenario.server.send.await_args_list]
-        assert MT.CHART_CREATE not in message_types
-        assert MT.CHART_UPDATE not in message_types
-        assert MT.CHART_DELETE not in message_types
+        assert MessageType.CHART_CREATE not in message_types
+        assert MessageType.CHART_UPDATE not in message_types
+        assert MessageType.CHART_DELETE not in message_types
 
     @pytest.mark.asyncio
     async def test_checkpoint_only_restore_receives_decoded_model_data(
@@ -260,9 +264,7 @@ class TestSimulationScenario:
         scenario.add_all(model)
         info = scenario.server.simulator_info_payload
         assert info is not None
-        assert info["capabilities"] == [
-            "scene.restore.checkpoint"
-        ]
+        assert info["capabilities"] == ["scene.restore.checkpoint"]
 
         scenario.server.send = AsyncMock()
         ws = object()
@@ -283,7 +285,7 @@ class TestSimulationScenario:
         assert model.value == 2
         scenario.server.send.assert_any_await(
             ws,
-            MT.SCENE_RESTORE_END,
+            MessageType.SCENE_RESTORE_END,
             {"request_id": "restore-only", "status": "ok"},
         )
 
@@ -488,7 +490,7 @@ class TestSimulationScenario:
                 layer_id="agents",
                 layer_type="agent",
                 item_keys=("id",),
-                items_projector=lambda layer: list(layer),
+                items_projector=list,
             ),
             [],
         )
@@ -528,7 +530,7 @@ class TestSimulationScenario:
                 layer_id="agents",
                 layer_type="agent",
                 item_keys=("id",),
-                items_projector=lambda layer: list(layer),
+                items_projector=list,
             ),
             [],
         )
@@ -623,7 +625,9 @@ class TestSimulationScenario:
         handler.on_init.assert_awaited_once_with()
         handler.on_step.assert_not_called()
         assert scenario._time_step == 0
-        scenario.server.send.assert_any_await(ws, MT.METADATA_UPDATE, {"time": 0})
+        scenario.server.send.assert_any_await(
+            ws, MessageType.METADATA_UPDATE, {"time": 0}
+        )
 
     @pytest.mark.asyncio
     async def test_state_sync_replace_replays_objects_despite_stale_inventory(
@@ -649,7 +653,7 @@ class TestSimulationScenario:
 
         scenario.server.send.assert_any_await(
             ws,
-            MT.STATE_SYNC_BEGIN,
+            MessageType.STATE_SYNC_BEGIN,
             {
                 "request_id": "sync-replace",
                 "model_id": scenario.model_id,
@@ -658,7 +662,7 @@ class TestSimulationScenario:
             },
         )
         scenario.server.send.assert_any_await(
-            ws, MT.ENV_CREATE, {"id": "world", "type": "2d"}
+            ws, MessageType.ENV_CREATE, {"id": "world", "type": "2d"}
         )
 
     @pytest.mark.asyncio
@@ -691,10 +695,10 @@ class TestSimulationScenario:
             (call.args[1], call.args[2])
             for call in scenario.server.send.await_args_list
         ]
-        delete_index = calls.index((MT.MONITOR_DELETE, {"id": "status"}))
+        delete_index = calls.index((MessageType.MONITOR_DELETE, {"id": "status"}))
         create_index = calls.index(
             (
-                MT.MONITOR_CREATE,
+                MessageType.MONITOR_CREATE,
                 {"id": "status", "label": "Status", "render_hint": "tree"},
             )
         )
@@ -731,9 +735,9 @@ class TestSimulationScenario:
             (call.args[0], call.args[1])
             for call in scenario.server.broadcast.await_args_list
         ]
-        delete_index = calls.index((MT.MONITOR_DELETE, {"id": "status"}))
+        delete_index = calls.index((MessageType.MONITOR_DELETE, {"id": "status"}))
         create = (
-            MT.MONITOR_CREATE,
+            MessageType.MONITOR_CREATE,
             {
                 "id": "status",
                 "label": "Updated",
@@ -844,7 +848,7 @@ class TestDefaultSimulationHandler:
                 layer_id="agents",
                 layer_type="agent",
                 item_keys=("id",),
-                items_projector=lambda layer: list(layer),
+                items_projector=list,
             ),
             agents,
         )
@@ -858,17 +862,17 @@ class TestDefaultSimulationHandler:
 
         scenario.server.broadcast_metadata_update.assert_awaited_once_with({"time": 0})
         assert any(
-            call.args[0] == MT.ENV_CREATE
+            call.args[0] == MessageType.ENV_CREATE
             for call in scenario.server.broadcast.await_args_list
         )
         assert any(
-            call.args[0] == MT.ENV_LAYER_CREATE
+            call.args[0] == MessageType.ENV_LAYER_CREATE
             for call in scenario.server.broadcast.await_args_list
         )
         item_creates = [
             call
             for call in scenario.server.broadcast.await_args_list
-            if call.args[0] == MT.ITEM_CREATE
+            if call.args[0] == MessageType.ITEM_CREATE
         ]
         assert item_creates
         assert item_creates[0].args[1]["items"] == [{"id": "a1", "x": 1, "y": 2}]
@@ -887,7 +891,7 @@ class TestDefaultSimulationHandler:
                 layer_id="agents",
                 layer_type="agent",
                 item_keys=("id",),
-                items_projector=lambda layer: list(layer),
+                items_projector=list,
             ),
             agents,
         )
@@ -906,7 +910,7 @@ class TestDefaultSimulationHandler:
         item_updates = [
             call
             for call in scenario.server.broadcast.await_args_list
-            if call.args[0] == MT.ITEM_UPDATE
+            if call.args[0] == MessageType.ITEM_UPDATE
         ]
         assert item_updates
         assert item_updates[0].args[1]["items"] == [{"id": "a1", "x": 3}]

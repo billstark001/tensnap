@@ -1,7 +1,7 @@
 # tensnap/bindings/mesa/datacollector.py
 """Utility functions for working with Mesa 3 DataCollector"""
 
-from typing import Any, Dict, List, Type
+from typing import Any
 
 from tensnap.bindings.ownership import attach_class_metadata
 from tensnap.models.chart import (
@@ -54,7 +54,7 @@ def get_registered_agent_collectors(datacollector: Any) -> list[str]:
 def make_latest_data_projector(
     reporter_keys: list[str],
     datacollector_key: str = "datacollector",
-    output_keys: Dict[str, str] | None = None,
+    output_keys: dict[str, str] | None = None,
 ):
     _closure_datacollector_key = datacollector_key
     _closure_reporter_keys = reporter_keys.copy()
@@ -73,9 +73,9 @@ def make_latest_data_projector(
 
         return f_single
 
-    def f(self: Any) -> Dict[str, Any]:
+    def f(self: Any) -> dict[str, Any]:
         dc = getattr(self, _closure_datacollector_key)
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for key in _closure_reporter_keys:
             values = dc.model_vars.get(key, None)
             output_key = _closure_output_keys.get(key, key)
@@ -100,15 +100,15 @@ class BindDataCollectorConfig:
     def __init__(
         self,
         collector_key: str = "datacollector",
-        model_reporters: bool | List[str] = True,
-        agent_reporters: bool | List[str] = False,
-        groups: bool | Dict[str, List[str]] = False,
+        model_reporters: bool | list[str] = True,
+        agent_reporters: bool | list[str] = False,
+        groups: bool | dict[str, list[str]] = False,
     ):
         self.collector_key = collector_key
         self.model_reporters = model_reporters
         self.agent_reporters = agent_reporters  # TODO this is unimplemented
         self.groups = groups
-        self.bound_class: Type[Any] | None = None
+        self.bound_class: type[Any] | None = None
         self.func_injected = False
         self.init_hook_handle: OnceInitHookHandle[Any] | None = None
 
@@ -135,7 +135,7 @@ class BindDataCollectorConfig:
                 f"Instance does not have attribute '{self.collector_key}'"
             )
 
-        model_reporters: List[str]
+        model_reporters: list[str]
         if isinstance(self.model_reporters, list):
             model_reporters = self.model_reporters.copy()
         elif self.model_reporters is True:
@@ -151,12 +151,12 @@ class BindDataCollectorConfig:
             return
 
         # Determine groups
-        model_groups: Dict[str, List[str]] = {}
+        model_groups: dict[str, list[str]] = {}
         if self.groups is True:
             # Auto-generate groups based on reporter name prefixes
             model_groups["Model Parameters"] = model_reporters
         elif isinstance(self.groups, dict):
-            reverse_groups: Dict[str, str] = {}
+            reverse_groups: dict[str, str] = {}
             if isinstance(self.groups, dict):
                 for group_name, reporters in self.groups.items():
                     for reporter in reporters:
@@ -166,7 +166,7 @@ class BindDataCollectorConfig:
                     group_name = reverse_groups[reporter]
                 else:
                     group_name = _guess_name(reporter)
-                if not group_name in model_groups:
+                if group_name not in model_groups:
                     model_groups[group_name] = []
                 model_groups[group_name].append(reporter)
         else:

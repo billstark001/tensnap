@@ -10,8 +10,6 @@ Or from the repo root via the package.json script:
 from __future__ import annotations
 
 import sys
-
-# ruff: noqa: E402
 from pathlib import Path
 
 import solara
@@ -29,7 +27,7 @@ EXAMPLES_DIR = Path(__file__).resolve().parents[1]
 if str(EXAMPLES_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLES_DIR))
 
-from python_dqn import import_config as import_config  # noqa: F401
+from python_dqn import import_config  # noqa: F401 — configure the local binding import
 from python_dqn.config import (
     FIRE_EVACUATION_CHECKPOINT_SCHEMA,
     DQNConfig,

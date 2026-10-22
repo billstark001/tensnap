@@ -7,15 +7,13 @@ import os
 from pathlib import Path
 
 import import_config  # noqa: F401
-
-from tensnap import SimulationScenario, chart
-
 from predator_prey import (
-    PredatorPreyConfig,
-    PredatorPreySimulation,
     SHEEP_ASSET_ID,
     WOLF_ASSET_ID,
+    PredatorPreyConfig,
+    PredatorPreySimulation,
 )
+from tensnap import SimulationScenario, chart
 
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port, step_interval=0.15)

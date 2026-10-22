@@ -1,6 +1,5 @@
-from typing import Any, Dict, TypeVar, Type
-
 import inspect
+from typing import Any, TypeVar
 
 TKey = TypeVar("TKey", bound=str)
 TValue = TypeVar("TValue")
@@ -8,9 +7,9 @@ TClass = TypeVar("TClass")
 
 
 def dict_diff(
-    last: Dict[TKey, TValue], current: Dict[TKey, TValue]
-) -> Dict[TKey, TValue]:
-    diff_dict: Dict[TKey, TValue] = {}
+    last: dict[TKey, TValue], current: dict[TKey, TValue]
+) -> dict[TKey, TValue]:
+    diff_dict: dict[TKey, TValue] = {}
     for key, value in current.items():
         if key not in last or value != last[key]:
             diff_dict[key] = value
@@ -36,7 +35,7 @@ def _extend_member_name(member: Any) -> str | None:
     return getattr(wrapped_func, "__name__", None)
 
 
-def _existing_property(cls: Type[TClass], name: str) -> property:
+def _existing_property(cls: type[TClass], name: str) -> property:
     current = getattr(cls, name, None)
     if not isinstance(current, property):
         raise TypeError(f"Cannot extend {cls.__name__}.{name} as a property accessor.")
@@ -44,7 +43,7 @@ def _existing_property(cls: Type[TClass], name: str) -> property:
 
 
 def extend(
-    cls: Type[TClass],
+    cls: type[TClass],
     name: str | None = None,
     *,
     setter: bool = False,
@@ -92,7 +91,7 @@ def extend(
     return decorator
 
 
-def get_init_args(cls: Type[TClass]):
+def get_init_args(cls: type[TClass]):
     sig = inspect.signature(cls)
     result = {}
 

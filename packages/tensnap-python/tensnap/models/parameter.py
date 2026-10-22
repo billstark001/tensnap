@@ -1,5 +1,7 @@
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from copy import deepcopy
+from dataclasses import dataclass, field, fields
+from enum import Enum
 from typing import Any, Literal, TypeAlias
 
 from typing_extensions import NotRequired, TypedDict
@@ -7,6 +9,18 @@ from typing_extensions import NotRequired, TypedDict
 from tensnap.utils.object import infer_label_from_id
 
 ParameterType: TypeAlias = Literal["number", "enum", "boolean", "string"]
+
+
+class _KeepAccessor(Enum):
+    DEFAULT = 0
+
+
+_WIRE_FIELDS = {
+    "number": ("value", "min", "max", "step"),
+    "enum": ("value", "options", "labels"),
+    "boolean": ("value",),
+    "string": ("value",),
+}
 
 
 class ParameterState(TypedDict):
@@ -45,11 +59,19 @@ class ParameterBinding:
     def __post_init__(self) -> None:
         self.refresh_label()
 
+    def _copy_definition(self) -> dict[str, Any]:
+        """Detach metadata containers without traversing runtime accessors."""
+        names = ("id", "type", "label", "allow_runtime_change")
+        names += _WIRE_FIELDS[self.type]
+        return {
+            item.name: deepcopy(getattr(self, item.name))
+            for item in fields(self)
+            if item.name in names
+        }
+
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to dict for communication without getter/setter."""
-        d = asdict(self)
-        d.pop("setter", None)
-        d.pop("getter", None)
+        """Serialize only wire metadata, never inspecting callback owners."""
+        d = self._copy_definition()
         # A v0.3 binding emits canonical snake_case only.  In particular, do
         # not leak dataclass ``None`` values: protocol optional fields must be
         # omitted rather than encoded as JSON null.
@@ -57,13 +79,15 @@ class ParameterBinding:
 
     def instantiate(
         self,
-        getter: Callable[..., Any] | None = None,
-        setter: Callable[..., Any] | None = None,
+        getter: Callable[..., Any] | _KeepAccessor | None = _KeepAccessor.DEFAULT,
+        setter: Callable[..., Any] | _KeepAccessor | None = _KeepAccessor.DEFAULT,
     ) -> "Parameter":
-        ret = create_parameter(**asdict(self))
-        ret.getter = getter
-        ret.setter = setter
-        return ret
+        """Clone metadata, retaining accessors unless explicitly replaced/cleared."""
+        return create_parameter(
+            **self._copy_definition(),
+            getter=self.getter if isinstance(getter, _KeepAccessor) else getter,
+            setter=self.setter if isinstance(setter, _KeepAccessor) else setter,
+        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ParameterBinding":

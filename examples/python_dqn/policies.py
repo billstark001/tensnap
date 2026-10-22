@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import random
-from typing import Callable, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 from torch import Tensor
 

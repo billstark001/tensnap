@@ -25,6 +25,7 @@ def benchmark(
     count: int,
     iterations: int,
     repeat: int,
+    *,
     projection: str = "custom",
     phase: str = "diff",
 ) -> dict[str, Any]:
@@ -109,8 +110,8 @@ def main() -> None:
                     args.count,
                     args.iterations,
                     args.repeat,
-                    args.projection,
-                    args.phase,
+                    projection=args.projection,
+                    phase=args.phase,
                 )
             )
         )

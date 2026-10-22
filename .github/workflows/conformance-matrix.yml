@@ -33,6 +33,10 @@ jobs:
           python-version: '3.12'
       - run: python -m pip install -e 'packages/tensnap-python[dev]'
       - run: pnpm --filter @tensnap/python lint
+      - name: Build protocol schemas for Python wire validation
+        run: pnpm --filter @tensnap/protocol build
+      - name: Run Python binding and example regression tests
+        run: python -m pytest -q -o addopts='' packages/tensnap-python/tests
       - uses: actions/setup-go@v5
         with:
           go-version-file: packages/tensnap-go/go.mod

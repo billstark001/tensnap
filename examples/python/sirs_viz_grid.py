@@ -4,12 +4,11 @@ import os
 # Configure import path (pip-installed vs source)
 import import_config  # noqa: F401
 
+# Import the pure simulation logic
+from sirs import GridEnvironment, SIRSSimulation
 from tensnap import (
     SimulationScenario,
 )
-
-# Import the pure simulation logic
-from sirs import SIRSSimulation, GridEnvironment
 
 server_port = int(os.environ.get("TENSNAP_SERVER_PORT", "8765"))
 scenario = SimulationScenario(port=server_port, use_msgpack=True)

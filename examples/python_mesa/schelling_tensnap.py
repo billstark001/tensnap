@@ -30,7 +30,6 @@ from tensnap import (
     grid_layer,
     params,
 )
-from tensnap.bindings import BindParameterConfig
 
 # ``decorator(...)(Class)`` is the function-call form of ``@decorator(...)``.
 agent(
@@ -46,22 +45,19 @@ env()(SchellingModel)
 bind_kwargs(exclude=["collect_data"])(SchellingModel)
 bind_datacollector()(SchellingModel)
 
-# Preserve the ordinary model property's getter/setter and the public UI id.
-SchellingModel.similarity_threshold = BindParameterConfig(
-    "number", id="similarityThreshold", min=0, max=1, step=0.05
-)(SchellingModel.similarity_threshold.fget).setter(
-    SchellingModel.similarity_threshold.fset
-)
 params(
     include=["width", "height", "density", "balance", "similarity_threshold", "seed"],
     custom_bindings={
-        "width": NumberParameter("", step=1, allow_runtime_change=False),
-        "height": NumberParameter("", step=1, allow_runtime_change=False),
+        "width": NumberParameter("", min=1, step=1, allow_runtime_change=False),
+        "height": NumberParameter("", min=1, step=1, allow_runtime_change=False),
         "density": NumberParameter(
             "", min=0, max=1, step=0.05, allow_runtime_change=False
         ),
         "balance": NumberParameter(
             "", min=0, max=1, step=0.05, allow_runtime_change=False
+        ),
+        "similarity_threshold": NumberParameter(
+            "similarityThreshold", min=0, max=1, step=0.05
         ),
         "seed": NumberParameter(
             "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False

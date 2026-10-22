@@ -17,13 +17,8 @@ from dataclasses import dataclass
 from types import ModuleType
 from typing import (
     Any,
-    Dict,
     Generic,
-    List,
-    Optional,
-    Tuple,
     TypeVar,
-    Union,
 )
 from uuid import uuid4
 
@@ -31,6 +26,10 @@ from . import bindings as binding_api
 from ._version import PROTOCOL_VERSION, __version__
 from .bindings import (
     BindParametersConfig,
+)
+from .bindings._parameter_discovery import (
+    registration_parameter_configs,
+    validate_parameter_accessors,
 )
 from .bindings.basic.restore import decode_checkpoint, encode_checkpoint
 from .bindings.lifecycle import (
@@ -67,14 +66,14 @@ from .protocol import (
     layer_dependency_layer_ids,
     layer_items,
 )
-from .server import ServerToClientMessageType as MT, TenSnapServer
+from .server import ServerToClientMessageType as MessageType, TenSnapServer
 from .utils.attr import make_attr_getter_and_setter, make_dict_getter_and_setter
 from .utils.func import call_function
 
 logger = logging.getLogger(__name__)
 
 
-def _registry_change(kind: str, ids: Iterable[str]) -> Dict[str, List[str]]:
+def _registry_change(kind: str, ids: Iterable[str]) -> dict[str, list[str]]:
     return {kind: list(ids)}
 
 
@@ -82,13 +81,13 @@ def _layer_registry_id(env_id: str, layer_id: str) -> str:
     return f"{env_id}.{layer_id}"
 
 
-def _layer_registry_ids(env_id: str, layer_ids: Iterable[str]) -> List[str]:
+def _layer_registry_ids(env_id: str, layer_ids: Iterable[str]) -> list[str]:
     return [_layer_registry_id(env_id, layer_id) for layer_id in layer_ids]
 
 
 def _split_layer_registry_id(
     value: str, env_ids: Iterable[str]
-) -> Optional[Tuple[str, str]]:
+) -> tuple[str, str] | None:
     for env_id in sorted(env_ids, key=len, reverse=True):
         prefix = f"{env_id}."
         if value.startswith(prefix):
@@ -100,7 +99,7 @@ def _split_layer_registry_id(
     return (env_id, layer_id) if layer_id else None
 
 
-def _pop_registered(store: Dict[str, Any], ids: Iterable[str]) -> List[str]:
+def _pop_registered(store: dict[str, Any], ids: Iterable[str]) -> list[str]:
     """Remove only present keys, reporting IDs once in input order."""
     removed = []
     for key in ids:
@@ -136,19 +135,20 @@ class SimulationScenario:
         host: str = "localhost",
         port: int = 8765,
         use_msgpack: bool = False,
-        step_interval: float = 0.05,  # not used in renderer-driven mode; kept for API compat
+        # Retained public option; continuous stepping is renderer-driven.
+        step_interval: float = 0.05,
         *,
         ip_family: IPFamily = "auto",
         model_id: str = "tensnap.python.model",
-        model_name: Optional[str] = None,
-        model_description: Optional[str] = None,
-        model_version: Optional[str] = None,
-        state_schema_version: Optional[str] = None,
-        capabilities: Optional[Iterable[str]] = None,
-        capability_details: Optional[Dict[str, Any]] = None,
-        scene_restore: Optional[Callable[[Dict[str, Any]], Any]] = None,
-        checkpoint_capture: Optional[Callable[[], Any]] = None,
-        checkpoint_restore: Optional[Callable[[Any], Any]] = None,
+        model_name: str | None = None,
+        model_description: str | None = None,
+        model_version: str | None = None,
+        state_schema_version: str | None = None,
+        capabilities: Iterable[str] | None = None,
+        capability_details: dict[str, Any] | None = None,
+        scene_restore: Callable[[dict[str, Any]], Any] | None = None,
+        checkpoint_capture: Callable[[], Any] | None = None,
+        checkpoint_restore: Callable[[Any], Any] | None = None,
         collect_action_timings: bool = False,
     ) -> None:
         self.server = TenSnapServer(
@@ -164,7 +164,7 @@ class SimulationScenario:
         self._scene_restore = scene_restore
         self._checkpoint_capture = checkpoint_capture
         self._checkpoint_restore = checkpoint_restore
-        self._scene_restore_results: Dict[str, Dict[str, Any]] = {}
+        self._scene_restore_results: dict[str, dict[str, Any]] = {}
         # Timings are optional protocol diagnostics. Avoid a clock read and a
         # nested payload allocation on every continuous tick unless requested.
         self._collect_action_timings = collect_action_timings
@@ -174,14 +174,16 @@ class SimulationScenario:
             self.capabilities.add("scene.restore.projected")
         if checkpoint_capture is not None and checkpoint_restore is not None:
             self.capabilities.add("scene.restore.checkpoint")
-        model: Dict[str, Any] = {"id": model_id}
+        model: dict[str, Any] = {"id": model_id}
         for key, value in (
-            ("name", model_name), ("description", model_description),
-            ("version", model_version), ("state_schema_version", state_schema_version),
+            ("name", model_name),
+            ("description", model_description),
+            ("version", model_version),
+            ("state_schema_version", state_schema_version),
         ):
             if value is not None:
                 model[key] = value
-        simulator_info: Dict[str, Any] = {
+        simulator_info: dict[str, Any] = {
             "protocol_version": PROTOCOL_VERSION,
             "binding": {
                 "name": "tensnap-python",
@@ -198,13 +200,13 @@ class SimulationScenario:
         self.server.set_simulator_info(self._simulator_info)
 
         # Simulation state stores
-        self.environments: Dict[str, EnvironmentRegistration] = {}
-        self.env_binders: Dict[str, EnvironmentRegistration] = self.environments
-        self.parameters: Dict[str, Parameter] = {}
-        self.actions: Dict[str, ActionMetadata] = {}
-        self.charts: Dict[str, Tuple[ChartGroupMetadata, Callable]] = {}
-        self.monitors: Dict[str, Tuple[MonitorMetadata, Callable]] = {}
-        self._action_handlers: Dict[str, Callable] = {}
+        self.environments: dict[str, EnvironmentRegistration] = {}
+        self.env_binders: dict[str, EnvironmentRegistration] = self.environments
+        self.parameters: dict[str, Parameter] = {}
+        self.actions: dict[str, ActionMetadata] = {}
+        self.charts: dict[str, tuple[ChartGroupMetadata, Callable]] = {}
+        self.monitors: dict[str, tuple[MonitorMetadata, Callable]] = {}
+        self._action_handlers: dict[str, Callable] = {}
         self._builtin_action_ids: set[str] = set()
 
         # Step state
@@ -214,7 +216,7 @@ class SimulationScenario:
         self._action_lock = asyncio.Lock()
 
         # Handler list — called in registration order for each event
-        self._handlers: List[SimulationHandlerProtocol] = []
+        self._handlers: list[SimulationHandlerProtocol] = []
         self._registered_model: object | None = None
         self._model_reinitializer: BoundModelReinitializer | None = None
         self._after_model_restore: Callable | None = None
@@ -250,10 +252,10 @@ class SimulationScenario:
 
     def configure_scene_restore(
         self,
-        restore: Optional[Callable[[Dict[str, Any]], Any]],
+        restore: Callable[[dict[str, Any]], Any] | None,
         *,
-        checkpoint_capture: Optional[Callable[[], Any]] = None,
-        checkpoint_restore: Optional[Callable[[Any], Any]] = None,
+        checkpoint_capture: Callable[[], Any] | None = None,
+        checkpoint_restore: Callable[[Any], Any] | None = None,
     ) -> None:
         """Declare explicit inverse hooks before clients connect.
 
@@ -284,9 +286,9 @@ class SimulationScenario:
 
     async def register_model_handler(
         self,
-        model_init: Optional[Callable] = None,
-        model_step: Optional[Callable] = None,
-        model_reset: Optional[Callable] = None,
+        model_init: Callable | None = None,
+        model_step: Callable | None = None,
+        model_reset: Callable | None = None,
     ) -> None:
         """Convenience: create and register a DefaultSimulationHandler."""
         if self._registered_model is not None:
@@ -324,20 +326,27 @@ class SimulationScenario:
 
         strategy = reinitializer
         original_hooks = (
-            self._scene_restore, self._checkpoint_capture, self._checkpoint_restore,
+            self._scene_restore,
+            self._checkpoint_capture,
+            self._checkpoint_restore,
         )
         original_time = self._time_step
         planned = merge_registry_changes(
-            self.add_all(model, dry_run=True), self.add_parameters(strategy, dry_run=True)
+            self.add_all(model, dry_run=True),
+            self.add_parameters(strategy, dry_run=True),
         )
         existing = {
-            "environments": set(self.environments), "parameters": set(self.parameters),
-            "actions": set(self.actions), "charts": set(self.charts),
+            "environments": set(self.environments),
+            "parameters": set(self.parameters),
+            "actions": set(self.actions),
+            "charts": set(self.charts),
             "monitors": set(self.monitors),
         }
         for kind, ids in planned.items():
             if len(ids) != len(set(ids)) or existing.get(kind, set()).intersection(ids):
-                raise ValueError(f"Model {kind} contain duplicate or already registered IDs")
+                raise ValueError(
+                    f"Model {kind} contain duplicate or already registered IDs"
+                )
 
         def register_declarations() -> RegistryChanges:
             strategy.refresh_parameters()
@@ -346,7 +355,8 @@ class SimulationScenario:
             )
             if binding_api.scene_restore_binding(model) is None:
                 self.configure_scene_restore(
-                    original_hooks[0], checkpoint_capture=original_hooks[1],
+                    original_hooks[0],
+                    checkpoint_capture=original_hooks[1],
                     checkpoint_restore=original_hooks[2],
                 )
             return changes
@@ -367,7 +377,10 @@ class SimulationScenario:
             await notify()
 
         async def step() -> Any:
-            fn = model_step if model_step is not None else getattr(model, "step")
+            # Resolve the dynamic model API again after each reconstruction.
+            fn = (
+                model_step if model_step is not None else getattr(model, "step")  # noqa: B009
+            )
             result = await call_function(fn)
             await notify()
             return result
@@ -393,7 +406,8 @@ class SimulationScenario:
             if handler in self._handlers:
                 self._handlers.remove(handler)
             self.configure_scene_restore(
-                original_hooks[0], checkpoint_capture=original_hooks[1],
+                original_hooks[0],
+                checkpoint_capture=original_hooks[1],
                 checkpoint_restore=original_hooks[2],
             )
             self._time_step = original_time
@@ -438,9 +452,9 @@ class SimulationScenario:
         return should_continue
 
     async def reset(self) -> None:
-        """Reset handlers, protocol time, charts and declarations as one lifecycle operation.
+        """Reset handlers, time, charts and declarations in one lifecycle operation.
 
-        Bound actions may await this method; transport action dispatch provides serialization.
+        Bound actions may await this method; action dispatch serializes requests.
         """
         previous = self._capture_reset_inventory()
         self._time_step = 0
@@ -451,7 +465,7 @@ class SimulationScenario:
         await self.clear_charts()
         await self._broadcast_reset_state(previous)
 
-    def _capture_reset_inventory(self) -> Dict[str, Any]:
+    def _capture_reset_inventory(self) -> dict[str, Any]:
         parameters = []
         for param in self.parameters.values():
             entry = param.to_dict()
@@ -466,8 +480,11 @@ class SimulationScenario:
         }
 
     async def _prepare_reset_environment(
-        self, env_id: str, environment: EnvironmentRegistration,
-        current: EnvironmentState, previous: EnvironmentState | None,
+        self,
+        env_id: str,
+        environment: EnvironmentRegistration,
+        current: EnvironmentState,
+        previous: EnvironmentState | None,
     ) -> None:
         """Prevent stale item deltas when a layer survives model reconstruction."""
         if previous is None or previous["type"] != current["type"]:
@@ -486,59 +503,74 @@ class SimulationScenario:
             if new["layer_type"] == "agent":
                 deletes = [item_key_payload(old, item) for item in layer_items(old)]
                 if deletes:
-                    await self.server.broadcast(MT.ITEM_DELETE, {
-                        "env_id": env_id, "layer_id": layer_id, "items": deletes,
-                    })
+                    await self.server.broadcast(
+                        MessageType.ITEM_DELETE,
+                        {
+                            "env_id": env_id,
+                            "layer_id": layer_id,
+                            "items": deletes,
+                        },
+                    )
                 registration.reset_diff_state()
             else:
                 registration.seed_item_deltas_from_state(old, False)
 
-    async def _broadcast_reset_state(self, previous: Dict[str, Any]) -> None:
+    async def _broadcast_reset_state(self, previous: dict[str, Any]) -> None:
         """Publish registry changes before time/values, preserving item topology."""
         # Compute each delta when its turn is reached: the action broadcast
         # completes before parameter values are read, as in the old protocol.
         for compute, create, delete, update in (
-            (lambda: compute_action_deltas(self.actions, previous["actions"]),
-             MT.ACTION_CREATE, MT.ACTION_DELETE, MT.ACTION_UPDATE),
-            (lambda: compute_parameter_deltas(
-                self.parameters, previous["parameters"], self._get_param_value,
-             ), MT.PARAM_CREATE, MT.PARAM_DELETE, MT.PARAM_UPDATE),
+            (
+                lambda: compute_action_deltas(self.actions, previous["actions"]),
+                MessageType.ACTION_CREATE,
+                MessageType.ACTION_DELETE,
+                MessageType.ACTION_UPDATE,
+            ),
+            (
+                lambda: compute_parameter_deltas(
+                    self.parameters,
+                    previous["parameters"],
+                    self._get_param_value,
+                ),
+                MessageType.PARAM_CREATE,
+                MessageType.PARAM_DELETE,
+                MessageType.PARAM_UPDATE,
+            ),
         ):
             await dispatch_cud(self.server.broadcast, compute(), create, delete, update)
 
         old_envs = previous["envs"]
         for env_id in old_envs.keys() - self.environments.keys():
-            await self.server.broadcast(MT.ENV_DELETE, {"id": env_id})
+            await self.server.broadcast(MessageType.ENV_DELETE, {"id": env_id})
         for env_id, environment in self.environments.items():
             current = environment.build_state()
             previous_env = old_envs.get(env_id)
             await self._prepare_reset_environment(
                 env_id, environment, current, previous_env
             )
-            await broadcast_env_update(
-                self.server, environment, current, previous_env
-            )
+            await broadcast_env_update(self.server, environment, current, previous_env)
 
         old_charts = previous["charts"]
         new_charts = {meta.id: meta.to_dict() for meta, _ in self.charts.values()}
         changed = {
-            key for key in old_charts.keys() & new_charts.keys()
+            key
+            for key in old_charts.keys() & new_charts.keys()
             if old_charts[key] != new_charts[key]
         }
         for chart_id in (old_charts.keys() - new_charts.keys()) | changed:
             await self.server.broadcast(
-                MT.CHART_DELETE, {"kind": "group", "id": chart_id}
+                MessageType.CHART_DELETE, {"kind": "group", "id": chart_id}
             )
         for chart_id in (new_charts.keys() - old_charts.keys()) | changed:
-            await self.server.broadcast(MT.CHART_CREATE, new_charts[chart_id])
+            await self.server.broadcast(MessageType.CHART_CREATE, new_charts[chart_id])
 
         monitors = compute_monitor_deltas(self.monitors, previous["monitors"])
         for item in monitors["updated"]:
-            await self.server.broadcast(MT.MONITOR_DELETE, {"id": item["id"]})
+            await self.server.broadcast(MessageType.MONITOR_DELETE, {"id": item["id"]})
         for monitor_id in monitors["removed"]:
-            await self.server.broadcast(MT.MONITOR_DELETE, {"id": monitor_id})
+            await self.server.broadcast(MessageType.MONITOR_DELETE, {"id": monitor_id})
         for item in [*monitors["added"], *monitors["updated"]]:
-            await self.server.broadcast(MT.MONITOR_CREATE, item)
+            await self.server.broadcast(MessageType.MONITOR_CREATE, item)
 
         await self.server.broadcast_metadata_update({"time": self._time_step})
         await self.broadcast_charts(self._time_step)
@@ -573,7 +605,9 @@ class SimulationScenario:
         await self.broadcast_monitors()
 
     async def _send_current_state(self, ws: Any) -> None:
-        await self.server.send(ws, MT.METADATA_UPDATE, {"time": self._time_step})
+        await self.server.send(
+            ws, MessageType.METADATA_UPDATE, {"time": self._time_step}
+        )
         await self.broadcast_charts(self._time_step, ws=ws)
         await self.broadcast_monitors(ws=ws)
 
@@ -606,7 +640,7 @@ class SimulationScenario:
         if param:
             self._set_param_value(param, value)
 
-    def dump_parameters(self) -> Dict[str, Any]:
+    def dump_parameters(self) -> dict[str, Any]:
         return {pid: self._get_param_value(p) for pid, p in self.parameters.items()}
 
     # endregion
@@ -617,17 +651,25 @@ class SimulationScenario:
         request_id = req.get("request_id") or uuid4().hex
         if req.get("model_id") not in (None, self.model_id):
             await self.server.send_error(
-                ws, "state_sync model_id does not match this simulator.",
-                code="model_mismatch", request_id=request_id,
+                ws,
+                "state_sync model_id does not match this simulator.",
+                code="model_mismatch",
+                request_id=request_id,
             )
             return
 
         mode = "reconcile" if req.get("instance_id") == self.instance_id else "replace"
         await self._ensure_initialized()
-        await self.server.send(ws, MT.STATE_SYNC_BEGIN, {
-            "request_id": request_id, "model_id": self.model_id,
-            "instance_id": self.instance_id, "mode": mode,
-        })
+        await self.server.send(
+            ws,
+            MessageType.STATE_SYNC_BEGIN,
+            {
+                "request_id": request_id,
+                "model_id": self.model_id,
+                "instance_id": self.instance_id,
+                "mode": mode,
+            },
+        )
         inventory = req if mode == "reconcile" else {}
         action_delta = compute_action_deltas(self.actions, inventory.get("actions", []))
         param_delta = compute_parameter_deltas(
@@ -641,47 +683,63 @@ class SimulationScenario:
             self.monitors, inventory.get("monitors", [])
         )
         old_envs = {env["id"]: env for env in inventory.get("envs", [])}
-        send = lambda mt, data: self.server.send(ws, mt, data)
+
+        def send(message_type, data):
+            return self.server.send(ws, message_type, data)
 
         try:
             await dispatch_cud(
-                send, action_delta, MT.ACTION_CREATE, MT.ACTION_DELETE, MT.ACTION_UPDATE
+                send,
+                action_delta,
+                MessageType.ACTION_CREATE,
+                MessageType.ACTION_DELETE,
+                MessageType.ACTION_UPDATE,
             )
             await dispatch_cud(
-                send, param_delta, MT.PARAM_CREATE, MT.PARAM_DELETE, MT.PARAM_UPDATE
+                send,
+                param_delta,
+                MessageType.PARAM_CREATE,
+                MessageType.PARAM_DELETE,
+                MessageType.PARAM_UPDATE,
             )
             for state in env_delta["added"]:
                 await send_env_snapshot(ws, self.server, state)
             for env_id in env_delta["removed"]:
-                await send(MT.ENV_DELETE, {"id": env_id})
+                await send(MessageType.ENV_DELETE, {"id": env_id})
             for state in env_delta["updated"]:
                 await send_env_snapshot(
                     ws, self.server, state, old_envs.get(state["id"])
                 )
 
             for chart in chart_delta["added"]:
-                await send(MT.CHART_CREATE, chart)
+                await send(MessageType.CHART_CREATE, chart)
             for chart_id in chart_delta["removed"]:
-                await send(MT.CHART_DELETE, {"kind": "group", "id": chart_id})
+                await send(MessageType.CHART_DELETE, {"kind": "group", "id": chart_id})
             for chart in chart_delta["updated"]:
-                await send(MT.CHART_DELETE, {"kind": "group", "id": chart["id"]})
-                await send(MT.CHART_CREATE, chart)
+                await send(
+                    MessageType.CHART_DELETE, {"kind": "group", "id": chart["id"]}
+                )
+                await send(MessageType.CHART_CREATE, chart)
 
             # Monitors have no UPDATE frame, so replace with DELETE + CREATE.
             for monitor in monitor_delta["updated"]:
-                await send(MT.MONITOR_DELETE, {"id": monitor["id"]})
+                await send(MessageType.MONITOR_DELETE, {"id": monitor["id"]})
             for monitor in [*monitor_delta["added"], *monitor_delta["updated"]]:
-                await send(MT.MONITOR_CREATE, monitor)
+                await send(MessageType.MONITOR_CREATE, monitor)
             for monitor_id in monitor_delta["removed"]:
-                await send(MT.MONITOR_DELETE, {"id": monitor_id})
+                await send(MessageType.MONITOR_DELETE, {"id": monitor_id})
             await self._send_current_state(ws)
         finally:
             self._state_revision += 1
-            await send(MT.STATE_SYNC_END, {
-                "request_id": request_id, "state_revision": str(self._state_revision),
-            })
+            await send(
+                MessageType.STATE_SYNC_END,
+                {
+                    "request_id": request_id,
+                    "state_revision": str(self._state_revision),
+                },
+            )
 
-    async def _on_param_change(self, ws: Any, payload: Dict[str, Any]) -> None:
+    async def _on_param_change(self, ws: Any, payload: dict[str, Any]) -> None:
         pid = payload.get("id")
         value = payload.get("value")
         if value is None or pid not in self.parameters:
@@ -689,7 +747,9 @@ class SimulationScenario:
         param = self.parameters[pid]
         if not param.setter:
             await self.server.send(
-                ws, MT.PARAM_SYNC, {"id": pid, "value": self._get_param_value(param)}
+                ws,
+                MessageType.PARAM_SYNC,
+                {"id": pid, "value": self._get_param_value(param)},
             )
             return
         try:
@@ -697,12 +757,14 @@ class SimulationScenario:
             param.value = self._get_param_value(param) if param.getter else value
             if param.value != value:
                 await self.server.send(
-                    ws, MT.PARAM_SYNC, {"id": pid, "value": param.value}
+                    ws, MessageType.PARAM_SYNC, {"id": pid, "value": param.value}
                 )
         except Exception as e:
             logger.exception(f"Error setting param '{pid}': {e}")
             await self.server.send(
-                ws, MT.PARAM_SYNC, {"id": pid, "value": self._get_param_value(param)}
+                ws,
+                MessageType.PARAM_SYNC,
+                {"id": pid, "value": self._get_param_value(param)},
             )
             await self.server.send_error(ws, f"Error setting param '{pid}': {e}")
 
@@ -712,19 +774,21 @@ class SimulationScenario:
 
     def _resolve_action_target(
         self, action: ActionMetadata, target: Any
-    ) -> Optional[Dict[str, Any]]:
-        def invalid(message: str) -> Dict[str, str]:
+    ) -> dict[str, Any] | None:
+        def invalid(message: str) -> dict[str, str]:
             return {"code": "invalid_target", "message": message}
 
         scope = action.scope or "model"
         if scope == "model":
-            return invalid("This action does not accept a target.") if target is not None else None
+            return (
+                invalid("This action does not accept a target.")
+                if target is not None
+                else None
+            )
         if not isinstance(target, dict) or target.get("type") != scope:
             return invalid(f"Action '{action.id}' requires a {scope} target.")
         env_id = target.get("env_id")
-        environment = (
-            self.environments.get(env_id) if isinstance(env_id, str) else None
-        )
+        environment = self.environments.get(env_id) if isinstance(env_id, str) else None
         if environment is None:
             return invalid(f"Unknown environment: {env_id}.")
         if scope == "env":
@@ -744,7 +808,7 @@ class SimulationScenario:
         return None
 
     @staticmethod
-    def _matches_action_value(definition: Dict[str, Any], value: Any) -> bool:
+    def _matches_action_value(definition: dict[str, Any], value: Any) -> bool:
         """Protocol kwargs types (not generic Python type coercion)."""
         kind = definition.get("type")
         if kind == "json":
@@ -764,12 +828,13 @@ class SimulationScenario:
     @staticmethod
     def _validated_action_kwargs(
         action: ActionMetadata, supplied: Any
-    ) -> tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
         if supplied is None:
             supplied = {}
         if not isinstance(supplied, dict):
             return None, {
-                "code": "invalid_kwargs", "message": "Action kwargs must be an object.",
+                "code": "invalid_kwargs",
+                "message": "Action kwargs must be an object.",
             }
         definitions = {
             definition["name"]: definition for definition in action.kwargs or []
@@ -780,7 +845,7 @@ class SimulationScenario:
                 "code": "invalid_kwargs",
                 "message": f"Unknown action kwargs: {', '.join(sorted(unknown))}.",
             }
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         for name, definition in definitions.items():
             if name not in supplied:
                 if definition.get("required"):
@@ -809,8 +874,12 @@ class SimulationScenario:
         return result, None
 
     async def _call_action_handler(
-        self, handler: Callable, metadata: ActionMetadata,
-        kwargs: Optional[Dict[str, Any]], target: Any, fast: bool,
+        self,
+        handler: Callable,
+        metadata: ActionMetadata,
+        kwargs: dict[str, Any] | None,
+        target: Any,
+        fast: bool,
     ) -> Any:
         """Run synchronous handlers in the executor; keep the tick fast path."""
         call_kwargs = {} if fast else dict(kwargs or {})
@@ -828,7 +897,7 @@ class SimulationScenario:
             return await loop.run_in_executor(None, handler)
         return await loop.run_in_executor(None, lambda: handler(**call_kwargs))
 
-    async def _on_action_invoke(self, ws: Any, payload: Dict[str, Any]) -> None:
+    async def _on_action_invoke(self, ws: Any, payload: dict[str, Any]) -> None:
         action_id = payload.get("id")
         request_id = payload.get("request_id") or payload.get("tick_id") or uuid4().hex
         handler = (
@@ -836,8 +905,13 @@ class SimulationScenario:
         )
         if handler is None:
             await self.server.send_action_result(
-                ws, str(action_id), request_id=request_id,
-                error={"code": "unknown_action", "message": f"No handler for action: {action_id}"},
+                ws,
+                str(action_id),
+                request_id=request_id,
+                error={
+                    "code": "unknown_action",
+                    "message": f"No handler for action: {action_id}",
+                },
             )
             return
 
@@ -847,15 +921,17 @@ class SimulationScenario:
             metadata.scope in (None, "model")
             and not metadata.kwargs
             and payload.get("target") is None
-            and (supplied is None or isinstance(supplied, dict) and not supplied)
+            and (supplied is None or (isinstance(supplied, dict) and not supplied))
         )
-        kwargs: Optional[Dict[str, Any]] = None
+        kwargs: dict[str, Any] | None = None
         if not fast:
             target_error = self._resolve_action_target(metadata, payload.get("target"))
             kwargs, kwargs_error = self._validated_action_kwargs(metadata, supplied)
             if target_error or kwargs_error:
                 await self.server.send_action_result(
-                    ws, str(action_id), request_id=request_id,
+                    ws,
+                    str(action_id),
+                    request_id=request_id,
                     error=target_error or kwargs_error,
                 )
                 return
@@ -866,7 +942,7 @@ class SimulationScenario:
                 result = await self._call_action_handler(
                     handler, metadata, kwargs, payload.get("target"), fast
                 )
-                options: Dict[str, Any] = {
+                options: dict[str, Any] = {
                     "request_id": request_id,
                     "continue_": bool(payload.get("continuous")) and bool(result),
                 }
@@ -888,7 +964,11 @@ class SimulationScenario:
     # region Transactional scene restore
 
     async def _send_restore_result(
-        self, ws: Any, result: Dict[str, Any], *, begin: bool = False,
+        self,
+        ws: Any,
+        result: dict[str, Any],
+        *,
+        begin: bool = False,
         cache: bool = True,
     ) -> None:
         """Keep BEGIN/END ordering and cache completed (but not busy) requests."""
@@ -896,25 +976,36 @@ class SimulationScenario:
         if cache:
             self._scene_restore_results[request_id] = result
         if begin:
-            await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
-        await self.server.send(ws, MT.SCENE_RESTORE_END, result)
+            await self.server.send(
+                ws, MessageType.SCENE_RESTORE_BEGIN, {"request_id": request_id}
+            )
+        await self.server.send(ws, MessageType.SCENE_RESTORE_END, result)
 
-    async def _on_scene_restore(self, ws: Any, payload: Dict[str, Any]) -> None:
+    async def _on_scene_restore(self, ws: Any, payload: dict[str, Any]) -> None:
         request_id = payload.get("request_id") or uuid4().hex
         cached = self._scene_restore_results.get(request_id)
         if cached is not None:
             await self._send_restore_result(ws, cached, begin=True, cache=False)
             return
         if self._action_lock.locked():
-            await self._send_restore_result(ws, {
-                "request_id": request_id, "status": "rejected",
-                "error": {"code": "busy", "message": "Wait for the active operation."},
-            }, begin=True, cache=False)
+            await self._send_restore_result(
+                ws,
+                {
+                    "request_id": request_id,
+                    "status": "rejected",
+                    "error": {
+                        "code": "busy",
+                        "message": "Wait for the active operation.",
+                    },
+                },
+                begin=True,
+                cache=False,
+            )
             return
         async with self._action_lock:
             await self._perform_scene_restore(ws, payload)
 
-    def _restore_rejection(self, payload: Dict[str, Any]) -> Dict[str, str] | None:
+    def _restore_rejection(self, payload: dict[str, Any]) -> dict[str, str] | None:
         """Validate protocol identity/capability before touching model-owned state."""
         projected = any(key in payload for key in ("time", "parameters", "envs"))
         if payload.get("model_id") != self.model_id:
@@ -962,8 +1053,11 @@ class SimulationScenario:
                 await value
 
     async def _rollback_scene_restore(
-        self, checkpoint: Any, strategy: BoundModelReinitializer | None,
-        pending: Dict[str, Any], init_kwargs: Dict[str, Any],
+        self,
+        checkpoint: Any,
+        strategy: BoundModelReinitializer | None,
+        pending: dict[str, Any],
+        init_kwargs: dict[str, Any],
     ) -> None:
         await self._apply_model_checkpoint(checkpoint)
         if strategy is not None:
@@ -973,7 +1067,7 @@ class SimulationScenario:
         if self._after_model_restore is not None:
             await self._after_model_restore()
 
-    async def _perform_scene_restore(self, ws: Any, payload: Dict[str, Any]) -> None:
+    async def _perform_scene_restore(self, ws: Any, payload: dict[str, Any]) -> None:
         request_id = payload.get("request_id") or uuid4().hex
         cached = self._scene_restore_results.get(request_id)
         if cached is not None:
@@ -982,9 +1076,15 @@ class SimulationScenario:
 
         rejection = self._restore_rejection(payload)
         if rejection is not None:
-            await self._send_restore_result(ws, {
-                "request_id": request_id, "status": "rejected", "error": rejection,
-            }, begin=True)
+            await self._send_restore_result(
+                ws,
+                {
+                    "request_id": request_id,
+                    "status": "rejected",
+                    "error": rejection,
+                },
+                begin=True,
+            )
             return
 
         projected = any(k in payload for k in ("time", "parameters", "envs"))
@@ -994,15 +1094,22 @@ class SimulationScenario:
             try:
                 await self._invoke_restore_hook("prepare", payload)
             except Exception as error:
-                await self._send_restore_result(ws, {
-                    "request_id": request_id, "status": "rejected",
-                    "error": {"code": "invalid_restore", "message": str(error)},
-                }, begin=True)
+                await self._send_restore_result(
+                    ws,
+                    {
+                        "request_id": request_id,
+                        "status": "rejected",
+                        "error": {"code": "invalid_restore", "message": str(error)},
+                    },
+                    begin=True,
+                )
                 return
 
         previous_ids = {
-            "actions": list(self.actions), "parameters": list(self.parameters),
-            "envs": list(self.environments), "monitors": list(self.monitors),
+            "actions": list(self.actions),
+            "parameters": list(self.parameters),
+            "envs": list(self.environments),
+            "monitors": list(self.monitors),
         }
         previous_time, previous_initialized = self._time_step, self._initialized
         strategy = self._model_reinitializer
@@ -1019,16 +1126,23 @@ class SimulationScenario:
                 if inspect.isawaitable(rollback_checkpoint):
                     rollback_checkpoint = await rollback_checkpoint
             except Exception as error:
-                await self._send_restore_result(ws, {
-                    "request_id": request_id, "status": "failed",
-                    "error": {
-                        "code": "restore_failed",
-                        "message": f"capture rollback checkpoint: {error}",
+                await self._send_restore_result(
+                    ws,
+                    {
+                        "request_id": request_id,
+                        "status": "failed",
+                        "error": {
+                            "code": "restore_failed",
+                            "message": f"capture rollback checkpoint: {error}",
+                        },
                     },
-                }, begin=True)
+                    begin=True,
+                )
                 return
 
-        await self.server.send(ws, MT.SCENE_RESTORE_BEGIN, {"request_id": request_id})
+        await self.server.send(
+            ws, MessageType.SCENE_RESTORE_BEGIN, {"request_id": request_id}
+        )
         try:
             if checkpoint is not None:
                 await self._apply_model_checkpoint(decode_checkpoint(checkpoint))
@@ -1067,10 +1181,14 @@ class SimulationScenario:
             message = str(error)
             if rollback_error is not None:
                 message = f"{message}; rollback failed: {rollback_error}"
-            await self._send_restore_result(ws, {
-                "request_id": request_id, "status": "failed",
-                "error": {"code": "restore_failed", "message": message},
-            })
+            await self._send_restore_result(
+                ws,
+                {
+                    "request_id": request_id,
+                    "status": "failed",
+                    "error": {"code": "restore_failed", "message": message},
+                },
+            )
 
     async def _apply_model_checkpoint(self, data: Any) -> None:
         """Restore model data, then refresh constructor controls from that model."""
@@ -1082,29 +1200,33 @@ class SimulationScenario:
             strategy.sync_from_model()
 
     async def _send_restore_state(
-        self, ws: Any, previous_ids: Dict[str, List[str]]
+        self, ws: Any, previous_ids: dict[str, list[str]]
     ) -> None:
         """Replace renderer inventory; charts intentionally remain untouched."""
         for category, msg_type in (
-            ("monitors", MT.MONITOR_DELETE), ("actions", MT.ACTION_DELETE),
-            ("parameters", MT.PARAM_DELETE), ("envs", MT.ENV_DELETE),
+            ("monitors", MessageType.MONITOR_DELETE),
+            ("actions", MessageType.ACTION_DELETE),
+            ("parameters", MessageType.PARAM_DELETE),
+            ("envs", MessageType.ENV_DELETE),
         ):
             for item_id in previous_ids[category]:
                 await self.server.send(ws, msg_type, {"id": item_id})
 
         for action in self.actions.values():
-            await self.server.send(ws, MT.ACTION_CREATE, action.to_dict())
+            await self.server.send(ws, MessageType.ACTION_CREATE, action.to_dict())
         for parameter in self.parameters.values():
             definition = parameter.to_dict()
             definition["value"] = self._get_param_value(parameter)
-            await self.server.send(ws, MT.PARAM_CREATE, definition)
+            await self.server.send(ws, MessageType.PARAM_CREATE, definition)
         for environment in self.environments.values():
             state = environment.build_state()
             await send_env_snapshot(ws, self.server, state)
             environment.seed_item_deltas_from_state(state, False)
         for monitor, _ in self.monitors.values():
-            await self.server.send(ws, MT.MONITOR_CREATE, monitor.to_dict())
-        await self.server.send(ws, MT.METADATA_UPDATE, {"time": self._time_step})
+            await self.server.send(ws, MessageType.MONITOR_CREATE, monitor.to_dict())
+        await self.server.send(
+            ws, MessageType.METADATA_UPDATE, {"time": self._time_step}
+        )
         await self.broadcast_monitors(ws=ws)
         await self.server.send_asset_meta(ws)
 
@@ -1112,7 +1234,7 @@ class SimulationScenario:
 
     # region Checkpoint capture
 
-    async def _on_scene_capture(self, ws: Any, payload: Dict[str, Any]) -> None:
+    async def _on_scene_capture(self, ws: Any, payload: dict[str, Any]) -> None:
         if self._action_lock.locked():
             await self.server.send_error(
                 ws,
@@ -1124,12 +1246,14 @@ class SimulationScenario:
         async with self._action_lock:
             await self._perform_scene_capture(ws, payload)
 
-    async def _perform_scene_capture(self, ws: Any, payload: Dict[str, Any]) -> None:
+    async def _perform_scene_capture(self, ws: Any, payload: dict[str, Any]) -> None:
         request_id = payload.get("request_id") or uuid4().hex
         if self._checkpoint_capture is None or self._checkpoint_restore is None:
             await self.server.send_error(
-                ws, "Checkpoint capture is not configured.",
-                code="unsupported_capability", request_id=request_id,
+                ws,
+                "Checkpoint capture is not configured.",
+                code="unsupported_capability",
+                request_id=request_id,
             )
             return
         try:
@@ -1141,7 +1265,7 @@ class SimulationScenario:
             if self.state_schema_version is not None:
                 result["state_schema_version"] = self.state_schema_version
             result["checkpoint"] = checkpoint
-            await self.server.send(ws, MT.SCENE_CAPTURE_RESULT, result)
+            await self.server.send(ws, MessageType.SCENE_CAPTURE_RESULT, result)
         except Exception as error:
             await self.server.send_error(
                 ws, str(error), code="capture_failed", request_id=request_id
@@ -1152,11 +1276,11 @@ class SimulationScenario:
     # region Chart and monitor broadcasts
 
     async def broadcast_charts(
-        self, step: Optional[int] = None, ws: Optional[Any] = None
+        self, step: int | None = None, ws: Any | None = None
     ) -> None:
         if not self.charts:
             return
-        updates: List[Dict[str, Any]] = []
+        updates: list[dict[str, Any]] = []
         for chart, getter in self.charts.values():
             try:
                 value = await asyncio.get_event_loop().run_in_executor(None, getter)
@@ -1165,11 +1289,15 @@ class SimulationScenario:
                 logger.exception("Chart getter error for '%s': %s", chart.id, error)
         if updates:
             if ws is None:
-                await self.server.broadcast(MT.CHART_UPDATE, {"updates": updates})
+                await self.server.broadcast(
+                    MessageType.CHART_UPDATE, {"updates": updates}
+                )
             else:
-                await self.server.send(ws, MT.CHART_UPDATE, {"updates": updates})
+                await self.server.send(
+                    ws, MessageType.CHART_UPDATE, {"updates": updates}
+                )
 
-    async def clear_charts(self, chart_ids: Optional[List[str]] = None) -> None:
+    async def clear_charts(self, chart_ids: list[str] | None = None) -> None:
         if not self.charts:
             return
         ids = chart_ids or list(self.charts.keys())
@@ -1179,12 +1307,13 @@ class SimulationScenario:
             if cid in self.charts
         ]
         if ops:
-            await self.server.broadcast(MT.CHART_UPDATE, {"operations": ops})
+            await self.server.broadcast(MessageType.CHART_UPDATE, {"operations": ops})
 
-    async def broadcast_monitors(self, ws: Optional[Any] = None) -> None:
+    async def broadcast_monitors(self, ws: Any | None = None) -> None:
         """Read declarative monitors and deliver their latest values."""
         send = (
-            self.server.broadcast if ws is None
+            self.server.broadcast
+            if ws is None
             else lambda mt, data: self.server.send(ws, mt, data)
         )
         for monitor, getter in self.monitors.values():
@@ -1193,7 +1322,9 @@ class SimulationScenario:
                     value = await getter()
                 else:
                     value = await asyncio.get_event_loop().run_in_executor(None, getter)
-                await send(MT.MONITOR_UPDATE, {"id": monitor.id, "value": value})
+                await send(
+                    MessageType.MONITOR_UPDATE, {"id": monitor.id, "value": value}
+                )
             except Exception as error:
                 logger.exception("Monitor getter error for '%s': %s", monitor.id, error)
 
@@ -1206,10 +1337,11 @@ class SimulationScenario:
         binding: EnvironmentBinding | EnvironmentRegistration,
         *,
         dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         if not isinstance(binding, (EnvironmentBinding, EnvironmentRegistration)):
             raise TypeError(
-                "add_environment expects an EnvironmentBinding or EnvironmentRegistration."
+                "add_environment expects an EnvironmentBinding "
+                "or EnvironmentRegistration."
             )
 
         if dry_run:
@@ -1229,17 +1361,20 @@ class SimulationScenario:
 
     def add_environment(
         self, target: object, *, dry_run: bool = False
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         env_binding, layers = binding_api.bindings(target)
         if env_binding is None:
             raise ValueError(f"Target has no attached environment binding: {target}")
         if dry_run:
             return merge_registry_changes(
                 _registry_change("environments", [env_binding.id]),
-                _registry_change("layers", (
-                    _layer_registry_id(env_binding.id, layer.layer_id)
-                    for layer in layers
-                )),
+                _registry_change(
+                    "layers",
+                    (
+                        _layer_registry_id(env_binding.id, layer.layer_id)
+                        for layer in layers
+                    ),
+                ),
             )
         changes = [self.add_environment_binding(env_binding)]
         changes.extend(
@@ -1254,7 +1389,7 @@ class SimulationScenario:
         target: Any,
         *,
         dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         if not isinstance(binding, LayerBinding):
             raise TypeError("add_layer expects a LayerBinding.")
 
@@ -1282,8 +1417,8 @@ class SimulationScenario:
 
     def add_bound_layers(
         self, env_id: str, target: object, *, dry_run: bool = False
-    ) -> Dict[str, List[str]]:
-        changes: List[Dict[str, List[str]]] = []
+    ) -> dict[str, list[str]]:
+        changes: list[dict[str, list[str]]] = []
         for layer_binding in binding_api.layer_bindings(target):
             changes.append(
                 self.add_layer_binding(env_id, layer_binding, target, dry_run=dry_run)
@@ -1298,14 +1433,14 @@ class SimulationScenario:
         environment.layers[layer_id].set_target(target)
         environment.layers[layer_id].reset_diff_state()
 
-    def remove_layer(self, env_id: str, layer_id: str) -> Dict[str, List[str]]:
+    def remove_layer(self, env_id: str, layer_id: str) -> dict[str, list[str]]:
         environment = self.environments.get(env_id)
         if environment is None or layer_id not in environment.layers:
             return _registry_change("layers", [])
         environment.remove_layer(layer_id)
         return _registry_change("layers", [_layer_registry_id(env_id, layer_id)])
 
-    def remove_all_layers(self, env_id: str) -> Dict[str, List[str]]:
+    def remove_all_layers(self, env_id: str) -> dict[str, list[str]]:
         environment = self.environments.get(env_id)
         if environment is None:
             return _registry_change("layers", [])
@@ -1313,7 +1448,7 @@ class SimulationScenario:
         environment.clear_layers()
         return _registry_change("layers", _layer_registry_ids(env_id, layer_ids))
 
-    def remove_environment(self, binder_id: str) -> Dict[str, List[str]]:
+    def remove_environment(self, binder_id: str) -> dict[str, list[str]]:
         environment = self.environments.pop(binder_id, None)
         if environment is None:
             return merge_registry_changes(
@@ -1327,10 +1462,11 @@ class SimulationScenario:
             ),
         )
 
-    def remove_all_environments(self) -> Dict[str, List[str]]:
+    def remove_all_environments(self) -> dict[str, list[str]]:
         env_ids = list(self.environments)
         layer_ids = [
-            key for env_id, env in self.environments.items()
+            key
+            for env_id, env in self.environments.items()
             for key in _layer_registry_ids(env_id, env.layers)
         ]
         self.environments.clear()
@@ -1345,12 +1481,13 @@ class SimulationScenario:
 
     def add_parameters(
         self,
-        target: Union[Dict[str, Any], ModuleType, object],
+        target: dict[str, Any] | ModuleType | object,
         *cfg_suggest: BindParametersConfig,
         dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         """Inspect annotated fields and register their live value accessors."""
         parameters = binding_api.parameters(target, *cfg_suggest)
+        validate_parameter_accessors(target, parameters)
         if dry_run:
             return _registry_change("parameters", (p.id for _, p in parameters))
         added = []
@@ -1367,18 +1504,20 @@ class SimulationScenario:
     def _register_parameter(
         self,
         param: Parameter,
-        getter: Optional[Callable] = None,
-        setter: Optional[Callable] = None,
+        getter: Callable | None = None,
+        setter: Callable | None = None,
     ) -> None:
         self.parameters[param.id] = param.instantiate(
             getter=param.getter if param.getter is not None else getter,
             setter=param.setter if param.setter is not None else setter,
         )
 
-    def remove_parameters(self, param_ids: List[str]) -> Dict[str, List[str]]:
-        return _registry_change("parameters", _pop_registered(self.parameters, param_ids))
+    def remove_parameters(self, param_ids: list[str]) -> dict[str, list[str]]:
+        return _registry_change(
+            "parameters", _pop_registered(self.parameters, param_ids)
+        )
 
-    def remove_all_parameters(self) -> Dict[str, List[str]]:
+    def remove_all_parameters(self) -> dict[str, list[str]]:
         removed = list(self.parameters)
         self.parameters.clear()
         return _registry_change("parameters", removed)
@@ -1388,9 +1527,11 @@ class SimulationScenario:
     # region Registry: charts
 
     def add_charts(
-        self, target: Union[Dict[str, Any], ModuleType, object],
-        *, dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+        self,
+        target: dict[str, Any] | ModuleType | object,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, list[str]]:
         """Inspect annotated chart getters and register the callable pairs."""
         added = []
         for _, func, chart in binding_api.charts(target):
@@ -1400,10 +1541,10 @@ class SimulationScenario:
                     self.charts[chart.id] = (chart, func)
         return _registry_change("charts", added)
 
-    def remove_charts(self, chart_ids: List[str]) -> Dict[str, List[str]]:
+    def remove_charts(self, chart_ids: list[str]) -> dict[str, list[str]]:
         return _registry_change("charts", _pop_registered(self.charts, chart_ids))
 
-    def remove_all_charts(self) -> Dict[str, List[str]]:
+    def remove_all_charts(self) -> dict[str, list[str]]:
         removed = list(self.charts)
         self.charts.clear()
         return _registry_change("charts", removed)
@@ -1413,9 +1554,11 @@ class SimulationScenario:
     # region Registry: monitors and restore declaration
 
     def add_monitors(
-        self, target: Union[Dict[str, Any], ModuleType, object],
-        *, dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+        self,
+        target: dict[str, Any] | ModuleType | object,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, list[str]]:
         """Register @monitor getters; advertise capability when actually installed."""
         added = []
         for _, getter, monitor in binding_api.monitors(target):
@@ -1428,7 +1571,7 @@ class SimulationScenario:
             self._refresh_simulator_info()
         return _registry_change("monitors", added)
 
-    def remove_monitors(self, monitor_ids: List[str]) -> Dict[str, List[str]]:
+    def remove_monitors(self, monitor_ids: list[str]) -> dict[str, list[str]]:
         removed = [
             mid for mid in monitor_ids if self.monitors.pop(mid, None) is not None
         ]
@@ -1437,12 +1580,10 @@ class SimulationScenario:
             self._refresh_simulator_info()
         return _registry_change("monitors", removed)
 
-    def remove_all_monitors(self) -> Dict[str, List[str]]:
+    def remove_all_monitors(self) -> dict[str, list[str]]:
         return self.remove_monitors(list(self.monitors))
 
-    def add_scene_restore(
-        self, target: Union[Dict[str, Any], ModuleType, object]
-    ) -> bool:
+    def add_scene_restore(self, target: dict[str, Any] | ModuleType | object) -> bool:
         """Install a model's ``@scene_restore`` declaration, if present."""
         binding = binding_api.scene_restore_binding(target)
         if binding is None:
@@ -1464,9 +1605,11 @@ class SimulationScenario:
         self._action_handlers[meta.id] = handler
 
     def add_actions(
-        self, target: Union[Dict[str, Any], ModuleType, object],
-        *, dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+        self,
+        target: dict[str, Any] | ModuleType | object,
+        *,
+        dry_run: bool = False,
+    ) -> dict[str, list[str]]:
         """Register declared actions without re-registering built-in actions."""
         added = []
         for _, func, meta in binding_api.actions(target):
@@ -1476,13 +1619,13 @@ class SimulationScenario:
                     self._register_action(meta, func)
         return _registry_change("actions", added)
 
-    def remove_action(self, action_id: str) -> Dict[str, List[str]]:
+    def remove_action(self, action_id: str) -> dict[str, list[str]]:
         existed = action_id in self.actions or action_id in self._action_handlers
         self.actions.pop(action_id, None)
         self._action_handlers.pop(action_id, None)
         return _registry_change("actions", [action_id] if existed else [])
 
-    def remove_all_actions(self) -> Dict[str, List[str]]:
+    def remove_all_actions(self) -> dict[str, list[str]]:
         removed = list(dict.fromkeys([*self.actions, *self._action_handlers]))
         self.actions.clear()
         self._action_handlers.clear()
@@ -1494,10 +1637,10 @@ class SimulationScenario:
 
     def add_all(
         self,
-        target: Union[Dict[str, Any], ModuleType, object],
+        target: dict[str, Any] | ModuleType | object,
         *cfg_suggest: BindParametersConfig,
         dry_run: bool = False,
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         """Register declarations in environment → parameter → action → chart order."""
         if binding_api.environment_binding(target) is not None:
             environment_changes = self.add_environment(target, dry_run=dry_run)
@@ -1506,10 +1649,7 @@ class SimulationScenario:
                 _registry_change("environments", []),
                 _registry_change("layers", []),
             )
-        configs = BindParametersConfig.get_configs(type(target))
-        parameter_configs = cfg_suggest or (
-            (BindParametersConfig.EXPLICIT_ONLY,) if not configs else ()
-        )
+        parameter_configs = registration_parameter_configs(target, *cfg_suggest)
         changes = [
             environment_changes,
             self.add_parameters(target, *parameter_configs, dry_run=dry_run),
@@ -1524,7 +1664,7 @@ class SimulationScenario:
             changes.append(monitors)
         return merge_registry_changes(*changes)
 
-    def remove_all(self) -> Dict[str, List[str]]:
+    def remove_all(self) -> dict[str, list[str]]:
         action_ids = [
             action_id
             for action_id in self.actions
@@ -1542,18 +1682,19 @@ class SimulationScenario:
             changes.append(monitor_changes)
         return merge_registry_changes(*changes)
 
-    def remove_by_dict(self, removals: Dict[str, List[str]]) -> Dict[str, List[str]]:
+    def remove_by_dict(self, removals: dict[str, list[str]]) -> dict[str, list[str]]:
         """Remove layered dependencies before their owning environments."""
-        changes: List[Dict[str, List[str]]] = []
+        changes: list[dict[str, list[str]]] = []
         for kind, remove in (
-            ("charts", self.remove_charts), ("monitors", self.remove_monitors),
+            ("charts", self.remove_charts),
+            ("monitors", self.remove_monitors),
         ):
             if kind in removals:
                 changes.append(remove(removals[kind]))
         if "actions" in removals:
-            changed = merge_registry_changes(*(
-                self.remove_action(action_id) for action_id in removals["actions"]
-            ))
+            changed = merge_registry_changes(
+                *(self.remove_action(action_id) for action_id in removals["actions"])
+            )
             changes.append(changed or _registry_change("actions", []))
         if "parameters" in removals:
             changes.append(self.remove_parameters(removals["parameters"]))
@@ -1567,13 +1708,19 @@ class SimulationScenario:
                 merge_registry_changes(*changed) or _registry_change("layers", [])
             )
         if "environments" in removals:
-            changed = merge_registry_changes(*(
-                self.remove_environment(env_id) for env_id in removals["environments"]
-            ))
-            changes.append(changed or merge_registry_changes(
-                _registry_change("environments", []),
-                _registry_change("layers", []),
-            ))
+            changed = merge_registry_changes(
+                *(
+                    self.remove_environment(env_id)
+                    for env_id in removals["environments"]
+                )
+            )
+            changes.append(
+                changed
+                or merge_registry_changes(
+                    _registry_change("environments", []),
+                    _registry_change("layers", []),
+                )
+            )
         return merge_registry_changes(*changes)
 
     # endregion
@@ -1584,5 +1731,3 @@ class SimulationScenario:
         await self.server.run()
 
     # endregion
-
-

@@ -23,7 +23,6 @@ from typing import Any
 import msgpack
 from websockets.asyncio.client import connect
 
-
 ROOT = Path(__file__).resolve().parent.parent
 HERE = Path(__file__).resolve().parent
 ROWS = (
@@ -1123,7 +1122,7 @@ async def run_one(binding: str, encoding: str) -> dict[str, Any]:
                         rows[error.row]["detail"] += (
                             f"; host: {log_path.read_text()[-3000:]}"
                         )
-                    except Exception as error:
+                    except Exception as error:  # noqa: BLE001 — record each probe failure
                         rows = {
                             "_probe": {
                                 "status": "fail",
@@ -1146,7 +1145,7 @@ async def run_one(binding: str, encoding: str) -> dict[str, Any]:
                                 "missing_capability"
                             ] = capability_result["raw"]
                             capability_client = capability_result["client"]
-                        except Exception as error:
+                        except Exception as error:  # noqa: BLE001 — record each probe failure
                             rows["negative_identity_capability"] = {
                                 "status": "fail",
                                 "detail": f"missing capability: {type(error).__name__}: {error}",
@@ -1186,7 +1185,7 @@ async def run_one(binding: str, encoding: str) -> dict[str, Any]:
                             rows["identity_handshake"]["evidence"][
                                 "same_host_reconnect"
                             ] = rows["reconnect"]["evidence"]["same_instance_reconnect"]
-                    except Exception as error:
+                    except Exception as error:  # noqa: BLE001 — record each probe failure
                         for row in ("atomic_sync", "reconnect"):
                             rows[row] = {
                                 "status": "fail",
@@ -1430,8 +1429,10 @@ async def main() -> int:
         parser.error(
             "publication evidence requires all four bindings; use --check for a subset"
         )
-    revision = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    revision = (
+        await asyncio.to_thread(
+            subprocess.check_output, ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+        )
     ).strip()
     runs = []
     for binding in args.bindings:
@@ -1439,7 +1440,7 @@ async def main() -> int:
             print(f"{binding}/{encoding}", flush=True)
             try:
                 run = await run_one(binding, encoding)
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001 — record each probe failure
                 run = {
                     "binding": binding,
                     "encoding": encoding,
@@ -1491,8 +1492,13 @@ async def main() -> int:
         "tsx",
         "../../conformance/validate_traces.ts",
     ]
-    trace_test = subprocess.run(
-        trace_command, cwd=ROOT, capture_output=True, text=True, check=False
+    trace_test = await asyncio.to_thread(
+        subprocess.run,
+        trace_command,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     protocol_traces = {
         "test": "conformance/validate_traces.ts",
@@ -1514,8 +1520,13 @@ async def main() -> int:
         "-p",
         "test_harness_canaries.py",
     ]
-    canary_test = subprocess.run(
-        canary_command, cwd=ROOT, capture_output=True, text=True, check=False
+    canary_test = await asyncio.to_thread(
+        subprocess.run,
+        canary_command,
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     canaries = {
         "test": "conformance/test_harness_canaries.py",

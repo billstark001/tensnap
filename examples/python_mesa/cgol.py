@@ -31,9 +31,15 @@ def _nested_tuple(value: Any) -> Any:
 
 @bind_kwargs(
     custom_bindings={
+        "width": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
+        "height": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
         "seed": NumberParameter(
             "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
-        )
+        ),
     }
 )
 @checkpoint(capture="capture_checkpoint", restore="restore_checkpoint")

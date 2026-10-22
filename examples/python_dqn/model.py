@@ -3,18 +3,18 @@
 
 from __future__ import annotations
 
-from collections import Counter, deque
-from dataclasses import dataclass
 import math
 import random
-from typing import Iterable
+from collections import Counter, deque
+from collections.abc import Iterable
+from dataclasses import dataclass
 
+import tensnap as t
 import torch
-from torch import Tensor
 from mesa import Agent, Model
 from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
-import tensnap as t
+from torch import Tensor
 
 from .config import EnvConfig, Position
 
@@ -49,7 +49,7 @@ class StepStats:
 class GuideAgent(Agent):
     pos: Position
 
-    def __init__(self, model: "EvacuationModel", pos: Position) -> None:
+    def __init__(self, model: EvacuationModel, pos: Position) -> None:
         super().__init__(model)
         self.spawn_pos = pos
         self.preferred_exit: Position | None = None
@@ -63,10 +63,10 @@ class GuideAgent(Agent):
 
 @t.agent(icon="circle", size=0.6)
 class EvacueeAgent(Agent):
-    model: "EvacuationModel"
+    model: EvacuationModel
     pos: Position
 
-    def __init__(self, model: "EvacuationModel", pos: Position) -> None:
+    def __init__(self, model: EvacuationModel, pos: Position) -> None:
         super().__init__(model)
         self.spawn_pos = pos
         self.alive = True
@@ -121,9 +121,14 @@ def _make_cell_projector(color: str) -> t.AttrProjector:
     _color = color
 
     def f(pos: Position):
-        return dict(
-            id=str(pos), x=pos[0], y=pos[1], color=_color, icon="square", size=1
-        )
+        return {
+            "id": str(pos),
+            "x": pos[0],
+            "y": pos[1],
+            "color": _color,
+            "icon": "square",
+            "size": 1,
+        }
 
     return f
 
@@ -494,9 +499,9 @@ class EvacuationModel(Model):
         )
         for evacuee in self.evacuees:
             if evacuee.evacuated:
-                setattr(evacuee, "_counted_evacuated", True)
+                evacuee._counted_evacuated = True
             if not evacuee.alive and not evacuee.evacuated:
-                setattr(evacuee, "_counted_dead", True)
+                evacuee._counted_dead = True
 
         occupancy = Counter(
             evacuee.pos

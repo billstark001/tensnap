@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import json
 import subprocess
-from typing import Annotated
 from pathlib import Path
+from typing import Annotated, ClassVar
 
-from tensnap import SimulationScenario
 import tensnap.bindings as binding_api
+from tensnap import SimulationScenario
 from tensnap.bindings import (
     BindParameterConfig,
     BindParametersConfig,
+    action,
     agent,
     agent_layer,
-    action,
     chart,
     env,
     layer_bindings,
@@ -23,7 +23,6 @@ from tensnap.bindings import (
 )
 from tensnap.protocol import layer_create_payload
 
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
@@ -31,7 +30,9 @@ def _parse_simulator_messages(messages: list[dict]) -> None:
     """Keep native binding fixtures pinned to the protocol package schema."""
     script = """
 const { SimulatorToRendererMessageSchema } = await import(process.argv[1]);
-for (const message of JSON.parse(process.argv[2])) SimulatorToRendererMessageSchema.parse(message);
+for (const message of JSON.parse(process.argv[2])) {
+  SimulatorToRendererMessageSchema.parse(message);
+}
 """
     schemas_url = (REPO_ROOT / "packages/protocol/dist/schemas.js").resolve().as_uri()
     subprocess.run(
@@ -88,7 +89,7 @@ def test_python_mapping_is_exact_and_chart_helpers_never_become_parameters():
     class Model:
         speed = 2.5
         enabled = True
-        opaque = {"must": "not leak"}
+        opaque: ClassVar[dict[str, str]] = {"must": "not leak"}
 
         @chart("population", "Population")
         def get_tensnap_chart_data_0(self):

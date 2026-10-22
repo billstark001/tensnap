@@ -122,7 +122,7 @@ def options_from_args(args: argparse.Namespace) -> NetLogoStudyOptions:
     )
 
 
-def netlogo_number(value: float | int) -> str:
+def netlogo_number(value: float) -> str:
     return str(value) if isinstance(value, int) else f"{value:.17g}"
 
 

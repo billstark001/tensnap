@@ -228,7 +228,7 @@ TenSnap's 0.3 release line is a research release. Its current evidence covers im
 - `Scenario` plus explicit builders such as `parameter(...)`, `agents_layer(...)`, and `chart(...)` are the Julia binding surface.
 - The current decorator and readback surface lives under `tensnap.bindings`.
 - Binding decorators infer same-name item fields, layer sources, and layer metadata once per initialized instance; use selector strings only when the source path differs, such as `x="position[0]"`.
-- Use `SimulationScenario.add_all(...)` for the common Python registration path. It registers environment/layer, chart, and action bindings by default; parameter discovery is opt-in through `@params(...)` or an explicit config.
+- Use `SimulationScenario.add_all(...)` for separate Python declarations. It registers environment/layer, chart, monitor, action and explicit parameter bindings; `@params(...)` or a supplied config opts plain attributes into automatic parameter discovery. Use `await scenario.register_model(model)` for model declarations and constructor-driven stepping/reset.
 - Built-in renderer-driven actions are `start`, `step`, and `reset`.
 - Tutorial 1, Tutorial 2, Tutorial 3, and Tutorial 4 are now backed by runnable examples in `examples/python/`; tutorials 5-6 are still planned.
 

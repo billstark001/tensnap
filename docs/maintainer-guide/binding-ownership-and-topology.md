@@ -18,6 +18,28 @@ This document is the shared contract for the Python, Go, Julia, and JS model bin
 - `@agent`, `@edge`, `@trajectory_item`, `@action`, `@chart`, and `@monitor` attach to their corresponding class or callable/getter. Property metadata belongs to its getter. Readers accept a class or instance for class metadata, and a declared member for member metadata.
 - Class registry writes copy an inherited list before adding a local entry. `get_scene_restore_binding` reads a typed, class-owned declaration. Layer ordering is compiled when the environment registry changes and reused while building state; standalone layer readback permits dependencies supplied by another class later in registration.
 
+### Python parameter resolution and accessor ownership
+
+Resolve parameter declarations by source field name before assigning public IDs. Class values, instance values and constructor metadata are not independent declarations of the same field. Separate declaration selection from live readback: an instance supplies the current value even when the declaration or default lives on its class. The field declaration tier (`@param` and class `Annotated`) takes priority over constructor annotations. Ordered custom bindings override that tier; scalar inference is last. Incompatible types or IDs within one field tier are errors, as are duplicate source fields and public IDs within a batch. Providers using `__tensnap_parameter_metadata__` obey the same batch identity checks. Validate the entire parameter batch and known descriptor writability before changing the parameter registry.
+
+Configuration priority is explicit and shared by all discovery surfaces. Class configs follow call-site suggestions, subclass configs follow inherited configs, and later configs win. Resolve private-name policy separately from include/exclude selectors so omitted options do not reject a lower-priority explicit choice. Default Mesa exclusions apply only to automatic candidates. `BindParameterConfig` tracks omission separately from concrete defaults. Custom `Parameter` objects are complete metadata definitions; do not infer omission by comparing a value to its default. The public [Python API](../api-reference/python-api.md#parameter-declarations-and-discovery) specifies the exact merging rules.
+
+Inspect member metadata statically, using effective MRO members and typed getter metadata, before evaluating properties. Chart and monitor declarations suppress automatic parameter inference, including scalar results; explicit parameter declarations can opt into a second role. Include selectors alone do not change a member's role. Known getter-only properties and parameter descriptors cannot be registered as editable controls without an explicit setter. Constructor controls have their own staged setter; runtime editability and setter availability are distinct concerns.
+
+Metadata containers and runtime accessors have different ownership. Clone mutable metadata at discovery, registration and wire publication boundaries. Retain callable objects by reference, including bound owners; never deep-copy a binding wholesale. Wire serialization uses an allowlist before copying data, so callbacks and model resources are never traversed. Omitted instantiate accessors retain the original callback; an explicit callback replaces it and explicit `None` clears it. Reset/restore rebinds generated accessors to the live registration target and retains the identity of explicit callbacks.
+
+The implementation has one dependency direction:
+
+- `bindings/_parameter_declarations.py` owns declaration descriptors, supplied-field tracking and ordered configuration.
+- `bindings/_parameter_resolution.py` selects one effective definition and type, and validates batch identities. Both model discovery and constructor binding use it.
+- `bindings/_parameter_discovery.py` adapts namespaces and objects, reads static roles, and validates known accessor constraints. `utils/member_metadata.py` supplies shared static member reads.
+- `bindings/basic/parameter.py` exports the public parameter API; it has no alternate scanner or legacy helper forwarding.
+- `bindings/lifecycle.py` owns construction inputs and staged values. It does not implement another type inference or metadata merge path.
+- Lifecycle planning and `add_all` share the same parameter-selection policy. An undecorated model's explicit field or constructor-annotation declaration must not be rediscovered as an additional staged constructor control. Constructor-only metadata belongs in `bind_kwargs`; matching model-owned declarations retain their own accessors and editability.
+- `models/parameter.py` owns runtime parameter objects and wire-safe copying. `scenario.py` owns registry mutation and generated default accessors.
+
+Parameter discovery and declaration compilation happen at registration, reconstruction and restore boundaries, not per simulation tick. Regression tests should check model-visible writes and readback, callback identity with non-copyable owners, metadata isolation, role exclusion without getter evaluation, duplicate-ID failure without partial registration, and constructor/reset/restore behavior. Keep these modules under Ruff and Pyright checks rather than adding file-wide exclusions.
+
 ## Go binding
 
 - `Model` options own model-wide lifecycle and checkpoint hooks. `Env` owns its layers. Each layer builder owns its `Restore` inverse, `DependencyLayer` references, metadata, and item projection. There is no positional target lookup among builders.

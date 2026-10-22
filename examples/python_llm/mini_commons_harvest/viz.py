@@ -5,8 +5,6 @@ from typing import Annotated
 
 from tensnap import (
     BindParameterConfig,
-    EnumParameter,
-    NumberParameter,
     agent_layer,
     chart,
     env,
@@ -16,7 +14,7 @@ from tensnap import (
 )
 
 from ..common.config import probability
-from ..common.viz import ModelView, controls
+from ..common.viz import ModelView
 from .model import Harvester
 from .scenarios import COMMONS_RULES, COMMONS_SCENARIOS
 
@@ -41,12 +39,6 @@ def resource_color(view, row, col, resource):
     return ["#fde6c8", "#bbf7d0", "#4ade80", "#15803d"][resource]
 
 
-@controls(
-    {
-        "regrowth": NumberParameter("", min=0, max=1, step=0.05),
-        "rule": EnumParameter("", options=list(COMMONS_RULES)),
-    }
-)
 @grid_layer(
     "grid",
     width=lambda view: view.model.config.width,
@@ -79,7 +71,7 @@ def resource_color(view, row, col, resource):
 class CommonsView(ModelView):
     """Expose spatial resources, local behavior and global researcher metrics."""
 
-    regrowth: float
+    regrowth: Annotated[float, BindParameterConfig("number", min=0, max=1, step=0.05)]
     rule: Annotated[str, BindParameterConfig("enum", options=list(COMMONS_RULES))]
     scenarios = COMMONS_SCENARIOS
 

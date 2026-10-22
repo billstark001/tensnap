@@ -11,7 +11,7 @@ from pathlib import Path
 EXAMPLE_DIR = Path(__file__).resolve().parents[5] / "examples/python_mesa"
 sys.path.insert(0, str(EXAMPLE_DIR))
 
-from netlogo_study import (  # noqa: E402
+from netlogo_study import (
     add_study_arguments,
     advance_trial,
     create_workspace,

@@ -75,7 +75,7 @@ def setup(
     global _agent, _loaded_model
 
     (
-        torch,
+        _torch,
         DQNConfig,
         EnvConfig,
         build_evacuation_layout,

@@ -4,7 +4,7 @@
 
 import math
 from enum import Enum
-from typing import List, Tuple, cast
+from typing import ClassVar, cast
 
 import mesa
 from tensnap import (
@@ -34,13 +34,13 @@ class MushroomState(str, Enum):
 @agent(icon="arrow", color="blue")
 class Hunter(mesa.Agent):
     model: "ForagingModel"
-    pos: Tuple[float, float]
+    pos: tuple[float, float]
 
-    _NEIGHBOR_OFFSETS: List[Tuple[int, int]] = [
+    _NEIGHBOR_OFFSETS: ClassVar[list[tuple[int, int]]] = [
         (dx, dy) for dx in range(-1, 2) for dy in range(-1, 2)
     ]
 
-    def __init__(self, model: "ForagingModel", pos: Tuple[float, float]) -> None:
+    def __init__(self, model: "ForagingModel", pos: tuple[float, float]) -> None:
         super().__init__(model)
         self.pos = pos
         self.time_since_last_found = 0
@@ -146,9 +146,24 @@ class Patch(CellAgent):
 @env()
 @bind_kwargs(
     custom_bindings={
+        "width": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
+        "height": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
+        "num_clusters": NumberParameter(
+            "", min=0, max=None, step=1, allow_runtime_change=False
+        ),
+        "patches_per_cluster": NumberParameter(
+            "", min=0, max=None, step=1, allow_runtime_change=False
+        ),
+        "num_turtles": NumberParameter(
+            "", min=0, max=None, step=1, allow_runtime_change=False
+        ),
         "seed": NumberParameter(
             "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
-        )
+        ),
     }
 )
 class ForagingModel(mesa.Model):  # type: ignore[misc]
@@ -174,9 +189,9 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
         self.patches_per_cluster = patches_per_cluster
         self.num_turtles = num_turtles
         self.running = True
-        self.hunters: List[Hunter] = []
-        self.patches: List[Patch] = []
-        self.patch_map: dict[Tuple[int, int], Patch] = {}
+        self.hunters: list[Hunter] = []
+        self.patches: list[Patch] = []
+        self.patch_map: dict[tuple[int, int], Patch] = {}
 
         # 创建 patches，同步维护查找表
         for x in range(width):
@@ -189,7 +204,7 @@ class ForagingModel(mesa.Model):  # type: ignore[misc]
             center_x = self.random.randrange(width)
             center_y = self.random.randrange(height)
             candidate_patches = cast(
-                List[Patch],
+                list[Patch],
                 list(
                     self.grid[(center_x, center_y)]
                     .get_neighborhood(radius=5, include_center=True)

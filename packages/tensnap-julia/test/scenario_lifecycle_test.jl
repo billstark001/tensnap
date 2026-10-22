@@ -1,313 +1,421 @@
 @testset "scenario builders and lifecycle" begin
-	model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
-	scenario = Scenario()
-	register_model!(scenario, model;
-		init = m -> (m.ticks = 0),
-		step = m -> (m.ticks += 1; m.agents[1].x += 1),
-		reset = m -> (m.ticks = 0; m.agents[1].x = 0),
-	)
+  model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
+  scenario = Scenario()
+  register_model!(
+    scenario,
+    model;
+    init = m -> (m.ticks = 0),
+    step = m -> (m.ticks += 1; m.agents[1].x += 1),
+    reset = m -> (m.ticks = 0; m.agents[1].x = 0),
+  )
 
-	add_parameter!(scenario, parameter("threshold";
-		value = model.threshold,
-		getter = m -> m.threshold,
-		setter = (value, m) -> (m.threshold = Int(value)),
-	))
-	add_chart!(scenario, chart("ticks", m -> m.ticks))
-	env = environment("toy")
-	add_layer!(env, agents_layer("agents", m -> m.agents; projector = autoagentprojector()))
-	add_environment!(scenario, env)
+  add_parameter!(
+    scenario,
+    parameter(
+      "threshold";
+      value = model.threshold,
+      getter = m -> m.threshold,
+      setter = (value, m) -> (m.threshold = Int(value)),
+    ),
+  )
+  add_chart!(scenario, chart("ticks", m -> m.ticks))
+  env = environment("toy")
+  add_layer!(env, agents_layer("agents", m -> m.agents; projector = autoagentprojector()))
+  add_environment!(scenario, env)
 
-	@test haskey(scenario.actions, "start")
-	@test haskey(scenario.actions, "step")
-	@test haskey(scenario.actions, "reset")
-	@test scenario.actions["start"].continuous
-	@test scenario.ip_family == "auto"
+  @test haskey(scenario.actions, "start")
+  @test haskey(scenario.actions, "step")
+  @test haskey(scenario.actions, "reset")
+  @test scenario.actions["start"].continuous
+  @test scenario.ip_family == "auto"
 
-	sync!(scenario)
-	@test length(env.layers[1].last_items) == 1
+  sync!(scenario)
+  @test length(env.layers[1].last_items) == 1
 
-	step!(scenario)
-	@test scenario.time_step == 1
-	@test model.ticks == 1
-	@test model.agents[1].x == 1
+  step!(scenario)
+  @test scenario.time_step == 1
+  @test model.ticks == 1
+  @test model.agents[1].x == 1
 
-	TenSnap._set_parameter!(scenario.parameters["threshold"], 5, scenario.model)
-	@test model.threshold == 5
+  TenSnap._set_parameter!(scenario.parameters["threshold"], 5, scenario.model)
+  @test model.threshold == 5
 
-	reset!(scenario)
-	@test scenario.time_step == 0
-	@test model.ticks == 0
-	@test model.agents[1].x == 0
+  reset!(scenario)
+  @test scenario.time_step == 0
+  @test model.ticks == 0
+  @test model.agents[1].x == 0
 end
 
 @testset "model steps may return their mutated model" begin
-	model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
-	scenario = Scenario()
-	register_model!(scenario, model; step = identity)
+  model = ToyModel([ToyAgent(1, 0.0, 0.0)], 2, 0)
+  scenario = Scenario()
+  register_model!(scenario, model; step = identity)
 
-	@test TenSnap._advance_step!(scenario)
-	@test scenario.time_step == 1
+  @test TenSnap._advance_step!(scenario)
+  @test scenario.time_step == 1
 
-	register_model!(scenario, model; step = _ -> false)
-	@test !TenSnap._advance_step!(scenario)
+  register_model!(scenario, model; step = _ -> false)
+  @test !TenSnap._advance_step!(scenario)
 end
 
 @testset "declarative monitors and restore hooks" begin
-	state = Ref(2)
-	restored = Ref(false)
-	scenario = Scenario(
-		model_id = "monitor-model",
-		state_schema_version = "1",
-		monitors = [monitor("status", _ -> Dict("value" => state[]); label = "Status", render_hint = "tree")],
-		restore_hooks = restore_hooks(payload -> begin
-			restored[] = true
-			haskey(payload, "time") && (state[] = Int(payload["time"]))
-		end; checkpoint_capture = _ -> state[], checkpoint_restore = data -> (state[] = Int(data))),
-	)
-	register_model!(scenario, state)
+  state = Ref(2)
+  restored = Ref(false)
+  scenario = Scenario(
+    model_id = "monitor-model",
+    state_schema_version = "1",
+    monitors = [
+      monitor(
+        "status",
+        _ -> Dict("value" => state[]);
+        label = "Status",
+        render_hint = "tree",
+      ),
+    ],
+    restore_hooks = restore_hooks(
+      payload -> begin
+        restored[] = true
+        haskey(payload, "time") && (state[] = Int(payload["time"]))
+      end;
+      checkpoint_capture = _ -> state[],
+      checkpoint_restore = data -> (state[] = Int(data)),
+    ),
+  )
+  register_model!(scenario, state)
 
-	@test scenario.monitors["status"].label == "Status"
-	@test TenSnap._monitor_payload(scenario.monitors["status"]) == Dict(
-		"id" => "status", "label" => "Status", "render_hint" => "tree",
-	)
-	info = TenSnap._simulator_info_payload(scenario)
-	@test info["binding"]["version"] == string(pkgversion(TenSnap))
-	@test info["protocol_version"] == TenSnap.PROTOCOL_VERSION
-	@test info["capabilities"] == ["monitor", "scene.restore.checkpoint", "scene.restore.projected"]
-	TenSnap._call0or1(scenario.checkpoint_restore, 5)
-	TenSnap._call0or1(scenario.scene_restore, Dict("time" => 5))
-	@test restored[]
-	@test state[] == 5
-	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 5
-	checkpoint = TenSnap._encode_checkpoint(Dict("value" => 5); use_msgpack = false)
-	@test checkpoint["encoding"] == "application/msgpack"
-	@test TenSnap._decode_checkpoint(checkpoint)["value"] == 5
+  @test scenario.monitors["status"].label == "Status"
+  @test TenSnap._monitor_payload(scenario.monitors["status"]) ==
+        Dict("id" => "status", "label" => "Status", "render_hint" => "tree")
+  info = TenSnap._simulator_info_payload(scenario)
+  @test info["binding"]["version"] == string(pkgversion(TenSnap))
+  @test info["protocol_version"] == TenSnap.PROTOCOL_VERSION
+  @test info["capabilities"] ==
+        ["monitor", "scene.restore.checkpoint", "scene.restore.projected"]
+  TenSnap._call0or1(scenario.checkpoint_restore, 5)
+  TenSnap._call0or1(scenario.scene_restore, Dict("time" => 5))
+  @test restored[]
+  @test state[] == 5
+  @test TenSnap._call0or1(scenario.checkpoint_capture, state) == 5
+  checkpoint = TenSnap._encode_checkpoint(Dict("value" => 5); use_msgpack = false)
+  @test checkpoint["encoding"] == "application/msgpack"
+  @test TenSnap._decode_checkpoint(checkpoint)["value"] == 5
 end
 
 @testset "checkpoint-only restore hooks" begin
-	state = Ref(2)
-	scenario = Scenario(
-		model_id = "checkpoint-only",
-		restore_hooks = restore_hooks(nothing;
-			checkpoint_capture = _ -> state[],
-			checkpoint_restore = data -> (state[] = Int(data))),
-	)
-	register_model!(scenario, state)
+  state = Ref(2)
+  scenario = Scenario(
+    model_id = "checkpoint-only",
+    restore_hooks = restore_hooks(
+      nothing;
+      checkpoint_capture = _ -> state[],
+      checkpoint_restore = data -> (state[] = Int(data)),
+    ),
+  )
+  register_model!(scenario, state)
 
-	@test TenSnap._simulator_info_payload(scenario)["capabilities"] == ["scene.restore.checkpoint"]
-	TenSnap._call0or1(scenario.checkpoint_restore, 7)
-	@test state[] == 7
-	@test TenSnap._call0or1(scenario.checkpoint_capture, state) == 7
+  @test TenSnap._simulator_info_payload(scenario)["capabilities"] ==
+        ["scene.restore.checkpoint"]
+  TenSnap._call0or1(scenario.checkpoint_restore, 7)
+  @test state[] == 7
+  @test TenSnap._call0or1(scenario.checkpoint_capture, state) == 7
 end
 
 @testset "composed projected restore" begin
-	model = Dict{String, Any}("agents" => Dict("old" => Dict("id" => "old", "x" => 1)), "time" => 0)
-	phases = String[]
-	fail_before = Ref(false)
-	plan = scene_restore(
-		before_apply = (payload, m) -> begin
-			push!(phases, "before")
-			@test payload["time"] == 7
-			@test haskey(m["agents"], "old")
-			fail_before[] && error("before failed")
-		end,
-		time = (value, m) -> begin
-			push!(phases, "time")
-			m["time"] = value
-		end,
-		after_apply = (payload, m) -> begin
-			push!(phases, "after")
-			@test payload["time"] == 7
-			@test haskey(m["agents"], "new")
-			@test m["time"] == 7
-		end,
-	)
-	scenario = Scenario(model_id = "composed", restore_hooks = restore_hooks(plan))
-	register_model!(scenario, model)
-	add_environment!(scenario, environment("main"; layers = [
-		layer("agents", "agent", m -> collect(values(m["agents"])); item_key_fields = ["id"],
-            restore = (create = (item, m) -> (m["agents"][item["id"]] = item),
-                update = (item, m) -> (m["agents"][item["id"]] = item),
-                delete = (item, m) -> delete!(m["agents"], item["id"]))),
-	]))
-	@test "scene.restore.projected" in TenSnap._simulator_info_payload(scenario)["capabilities"]
-	base = Dict{String, Any}("model_id" => "composed", "time" => 7,
-		"envs" => [Dict("id" => "main", "type" => "2d", "layers" => [
-			Dict("layer_id" => "agents", "layer_type" => "agent",
-				"items" => [Dict("id" => "new", "x" => 3)]),
-		])])
-	bad = deepcopy(base)
-	push!(bad["envs"][1]["layers"][1]["items"], Dict("id" => "new", "x" => 4))
-	@test_throws ErrorException TenSnap._validate_projected_restore(scenario, bad)
-	@test haskey(model["agents"], "old")
-	@test isempty(phases)
-	fail_before[] = true
-	@test_throws ErrorException TenSnap._apply_projected_restore!(scenario, base)
-	@test phases == ["before"]
-	@test haskey(model["agents"], "old")
-	fail_before[] = false
-	empty!(phases)
-	TenSnap._validate_projected_restore(scenario, base)
-	TenSnap._apply_projected_restore!(scenario, base)
-	@test collect(keys(model["agents"])) == ["new"]
-	@test model["agents"]["new"]["x"] == 3
-	@test model["time"] == 7
-	@test phases == ["before", "time", "after"]
+  model =
+    Dict{String,Any}("agents" => Dict("old" => Dict("id" => "old", "x" => 1)), "time" => 0)
+  phases = String[]
+  fail_before = Ref(false)
+  plan = scene_restore(
+    before_apply = (payload, m) -> begin
+      push!(phases, "before")
+      @test payload["time"] == 7
+      @test haskey(m["agents"], "old")
+      fail_before[] && error("before failed")
+    end,
+    time = (value, m) -> begin
+      push!(phases, "time")
+      m["time"] = value
+    end,
+    after_apply = (payload, m) -> begin
+      push!(phases, "after")
+      @test payload["time"] == 7
+      @test haskey(m["agents"], "new")
+      @test m["time"] == 7
+    end,
+  )
+  scenario = Scenario(model_id = "composed", restore_hooks = restore_hooks(plan))
+  register_model!(scenario, model)
+  add_environment!(
+    scenario,
+    environment(
+      "main";
+      layers = [
+        layer(
+          "agents",
+          "agent",
+          m -> collect(values(m["agents"]));
+          item_key_fields = ["id"],
+          restore = (
+            create = (item, m) -> (m["agents"][item["id"]] = item),
+            update = (item, m) -> (m["agents"][item["id"]] = item),
+            delete = (item, m) -> delete!(m["agents"], item["id"]),
+          ),
+        ),
+      ],
+    ),
+  )
+  @test "scene.restore.projected" in
+        TenSnap._simulator_info_payload(scenario)["capabilities"]
+  base = Dict{String,Any}(
+    "model_id" => "composed",
+    "time" => 7,
+    "envs" => [
+      Dict(
+        "id" => "main",
+        "type" => "2d",
+        "layers" => [
+          Dict(
+            "layer_id" => "agents",
+            "layer_type" => "agent",
+            "items" => [Dict("id" => "new", "x" => 3)],
+          ),
+        ],
+      ),
+    ],
+  )
+  bad = deepcopy(base)
+  push!(bad["envs"][1]["layers"][1]["items"], Dict("id" => "new", "x" => 4))
+  @test_throws ErrorException TenSnap._validate_projected_restore(scenario, bad)
+  @test haskey(model["agents"], "old")
+  @test isempty(phases)
+  fail_before[] = true
+  @test_throws ErrorException TenSnap._apply_projected_restore!(scenario, base)
+  @test phases == ["before"]
+  @test haskey(model["agents"], "old")
+  fail_before[] = false
+  empty!(phases)
+  TenSnap._validate_projected_restore(scenario, base)
+  TenSnap._apply_projected_restore!(scenario, base)
+  @test collect(keys(model["agents"])) == ["new"]
+  @test model["agents"]["new"]["x"] == 3
+  @test model["time"] == 7
+  @test phases == ["before", "time", "after"]
 end
 
 @testset "layer restore metadata stays with its declared layer" begin
-	model = Dict{String, Any}("left" => "", "right" => "")
-	scenario = Scenario(model_id = "two-grids", restore_hooks = restore_hooks(scene_restore()))
-	register_model!(scenario, model)
-	add_environment!(scenario, environment("main"; layers = [
-		grid_layer("right", _ -> Any[];
-			restore = (metadata = (data, m) -> (m["right"] = data["marker"]),)),
-		grid_layer("left", _ -> Any[];
-			restore = (metadata = (data, m) -> (m["left"] = data["marker"]),)),
-	]))
-	payload = Dict{String, Any}("model_id" => "two-grids", "envs" => [
-		Dict("id" => "main", "type" => "2d", "layers" => [
-			Dict("layer_id" => "left", "layer_type" => "grid", "metadata" => Dict("marker" => "L")),
-			Dict("layer_id" => "right", "layer_type" => "grid", "metadata" => Dict("marker" => "R")),
-		]),
-	])
-	TenSnap._apply_projected_restore!(scenario, payload)
-	@test model["left"] == "L"
-	@test model["right"] == "R"
+  model = Dict{String,Any}("left" => "", "right" => "")
+  scenario =
+    Scenario(model_id = "two-grids", restore_hooks = restore_hooks(scene_restore()))
+  register_model!(scenario, model)
+  add_environment!(
+    scenario,
+    environment(
+      "main";
+      layers = [
+        grid_layer(
+          "right",
+          _ -> Any[];
+          restore = (metadata = (data, m) -> (m["right"] = data["marker"]),),
+        ),
+        grid_layer(
+          "left",
+          _ -> Any[];
+          restore = (metadata = (data, m) -> (m["left"] = data["marker"]),),
+        ),
+      ],
+    ),
+  )
+  payload = Dict{String,Any}(
+    "model_id" => "two-grids",
+    "envs" => [
+      Dict(
+        "id" => "main",
+        "type" => "2d",
+        "layers" => [
+          Dict(
+            "layer_id" => "left",
+            "layer_type" => "grid",
+            "metadata" => Dict("marker" => "L"),
+          ),
+          Dict(
+            "layer_id" => "right",
+            "layer_type" => "grid",
+            "metadata" => Dict("marker" => "R"),
+          ),
+        ],
+      ),
+    ],
+  )
+  TenSnap._apply_projected_restore!(scenario, payload)
+  @test model["left"] == "L"
+  @test model["right"] == "R"
 end
 
 @testset "restore identities preserve slash boundaries" begin
-	model = Dict{String, Any}()
-	scenario = Scenario(model_id = "slash-ids", restore_hooks = restore_hooks(scene_restore()))
-	register_model!(scenario, model)
-	for (env_id, layer_id, marker) in [("a/b", "c", "left"), ("a", "b/c", "right")]
-		add_environment!(scenario, environment(env_id; layers = [
-			grid_layer(layer_id, _ -> Any[];
-				restore = (metadata = (data, m) -> (m[marker] = data["value"]),)),
-		]))
-	end
-	payload = Dict{String, Any}("envs" => [
-		Dict("id" => env_id, "type" => "2d", "layers" => [
-			Dict("layer_id" => layer_id, "layer_type" => "grid", "metadata" => Dict("value" => marker)),
-		]) for (env_id, layer_id, marker) in [("a/b", "c", 1), ("a", "b/c", 2)]
-	])
-	TenSnap._apply_projected_restore!(scenario, payload)
-	@test model == Dict("left" => 1, "right" => 2)
+  model = Dict{String,Any}()
+  scenario =
+    Scenario(model_id = "slash-ids", restore_hooks = restore_hooks(scene_restore()))
+  register_model!(scenario, model)
+  for (env_id, layer_id, marker) in [("a/b", "c", "left"), ("a", "b/c", "right")]
+    add_environment!(
+      scenario,
+      environment(
+        env_id;
+        layers = [
+          grid_layer(
+            layer_id,
+            _ -> Any[];
+            restore = (metadata = (data, m) -> (m[marker] = data["value"]),),
+          ),
+        ],
+      ),
+    )
+  end
+  payload = Dict{String,Any}(
+    "envs" => [
+      Dict(
+        "id" => env_id,
+        "type" => "2d",
+        "layers" => [
+          Dict(
+            "layer_id" => layer_id,
+            "layer_type" => "grid",
+            "metadata" => Dict("value" => marker),
+          ),
+        ],
+      ) for (env_id, layer_id, marker) in [("a/b", "c", 1), ("a", "b/c", 2)]
+    ],
+  )
+  TenSnap._apply_projected_restore!(scenario, payload)
+  @test model == Dict("left" => 1, "right" => 2)
 end
 
 @testset "declarative parameters from fields" begin
-	config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
-	scenario = Scenario()
-	register_model!(scenario, Ref(config))
+  config = ToyConfig(1.5, true, "fast", [ToyAgent(1, 0.0, 0.0)])
+  scenario = Scenario()
+  register_model!(scenario, Ref(config))
 
-	function set_speed!(value, _model_ref)
-		config.speed = clamp(Float64(value), 0.0, 10.0)
-	end
+  function set_speed!(value, _model_ref)
+    config.speed = clamp(Float64(value), 0.0, 10.0)
+  end
 
-	added = add_parameters!(
-		scenario,
-		parameters_from_fields(scenario.model;
-			target = _ -> config,
-			include = [:speed, :enabled, :label, :agents],
-			metadata = Dict(
-				:speed => (; min = 0, max = 10, step = 0.5, label = "Speed",
-					allow_runtime_change = false, setter = set_speed!),
-			),
-			rename = Dict(:enabled => "isEnabled"),
-		),
-	)
-	by_id = scenario.parameters
+  added = add_parameters!(
+    scenario,
+    parameters_from_fields(
+      scenario.model;
+      target = _ -> config,
+      include = [:speed, :enabled, :label, :agents],
+      metadata = Dict(
+        :speed => (;
+          min = 0,
+          max = 10,
+          step = 0.5,
+          label = "Speed",
+          allow_runtime_change = false,
+          setter = set_speed!,
+        ),
+      ),
+      rename = Dict(:enabled => "isEnabled"),
+    ),
+  )
+  by_id = scenario.parameters
 
-	@test Set(keys(by_id)) == Set(["speed", "isEnabled", "label"])
-	@test length(added) == 3
-	@test by_id["speed"].type == "number"
-	@test by_id["speed"].label == "Speed"
-	@test by_id["speed"].min == 0
-	@test by_id["speed"].max == 10
-	@test by_id["speed"].step == 0.5
-	@test by_id["speed"].allow_runtime_change == false
-	@test TenSnap._param_payload(by_id["speed"], scenario.model)["allow_runtime_change"] == false
-	@test by_id["isEnabled"].type == "boolean"
-	@test by_id["isEnabled"].allow_runtime_change == true
-	@test by_id["label"].type == "string"
+  @test Set(keys(by_id)) == Set(["speed", "isEnabled", "label"])
+  @test length(added) == 3
+  @test by_id["speed"].type == "number"
+  @test by_id["speed"].label == "Speed"
+  @test by_id["speed"].min == 0
+  @test by_id["speed"].max == 10
+  @test by_id["speed"].step == 0.5
+  @test by_id["speed"].allow_runtime_change == false
+  @test TenSnap._param_payload(by_id["speed"], scenario.model)["allow_runtime_change"] ==
+        false
+  @test by_id["isEnabled"].type == "boolean"
+  @test by_id["isEnabled"].allow_runtime_change == true
+  @test by_id["label"].type == "string"
 
-	TenSnap._set_parameter!(by_id["speed"], 12, scenario.model)
-	TenSnap._set_parameter!(by_id["isEnabled"], false, scenario.model)
-	TenSnap._set_parameter!(by_id["label"], "slow", scenario.model)
+  TenSnap._set_parameter!(by_id["speed"], 12, scenario.model)
+  TenSnap._set_parameter!(by_id["isEnabled"], false, scenario.model)
+  TenSnap._set_parameter!(by_id["label"], "slow", scenario.model)
 
-	@test config.speed == 10.0
-	@test config.enabled == false
-	@test config.label == "slow"
+  @test config.speed == 10.0
+  @test config.enabled == false
+  @test config.label == "slow"
 
-	wrapped = ToyWrapper(config)
-	wrapped_params = parameters_from_fields(wrapped;
-		include = ["config.speed"],
-		rename = Dict("config.speed" => "wrappedSpeed"),
-	)
-	@test length(wrapped_params) == 1
-	@test wrapped_params[1].id == "wrappedSpeed"
-	TenSnap._set_parameter!(wrapped_params[1], 4, wrapped)
-	@test wrapped.config.speed == 4.0
+  wrapped = ToyWrapper(config)
+  wrapped_params = parameters_from_fields(
+    wrapped;
+    include = ["config.speed"],
+    rename = Dict("config.speed" => "wrappedSpeed"),
+  )
+  @test length(wrapped_params) == 1
+  @test wrapped_params[1].id == "wrappedSpeed"
+  TenSnap._set_parameter!(wrapped_params[1], 4, wrapped)
+  @test wrapped.config.speed == 4.0
 end
 
 @testset "structural parameters can be staged for the next initialization" begin
-	pending = ToyConfig(8.0, true, "pending", ToyAgent[])
-	active_speed = Ref(pending.speed)
-	model_ref = Ref(pending)
+  pending = ToyConfig(8.0, true, "pending", ToyAgent[])
+  active_speed = Ref(pending.speed)
+  model_ref = Ref(pending)
 
-	function init_config!(ref)
-		active_speed[] = pending.speed
-		ref[] = pending
-	end
+  function init_config!(ref)
+    active_speed[] = pending.speed
+    ref[] = pending
+  end
 
-	function set_pending_speed!(value, _ref)
-		pending.speed = Float64(value)
-	end
+  function set_pending_speed!(value, _ref)
+    pending.speed = Float64(value)
+  end
 
-	scenario = Scenario()
-	register_model!(scenario, model_ref; init = init_config!, reset = init_config!)
-	add_parameters!(
-		scenario,
-		parameters_from_fields(model_ref;
-			target = _ -> pending,
-			include = [:speed],
-			metadata = Dict(:speed => (; allow_runtime_change = false, setter = set_pending_speed!)),
-		),
-	)
+  scenario = Scenario()
+  register_model!(scenario, model_ref; init = init_config!, reset = init_config!)
+  add_parameters!(
+    scenario,
+    parameters_from_fields(
+      model_ref;
+      target = _ -> pending,
+      include = [:speed],
+      metadata = Dict(
+        :speed => (; allow_runtime_change = false, setter = set_pending_speed!),
+      ),
+    ),
+  )
 
-	@test active_speed[] == 8.0
-	TenSnap._set_parameter!(scenario.parameters["speed"], 3.0, scenario.model)
-	@test pending.speed == 3.0
-	@test active_speed[] == 8.0
+  @test active_speed[] == 8.0
+  TenSnap._set_parameter!(scenario.parameters["speed"], 3.0, scenario.model)
+  @test pending.speed == 3.0
+  @test active_speed[] == 8.0
 
-	reset!(scenario)
-	@test active_speed[] == 3.0
+  reset!(scenario)
+  @test active_speed[] == 3.0
 end
 
 @testset "declarative parameters support target selectors and read-only targets" begin
-	model_ref = Ref(Dict(:threshold => 0.25, "mode" => "low"))
-	params = parameters_from_fields(model_ref;
-		target = r -> r[],
-		include = [:threshold, :mode],
-		metadata = Dict(
-			:threshold => (; min = 0, max = 1, step = 0.05),
-			:mode => (; options = ["low", "high"]),
-		),
-	)
-	by_id = Dict(p.id => p for p in params)
+  model_ref = Ref(Dict(:threshold => 0.25, "mode" => "low"))
+  params = parameters_from_fields(
+    model_ref;
+    target = r -> r[],
+    include = [:threshold, :mode],
+    metadata = Dict(
+      :threshold => (; min = 0, max = 1, step = 0.05),
+      :mode => (; options = ["low", "high"]),
+    ),
+  )
+  by_id = Dict(p.id => p for p in params)
 
-	@test by_id["threshold"].type == "number"
-	@test by_id["mode"].type == "enum"
-	@test by_id["mode"].options == ["low", "high"]
+  @test by_id["threshold"].type == "number"
+  @test by_id["mode"].type == "enum"
+  @test by_id["mode"].options == ["low", "high"]
 
-	TenSnap._set_parameter!(by_id["threshold"], 0.5, model_ref)
-	TenSnap._set_parameter!(by_id["mode"], "high", model_ref)
+  TenSnap._set_parameter!(by_id["threshold"], 0.5, model_ref)
+  TenSnap._set_parameter!(by_id["mode"], "high", model_ref)
 
-	@test model_ref[][:threshold] == 0.5
-	@test model_ref[]["mode"] == "high"
+  @test model_ref[][:threshold] == 0.5
+  @test model_ref[]["mode"] == "high"
 
-	read_only = (count = 3,)
-	read_only_params = parameters_from_fields(read_only; include = [:count])
-	@test length(read_only_params) == 1
-	@test read_only_params[1].setter === nothing
+  read_only = (count = 3,)
+  read_only_params = parameters_from_fields(read_only; include = [:count])
+  @test length(read_only_params) == 1
+  @test read_only_params[1].setter === nothing
 end

@@ -5,18 +5,22 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, TypeAlias, TypeVar, cast, get_type_hints
+from typing import Any, Literal, TypeAlias, TypeVar, cast
 
-from tensnap.models import Parameter, create_parameter
-from tensnap.models.parameter import ParameterType
+from tensnap.models import Parameter
 from tensnap.utils.attr import make_attr_getter
 from tensnap.utils.init_hook import install_init_hook
 
-from .basic.parameter import (
-    BindParametersConfig,
-    get_annotated_parameter_config,
+from ._parameter_declarations import BindParametersConfig
+from ._parameter_discovery import (
     get_parameter_metadata_from_object,
-    unwrap_annotated_type,
+    registration_parameter_configs,
+)
+from ._parameter_resolution import (
+    annotated_declarations,
+    resolve_parameter,
+    type_hints,
+    validate_parameter_batch,
 )
 from .mesa.utils import (
     is_mesa_model_class,
@@ -74,49 +78,26 @@ class KwargValueSource:
 # region Constructor parameter inference
 
 
-def _parameter_type(annotation: Any | None, value: Any) -> ParameterType:
-    annotation = unwrap_annotated_type(annotation)
-    if annotation is bool or isinstance(value, bool):
-        return "boolean"
-    if annotation is str or isinstance(value, str):
-        return "string"
-    return "number"
-
-
-def _make_parameter(
-    name: str,
-    value: Any,
-    annotation: Any | None,
-    config: BindParametersConfig,
-) -> Parameter:
-    annotated_binding = get_annotated_parameter_config(annotation)
-    if annotated_binding is not None:
-        return annotated_binding.to_parameter(field_name=name, value=value)
-
-    p_type = _parameter_type(annotation, value)
-    custom = dict(config.get_custom_binding(name, p_type) or {})
-    custom.pop("type", None)
-    return create_parameter(
-        id=name,
-        type=p_type,
-        value=value,
-        **{"allow_runtime_change": False, **custom},
-    )
-
-
-def _static_init_kwargs(cls: type[Any]) -> dict[str, dict[str, Any]]:
+def _static_init_kwargs(
+    cls: type[Any], config: BindParametersConfig
+) -> dict[str, dict[str, Any]]:
     signature = inspect.signature(cls.__init__)
-    try:
-        hints = get_type_hints(cls.__init__, include_extras=True)
-    except (NameError, TypeError, AttributeError):
-        hints = {}
+    selected = {
+        name
+        for name, parameter in signature.parameters.items()
+        if name != "self"
+        and parameter.kind
+        in (
+            inspect.Parameter.KEYWORD_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        )
+        and config.evaluate_is_included([config], name)
+    }
+    hints = type_hints(cls.__init__, selected)
 
     result: dict[str, dict[str, Any]] = {}
     for name, param in signature.parameters.items():
-        if name == "self" or param.kind not in (
-            inspect.Parameter.KEYWORD_ONLY,
-            inspect.Parameter.POSITIONAL_OR_KEYWORD,
-        ):
+        if name not in selected:
             continue
         default = param.default
         annotation = (
@@ -157,7 +138,7 @@ class BindKwargsConfig(BindParametersConfig):
         self,
         include: Any = None,
         exclude: Any = None,
-        include_private: bool = False,
+        include_private: bool | None = None,
         custom_bindings: dict[str, Parameter] | None = None,
     ) -> None:
         super().__init__(
@@ -217,7 +198,7 @@ class BindKwargsConfig(BindParametersConfig):
         *,
         default_overrides: Mapping[str, Any] | None = None,
     ) -> list[KwargBinding]:
-        static = _static_init_kwargs(cls)
+        static = _static_init_kwargs(cls, self)
         # Class discovery uses the first call; instance binding uses *its own*
         # constructor inputs so **kwargs never leak between model instances.
         dynamic = dict(
@@ -246,16 +227,26 @@ class BindKwargsConfig(BindParametersConfig):
                     default,
                     required,
                     annotation,
-                    _make_parameter(name, default, annotation, self),
+                    resolve_parameter(
+                        name,
+                        value=default,
+                        annotation=annotation,
+                        declarations=annotated_declarations(annotation),
+                        configs=(self,),
+                        default_runtime_change=False,
+                    ),
                 )
             )
+        validate_parameter_batch(
+            [(binding.name, binding.parameter) for binding in bindings]
+        )
         return bindings
 
 
 def bind_kwargs(
     include: Any = None,
     exclude: Any = None,
-    include_private: bool = False,
+    include_private: bool | None = None,
     custom_bindings: dict[str, Parameter] | None = None,
 ) -> BindKwargsConfig:
     return BindKwargsConfig(
@@ -389,9 +380,8 @@ class BoundModelReinitializer:
         self._kwarg_sources = sources
 
     def _planned_model_parameters(self) -> list[tuple[str, Parameter]]:
-        configs = tuple(BindParametersConfig.get_configs(type(self.model)))
         return get_parameter_metadata_from_object(
-            self.model, *(configs or (BindParametersConfig.EXCLUDE_ALL,))
+            self.model, *registration_parameter_configs(self.model)
         )
 
     def refresh_parameters(self) -> None:

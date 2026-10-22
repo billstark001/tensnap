@@ -7,7 +7,9 @@ import sys
 import mesa
 import pytest
 
-from tensnap.bindings.mesa import utils
+import tensnap
+from tensnap.bindings import mesa as mesa_bindings
+from tensnap.bindings.mesa import clock, utils
 
 
 def test_legacy_step_cleanup_preserves_agent_id_allocation():
@@ -18,10 +20,6 @@ def test_legacy_step_cleanup_preserves_agent_id_allocation():
 
 
 def test_legacy_clock_imports_remain_identical_to_utils():
-    import tensnap
-    from tensnap.bindings import mesa as mesa_bindings
-    from tensnap.bindings.mesa import clock
-
     for name in (
         "mesa_model_time",
         "validate_mesa_model_time_restore",

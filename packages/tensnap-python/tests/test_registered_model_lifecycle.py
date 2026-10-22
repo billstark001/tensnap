@@ -389,7 +389,7 @@ def test_per_instance_capture_preserves_other_binding_init_hooks(bind_first, tim
 
 
 @pytest.mark.asyncio
-async def test_parameter_provider_can_own_constructor_values_without_matching_attributes():
+async def test_parameter_provider_owns_constructor_values_without_matching_attributes():
     @bind_kwargs()
     class Provider:
         def __init__(self, width=5):

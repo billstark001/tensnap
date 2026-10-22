@@ -3,15 +3,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 from warnings import warn
 
 from typing_extensions import TypedDict
 
-from tensnap.utils.member_metadata import (
-    attach_member_metadata,
-    read_member_metadata,
-)
 from tensnap.models.chart import (
     ChartGroupMetadata as _ChartGroupMetadata,
     ChartGroupMetadataDict as _ChartGroupMetadataDict,
@@ -19,6 +16,10 @@ from tensnap.models.chart import (
     ChartMetadataDict as _ChartMetadataDict,
     ChartProperty as _ChartProperty,
     SimplifiedChartMetadata as _SimplifiedChartMetadata,
+)
+from tensnap.utils.member_metadata import (
+    attach_member_metadata,
+    read_member_metadata,
 )
 from tensnap.utils.object import infer_id_from_func_name
 
@@ -34,14 +35,14 @@ if TYPE_CHECKING:
 
 
 class ChartCategorization(TypedDict):
-    added: List[_ChartGroupMetadataDict]
-    removed: List[str]
-    updated: List[_ChartGroupMetadataDict]
+    added: list[_ChartGroupMetadataDict]
+    removed: list[str]
+    updated: list[_ChartGroupMetadataDict]
 
 
 def categorize_charts(
-    client_charts: List[_ChartMetadataDict],
-    server_charts: List[_ChartGroupMetadataDict],
+    client_charts: list[_ChartMetadataDict],
+    server_charts: list[_ChartGroupMetadataDict],
 ) -> ChartCategorization:
     """
     Categorize server charts into added, removed, and updated groups.
@@ -52,11 +53,11 @@ def categorize_charts(
     Returns:
         dict with keys 'added', 'removed', 'updated'
     """
-    client_ids: Set[str] = {chart["id"] for chart in client_charts}
+    client_ids: set[str] = {chart["id"] for chart in client_charts}
 
-    added: List[_ChartGroupMetadataDict] = []
-    updated: List[_ChartGroupMetadataDict] = []
-    server_ids: Set[str] = set()
+    added: list[_ChartGroupMetadataDict] = []
+    updated: list[_ChartGroupMetadataDict] = []
+    server_ids: set[str] = set()
 
     for group in server_charts:
         data_list = group.get("data_list", [])
@@ -88,15 +89,15 @@ def _convert_to_chart_metadata(obj: _SimplifiedChartMetadata) -> _ChartMetadata:
         metadata.refresh_label()
         return metadata
     if isinstance(obj, tuple):
-        if len(obj) == 2:
-            metadata = _ChartMetadata(id=obj[0], color=obj[1])
-            metadata.refresh_label()
-            return metadata
-        if len(obj) == 3:
-            metadata = _ChartMetadata(id=obj[0], color=obj[1], label=obj[2])
-            metadata.refresh_label()
-            return metadata
-        raise ValueError(f"Invalid chart metadata tuple: {obj}")
+        match obj:
+            case (chart_id, color):
+                metadata = _ChartMetadata(id=chart_id, color=color)
+            case (chart_id, color, label):
+                metadata = _ChartMetadata(id=chart_id, color=color, label=label)
+            case _:
+                raise ValueError(f"Invalid chart metadata tuple: {obj}")
+        metadata.refresh_label()
+        return metadata
     if isinstance(obj, dict):
         metadata = _ChartMetadata(
             id=obj["id"],
@@ -109,10 +110,10 @@ def _convert_to_chart_metadata(obj: _SimplifiedChartMetadata) -> _ChartMetadata:
 
 
 def chart(
-    id: Optional[str] = None,
-    label: Optional[str] = None,
-    color: Optional[str] = None,
-    data_list: Optional[List[_SimplifiedChartMetadata]] = None,
+    id: str | None = None,
+    label: str | None = None,
+    color: str | None = None,
+    data_list: list[_SimplifiedChartMetadata] | None = None,
 ) -> Callable[[Callable | property], _ChartProperty]:
     """Decorator to define a chart data getter."""
 
@@ -153,19 +154,17 @@ def _resolve_chart_property(attr: Any) -> _ChartProperty | None:
 
 
 def get_chart_metadata_from_namespace(
-    namespace: Dict[str, Any],
+    namespace: dict[str, Any],
 ) -> list[tuple[str, Callable[..., Any], _ChartGroupMetadata]]:
     """Find all chart-decorated functions/properties in a given namespace."""
-    charts: List[Tuple[str, Callable[..., Any], _ChartGroupMetadata]] = []
+    charts: list[tuple[str, Callable[..., Any], _ChartGroupMetadata]] = []
 
     for name, attr in namespace.items():
         if name.startswith("__") and name.endswith("__"):
             continue
 
         callable_attr = attr.fget if isinstance(attr, property) else attr
-        param = read_member_metadata(
-            attr, _TENSNAP_CHART_FIELD, _ChartGroupMetadata
-        )
+        param = read_member_metadata(attr, _TENSNAP_CHART_FIELD, _ChartGroupMetadata)
 
         if not isinstance(param, _ChartGroupMetadata):
             continue
@@ -205,10 +204,10 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
-    "ChartMetadata",
     "ChartGroupMetadata",
-    "ChartMetadataDict",
     "ChartGroupMetadataDict",
+    "ChartMetadata",
+    "ChartMetadataDict",
     "ChartProperty",
     "SimplifiedChartMetadata",
     "categorize_charts",

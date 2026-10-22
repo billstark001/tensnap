@@ -112,6 +112,8 @@ The Solara view exposes the same core map layers, DQN guide model selection, env
 
 `evac_viz.py` exposes a TenSnap enum parameter named `Guide Model`.
 
+The guide getter and setter share the Python descriptor name `guide_model`, producing one control with public ID `guideModel`. Environment controls are declared on `EnvConfig` with `Annotated[..., t.param(...)]` and registered through `add_all`. Width, height, population and initial-fire sampling are initialization controls; changes apply when the environment is rebuilt on reset. Other declared controls, such as reward weights and the step limit, are read by the running model.
+
 - The options are scanned at startup from `examples/python_dqn/checkpoints` by default, or from `DQN_GUIDE_MODEL_DIR` when that environment variable is set.
 - `.pt` and `.pth` files appear as selectable guide policies.
 - `untrained` is always available and creates deterministic untrained DQN weights.
