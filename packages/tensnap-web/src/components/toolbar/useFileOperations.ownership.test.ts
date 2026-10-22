@@ -1,11 +1,12 @@
-import { act, renderHook, cleanup } from '@testing-library/react';
+import { act, renderHook, cleanup, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { Scenario } from '@tensnap/core';
 import { createSingleSnapshot } from '@tensnap/core/snapshot';
 import { useProjectStore } from '../../store/project';
 import { useSettingsStore } from '../../store/settings';
-import { useFileOperations, saveProjectFile } from './useFileOperations';
+import { useFileOperations, saveProject, saveProjectFile } from './useFileOperations';
 import { initI18n } from '../../i18n';
+import { useLoadingStore } from '../../store/loading';
 
 const io = vi.hoisted(() => ({ saveFileAs: vi.fn(), writeFile: vi.fn(), openFile: vi.fn() }));
 vi.mock('../../store/file-system/provider', () => ({
@@ -87,4 +88,79 @@ it('requests the final MessagePack extension and filter before saving', async ()
   });
   expect(io.writeFile.mock.calls[0][0]).toBe('/allowed/project.msgpack');
   expect(io.writeFile.mock.calls[0][1]).toBeInstanceOf(ArrayBuffer);
+});
+
+it.each([
+  { name: 'Save on a new project', existing: false, saveAs: false },
+  { name: 'Save As on a new project', existing: false, saveAs: true },
+  { name: 'Save As on an existing project', existing: true, saveAs: true },
+])('$name only blocks the workspace after the picker returns', async ({ existing, saveAs }) => {
+  const project = add('a');
+  // Give the project a saved path without going through the picker under test.
+  if (existing) await useProjectStore.getState().save(0, '/original.json', 'json');
+  io.writeFile.mockClear();
+  let choose!: (file: { path: string }) => void;
+  let finishWrite!: () => void;
+  io.saveFileAs.mockReturnValueOnce(
+    new Promise((resolve) => {
+      choose = resolve;
+    }),
+  );
+  io.writeFile.mockReturnValueOnce(
+    new Promise<void>((resolve) => {
+      finishWrite = resolve;
+    }),
+  );
+  const hook = renderHook(useFileOperations);
+  let saving!: Promise<void>;
+  act(() => {
+    saving = Promise.resolve(
+      saveAs ? hook.result.current.onFileSaveAs() : hook.result.current.onFileSave(),
+    );
+  });
+  const loadingDuringPicker = useLoadingStore.getState().loading;
+  const writesDuringPicker = io.writeFile.mock.calls.length;
+  await act(async () => {
+    choose({ path: '/saved.json' });
+    await waitFor(() => expect(io.writeFile).toHaveBeenCalledOnce());
+  });
+  const loadingDuringWrite = useLoadingStore.getState().loading;
+  await act(async () => {
+    finishWrite();
+    await saving;
+  });
+  expect(loadingDuringPicker).toBe(false);
+  expect(writesDuringPicker).toBe(0);
+  expect(loadingDuringWrite).toBe(true);
+  expect(useLoadingStore.getState().loading).toBe(false);
+  expect(project.filepath).toBe('/saved.json');
+});
+
+it.each(['cancel', 'reject'])(
+  'picker %s leaves the workspace unblocked without writing',
+  async (result) => {
+    const project = add('a');
+    let loadingDuringPicker: boolean | undefined;
+    io.saveFileAs.mockImplementationOnce(async () => {
+      loadingDuringPicker = useLoadingStore.getState().loading;
+      if (result === 'reject') throw new Error('Picker failed');
+      return null;
+    });
+    const saving = saveProject(project.id, true);
+    if (result === 'reject') await expect(saving).rejects.toThrow('Picker failed');
+    else await saving;
+    expect(loadingDuringPicker).toBe(false);
+    expect(useLoadingStore.getState().loading).toBe(false);
+    expect(io.writeFile).not.toHaveBeenCalled();
+    expect(project.filepath).toBeNull();
+  },
+);
+
+it('a failed write releases loading and keeps the project unsaved', async () => {
+  const project = add('a');
+  io.saveFileAs.mockResolvedValueOnce({ path: '/saved.json' });
+  io.writeFile.mockRejectedValueOnce(new Error('Write failed'));
+  await expect(saveProject(project.id, true)).rejects.toThrow('Write failed');
+  expect(useLoadingStore.getState().loading).toBe(false);
+  expect(project.filepath).toBeNull();
 });

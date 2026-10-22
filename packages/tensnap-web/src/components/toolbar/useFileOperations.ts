@@ -109,9 +109,7 @@ export const useFileOperations = (): FileOperationsContextValue => {
 export async function saveProject(projectId: string, saveAs = false): Promise<void> {
   const toast = getToastState();
   try {
-    const path = await useLoadingStore
-      .getState()
-      .withLoading(() => saveProjectFile(projectId, saveAs));
+    const path = await saveProjectFile(projectId, saveAs);
     if (path) toast.success(t`File saved`, path);
   } catch (error) {
     toast.error(t`Failed to save file`, String(error));
@@ -139,6 +137,7 @@ export async function saveProjectFile(
   const store = useProjectStore.getState();
   const index = store.projects.findIndex((project) => project.id === projectId);
   if (index < 0) throw new Error('The destination project was closed.');
-  await store.save(index, path, format);
+  // The browser picker needs user input; only block the workspace while saving.
+  await useLoadingStore.getState().withLoading(() => store.save(index, path, format));
   return path;
 }
