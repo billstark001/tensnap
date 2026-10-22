@@ -15,13 +15,19 @@ from .config import LLMConfig, integer
 from .llm import DecisionError, DecisionTape
 
 
-def parser(kind: str, defaults, add_arguments) -> argparse.ArgumentParser:
+def parser(
+    kind: str, defaults, add_arguments, scenarios=None
+) -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description=f"TenSnap {kind} example")
     result.add_argument(
         "command", choices=["serve", "run", "batch"], nargs="?", default="serve"
     )
     result.add_argument("--policy", choices=["rule", "llm", "replay"], default="rule")
     result.add_argument("--seed", type=int, default=7)
+    if scenarios is not None:
+        result.add_argument(
+            "--scenario", choices=list(scenarios), help="Named initialization preset"
+        )
     result.add_argument(
         "--seeds", default="1,2,3", help="Comma-separated independent batch seeds"
     )
@@ -65,7 +71,9 @@ def parser(kind: str, defaults, add_arguments) -> argparse.ArgumentParser:
     return result
 
 
-async def execute(kind: str, model_type, config_type, load_view, args) -> int:
+async def execute(
+    kind: str, model_type, config_type, load_view, args, scenarios=None
+) -> int:
     integer(args.steps, "steps", 1, 1000000)
     integer(args.port, "port", 1, 65535)
     if args.policy != "llm" and args.record:
@@ -86,6 +94,8 @@ async def execute(kind: str, model_type, config_type, load_view, args) -> int:
         field.name: getattr(args, field.name) for field in fields(config_type)
     }
     configs = [config_type(**{**config_fields, "seed": seed}) for seed in seeds]
+    if scenarios is not None and args.scenario is not None:
+        configs = [scenarios[args.scenario].configure(config) for config in configs]
     provider = None
     if args.policy == "llm":
         provider = DecisionTape(
@@ -187,10 +197,14 @@ async def execute(kind: str, model_type, config_type, load_view, args) -> int:
             await provider.close()
 
 
-def main(kind: str, model_type, config_type, add_arguments, load_view) -> None:
-    args = parser(kind, config_type(), add_arguments).parse_args()
+def main(
+    kind: str, model_type, config_type, add_arguments, load_view, *, scenarios=None
+) -> None:
+    args = parser(kind, config_type(), add_arguments, scenarios).parse_args()
     try:
-        code = asyncio.run(execute(kind, model_type, config_type, load_view, args))
+        code = asyncio.run(
+            execute(kind, model_type, config_type, load_view, args, scenarios)
+        )
     except (TypeError, ValueError, DecisionError) as exc:
         print(f"Example stopped: {exc}", file=sys.stderr)
         code = 2

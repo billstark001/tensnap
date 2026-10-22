@@ -55,7 +55,7 @@ Three fertile regions have Manhattan radius two around `(width//4, height//3)`, 
 
 Harvesters have stable IDs, position, cumulative harvest, last action/message and bounded personal history. Initial positions are sampled without replacement; later movement allows sharing a cell. There is no energy cost, survival requirement, birth or death.
 
-Grid dimensions, population and memory are launch-time settings. `regrowth` and `rule` are editable at runtime; `rule` affects rule mode only. `selected_agent` affects inspection only. Reset restarts the current seed; **Reset with next seed** starts the next seed.
+Grid dimensions, population and memory are launch-time settings. `seed`, `policy` and the `scenario` enum stage choices for the next Reset. The twelve scenarios cross `greedy`/`conserve`/`signal`, message delivery on/off and normal/drought weather. Drought presets reuse a configured schedule or default to rounds 40–79. Provider policies require the matching launch-time credentials or replay tape. `regrowth` and the `rule` enum are editable at runtime; `rule` affects rule mode only. `selected_agent` affects inspection only. Reset restarts the selected seed; **Reset with next seed** starts the next seed.
 
 ## One activation, in order
 
@@ -128,6 +128,6 @@ The core model rejects unavailable actions before changing state. The explicit `
 
 For a first reading, follow `observation()` → `rule_decision()` → `step()` → `regrow()`. The first method defines the information boundary; decisions are validated before movement or harvest, and regrowth reads the previous grid synchronously. `_explore_without_harvesting()` makes the resource reserve apply to exploration as well as directed harvesting. Read `viz.py` after the transition rules.
 
-A habitat graph plus `nx.connected_components` can replace the small flood-fill. NumPy can replace grid loops if old/new grids, boundary conditions and random draw order remain explicit. Mesa can replace the agent container or scheduler if it retains one round-robin activation per tick and regeneration only at round end. These alternatives and their assumptions are summarized in [EXPERIMENTS](../EXPERIMENTS.md#implementation-choices-and-alternatives).
+`scenarios.py` owns the named conditions, fertile patches, full initial stock, component discovery, seeded placement and drought schedule. These functions return environment data without operating on model objects. A habitat graph plus `nx.connected_components` can replace the small flood-fill. NumPy can replace grid loops if old/new grids, boundary conditions and random draw order remain explicit. Mesa can replace the agent container or scheduler if it retains one round-robin activation per tick and regeneration only at round end. These alternatives and their assumptions are summarized in [EXPERIMENTS](../EXPERIMENTS.md#implementation-choices-and-alternatives).
 
 Checkpoints use schema version 2; historical execution is documented in [HISTORY](../HISTORY.md).

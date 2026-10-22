@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-import math
 import random
 from dataclasses import asdict, dataclass, field, replace
 
 from ..common.config import integer, probability
 from ..common.llm import DecisionError, DecisionTape, display_text, text_field
 from ..common.model import CheckpointModel
-from .network import ContactNetwork
+from .scenarios import (
+    INITIAL_NAMES,
+    LAYOUTS,
+    create_contact_network,
+    initialize_environment,
+    validate_topology,
+)
 
 SYSTEM = """You play a repeated pairwise coordination game. Choose Q or M.
 Both players choose simultaneously: matching names earn +1 each, different names
@@ -33,6 +38,8 @@ class NamingConfig:
     committed_name: str = "M"
     label_order: str = "QM"
     rule: str = "wsls"
+    initial_names: str = "unassigned"
+    layout: str = "circle"
 
     def __post_init__(self) -> None:
         """Reject configurations that cannot be simulated or exposed safely."""
@@ -40,8 +47,6 @@ class NamingConfig:
         integer(self.agents, "agents", 2, 200)
         integer(self.memory, "memory", 1, 12)
         probability(self.exploration, "exploration")
-        if self.topology not in ("complete", "ring", "mixed", "community"):
-            raise ValueError("Unknown contact topology")
         if self.rule not in ("wsls", "frequency"):
             raise ValueError("Unknown naming rule")
         integer(self.degree, "degree", 2, 198)
@@ -51,10 +56,11 @@ class NamingConfig:
             "MQ",
         ):
             raise ValueError("Invalid naming label or order")
-        if self.topology in ("mixed", "community") and (
-            self.agents % 2 or self.degree % 2 or self.degree >= self.agents // 2
-        ):
-            raise ValueError("Regular networks need even N, even degree, degree < N/2")
+        validate_topology(self.topology, self.agents, self.degree)
+        if self.initial_names not in INITIAL_NAMES:
+            raise ValueError("Unknown initial name assignment")
+        if self.layout not in LAYOUTS:
+            raise ValueError("Unknown graph layout")
 
 
 @dataclass
@@ -127,23 +133,17 @@ class NamingGame(CheckpointModel):
         self.policy_rng = random.Random(self.config.seed ^ 0x5A17)
         self.tick = 0
         self.successes = 0
-        self.agents = self._create_agents()
+        environment = initialize_environment(self.config)
+        self.agents = [
+            Player(*position, name=environment.names[position[0]])
+            for position in environment.positions
+        ]
         self.recent_edges: list[Interaction] = []
         self.last_interaction: dict = {}
-        self.network = self._contact_network(self.config)
-        assignment = list(range(self.config.agents))
-        random.Random(self.config.seed ^ 0xC01117).shuffle(assignment)
-        self.minority_order = assignment
+        self.network = environment.network
+        self.minority_order = environment.minority_order
         self.events: list[dict] = []
         self.treatment_tick = 0
-
-    def _contact_network(self, config: NamingConfig) -> ContactNetwork:
-        return ContactNetwork(
-            [p.id for p in self.agents],
-            seed=config.seed,
-            topology=config.topology,
-            degree=config.degree,
-        )
 
     @property
     def committed_ids(self) -> set[str]:
@@ -165,37 +165,31 @@ class NamingGame(CheckpointModel):
         config = replace(
             self.config, topology=topology, committed=committed, committed_name=name
         )
-        network = self._contact_network(config)
+        network = create_contact_network([p.id for p in self.agents], config)
         self.config = config
         self.network = network
         self.treatment_tick = self.tick
         self.events = []
 
-    def _create_agents(self) -> list[Player]:
-        """Assign stable IDs and circular initial positions; names start unset."""
-        return [
-            Player(
-                f"agent_{i}",
-                6 + 5 * math.cos(2 * math.pi * i / self.config.agents),
-                6 + 5 * math.sin(2 * math.pi * i / self.config.agents),
-            )
-            for i in range(self.config.agents)
-        ]
-
     def observation(self, player: Player) -> dict:
         """Build local input and randomize option order to reduce ordering effects."""
         # The seed identifies independent runs on the replay tape; no global
         # population state or partner's simultaneous answer enters the prompt.
-        return {
+        observation = {
             "run_seed": self.config.seed,
             "agent": player.id,
             "names": self.policy_rng.sample(list(self.config.label_order), 2),
             "recent_interactions": player.history,
         }
+        if self.config.initial_names != "unassigned":
+            observation["current_name"] = player.name
+        return observation
 
     def rule_decision(self, player: Player) -> dict:
         """Explore first; otherwise use the selected local-memory rule."""
-        if not player.history or self.policy_rng.random() < self.config.exploration:
+        if not player.history and player.name is not None:
+            choice = player.name
+        elif not player.history or self.policy_rng.random() < self.config.exploration:
             choice = self.policy_rng.choice(list(self.config.label_order))
         elif self.config.rule == "frequency":
             choice = self._most_frequent_partner_name(player)
@@ -226,7 +220,7 @@ class NamingGame(CheckpointModel):
         first = self.rng.randrange(len(self.agents))
         if self.config.topology == "ring":
             second = (first + self.rng.choice([-1, 1])) % len(self.agents)
-        elif self.config.topology in ("mixed", "community"):
+        elif self.config.topology in ("mixed", "community", "barbell"):
             second = self.rng.choice(self.neighbors[first])
         else:
             second = self.rng.choice([i for i in range(len(self.agents)) if i != first])

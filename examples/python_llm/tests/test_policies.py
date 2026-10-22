@@ -11,7 +11,7 @@ from examples.python_llm.common.action_policy import LegalActionPolicy
 from examples.python_llm.common.llm import DecisionError
 from examples.python_llm.mini_commons_harvest.model import MiniCommons
 from examples.python_llm.naming_game.model import NamingConfig, NamingGame
-from examples.python_llm.naming_game.network import ContactNetwork
+from examples.python_llm.naming_game.scenarios import create_contact_network
 
 
 @pytest.mark.parametrize(
@@ -40,8 +40,8 @@ from examples.python_llm.naming_game.network import ContactNetwork
     ],
 )
 def test_network_matches_pre_refactor_graphs(seed, topology, expected):
-    network = ContactNetwork(
-        [f"agent_{i}" for i in range(24)], seed=seed, topology=topology
+    network = create_contact_network(
+        [f"agent_{i}" for i in range(24)], NamingConfig(seed=seed, topology=topology)
     )
     payload = json.dumps([network.adjacency, network.communities], sort_keys=True)
     assert hashlib.sha256(payload.encode()).hexdigest() == expected

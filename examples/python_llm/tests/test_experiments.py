@@ -9,7 +9,9 @@ from pathlib import Path
 import pytest
 
 from examples.python_llm.mini_commons_harvest.model import CommonsConfig, MiniCommons
+from examples.python_llm.mini_commons_harvest.scenarios import COMMONS_SCENARIOS
 from examples.python_llm.naming_game.model import NamingConfig, NamingGame
+from examples.python_llm.naming_game.scenarios import NAMING_EXPERIMENT_SCENARIOS
 
 
 @pytest.mark.parametrize("seed", [1, 7, 42])
@@ -259,6 +261,8 @@ def test_factorial_entrypoint_and_no_overwrite(kind, options, tmp_path):
     report = json.loads((output / "report.json").read_text())
     assert report["inference"] == {"mode": "rule", "live_calls": 0, "cost_cny": 0}
     assert len(report["runs"]) == (8 if kind == "naming" else 12)
+    conditions = NAMING_EXPERIMENT_SCENARIOS if kind == "naming" else COMMONS_SCENARIOS
+    assert {run["scenario"] for run in report["runs"]} == set(conditions)
     assert not report.get("failed_prefixes")
     if kind == "commons":
         assert all(

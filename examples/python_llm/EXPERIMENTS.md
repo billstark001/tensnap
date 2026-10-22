@@ -12,6 +12,8 @@ python -m examples.python_llm.experiments commons --seeds 1,2,3,4,5,6,7,8,9,10,1
 
 Use the environment routes in [README](README.md#choose-a-python-environment) and `--help` for horizons and treatment parameters. The runner saves time series and checkpoints. For visual inspection, start a backend and use the [agent recording workflow](README.md#standard-recording-historical-frames-and-restoration).
 
+Conditions and environment generation live in [naming scenarios](naming_game/scenarios.py) and [commons scenarios](mini_commons_harvest/scenarios.py). The runner reads these definitions directly, and every run records its `scenario` ID. The same conditions are selectable in each model's frontend `scenario` enum; seed and scenario edits apply on Reset. Naming's runner still branches from its shared stable checkpoint, while interactive Reset initializes a fresh population with the selected condition.
+
 ## Naming: network structure × fixed minority
 
 **Scientific question.** When a fixed minority advocates an alternative convention, does community structure protect the incumbent convention, slow replacement, or sustain different local conventions? The experiment estimates dependence on the specified contact network; it does not identify a universal tipping threshold.

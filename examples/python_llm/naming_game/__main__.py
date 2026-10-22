@@ -2,13 +2,14 @@
 
 from ..common.cli import main
 from .model import NamingConfig, NamingGame
+from .scenarios import INITIAL_NAMES, LAYOUTS, NAMING_SCENARIOS, TOPOLOGIES
 
 
 def add_arguments(parser):
     """Keep naming-specific CLI options beside the model they configure."""
     parser.add_argument(
         "--topology",
-        choices=["complete", "ring", "mixed", "community"],
+        choices=TOPOLOGIES,
         default="complete",
     )
     parser.add_argument("--exploration", type=float, default=0.05)
@@ -17,6 +18,8 @@ def add_arguments(parser):
     parser.add_argument("--committed-name", choices=["Q", "M"], default="M")
     parser.add_argument("--label-order", choices=["QM", "MQ"], default="QM")
     parser.add_argument("--rule", choices=["wsls", "frequency"], default="wsls")
+    parser.add_argument("--initial-names", choices=INITIAL_NAMES, default="unassigned")
+    parser.add_argument("--layout", choices=LAYOUTS, default="circle")
 
 
 def load_view():
@@ -27,4 +30,11 @@ def load_view():
 
 
 if __name__ == "__main__":
-    main("naming_game", NamingGame, NamingConfig, add_arguments, load_view)
+    main(
+        "naming_game",
+        NamingGame,
+        NamingConfig,
+        add_arguments,
+        load_view,
+        scenarios=NAMING_SCENARIOS,
+    )

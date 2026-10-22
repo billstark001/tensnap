@@ -1,8 +1,10 @@
 """Commons resource grid, harvesters, local messages, and charts."""
 
 from dataclasses import replace
+from typing import Annotated
 
 from tensnap import (
+    BindParameterConfig,
     EnumParameter,
     NumberParameter,
     agent_layer,
@@ -16,6 +18,7 @@ from tensnap import (
 from ..common.config import probability
 from ..common.viz import ModelView, controls
 from .model import Harvester
+from .scenarios import COMMONS_RULES, COMMONS_SCENARIOS
 
 
 def harvester_item(view, player: Harvester):
@@ -41,7 +44,7 @@ def resource_color(view, row, col, resource):
 @controls(
     {
         "regrowth": NumberParameter("", min=0, max=1, step=0.05),
-        "rule": EnumParameter("", options=["greedy", "conserve", "signal"]),
+        "rule": EnumParameter("", options=list(COMMONS_RULES)),
     }
 )
 @grid_layer(
@@ -77,7 +80,8 @@ class CommonsView(ModelView):
     """Expose spatial resources, local behavior and global researcher metrics."""
 
     regrowth: float
-    rule: str
+    rule: Annotated[str, BindParameterConfig("enum", options=list(COMMONS_RULES))]
+    scenarios = COMMONS_SCENARIOS
 
     @property
     def regrowth(self) -> float:

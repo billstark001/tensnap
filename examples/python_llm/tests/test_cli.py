@@ -63,3 +63,38 @@ def test_cli_reports_invalid_checkpoint_types_without_traceback(kind, tmp_path):
     assert result.returncode == 2
     assert "Example stopped: seed must be an integer" in result.stderr
     assert "Traceback" not in result.stderr
+
+
+def test_naming_cli_presets_and_custom_initializations(tmp_path):
+    prefix = [sys.executable, "-m", "examples.python_llm.naming_game", "run"]
+    for options, population, topology in [
+        (["--scenario", "small-population"], 12, "ring"),
+        (["--scenario", "barbell-polarized"], 24, "barbell"),
+        (
+            [
+                "--agents",
+                "48",
+                "--topology",
+                "community",
+                "--initial-names",
+                "polarized",
+                "--layout",
+                "communities",
+            ],
+            48,
+            "community",
+        ),
+    ]:
+        output = tmp_path / f"{population}-{topology}.json"
+        subprocess.run(
+            [*prefix, *options, "--steps", "2", "--output", str(output)],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        run = json.loads(output.read_text())["runs"][0]
+        assert run["config"]["agents"] == population
+        assert run["config"]["topology"] == topology
+        assert len(run["checkpoint"]["state"]["agents"]) == population
+        assert run["metrics"]["tick"] == 2

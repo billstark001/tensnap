@@ -13,8 +13,8 @@ from dataclasses import asdict, dataclass, field
 from ..common.config import integer, probability
 from ..common.llm import DecisionError, DecisionTape, text_field
 from ..common.model import CheckpointModel
+from .scenarios import COMMONS_RULES, MOVES, drought_active, initialize_environment
 
-MOVES = {"north": (0, -1), "south": (0, 1), "west": (-1, 0), "east": (1, 0)}
 SYSTEM = """You harvest a shared renewable resource on a small grid.
 Each activation choose one legal action: move one cell, harvest one unit from
 your current cell, or wait. Your objective is to maximize your total harvest
@@ -54,7 +54,7 @@ class CommonsConfig:
         integer(self.height, "height", 6, 40)
         integer(self.memory, "memory", 1, 8)
         probability(self.regrowth, "regrowth")
-        if self.rule not in ("greedy", "conserve", "signal"):
+        if self.rule not in COMMONS_RULES:
             raise ValueError("rule must be greedy, conserve or signal")
         if self.message_delivery not in ("on", "off"):
             raise ValueError("Message delivery must be on or off")
@@ -114,50 +114,16 @@ class MiniCommons(CheckpointModel):
         self.rng = random.Random(self.config.seed)
         self.policy_rng = random.Random(self.config.seed ^ 0x5A17)
         self.tick = 0
-        self._initialize_landscape()
-        self.agents = self._create_agents()
+        environment = initialize_environment(self.config, self.capacity, self.rng)
+        self.habitat = environment.habitat
+        self.resources = environment.resources
+        self.components = environment.components
+        self.agents = [
+            Harvester(f"agent_{i}", *position)
+            for i, position in enumerate(environment.positions)
+        ]
         self.messages: list[dict] = []
         self.last_event: dict = {}
-
-    def _initialize_landscape(self) -> None:
-        """Create three fertile patches and fill them to carrying capacity."""
-        w, h = self.config.width, self.config.height
-        centers = [(w // 4, h // 3), (3 * w // 4, h // 3), (w // 2, 2 * h // 3)]
-        self.habitat = [
-            [
-                any(abs(x - cx) + abs(y - cy) <= 2 for cx, cy in centers)
-                for x in range(w)
-            ]
-            for y in range(h)
-        ]
-        self.resources = [
-            [self.capacity if self.habitat[y][x] else 0 for x in range(w)]
-            for y in range(h)
-        ]
-        remaining = {(x, y) for y in range(h) for x in range(w) if self.habitat[y][x]}
-        self.components = []
-        while remaining:
-            start = min(remaining)
-            remaining.remove(start)
-            component, todo = [start], [start]
-            while todo:
-                x, y = todo.pop()
-                for dx, dy in MOVES.values():
-                    neighbor = (x + dx, y + dy)
-                    if neighbor in remaining:
-                        remaining.remove(neighbor)
-                        component.append(neighbor)
-                        todo.append(neighbor)
-            self.components.append(sorted(component))
-
-    def _create_agents(self) -> list[Harvester]:
-        """Place agents on distinct fertile cells using the environment seed."""
-        w, h = self.config.width, self.config.height
-        starts = [(x, y) for y in range(h) for x in range(w) if self.habitat[y][x]]
-        if self.config.agents > len(starts):
-            raise ValueError("Too many agents for the initial fertile cells")
-        self.rng.shuffle(starts)
-        return [Harvester(f"agent_{i}", *starts[i]) for i in range(self.config.agents)]
 
     def legal_actions(self, player: Harvester) -> list[str]:
         """Allow waiting, available harvests and in-bounds cardinal movements."""
@@ -328,13 +294,7 @@ class MiniCommons(CheckpointModel):
                     self.resources[y][x] += 1
 
     def drought_active(self) -> bool:
-        round_number = self.tick // len(self.agents)
-        return bool(
-            self.config.drought_duration
-            and self.config.drought_start
-            <= round_number
-            < self.config.drought_start + self.config.drought_duration
-        )
+        return drought_active(self.config, self.tick // len(self.agents))
 
     def effective_regrowth(self) -> float:
         return self.config.regrowth * (

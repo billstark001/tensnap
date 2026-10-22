@@ -30,6 +30,11 @@ async def test_latest_mechanisms_match_the_committed_dynamics(case):
     for _ in range(case["steps"]):
         await model.step()
     actual = {"checkpoint": model.capture(), "metrics": model.metrics()}
+    if case["kind"] == "naming":
+        # Additive initialization controls retain the historical defaults;
+        # normalize only those new fields, leaving state and RNGs exact.
+        assert actual["checkpoint"]["config"].pop("initial_names") == "unassigned"
+        assert actual["checkpoint"]["config"].pop("layout") == "circle"
     assert (
         hashlib.sha256(json.dumps(actual, sort_keys=True).encode()).hexdigest()
         == case["sha256"]

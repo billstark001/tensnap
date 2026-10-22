@@ -100,7 +100,9 @@ python -m examples.python_llm.mini_commons_harvest serve --policy rule --port 87
 
 Keep the terminal running. The printed `ws://127.0.0.1:<port>` is the model's WebSocket endpoint; serving alone does not advance the model. Connect the TenSnap GUI to that URL, or use the agent CLI below. Stop the Python backend with Ctrl-C.
 
-Both models provide agent data, a `selected_agent` index control, structured inspection monitors, charts, reset, reseed and model-owned checkpoints. Choose `policy` and initial `seed` at launch; those displayed parameters are informational. **Reset with next seed** changes the seed. Use one controlling GUI/CLI at a time.
+Both models provide agent data, a `selected_agent` index control, structured inspection monitors, charts, reset, reseed and model-owned checkpoints. Edit `seed`, `policy` or the `scenario` enum while stopped, then **Reset** to apply the choices. Accepted edits stay visible without changing the active trajectory; checkpoints retain pending choices. **Reset with next seed** increments the selected seed and resets. The policy enum offers `rule`, `llm` and `replay`; selecting a provider mode requires starting the server with that `--policy` and its credentials/tape. That configured provider can be reused when switching back from rule mode, retaining its inference budget. Use one controlling GUI/CLI at a time.
+
+Each model's `scenarios.py` owns its named conditions and environment initialization. The views and [factorial runner](experiments.py) share those definitions. Naming includes population sizes, initial conventions, graph layouts and a two-clique bridge, alongside the original topology/minority conditions. Its `agent_count`, `initial_names`, `layout`, `topology` and `degree` controls also allow custom initializations. Commons includes all three rule controls crossed with message delivery and drought.
 
 ## Connect the agent CLI: minimal path
 
