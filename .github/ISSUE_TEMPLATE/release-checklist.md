@@ -20,7 +20,7 @@ assignees: ''
 - [ ] Each affected package's `package.json` version updated once (see `docs/maintainer-guide/versioning.md` for current versions)
 - [ ] Protocol wire version remains `0.3` unless the wire contract changes
 - [ ] For a JavaScript batch release, select 1–5 packages in `js-publish`; confirm omitted workspace dependencies are already published at the required versions
-- [ ] Each selected npm package has a Trusted Publisher for `billstark001/tensnap` and `js-publish.yml`; bootstrap unpublished packages interactively first
+- [ ] Each selected npm package has an active Trusted Publisher for `billstark001/tensnap` and `js-publish.yml` that allows `npm publish`; new configurations must complete their first publish within two days or be recreated. Bootstrap unpublished packages interactively first.
 
 ### Go Binding
 

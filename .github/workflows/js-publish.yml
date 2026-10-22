@@ -104,7 +104,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -120,7 +119,7 @@ jobs:
       - name: Verify npm release prerequisites
         env:
           PACKAGES: ${{ needs.test.outputs.packages }}
-        run: node scripts/verify-js-publish.mjs
+        run: node scripts/verify-js-publish.mjs --oidc
 
       - name: Build publishable packages
         env:

@@ -5,6 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyNpmOidc } from './verify-npm-oidc.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const packageDirs = ['network', 'protocol', 'core', 'tensnap-js', 'tensnap-agent'];
@@ -79,6 +80,14 @@ for (const { dir, manifest } of manifests.values()) {
       );
     }
   }
+}
+
+if (process.argv.includes('--oidc')) {
+  const packageNames = selectedDirs.map(
+    (dir) => [...manifests.values()].find((entry) => entry.dir === dir).manifest.name,
+  );
+  await verifyNpmOidc(packageNames);
+  console.log('npm OIDC token exchange succeeded for every selected package.');
 }
 
 console.log('Selected package versions and npm dependencies are ready for publishing.');
