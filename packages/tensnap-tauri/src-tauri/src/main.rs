@@ -9,7 +9,7 @@ use menu::create_menu;
 use tauri::Manager;
 
 fn main() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             get_os_name_handler,
             open_documentation_handler,
@@ -37,7 +37,24 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_persisted_scope::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_store::Builder::default().build());
+
+    // Keep native accelerators, but show only the HTML menu bar on Windows.
+    #[cfg(target_os = "windows")]
+    let builder = builder
+        .setup(|app| {
+            app.hide_menu()?;
+            Ok(())
+        })
+        .on_page_load(|webview, payload| {
+            if matches!(payload.event(), tauri::webview::PageLoadEvent::Started) {
+                if let Err(error) = webview.window().hide_menu() {
+                    eprintln!("Failed to hide the native Windows menu: {error}");
+                }
+            }
+        });
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

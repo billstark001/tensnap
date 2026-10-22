@@ -220,9 +220,11 @@ pub fn set_menu_locale(app: &AppHandle, locale: &str) -> Result<(), String> {
         return Err(format!("Unsupported menu locale: {locale}"));
     }
     let menu = create_menu_for_locale(app, locale).map_err(|error| error.to_string())?;
-    app.set_menu(menu)
-        .map(|_| ())
-        .map_err(|error| error.to_string())
+    app.set_menu(menu).map_err(|error| error.to_string())?;
+    // Replacing the app menu also makes it visible on Windows.
+    #[cfg(target_os = "windows")]
+    app.hide_menu().map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 pub fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
