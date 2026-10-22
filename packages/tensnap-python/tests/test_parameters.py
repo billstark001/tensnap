@@ -2,20 +2,16 @@
 
 from typing import Annotated
 
-import pytest
 from tensnap.bindings.basic import (
-    NumberParameter,
-    EnumParameter,
-    BooleanParameter,
-    StringParameter,
     BindParameterConfig,
     BindParametersConfig,
+    BooleanParameter,
+    EnumParameter,
+    NumberParameter,
+    StringParameter,
     get_parameter_metadata_from_object,
-    get_action_metadata_from_namespace,
-    action,
 )
-from tensnap.models import ActionMetadata
-from tensnap.bindings.basic.parameter import create_parameter
+from tensnap.models import ActionMetadata, create_parameter
 
 
 class TestParameterClasses:
@@ -156,7 +152,7 @@ class TestBindDecorator:
             def get_enabled(self):
                 return True
 
-        model = TestModel()
+        TestModel()
         bind_obj = TestModel.__dict__["get_enabled"]
         assert bind_obj.metadata.type == "boolean"
 
@@ -168,7 +164,7 @@ class TestBindDecorator:
             def get_name(self):
                 return "test"
 
-        model = TestModel()
+        TestModel()
         bind_obj = TestModel.__dict__["get_name"]
         assert bind_obj.metadata.type == "string"
 
@@ -182,7 +178,7 @@ class TestBindDecorator:
             def get_mode(self):
                 return "fast"
 
-        model = TestModel()
+        TestModel()
         bind_obj = TestModel.__dict__["get_mode"]
         assert bind_obj.metadata.type == "enum"
         assert bind_obj.metadata.options == ["fast", "slow"]
@@ -308,7 +304,7 @@ class TestBindParametersConfig:
             other = "excluded"
 
         assert hasattr(TestModel, "_tensnap_bind_parameters_config_list")
-        config = getattr(TestModel, "_tensnap_bind_parameters_config_list")
+        config = TestModel._tensnap_bind_parameters_config_list
         assert config[0].is_included("speed")
         assert config[0].is_included("count")
 

@@ -2,11 +2,10 @@ import importlib
 from typing import Annotated
 
 import pytest
+from mesa import Agent, Model
 
 import tensnap.bindings as binding_api
-from mesa import Agent, Model
 from tensnap import SimulationScenario
-from tensnap.bindings.mesa import prepare_mesa_model_reinit
 from tensnap.bindings.lifecycle import (
     BoundModelReinitializer,
     KwargBinding,
@@ -14,6 +13,7 @@ from tensnap.bindings.lifecycle import (
     default_cleanup_for_model,
     get_bind_kwargs,
 )
+from tensnap.bindings.mesa import prepare_mesa_model_reinit
 from tensnap.models import NumberParameter, create_parameter
 
 
@@ -178,6 +178,10 @@ async def test_bound_model_reinitializer_uses_same_source_custom_parameter_ids()
         def width(self):
             return self._width
 
+        @width.setter
+        def width(self, value):
+            self._width = value
+
     model = Model()
     reinitializer = BoundModelReinitializer(model)
     scenario = SimulationScenario()
@@ -207,7 +211,7 @@ async def test_bound_model_reinitializer_rejects_parameter_id_conflicts_by_defau
             return self._width
 
     with pytest.raises(ValueError, match="parameter id conflict"):
-        reinitializer = BoundModelReinitializer(
+        BoundModelReinitializer(
             Model(),
             kwarg_bindings=[
                 KwargBinding(
@@ -281,7 +285,7 @@ def test_mesa_preparation_rejects_unrelated_objects_before_mutation():
 
     model = UnrelatedModel()
     step = model.step
-    with pytest.raises(TypeError, match="mesa.Model instance"):
+    with pytest.raises(TypeError, match=r"mesa.Model instance"):
         prepare_mesa_model_reinit(model)
     assert model.step is step
 
@@ -416,18 +420,18 @@ def test_old_mesa_package_lifecycle_exports_warn_and_point_to_new_path():
 
     with pytest.warns(
         DeprecationWarning,
-        match="import BoundModelReinitializer from tensnap.bindings.lifecycle",
+        match=r"import BoundModelReinitializer from tensnap.bindings.lifecycle",
     ):
         assert mesa_bindings.BoundModelReinitializer is BoundModelReinitializer
 
     with pytest.warns(
-        DeprecationWarning, match="import bind_kwargs from tensnap.bindings.lifecycle"
+        DeprecationWarning, match=r"import bind_kwargs from tensnap.bindings.lifecycle"
     ):
         assert mesa_bindings.bind_kwargs is bind_kwargs
 
     with pytest.warns(
         DeprecationWarning,
-        match="import default_cleanup_for_model from tensnap.bindings.lifecycle",
+        match=r"import default_cleanup_for_model from tensnap.bindings.lifecycle",
     ):
         assert mesa_bindings.default_cleanup_for_model is default_cleanup_for_model
 
@@ -437,12 +441,12 @@ def test_old_mesa_model_reinit_exports_warn_and_point_to_new_path():
 
     with pytest.warns(
         DeprecationWarning,
-        match="import get_bind_kwargs from tensnap.bindings.lifecycle",
+        match=r"import get_bind_kwargs from tensnap.bindings.lifecycle",
     ):
         assert model_reinit.get_bind_kwargs is get_bind_kwargs
 
     with pytest.warns(
         DeprecationWarning,
-        match="import default_cleanup_for_model from tensnap.bindings.lifecycle",
+        match=r"import default_cleanup_for_model from tensnap.bindings.lifecycle",
     ):
         assert model_reinit.default_cleanup_for_model is default_cleanup_for_model

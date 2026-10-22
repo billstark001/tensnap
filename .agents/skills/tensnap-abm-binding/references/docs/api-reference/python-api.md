@@ -114,6 +114,45 @@ if __name__ == "__main__":
 
 These helpers accept classes, instances, modules, or plain dictionaries where that shape makes sense.
 
+### Parameter declarations and discovery
+
+Parameter resolution is keyed by the source field name, before choosing the public parameter ID. A field named `mode` with `id="modeChoice"` creates one control and continues to read and write `model.mode`. Class scalar defaults and dataclass defaults do not create a second control. Instance discovery reads the current instance value; class defaults are used only for class readback or absent instance values.
+
+The same resolver handles dictionaries, modules, class fields, instance fields, properties and constructor keyword controls. Metadata is selected in this order:
+
+1. Ordered `custom_bindings` override the selected declaration. An explicit enum over a Python string remains an enum, with its options, labels and initialization/runtime metadata.
+2. A field's `@param` descriptor and class `Annotated[..., param(...)]` declarations form the field declaration tier. Compatible declarations merge their supplied fields; conflicting types or nonempty IDs in this tier raise `ValueError` naming the source field.
+3. Constructor `Annotated` metadata describes a matching model attribute only when that attribute has no field declaration. It also describes the constructor's own control through `bind_kwargs`.
+4. Scalar inference applies only when no explicit type was selected. Boolean values are distinguished from numbers.
+
+```python
+from typing import Annotated
+from tensnap import BindParameterConfig, params
+
+
+@params(include=["mode"])
+class Model:
+    mode: Annotated[
+        str,
+        BindParameterConfig("enum", id="modeChoice", options=["a", "b"]),
+    ] = "a"
+
+    def __init__(self, mode="b"):
+        self.mode = mode
+```
+
+Registering this instance publishes only `modeChoice`, with the current value `"b"`.
+
+Class `params` configurations have priority over call-site `cfg_suggest` configurations. Within either list, later-added configurations have priority; Python applies stacked decorators from bottom to top, so the outer decorator wins. Subclass configurations are added after inherited configurations without mutating the base class. Within one configuration, exclusion wins over an inclusion selector. `include_explicit` separately controls explicit declarations: `EXPLICIT_ONLY` accepts explicit declarations while excluding automatic candidates.
+
+Private-name policy is resolved independently of field selectors. `include_private=None` (the default) inherits the highest-priority supplied policy; if none is supplied, private names are excluded. Explicit `True` or `False` overrides lower-priority policies. For example, an outer `@params(include_private=True)` is not cancelled by an inner `@params()` or by default discovery rules. Dunder names are never discovered. Mesa's built-in exclusions apply to automatic discovery; explicit declarations can expose those fields, while explicit user exclusions still take precedence.
+
+`BindParameterConfig` records which optional fields were supplied. Compatible `Annotated` declarations can therefore combine `param("number", min=5, allow_runtime_change=False)` and `param("number", max=20)` without resetting the first declaration's fields. In contrast, `NumberParameter`, `EnumParameter`, `BooleanParameter` and `StringParameter` in `custom_bindings` are complete metadata definitions: their concrete defaults, including `False`, `True`, empty containers and optional `None`, participate in ordered merging. A higher-priority type discards incompatible lower-priority custom definitions. An empty custom ID or label inherits the selected declaration's value, or the source field's inferred ID/label. A custom definition's cached `value` does not replace the live source value. Annotation resolution errors propagate instead of silently reverting to scalar inference.
+
+Chart and monitor members are excluded from automatic parameter discovery before their getters run. This includes both supported monitor/property decorator orders. `include=["status"]` filters candidates; it does not turn an observation into an editable control. A field can explicitly serve both roles through `param`, `Annotated` or `custom_bindings`, provided it has a property setter or an explicit parameter setter. Automatic discovery also skips ordinary getter-only properties. Registration rejects explicitly declared getter-only properties and parameter descriptors without a setter; `allow_runtime_change=False` restricts edits during a run and does not make a parameter read-only. Constructor-only controls write staged keyword values and apply them on reset, so they do not require a writable model property.
+
+Callback objects retain their identity, including a bound method's original owner. Each discovered or registered definition owns independent mutable metadata such as enum options and labels. `ParameterBinding.instantiate()` preserves accessors when omitted, replaces them when supplied, and clears them when explicitly passed `None`. `to_dict()` selects wire fields before copying metadata, never traverses getter/setter owners, and omits optional `None` fields. Duplicate source fields or public IDs within a discovery batch fail before any parameter from that batch is registered. Explicit `add_parameters` calls can replace an existing registry ID; `register_model` rejects collisions with separately registered content.
+
 ### Trajectory lifecycle fields
 
 `trajectory_layer(...)` exposes every v0.3 trajectory metadata field directly:
@@ -257,7 +296,7 @@ Before any other simulator frame, each connection receives `simulator_info` with
 - `remove_all() -> dict[str, list[str]]`
 - `remove_by_dict(removals) -> dict[str, list[str]]`
 
-`add_all(...)` is the normal high-level path. It registers any available environment/layer, action, and chart bindings on the target and returns changed registry ids grouped by kind. For undecorated targets with no explicit parameter config, it uses `BindParametersConfig.EXCLUDE_ALL` so incidental public attributes are not exposed. Attach `@params(...)` or pass a `BindParametersConfig(...)` to opt fields into parameter discovery.
+`add_all(...)` is the normal high-level path. It registers available environment/layer, parameter, action, chart and monitor bindings and returns changed registry ids grouped by kind. For targets with no class parameter configuration or supplied configuration, it uses `BindParametersConfig.EXPLICIT_ONLY`, retaining explicit declarations while excluding incidental public attributes. Attach `@params(...)` or pass a `BindParametersConfig(...)` to opt automatic candidates into parameter discovery.
 
 `dry_run=True` returns the registry ids that would be registered without mutating scenario state. It is useful for planning custom registration lifecycles.
 
@@ -285,7 +324,7 @@ Before any other simulator frame, each connection receives `simulator_info` with
 - `remove_action(action_id) -> dict[str, list[str]]`
 - `remove_all_actions() -> dict[str, list[str]]`
 
-Automatic parameter discovery excludes private names by default. Pass `BindParametersConfig(include_private=True)` if you want `_private` fields included.
+Automatic parameter discovery excludes private names by default. Pass `BindParametersConfig(include_private=True)` or attach `@params(include_private=True)` to include them. See [parameter declarations and discovery](#parameter-declarations-and-discovery) for precedence, member roles and accessor ownership.
 
 Objects can provide `__tensnap_parameter_metadata__(*configs)` to participate in parameter discovery without exposing ordinary attributes. `BoundModelReinitializer` uses this hook for constructor keyword parameters.
 

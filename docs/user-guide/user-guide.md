@@ -146,12 +146,13 @@ class Config:
     population = 100
 
 
+config = Config()
 scenario.add_all(config)
 ```
 
-Prefer attaching `@params(...)` to config/model classes and then calling `scenario.add_all(config)`. `BindParametersConfig.EXCLUDE_ALL` is available for explicit calls that should suppress parameter discovery.
+Use `@params(...)` to opt plain fields into automatic discovery, then call `scenario.add_all(config)`. Explicit `Annotated[..., param(...)]` or `@param` declarations are included even without a class-level config: `add_all` defaults to `BindParametersConfig.EXPLICIT_ONLY`. On a target without a class-level config, pass `BindParametersConfig.EXCLUDE_ALL` to suppress all parameters, including explicit declarations. Class-level configs take priority over call-site suggestions.
 
-Automatic parameter discovery reads plain attributes from objects, classes, dictionaries, and dataclass-like configs when a parameter config opts them in.
+Automatic discovery reads current values from objects, classes, dictionaries and dataclass-like configs. Each source field produces one control, even when it has both a default and an annotation. Custom enum definitions keep their options instead of becoming strings. Chart/monitor getters and getter-only properties are excluded from automatic controls; explicit property controls need a setter with the same Python name. Mark initialization choices with `allow_runtime_change=False`; constructor-only choices belong in `bind_kwargs` and apply on reset. See the [Python parameter contract](../api-reference/python-api.md#parameter-declarations-and-discovery) for precedence, conflicts and metadata ownership.
 
 ### Charts
 

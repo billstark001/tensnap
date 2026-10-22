@@ -13,6 +13,7 @@ from tensnap.models.layer import LayerBinding
 from tensnap.models.monitor import MonitorMetadata
 from tensnap.models.parameter import Parameter
 from tensnap.utils.layer_topology import order_layers
+from tensnap.utils.member_metadata import class_members
 
 from .basic import *  # noqa: F403
 from .basic.action import action as action, get_action_metadata_from_namespace
@@ -99,11 +100,13 @@ def actions(
     if isinstance(value, dict):
         return get_action_metadata_from_namespace(value)
     if isinstance(value, ModuleType) or isinstance(value, type):
-        return get_action_metadata_from_namespace(dict(vars(value)))
+        return get_action_metadata_from_namespace(
+            dict(vars(value)) if isinstance(value, ModuleType) else class_members(value)
+        )
 
     discovered: list[tuple[str, Any, _ActionMetadata]] = []
     for name, func, metadata in get_action_metadata_from_namespace(
-        dict(vars(value.__class__))
+        class_members(value.__class__)
     ):
         discovered.append(
             (name, getattr(value, name) if func is not None else None, metadata)
@@ -117,11 +120,13 @@ def charts(
     if isinstance(value, dict):
         return get_chart_metadata_from_namespace(value)
     if isinstance(value, ModuleType) or isinstance(value, type):
-        return get_chart_metadata_from_namespace(dict(vars(value)))
+        return get_chart_metadata_from_namespace(
+            dict(vars(value)) if isinstance(value, ModuleType) else class_members(value)
+        )
 
     discovered: list[tuple[str, Any, _ChartGroupMetadata]] = []
     for name, func, metadata in get_chart_metadata_from_namespace(
-        dict(vars(value.__class__))
+        class_members(value.__class__)
     ):
         bound = (lambda target=value, f=func: f(target)) if func is not None else None
         discovered.append((name, bound, metadata))
@@ -134,11 +139,13 @@ def monitors(
     if isinstance(value, dict):
         return get_monitor_metadata_from_namespace(value)
     if isinstance(value, ModuleType) or isinstance(value, type):
-        return get_monitor_metadata_from_namespace(dict(vars(value)))
+        return get_monitor_metadata_from_namespace(
+            dict(vars(value)) if isinstance(value, ModuleType) else class_members(value)
+        )
 
     discovered: list[tuple[str, Any, MonitorMetadata]] = []
     for name, func, metadata in get_monitor_metadata_from_namespace(
-        dict(vars(value.__class__))
+        class_members(value.__class__)
     ):
         discovered.append((name, lambda target=value, f=func: f(target), metadata))
     return discovered

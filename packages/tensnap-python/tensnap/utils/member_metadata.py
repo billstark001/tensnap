@@ -7,6 +7,14 @@ from typing import Any, TypeVar
 T = TypeVar("T")
 
 
+def class_members(owner: type[Any]) -> dict[str, Any]:
+    """Read effective MRO members without evaluating descriptors."""
+    members: dict[str, Any] = {}
+    for cls in reversed(owner.__mro__):
+        members.update(vars(cls))
+    return members
+
+
 def metadata_target(value: Any, decorator: str) -> Any:
     target = value.fget if isinstance(value, property) else value
     if target is None or not callable(target):
