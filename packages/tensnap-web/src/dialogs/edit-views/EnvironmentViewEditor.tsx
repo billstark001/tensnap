@@ -1,338 +1,218 @@
-import React, { useState } from 'react';
-import { msg } from '@lingui/core/macro';
-import { useLingui } from '@lingui/react';
+import { useId, useRef, useState, type ComponentProps } from 'react';
 import { Trans } from '@lingui/react/macro';
+import { useLingui } from '@lingui/react';
+import { msg } from '@lingui/core/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
-import * as Select from '@tensnap/web-common/components/ui/Select';
-import type { AnchoredView } from '@tensnap/core/persistence';
-import type { BaseViewEditorProps } from './BaseViewEditor';
-import { BaseViewFields } from './BaseViewEditor';
+import { Button } from '@tensnap/web-common/components/ui/Dialog';
 import * as styles from './EditViews.css';
-import type { EditableEnvironmentData } from './environment-editor-model';
-import { ObjectIdentityField } from './ObjectIdentityField';
-import { useToast } from '@/store/toast';
-import { parseFiniteNumberInput } from './form-values';
+import { Switch } from '@tensnap/web-common/components/ui/Switch';
+import type { AnchoredView } from '@tensnap/core/persistence';
+import {
+  layerPresentationFields,
+  layerPresentationMetadata,
+  type ScenarioEnvironmentState,
+} from '@tensnap/core/scenario';
+import type { ProtocolData } from '@tensnap/protocol';
 
-interface EnvironmentViewEditorProps extends BaseViewEditorProps {
-  view: AnchoredView;
-  objectData: EditableEnvironmentData | null;
-  onObjectChange: (field: string, value: any) => void;
-  onEditObjectId: () => void;
-  onRequestTypeChange: (type: EditableEnvironmentData['type']) => void;
+function PresentationNumberInput({
+  value,
+  onValueChange,
+  ...props
+}: Omit<ComponentProps<typeof Form.Input>, 'value' | 'onChange'> & {
+  value: number;
+  onValueChange: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <Form.Input
+      {...props}
+      type="number"
+      value={draft ?? (Number.isFinite(value) ? String(value) : '')}
+      onChange={(event) => {
+        const raw = event.target.value;
+        setDraft(raw);
+        onValueChange(raw.trim() ? Number(raw) : NaN);
+      }}
+      onBlur={() => setDraft(null)}
+    />
+  );
 }
 
-const formatMetadataValue = (value: unknown): string => {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (value == null) return '';
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-};
-
-const ReadOnlyMetadataField = ({
-  id,
-  label,
-  value,
-}: {
-  id: string;
-  label: string;
-  value: unknown;
-}) => {
-  const textValue = formatMetadataValue(value);
-  if (textValue.length > 60 || textValue.includes('\n')) {
-    return (
-      <Form.Field label={label} htmlFor={id}>
-        <Form.Textarea
-          id={id}
-          rows={Math.min(6, Math.max(3, textValue.split('\n').length))}
-          value={textValue}
-          disabled
-          className={styles.disabledField}
-        />
-      </Form.Field>
-    );
-  }
-
-  return (
-    <Form.Field label={label} htmlFor={id}>
-      <Form.Input id={id} type="text" value={textValue} disabled className={styles.disabledField} />
-    </Form.Field>
-  );
-};
-
-const MetadataValueField: React.FC<{
-  id: string;
-  label: string;
-  value: unknown;
-  editable: boolean;
-  onChange: (value: unknown) => void;
-}> = ({ id, label, value, editable, onChange }) => {
-  const { _ } = useLingui();
-  const toast = useToast();
-  const [jsonDraft, setJsonDraft] = useState(() => formatMetadataValue(value));
-
-  if (!editable) {
-    return <ReadOnlyMetadataField id={id} label={label} value={value} />;
-  }
-
-  if (typeof value === 'boolean') {
-    return (
-      <Form.FieldSet>
-        <Form.Label htmlFor={id} className={styles.checkboxLabel}>
-          <input
-            id={id}
-            type="checkbox"
-            checked={value}
-            onChange={(event) => onChange(event.target.checked)}
-            className={styles.checkboxInput}
-          />
-          {label}
-        </Form.Label>
-      </Form.FieldSet>
-    );
-  }
-
-  if (typeof value === 'number') {
-    return (
-      <Form.Field label={label} htmlFor={id}>
-        <Form.Input
-          id={id}
-          type="number"
-          value={value}
-          onChange={(event) => onChange(parseFiniteNumberInput(event.target.value, value))}
-        />
-      </Form.Field>
-    );
-  }
-
-  if (typeof value === 'string') {
-    return (
-      <Form.Field label={label} htmlFor={id}>
-        <Form.Input
-          id={id}
-          type="text"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-        />
-      </Form.Field>
-    );
-  }
-
-  return (
-    <Form.Field label={label} htmlFor={id}>
-      <Form.Textarea
-        id={id}
-        rows={Math.min(8, Math.max(3, jsonDraft.split('\n').length))}
-        value={jsonDraft}
-        onChange={(event) => setJsonDraft(event.target.value)}
-        onBlur={() => {
-          try {
-            onChange(jsonDraft.trim() === '' ? null : JSON.parse(jsonDraft));
-          } catch (error) {
-            toast.error(
-              _(msg`Invalid JSON`),
-              error instanceof Error ? error.message : String(error),
-            );
-          }
-        }}
-      />
-    </Form.Field>
-  );
-};
-
-export const EnvironmentViewEditor: React.FC<EnvironmentViewEditorProps> = ({
+export function EnvironmentViewEditor({
   view,
-  objectData: env,
+  environment,
   onChange,
-  onObjectChange,
-  onEditObjectId,
-  onRequestTypeChange,
-}) => {
-  const updateLayerMetadata = (layerIndex: number, key: string, value: unknown) => {
-    if (!env) {
-      return;
-    }
-    const layer = env.layers[layerIndex];
-    onObjectChange(`layers.${layerIndex}`, {
-      ...layer,
-      metadata: {
-        ...layer.metadata,
-        [key]: value,
-      },
-      groups: layer.groups.map((group) => ({
-        ...group,
-        entries: group.entries.map((entry) => (entry.key === key ? { ...entry, value } : entry)),
-      })),
-    });
+}: {
+  view: AnchoredView;
+  environment: ScenarioEnvironmentState | undefined;
+  onChange: (field: string, value: unknown) => void;
+}) {
+  const fieldId = useId();
+  const { _ } = useLingui();
+  const distances = useRef(new Map<string, number>());
+  const update = (layerId: string, field: string, value: ProtocolData | undefined) => {
+    const overrides = structuredClone(view.data.layerOverrides ?? {});
+    const values = { ...overrides[layerId] };
+    if (value === undefined) delete values[field];
+    else values[field] = value;
+    if (Object.keys(values).length)
+      Object.defineProperty(overrides, layerId, {
+        value: values,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    else delete overrides[layerId];
+    onChange('data.layerOverrides', overrides);
   };
-
   return (
     <>
-      <BaseViewFields view={view} onChange={onChange} />
-
-      <Form.Field label={<Trans>Title</Trans>} htmlFor="env-title">
+      <Form.Field label={<Trans>Title</Trans>} htmlFor={`${fieldId}-title`}>
         <Form.Input
-          id="env-title"
-          type="text"
-          value={view.data.title || ''}
-          onChange={(e) => onChange('data.title', e.target.value)}
+          id={`${fieldId}-title`}
+          value={view.data.title ?? ''}
+          onChange={(event) => onChange('data.title', event.target.value)}
         />
       </Form.Field>
-
-      <ObjectIdentityField
-        label={<Trans>Environment ID</Trans>}
-        value={env?.id ?? view.data.id ?? ''}
-        objectExists={Boolean(env)}
-        onEdit={onEditObjectId}
-      />
-
-      {env ? (
+      {view.data.layerOverrides && (
+        <Button
+          className={styles.actions}
+          onClick={() => onChange('data.layerOverrides', undefined)}
+        >
+          <Trans>Reset all layer preferences</Trans>
+        </Button>
+      )}
+      {environment && (
         <>
-          <Form.FieldGroup columns={2}>
-            <Form.Field label={<Trans>Environment Type</Trans>} htmlFor="env-type">
-              <Select.Root
-                value={env.type}
-                onValueChange={(value) =>
-                  onRequestTypeChange(value as EditableEnvironmentData['type'])
-                }
-                triggerClassName={styles.selectTrigger}
-              >
-                <Select.Viewport>
-                  <Select.Item value="2d" indicator>
-                    2D
-                  </Select.Item>
-                  <Select.Item value="uniform" indicator>
-                    Uniform
-                  </Select.Item>
-                </Select.Viewport>
-              </Select.Root>
-            </Form.Field>
-
-            <Form.Field label={<Trans>Display Type</Trans>} htmlFor="env-display-type">
-              <Form.Input
-                id="env-display-type"
-                type="text"
-                value={env.displayType}
-                disabled
-                className={styles.disabledField}
-              />
-            </Form.Field>
-          </Form.FieldGroup>
-
-          {env.type === '2d' && (
-            <>
-              <Form.FieldSet>
-                <Form.Label>
-                  <Trans>2D Layer Metadata</Trans>
-                </Form.Label>
-                {env.layers.length > 0 ? (
-                  env.layers.map((layer, layerIndex) => (
-                    <details key={layer.id} open style={{ marginBottom: '12px' }}>
-                      <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
-                        {layer.layerType} - {layer.id}
-                      </summary>
-                      {layer.groups.length > 0 ? (
-                        layer.groups.map((group) => (
-                          <div key={`${layer.id}-${group.title}`} style={{ marginBottom: '12px' }}>
-                            <div
-                              className={styles.infoText}
-                              style={{ marginBottom: '6px', fontWeight: 600 }}
-                            >
-                              {group.title}
-                            </div>
-                            {group.entries.map(({ key, value, editable }) => {
-                              const valueKey =
-                                value != null && typeof value === 'object'
-                                  ? formatMetadataValue(value)
-                                  : '';
-                              return (
-                                <MetadataValueField
-                                  key={`${layer.id}-${key}-${valueKey}`}
-                                  id={`env-${layer.id}-${key}`}
-                                  label={key}
-                                  value={value}
-                                  editable={editable}
-                                  onChange={(nextValue) =>
-                                    updateLayerMetadata(layerIndex, key, nextValue)
-                                  }
-                                />
-                              );
-                            })}
-                          </div>
-                        ))
-                      ) : (
-                        <div className={styles.infoText}>
-                          <Trans>No metadata on this layer.</Trans>
-                        </div>
-                      )}
-                    </details>
-                  ))
-                ) : (
-                  <div className={styles.infoText}>
-                    <Trans>No layers available.</Trans>
-                  </div>
-                )}
-              </Form.FieldSet>
-            </>
-          )}
-
-          {env.type === 'uniform' && (
-            <Form.FieldSet>
-              <Form.Label>
-                <Trans>Uniform Layer Metadata</Trans>
-              </Form.Label>
-              {env.layers.length > 0 ? (
-                env.layers.map((layer, layerIndex) => (
-                  <details key={layer.id} open style={{ marginBottom: '12px' }}>
-                    <summary style={{ cursor: 'pointer', fontWeight: 600, marginBottom: '8px' }}>
-                      {layer.layerType} - {layer.id}
-                    </summary>
-                    {layer.groups.length > 0 ? (
-                      layer.groups.map((group) =>
-                        group.entries.map(({ key, value, editable }) => {
-                          const valueKey =
-                            value != null && typeof value === 'object'
-                              ? formatMetadataValue(value)
-                              : '';
-                          return (
-                            <MetadataValueField
-                              key={`${layer.id}-${key}-${valueKey}`}
-                              id={`env-${layer.id}-${key}`}
-                              label={key}
-                              value={value}
-                              editable={editable}
-                              onChange={(nextValue) =>
-                                updateLayerMetadata(layerIndex, key, nextValue)
-                              }
+          <p className={styles.infoText}>
+            <Trans>Declared environment type</Trans>: {environment.type}
+          </p>
+          <Form.Field label={<Trans>Display</Trans>} htmlFor={`${fieldId}-display`}>
+            <Form.Select
+              id={`${fieldId}-display`}
+              value={view.data.type ?? ''}
+              onChange={(event) => onChange('data.type', event.target.value || undefined)}
+            >
+              <option value="">
+                <Trans>Follow simulator</Trans>
+              </option>
+              <option value="2d">2D</option>
+              <option value="uniform">Uniform</option>
+            </Form.Select>
+          </Form.Field>
+          {[...environment.layers.values()].map((layer) => (
+            <details key={layer.id} className={styles.section} open>
+              <summary className={styles.sectionSummary}>
+                {layer.id} ({layer.layerType})
+              </summary>
+              <div className={styles.sectionContent}>
+                <p className={styles.infoText}>
+                  <Trans>Dependencies</Trans>: {JSON.stringify(layer.dependencyLayerIds)}
+                </p>
+                <div className={styles.fields}>
+                  {Object.entries(layerPresentationFields(layer.layerType)).map(
+                    ([field, definition]) => {
+                      const override = view.data.layerOverrides?.[layer.id]?.[field];
+                      const published = layerPresentationMetadata(layer)[field];
+                      const value = override ?? published ?? definition.defaultValue;
+                      return (
+                        <div key={field} className={styles.fieldRow}>
+                          {field === 'link_distance' && (
+                            <Switch
+                              label={<Trans>Force-directed layout</Trans>}
+                              checked={Number(value) >= 0}
+                              onCheckedChange={(enabled) => {
+                                if (!enabled && Number(value) >= 0)
+                                  distances.current.set(layer.id, Number(value));
+                                update(
+                                  layer.id,
+                                  field,
+                                  enabled
+                                    ? (distances.current.get(layer.id) ??
+                                        (typeof published === 'number' && published >= 0
+                                          ? published
+                                          : 4))
+                                    : -1,
+                                );
+                              }}
                             />
-                          );
-                        }),
-                      )
-                    ) : (
-                      <div className={styles.infoText}>
-                        <Trans>No metadata on this layer.</Trans>
-                      </div>
-                    )}
-                  </details>
-                ))
-              ) : (
-                <div className={styles.infoText}>
-                  <Trans>No layers available.</Trans>
+                          )}
+                          <Form.Field
+                            htmlFor={`${fieldId}-${layer.id}-${field}`}
+                            label={
+                              <>
+                                {field}{' '}
+                                <span className={styles.fieldSource}>
+                                  {override === undefined ? (
+                                    <Trans>Inherited</Trans>
+                                  ) : (
+                                    <Trans>Local</Trans>
+                                  )}
+                                </span>
+                              </>
+                            }
+                          >
+                            {definition.choices ? (
+                              <Form.Select
+                                id={`${fieldId}-${layer.id}-${field}`}
+                                value={String(value)}
+                                onChange={(event) => update(layer.id, field, event.target.value)}
+                              >
+                                {definition.choices.map((choice) => (
+                                  <option key={choice} value={choice}>
+                                    {choice}
+                                  </option>
+                                ))}
+                              </Form.Select>
+                            ) : typeof definition.defaultValue === 'number' ? (
+                              <PresentationNumberInput
+                                id={`${fieldId}-${layer.id}-${field}`}
+                                step="any"
+                                min={definition.min}
+                                value={Number(value)}
+                                onValueChange={(next) => update(layer.id, field, next)}
+                              />
+                            ) : definition.color ? (
+                              <Form.ColorInput
+                                id={`${fieldId}-${layer.id}-${field}`}
+                                pickerLabel={`${_(msg`Choose color`)}: ${layer.id}.${field}`}
+                                value={String(value)}
+                                onChange={(event) => update(layer.id, field, event.target.value)}
+                              />
+                            ) : (
+                              <Form.Input
+                                id={`${fieldId}-${layer.id}-${field}`}
+                                value={String(value)}
+                                onChange={(event) => update(layer.id, field, event.target.value)}
+                              />
+                            )}
+                          </Form.Field>
+                          {override !== undefined && (
+                            <Button
+                              className={styles.inheritButton}
+                              onClick={() => update(layer.id, field, undefined)}
+                            >
+                              <Trans>Follow simulator</Trans>
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    },
+                  )}
                 </div>
-              )}
-            </Form.FieldSet>
-          )}
+                <details>
+                  <summary>
+                    <Trans>Read-only declaration</Trans>
+                  </summary>
+                  <pre className={styles.declaration}>
+                    {JSON.stringify(layer.metadata, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            </details>
+          ))}
         </>
-      ) : (
-        <div className={styles.infoText}>
-          <Trans>
-            This view can keep its binding, but there is no registered environment to edit.
-          </Trans>
-        </div>
       )}
     </>
   );
-};
+}

@@ -81,8 +81,8 @@ export function Environment2DView({
   }, [assets]);
 
   useEffect(() => {
-    controllerRef.current?.render(environment);
-  }, [environment, updateTrigger]);
+    controllerRef.current?.render(environment, view?.data.layerOverrides);
+  }, [environment, updateTrigger, view?.data.layerOverrides]);
 
   const resetView = useCallback(() => {
     controllerRef.current?.resetView();

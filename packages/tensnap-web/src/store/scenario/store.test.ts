@@ -327,3 +327,27 @@ describe('scenario store updates preserve assets', () => {
     expect(useStore.getState().diagnostics).toHaveLength(500);
   });
 });
+
+it('replaces chart presentation metadata without dropping history or unrelated series columns', () => {
+  const store = createScenarioStore();
+  const state = store.getState();
+  state.scenario.charts.addGroup({
+    id: 'history',
+    label: 'History',
+    metadataDict: { a: { id: 'a', label: 'A' } },
+    data: [
+      { time: 1, a: 2 },
+      { time: 2, a: 3 },
+    ],
+  });
+  state.updateChartProps('history', {
+    metadataDict: { local: { id: 'local', label: 'Empty local series' } },
+  });
+  expect(state.scenario.charts.getGroup('history')).toMatchObject({
+    metadataDict: { local: { id: 'local', label: 'Empty local series' } },
+    data: [
+      { time: 1, a: 2 },
+      { time: 2, a: 3 },
+    ],
+  });
+});

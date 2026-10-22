@@ -1,10 +1,11 @@
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
-import type { AnyView, ButtonView, AnchoredView, ContainerView } from '@tensnap/core/persistence';
+import type { AnyView, ButtonView, AnchoredView } from '@tensnap/core/persistence';
+import { Trans } from '@lingui/react/macro';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { Trans } from '@lingui/react/macro';
+import { presentEnvironment } from '@tensnap/core/scenario';
 import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { ButtonViewEditor } from './ButtonViewEditor';
 import { ContainerViewEditor } from './ContainerViewEditor';
@@ -12,33 +13,18 @@ import { EnvironmentViewEditor } from './EnvironmentViewEditor';
 import { ParameterViewEditor } from './ParameterViewEditor';
 import { ChartViewEditor } from './ChartViewEditor';
 import { MonitorViewEditor } from './MonitorViewEditor';
+import { BaseViewFields } from './BaseViewEditor';
+import { ObjectBindingField } from './ObjectBindingField';
 import { useScenarioStore } from '@/store/scenario/store';
-import type { Action, Parameter, ChartGroup, ParameterType } from '@/types/model';
-import { EditObjectIdDialog } from './EditObjectIdDialog';
-import { ConfirmEditDialog } from './ConfirmEditDialog';
-import { useToast } from '@/store';
-import type {
-  EditableObjectData,
-  EditableObjectKind,
-  ScenarioDataSources,
-} from './edit-view-model';
-import {
-  getBoundObjectId,
-  getEditableObjectData,
-  getEditableObjectKind,
-  getObjectIdConflict,
-  normalizeEnvironmentForType,
-  normalizeParameterForType,
-  withBoundObjectId,
-  withObjectDataId,
-} from './edit-view-model';
-import type { EditableEnvironmentData } from './environment-editor-model';
+import { useToast } from '@/store/toast';
+import type { Parameter } from '@/types/model';
+import * as styles from './EditViews.css';
 
 interface EditViewDialogProps extends DialogOpenProps {
   view: AnyView;
   onSave: (
-    updatedView: AnyView,
-    objectData?: any,
+    view: AnyView,
+    parameterChange?: { id: string; value: Parameter['value'] },
   ) =>
     | void
     | boolean
@@ -46,409 +32,172 @@ interface EditViewDialogProps extends DialogOpenProps {
     | Promise<void | boolean | { ok: boolean; message?: string }>;
 }
 
-type ObjectIdDialogState = {
-  kind: EditableObjectKind;
-  currentId: string;
-  objectExists: boolean;
-} | null;
-
-type StructuralEditState =
-  | {
-      kind: 'parameter-type';
-      value: ParameterType;
-    }
-  | {
-      kind: 'environment-type';
-      value: EditableEnvironmentData['type'];
-    }
-  | null;
-
-const DATA_FIELD_PREFIX = 'data.';
-const DANGEROUS_KEYS: readonly string[] = ['__proto__', 'constructor', 'prototype'] as const;
-const cloneView = (nextView: AnyView): AnyView =>
-  ({
-    ...nextView,
-    data: nextView.data ? structuredClone(nextView.data) : nextView.data,
-  }) as AnyView;
-
-const isSafePath = (path: readonly string[]): boolean =>
-  !path.some((part) => DANGEROUS_KEYS.includes(part));
-
-type Warn = (msg: string) => void;
-
-const warnUnsafePath = (path: readonly string[], warn?: Warn): void => {
-  if (!warn) {
-    warn = console.warn;
-  }
-  warn('Attempted to set dangerous property: ' + path.join('.'));
-};
-
-const setNestedValue = (
-  target: Record<string, any>,
-  path: readonly string[],
-  value: any,
-  warn?: Warn,
-): boolean => {
-  if (path.length === 0) {
-    return false;
-  }
-
-  if (!isSafePath(path)) {
-    warnUnsafePath(path, warn);
-    return false;
-  }
-
-  let current = target;
-  for (let index = 0; index < path.length - 1; index += 1) {
-    const part = path[index];
-    if (
-      !Object.prototype.hasOwnProperty.call(current, part) ||
-      typeof current[part] !== 'object' ||
-      current[part] === null
-    ) {
-      current[part] = {};
-    }
-    current = current[part];
-  }
-
-  current[path[path.length - 1]] = value;
-  return true;
-};
-
-const setFieldValue = <T extends Record<string, any>>(
-  target: T,
-  field: keyof T & string,
-  value: any,
-  warn?: Warn,
-): boolean => {
-  const path = field.split('.');
-  if (path.length > 1) {
-    return setNestedValue(target, path, value, warn);
-  }
-
-  if (!isSafePath(path)) {
-    warnUnsafePath(path, warn);
-    return false;
-  }
-
-  target[field] = value;
-  return true;
-};
-
-const updateViewField = (view: AnyView, field: string, value: any, warn?: Warn): AnyView => {
-  const updated = cloneView(view);
-
-  if (!field.startsWith(DATA_FIELD_PREFIX)) {
-    return setFieldValue(updated as Record<string, any>, field, value, warn) ? updated : view;
-  }
-
-  const nextData = structuredClone(view.data ?? {});
-  const dataPath = field.slice(DATA_FIELD_PREFIX.length).split('.');
-  if (!setNestedValue(nextData as Record<string, any>, dataPath, value, warn)) {
-    return view;
-  }
-
-  updated.data = nextData as typeof view.data;
-  return updated;
-};
-
-const updateObjectField = <T extends Record<string, any>>(
-  objectData: T | null,
-  field: string,
-  value: any,
-  warn?: Warn,
-): T | null => {
-  if (!objectData) {
-    return null;
-  }
-
-  const updated = structuredClone(objectData);
-  return setFieldValue(updated, field, value, warn) ? updated : objectData;
-};
-
-const getObjectDataForSave = (
-  view: AnyView,
-  objectData: EditableObjectData,
-): EditableObjectData | undefined =>
-  getEditableObjectKind(view) ? (objectData ?? undefined) : undefined;
-
-const EditViewDialogContent: React.FC<EditViewDialogProps> = ({
-  open,
-  onOpenChange,
-  view,
-  onSave,
-}) => {
-  const { _ } = useLingui();
-  const [localView, setLocalView] = useState<AnyView>(() => cloneView(view));
-  const [localObjectData, setLocalObjectData] = useState<EditableObjectData>(null);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [editorRevision, setEditorRevision] = useState(0);
-  const [objectIdDialog, setObjectIdDialog] = useState<ObjectIdDialogState>(null);
-  const [structuralEdit, setStructuralEdit] = useState<StructuralEditState>(null);
-
-  const actions = useScenarioStore((store) => store.actions);
-  const parameters = useScenarioStore((store) => store.parameters);
-  const environments = useScenarioStore((store) => store.environments);
-  const charts = useScenarioStore((store) => store.charts);
-  const sources: ScenarioDataSources = useMemo(
-    () => ({ actions, parameters, environments, charts }),
-    [actions, charts, environments, parameters],
-  );
-
-  const resetLocalState = useCallback(() => {
-    setLocalView(cloneView(view));
-    setLocalObjectData(getEditableObjectData(view, { actions, parameters, environments, charts }));
-    setHasChanges(false);
-    setEditorRevision((revision) => revision + 1);
-  }, [actions, charts, environments, parameters, view]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    resetLocalState();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-
+function EditViewDialogEditor({ open, onOpenChange, view, onSave }: EditViewDialogProps) {
+  const [draft, setDraft] = useState(() => structuredClone(view));
+  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [resetVersion, setResetVersion] = useState(0);
+  const [parameterChange, setParameterChange] = useState<{
+    id: string;
+    value: Parameter['value'];
+  }>();
+  const scenario = useScenarioStore((state) => state.scenario);
   const toast = useToast();
-
-  const handleChange = useCallback(
-    (field: string, value: any) => {
-      setLocalView((prev) => updateViewField(prev, field, value, toast.warning));
-      setHasChanges(true);
-    },
-    [toast.warning],
+  const { _ } = useLingui();
+  useScenarioStore((state) =>
+    draft.type === 'environment'
+      ? state.environmentUpdateTrigger.value
+      : draft.type === 'chart'
+        ? state.chartRevision
+        : draft.type === 'monitor'
+          ? state.monitorRevision
+          : draft.type === 'button'
+            ? state.actionRevision
+            : draft.type === 'parameter'
+              ? state.parameterUpdateTrigger.value
+              : 0,
   );
-
-  const handleObjectChange = useCallback(
-    (field: string, value: any) => {
-      setLocalObjectData((prev: any) => updateObjectField(prev, field, value, toast.warning));
-      setHasChanges(true);
-    },
-    [toast.warning],
-  );
-
-  const handleEditObjectId = useCallback(() => {
-    const kind = getEditableObjectKind(localView);
-    if (!kind) {
-      return;
-    }
-    setObjectIdDialog({
-      kind,
-      currentId: getBoundObjectId(localView),
-      objectExists: Boolean(localObjectData),
+  const reset = () => {
+    setDraft(structuredClone(view));
+    setDirty(false);
+    setParameterChange(undefined);
+    setResetVersion((version) => version + 1);
+  };
+  const change = (field: string, value: unknown) => {
+    setDraft((previous) => {
+      const next = { ...previous, data: { ...previous.data } } as AnyView;
+      const target = field.startsWith('data.') ? next.data! : next;
+      const key = field.startsWith('data.') ? field.slice(5) : field;
+      if (value === undefined) delete (target as Record<string, unknown>)[key];
+      else (target as Record<string, unknown>)[key] = value;
+      return next;
     });
-  }, [localObjectData, localView]);
-
-  const validateObjectId = useCallback(
-    (nextId: string): string | null => {
-      if (!objectIdDialog) {
-        return null;
+    setDirty(true);
+  };
+  const id = draft.type === 'container' ? '' : draft.data.id;
+  const bind = (nextId: string) => {
+    setDraft((previous) => {
+      const next = structuredClone(previous);
+      if (next.type === 'container') return next;
+      const source = (objectId: string) =>
+        next.type === 'environment'
+          ? scenario?.getEnvironment(objectId)
+          : next.type === 'chart'
+            ? scenario?.charts.getGroup(objectId)
+            : next.type === 'monitor'
+              ? scenario?.monitors.get(objectId)
+              : next.type === 'parameter'
+                ? scenario?.getParameter(objectId)
+                : scenario?.getAction(objectId);
+      const old = source(next.data.id),
+        replacement = source(nextId);
+      const label = (object: ReturnType<typeof source>) =>
+        object && 'label' in object ? object.label : object?.id;
+      if (next.type === 'button') {
+        if (!next.data.text || next.data.text === label(old))
+          next.data.text = label(replacement) ?? nextId;
+      } else if (!next.data.title || next.data.title === label(old))
+        next.data.title = label(replacement) ?? nextId;
+      next.data.id = nextId;
+      if (next.type === 'environment') {
+        delete next.data.layerOverrides;
+        delete next.data.type;
       }
-
-      if (
-        getObjectIdConflict(
-          objectIdDialog.kind,
-          objectIdDialog.currentId,
-          nextId,
-          objectIdDialog.objectExists,
-          sources,
-        )
-      ) {
-        return _(msg`This ID is already used by another registered object.`);
-      }
-
-      return null;
-    },
-    [_, objectIdDialog, sources],
-  );
-
-  const handleSubmitObjectId = useCallback(
-    (nextId: string) => {
-      const nextView = withBoundObjectId(localView, nextId);
-      setLocalView(nextView);
-      setLocalObjectData((prev) => {
-        if (prev) {
-          return withObjectDataId(prev, nextId);
-        }
-        return getEditableObjectData(nextView, sources);
-      });
-      setHasChanges(true);
-      setEditorRevision((revision) => revision + 1);
-    },
-    [localView, sources],
-  );
-
-  const requestParameterTypeChange = useCallback(
-    (value: ParameterType) => {
-      if ((localObjectData as Parameter | null)?.type === value) {
-        return;
-      }
-      setStructuralEdit({ kind: 'parameter-type', value });
-    },
-    [localObjectData],
-  );
-
-  const requestEnvironmentTypeChange = useCallback(
-    (value: EditableEnvironmentData['type']) => {
-      if ((localObjectData as EditableEnvironmentData | null)?.type === value) {
-        return;
-      }
-      setStructuralEdit({ kind: 'environment-type', value });
-    },
-    [localObjectData],
-  );
-
-  const applyStructuralEdit = useCallback(() => {
-    if (!structuralEdit) {
-      return;
-    }
-
-    if (structuralEdit.kind === 'parameter-type') {
-      setLocalObjectData((prev) =>
-        prev ? normalizeParameterForType(prev as Parameter, structuralEdit.value) : prev,
-      );
-      setLocalView((prev) =>
-        updateViewField(prev, 'data.type', structuralEdit.value, toast.warning),
-      );
-    } else {
-      setLocalObjectData((prev) =>
-        prev
-          ? normalizeEnvironmentForType(prev as EditableEnvironmentData, structuralEdit.value)
-          : prev,
-      );
-      setLocalView((prev) =>
-        updateViewField(prev, 'data.type', structuralEdit.value, toast.warning),
-      );
-    }
-
-    setHasChanges(true);
-    setEditorRevision((revision) => revision + 1);
-  }, [structuralEdit, toast.warning]);
-
-  const handleSave = useCallback(async () => {
-    let result: Awaited<ReturnType<typeof onSave>>;
+      if (next.type === 'chart') delete next.data.chartSeries;
+      return next;
+    });
+    setParameterChange(undefined);
+    setDirty(true);
+  };
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
     try {
-      result = await onSave(localView, getObjectDataForSave(localView, localObjectData));
+      const series = draft.type === 'chart' ? draft.data.chartSeries : undefined;
+      if (
+        series &&
+        (series.some((item) => !item.id.trim()) ||
+          new Set(series.map((item) => item.id)).size !== series.length)
+      )
+        throw new Error('Series IDs must be non-empty and unique.');
+      if (draft.type === 'environment') {
+        const environment = scenario?.getEnvironment(draft.data.id);
+        if (environment) presentEnvironment(environment, draft.data.layerOverrides);
+      }
+      const result = await onSave(draft, parameterChange);
+      if (result === false || (result && typeof result === 'object' && !result.ok)) return;
+      onOpenChange?.(false);
     } catch (error) {
       toast.error(String(error));
-      return;
-    }
-    if (typeof result === 'object' && result && 'ok' in result && !result.ok) {
-      return;
-    }
-    if (result === false) {
-      return;
-    }
-    setHasChanges(false);
-    onOpenChange?.(false);
-  }, [localView, localObjectData, onSave, onOpenChange, toast]);
-
-  const renderEditor = () => {
-    switch (localView.type) {
-      case 'button':
-        return (
-          <ButtonViewEditor
-            view={localView as ButtonView}
-            objectData={localObjectData as Action | null}
-            onChange={handleChange}
-            onObjectChange={handleObjectChange}
-            onEditObjectId={handleEditObjectId}
-          />
-        );
-      case 'container':
-        return <ContainerViewEditor view={localView as ContainerView} onChange={handleChange} />;
-      case 'environment':
-        return (
-          <EnvironmentViewEditor
-            view={localView as AnchoredView}
-            objectData={localObjectData as any}
-            onChange={handleChange}
-            onObjectChange={handleObjectChange}
-            onEditObjectId={handleEditObjectId}
-            onRequestTypeChange={requestEnvironmentTypeChange}
-          />
-        );
-      case 'parameter':
-        return (
-          <ParameterViewEditor
-            view={localView as AnchoredView}
-            objectData={localObjectData as Parameter}
-            onChange={handleChange}
-            onObjectChange={handleObjectChange}
-            onEditObjectId={handleEditObjectId}
-            onRequestTypeChange={requestParameterTypeChange}
-          />
-        );
-      case 'chart':
-        return (
-          <ChartViewEditor
-            view={localView as AnchoredView}
-            objectData={localObjectData as ChartGroup}
-            onChange={handleChange}
-            onObjectChange={handleObjectChange}
-            onEditObjectId={handleEditObjectId}
-          />
-        );
-      case 'monitor':
-        return <MonitorViewEditor view={localView as AnchoredView} onChange={handleChange} />;
-      default:
-        return null;
+    } finally {
+      setSaving(false);
     }
   };
-
   return (
     <Dialog.Root title={_(msg`Edit View`)} open={open} onOpenChange={onOpenChange} size="xl">
-      <Dialog.Description />
-
       <Dialog.Body>
-        <React.Fragment key={editorRevision}>{renderEditor()}</React.Fragment>
+        <div className={styles.editor}>
+          {draft.type !== 'container' && (
+            <>
+              <BaseViewFields view={draft} onChange={change} />
+              <ObjectBindingField view={draft} onChange={bind} />
+            </>
+          )}
+          <div key={`${draft.type}:${id}:${resetVersion}`}>
+            {draft.type === 'button' && (
+              <ButtonViewEditor
+                view={draft as ButtonView}
+                action={scenario?.getAction(id) ?? null}
+                onChange={change}
+              />
+            )}
+            {draft.type === 'environment' && (
+              <EnvironmentViewEditor
+                view={draft as AnchoredView}
+                environment={scenario?.getEnvironment(id)}
+                onChange={change}
+              />
+            )}
+            {draft.type === 'parameter' && (
+              <ParameterViewEditor
+                view={draft as AnchoredView}
+                parameter={scenario?.getParameter(id) ?? null}
+                onChange={change}
+                onValueChange={(value) => {
+                  setParameterChange({ id, value });
+                  setDirty(true);
+                }}
+              />
+            )}
+            {draft.type === 'chart' && (
+              <ChartViewEditor
+                view={draft as AnchoredView}
+                chart={scenario?.charts.getGroup(id)}
+                onChange={change}
+              />
+            )}
+            {draft.type === 'monitor' && (
+              <MonitorViewEditor view={draft as AnchoredView} onChange={change} />
+            )}
+            {draft.type === 'container' && <ContainerViewEditor view={draft} onChange={change} />}
+          </div>
+        </div>
       </Dialog.Body>
-
       <Dialog.Footer>
-        <Dialog.Button onClick={resetLocalState} disabled={!hasChanges}>
+        <Dialog.Button onClick={reset} disabled={!dirty || saving}>
           <Trans>Reset</Trans>
         </Dialog.Button>
-        <Dialog.Button variant="primary" onClick={handleSave} disabled={!hasChanges}>
+        <Dialog.Button variant="primary" onClick={save} disabled={!dirty || saving}>
           <Trans>Save</Trans>
         </Dialog.Button>
       </Dialog.Footer>
-
-      <EditObjectIdDialog
-        key={objectIdDialog ? `${objectIdDialog.kind}:${objectIdDialog.currentId}` : 'closed'}
-        open={Boolean(objectIdDialog)}
-        title={_(msg`Edit Object ID`)}
-        currentId={objectIdDialog?.currentId ?? ''}
-        objectExists={objectIdDialog?.objectExists ?? false}
-        validateId={validateObjectId}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setObjectIdDialog(null);
-          }
-        }}
-        onSubmit={handleSubmitObjectId}
-      />
-
-      <ConfirmEditDialog
-        open={Boolean(structuralEdit)}
-        title={_(msg`Confirm Structural Change`)}
-        description={
-          <Trans>
-            This change may alter how the object is interpreted. Existing data will be preserved
-            where possible.
-          </Trans>
-        }
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setStructuralEdit(null);
-          }
-        }}
-        onConfirm={applyStructuralEdit}
-      />
     </Dialog.Root>
   );
-};
+}
+
+function EditViewDialogContent(props: EditViewDialogProps) {
+  return props.open ? <EditViewDialogEditor key={props.view.id} {...props} /> : null;
+}
 
 export const EditViewDialog = defineDialog('EditViewDialog', EditViewDialogContent, {
   width: 1060,

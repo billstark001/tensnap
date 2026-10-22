@@ -141,7 +141,7 @@ describe('Environment2DView', () => {
     });
 
     const controller = testHarness.controllerInstances[0];
-    expect(controller.render).toHaveBeenCalledWith(environment);
+    expect(controller.render).toHaveBeenCalledWith(environment, undefined);
   });
 
   it('calls render again when updateTrigger changes without recreating controller', async () => {
@@ -165,7 +165,7 @@ describe('Environment2DView', () => {
     await waitFor(() => {
       expect(testHarness.controllerInstances).toHaveLength(1);
       expect(controller.render).toHaveBeenCalledTimes(2);
-      expect(controller.render).toHaveBeenNthCalledWith(2, environment);
+      expect(controller.render).toHaveBeenNthCalledWith(2, environment, undefined);
     });
   });
 

@@ -228,6 +228,12 @@ const AnyViewSchema: z.ZodType = z.lazy(() =>
         id: z.string(),
         title: z.string().optional(),
         type: z.string().optional(),
+        layerOverrides: z.record(z.string(), z.record(z.string(), ProtocolValueSchema)).optional(),
+        chartSeries: z
+          .array(
+            z.object({ id: z.string().min(1), label: z.string(), color: z.string().optional() }),
+          )
+          .optional(),
         renderHint: z.enum(['auto', 'tree', 'table', 'text']).optional(),
       }),
     }),

@@ -1,92 +1,40 @@
-import React from 'react';
+import { useId } from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
+import { Switch } from '@tensnap/web-common/components/ui/Switch';
 import type { ButtonView } from '@tensnap/core/persistence';
-import type { BaseViewEditorProps } from './BaseViewEditor';
-import { BaseViewFields } from './BaseViewEditor';
 import type { Action } from '@/types/model';
-import { ObjectIdentityField } from './ObjectIdentityField';
-import * as styles from './EditViews.css';
 
-interface ButtonViewEditorProps extends BaseViewEditorProps {
-  view: ButtonView;
-  objectData: Action | null;
-  onObjectChange: (field: string, value: any) => void;
-  onEditObjectId: () => void;
-}
-
-export const ButtonViewEditor: React.FC<ButtonViewEditorProps> = ({
+export function ButtonViewEditor({
   view,
-  objectData: action,
+  action,
   onChange,
-  onObjectChange,
-  onEditObjectId,
-}) => {
-  // A view controls renderer scheduling. Action.continuous only describes
-  // what the simulator accepts; it must not be changed by editing a view.
-  const continuous = view.data.continuous ?? false;
-  const actionContinuous = action?.continuous ?? false;
-
+}: {
+  view: ButtonView;
+  action: Action | null;
+  onChange: (field: string, value: unknown) => void;
+}) {
+  const fieldId = useId();
   return (
     <>
-      <BaseViewFields view={view} onChange={onChange} />
-
-      <ObjectIdentityField
-        label={<Trans>Action ID</Trans>}
-        value={action?.id ?? view.data.id ?? ''}
-        objectExists={Boolean(action)}
-        onEdit={onEditObjectId}
-      />
-
-      <Form.Field label={<Trans>Button Text</Trans>} htmlFor="button-text">
+      <Form.Field label={<Trans>Button Text</Trans>} htmlFor={`${fieldId}-text`}>
         <Form.Input
-          id="button-text"
-          type="text"
+          id={`${fieldId}-text`}
           value={view.data.text}
-          onChange={(e) => onChange('data.text', e.target.value)}
+          onChange={(event) => onChange('data.text', event.target.value)}
         />
       </Form.Field>
-
-      <Form.Field label={<Trans>Continuous</Trans>} htmlFor="button-continuous">
-        <Form.Input
-          id="button-continuous"
-          type="checkbox"
-          checked={continuous}
-          onChange={(e) => onChange('data.continuous', e.target.checked)}
-        />
-      </Form.Field>
-
-      {action && continuous !== actionContinuous && (
-        <div className={styles.warningText}>
-          <Trans>
-            This button’s continuous setting controls renderer scheduling and differs from the
-            simulator action declaration. It is allowed, but verify the action is safe to repeat.
-          </Trans>
-        </div>
-      )}
-
-      {action ? (
-        <div className={styles.objectPanel}>
-          <h3 className={styles.panelTitle}>
-            <Trans>Action</Trans>
-          </h3>
-
-          <Form.Field label={<Trans>Action Label</Trans>} htmlFor="action-label">
-            <Form.Input
-              id="action-label"
-              type="text"
-              value={action.label}
-              onChange={(e) => onObjectChange('label', e.target.value)}
-            />
-          </Form.Field>
-        </div>
-      ) : (
-        <div className={styles.infoText}>
-          <Trans>
-            The button can keep this binding, but there is no registered action to edit.
-          </Trans>
-        </div>
+      <Switch
+        label={<Trans>Continuous scheduling</Trans>}
+        checked={view.data.continuous ?? false}
+        onCheckedChange={(value) => onChange('data.continuous', value)}
+      />
+      {action && (
+        <p>
+          <Trans>Simulator declaration</Trans>: {action.label} · continuous:{' '}
+          {String(action.continuous ?? false)}
+        </p>
       )}
     </>
   );
-};
+}

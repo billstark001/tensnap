@@ -1,362 +1,118 @@
-import { generateUniqueId } from '@/utils/common';
-import React, { useState } from 'react';
-import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { msg } from '@lingui/core/macro';
+import { useId } from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
+import { Button } from '@tensnap/web-common/components/ui/Dialog';
 import type { AnchoredView } from '@tensnap/core/persistence';
-import type { BaseViewEditorProps } from './BaseViewEditor';
-import { BaseViewFields } from './BaseViewEditor';
-import type { ChartGroup, ChartMetadata } from '@/types/model';
+import type { ChartGroup } from '@/types/model';
 import * as styles from './EditViews.css';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
-import { ObjectIdentityField } from './ObjectIdentityField';
-import { useToast } from '@/store/toast';
 
-interface ChartViewEditorProps extends BaseViewEditorProps {
-  view: AnchoredView;
-  objectData: ChartGroup | null;
-  onObjectChange: (field: string, value: any) => void;
-  onEditObjectId: () => void;
-}
-
-const formatChartDataPreview = (chartGroup: ChartGroup): string => {
-  const preview = chartGroup.data.slice(0, 20);
-  const suffix =
-    chartGroup.data.length > preview.length
-      ? `\n... ${chartGroup.data.length - preview.length} more point(s)`
-      : '';
-  return `${JSON.stringify(preview, null, 2)}${suffix}`;
-};
-
-const NewSeriesForm: React.FC<{
-  formData: { id: string; label: string; color: string };
-  onUpdate: (updates: Partial<ChartMetadata>) => void;
-  onConfirm: () => void;
-  onCancel: () => void;
-}> = ({ formData, onUpdate, onConfirm, onCancel }) => (
-  <div
-    className={styles.seriesItem}
-    style={{ border: '1px dashed #ccc', padding: '8px', marginBottom: '8px' }}
-  >
-    <Form.Input
-      type="color"
-      value={formData.color}
-      onChange={(e) => onUpdate({ color: e.target.value })}
-      style={{ width: '32px', height: '32px', border: 'none' }}
-    />
-    <Form.Input
-      type="text"
-      placeholder="Series ID"
-      value={formData.id}
-      onChange={(e) => onUpdate({ id: e.target.value })}
-      style={{ flex: 1 }}
-    />
-    <Form.Input
-      type="text"
-      placeholder="Series Label"
-      value={formData.label}
-      onChange={(e) => onUpdate({ label: e.target.value })}
-      style={{ flex: 1 }}
-    />
-    <button type="button" onClick={onConfirm} className={styles.iconButton} title="Confirm">
-      <Plus size={16} />
-    </button>
-    <button type="button" onClick={onCancel} className={styles.iconButton} title="Cancel">
-      <Trash2 size={16} />
-    </button>
-  </div>
-);
-
-const SeriesEditForm: React.FC<{
-  metadata: ChartMetadata;
-  onUpdateLabel: (label: string) => void;
-  onUpdateId: (id: string) => void;
-  onBlur: () => void;
-}> = ({ metadata, onUpdateLabel, onUpdateId, onBlur }) => {
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === 'Escape') onBlur();
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      <Form.Input
-        type="text"
-        placeholder="ID"
-        value={metadata.id}
-        onChange={(e) => onUpdateId(e.target.value)}
-        onBlur={onBlur}
-        onKeyDown={handleKeyDown}
-        style={{ padding: '2px 4px', fontSize: '0.875rem' }}
-      />
-      <Form.Input
-        type="text"
-        placeholder="Label"
-        value={metadata.label}
-        onChange={(e) => onUpdateLabel(e.target.value)}
-        onBlur={onBlur}
-        onKeyDown={handleKeyDown}
-        autoFocus
-        style={{ padding: '2px 4px', fontSize: '0.875rem' }}
-      />
-    </div>
-  );
-};
-
-const SeriesItem: React.FC<{
-  metadata: ChartMetadata;
-  isEditing: boolean;
-  onUpdateColor: (color: string) => void;
-  onUpdateMetadata: (updates: Partial<ChartMetadata>) => void;
-  onUpdateId: (newId: string) => void;
-  onToggleEdit: () => void;
-  onRemove: () => void;
-}> = ({
-  metadata,
-  isEditing,
-  onUpdateColor,
-  onUpdateMetadata,
-  onUpdateId,
-  onToggleEdit,
-  onRemove,
-}) => (
-  <div className={styles.seriesItem}>
-    <Form.Input
-      type="color"
-      value={metadata.color || '#000000'}
-      onChange={(e) => onUpdateColor(e.target.value)}
-      style={{ width: '24px', height: '24px', border: 'none', cursor: 'pointer' }}
-    />
-    <div style={{ flex: 1, minWidth: 0 }}>
-      {isEditing ? (
-        <SeriesEditForm
-          metadata={metadata}
-          onUpdateLabel={(label) => onUpdateMetadata({ label })}
-          onUpdateId={onUpdateId}
-          onBlur={onToggleEdit}
-        />
-      ) : (
-        <span className={styles.seriesLabel}>
-          {metadata.label}
-          <span className={styles.seriesId}> ({metadata.id})</span>
-        </span>
-      )}
-    </div>
-    <button type="button" onClick={onToggleEdit} className={styles.iconButton} title="Edit">
-      <Edit2 size={14} />
-    </button>
-    <button type="button" onClick={onRemove} className={styles.iconButton} title="Remove">
-      <Trash2 size={14} />
-    </button>
-  </div>
-);
-
-const SeriesList: React.FC<{
-  metadataList: ChartMetadata[];
-  editingId: string | null;
-  onUpdateMetadata: (id: string, updates: Partial<ChartMetadata>) => void;
-  onUpdateId: (oldId: string, newId: string) => void;
-  onToggleEdit: (id: string) => void;
-  onRemove: (id: string) => void;
-}> = ({ metadataList, editingId, onUpdateMetadata, onUpdateId, onToggleEdit, onRemove }) => {
-  if (metadataList.length === 0) {
-    return (
-      <div className={styles.infoText}>
-        <Trans>No series available</Trans>
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.seriesList}>
-      {metadataList.map((meta) => (
-        <SeriesItem
-          key={meta.id}
-          metadata={meta}
-          isEditing={editingId === meta.id}
-          onUpdateColor={(color) => onUpdateMetadata(meta.id, { color })}
-          onUpdateMetadata={(updates) => onUpdateMetadata(meta.id, updates)}
-          onUpdateId={(newId) => onUpdateId(meta.id, newId)}
-          onToggleEdit={() => onToggleEdit(meta.id)}
-          onRemove={() => onRemove(meta.id)}
-        />
-      ))}
-    </div>
-  );
-};
-
-export const ChartViewEditor: React.FC<ChartViewEditorProps> = ({
+export function ChartViewEditor({
   view,
-  objectData: chartGroup,
+  chart,
   onChange,
-  onObjectChange,
-  onEditObjectId,
-}) => {
+}: {
+  view: AnchoredView;
+  chart: ChartGroup | undefined;
+  onChange: (field: string, value: unknown) => void;
+}) {
+  const fieldId = useId();
   const { _ } = useLingui();
-  const toast = useToast();
-  const [editingMetadataId, setEditingMetadataId] = useState<string | null>(null);
-  const [newMetadataForm, setNewMetadataForm] = useState<{
-    id: string;
-    label: string;
-    color: string;
-  } | null>(null);
-
-  const metadataList = chartGroup ? Object.values(chartGroup.metadataDict) : [];
-
-  const handleAddMetadata = () => {
-    if (!newMetadataForm) {
-      setNewMetadataForm({
-        id: `series-${generateUniqueId()}`,
-        label: 'New Series',
-        color: `#${Math.floor(Math.random() * 16777215)
-          .toString(16)
-          .padStart(6, '0')}`,
-      });
-    } else if (chartGroup && newMetadataForm.id && newMetadataForm.label) {
-      if (newMetadataForm.id in chartGroup.metadataDict) {
-        toast.warning(_(msg`Series ID already exists.`));
-        return;
-      }
-      onObjectChange('metadataDict', {
-        ...chartGroup.metadataDict,
-        [newMetadataForm.id]: newMetadataForm,
-      });
-      setNewMetadataForm(null);
-    }
-  };
-
-  const handleRemoveMetadata = (metadataId: string) => {
-    if (!chartGroup) return;
-    const newMetadataDict = { ...chartGroup.metadataDict };
-    delete newMetadataDict[metadataId];
-    onObjectChange('metadataDict', newMetadataDict);
-  };
-
-  const handleUpdateMetadata = (metadataId: string, updates: Partial<ChartMetadata>) => {
-    if (!chartGroup) return;
-    onObjectChange('metadataDict', {
-      ...chartGroup.metadataDict,
-      [metadataId]: { ...chartGroup.metadataDict[metadataId], ...updates },
-    });
-  };
-
-  const handleUpdateMetadataId = (oldId: string, newId: string) => {
-    if (!chartGroup || oldId === newId) return;
-    if (newId in chartGroup.metadataDict) {
-      toast.warning(_(msg`Series ID already exists.`));
-      return;
-    }
-    const newMetadataDict = { ...chartGroup.metadataDict };
-    newMetadataDict[newId] = { ...chartGroup.metadataDict[oldId], id: newId };
-    delete newMetadataDict[oldId];
-    onObjectChange('metadataDict', newMetadataDict);
-  };
-
-  const handleToggleEdit = (id: string) => {
-    setEditingMetadataId(editingMetadataId === id ? null : id);
-  };
-
+  const series =
+    view.data.chartSeries ??
+    (chart
+      ? Object.values(chart.metadataDict).map(({ id, label, color }) => ({
+          id,
+          label,
+          ...(color ? { color } : {}),
+        }))
+      : []);
+  const update = (index: number, values: Partial<(typeof series)[number]>) =>
+    onChange(
+      'data.chartSeries',
+      series.map((item, itemIndex) => (itemIndex === index ? { ...item, ...values } : item)),
+    );
   return (
     <>
-      <BaseViewFields view={view} onChange={onChange} />
-
-      <Form.Field label={<Trans>Title</Trans>} htmlFor="chart-title">
+      <Form.Field label={<Trans>Title</Trans>} htmlFor={`${fieldId}-title`}>
         <Form.Input
-          id="chart-title"
-          type="text"
-          value={view.data.title || ''}
-          onChange={(e) => onChange('data.title', e.target.value)}
+          id={`${fieldId}-title`}
+          value={view.data.title ?? ''}
+          onChange={(event) => onChange('data.title', event.target.value)}
         />
       </Form.Field>
-
-      <ObjectIdentityField
-        label={<Trans>Chart Group ID</Trans>}
-        value={chartGroup?.id ?? view.data.id ?? ''}
-        objectExists={Boolean(chartGroup)}
-        onEdit={onEditObjectId}
-      />
-
-      {chartGroup ? (
-        <>
-          <Form.FieldGroup columns={2}>
-            <Form.Field label={<Trans>Data Points</Trans>} htmlFor="data-points">
+      <p className={styles.infoText}>
+        <Trans>
+          Series settings are local to this view. Removing a series does not delete recorded data.
+        </Trans>
+      </p>
+      {series.map((item, index) => (
+        <fieldset key={index} className={styles.section}>
+          <legend className={styles.sectionTitle}>{item.label || item.id}</legend>
+          <div className={styles.fields}>
+            <Form.Field label={<Trans>Series ID</Trans>} htmlFor={`${fieldId}-${index}-id`}>
               <Form.Input
-                id="data-points"
-                type="text"
-                value={`${chartGroup.data.length} ${chartGroup.data.length === 1 ? 'point' : 'points'}`}
-                disabled
-                className={styles.disabledField}
+                id={`${fieldId}-${index}-id`}
+                value={item.id}
+                disabled={Boolean(chart?.metadataDict[item.id])}
+                onChange={(event) => update(index, { id: event.target.value })}
               />
             </Form.Field>
-          </Form.FieldGroup>
-
-          <Form.Field label={<Trans>Chart Group Label</Trans>} htmlFor="chart-label">
-            <Form.Input
-              id="chart-label"
-              type="text"
-              value={chartGroup.label}
-              onChange={(e) => onObjectChange('label', e.target.value)}
-            />
-          </Form.Field>
-
-          <Form.FieldSet>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px',
-              }}
-            >
-              <Form.Label>
-                <Trans>Chart Series</Trans> ({metadataList.length})
-              </Form.Label>
-              <button
-                type="button"
-                onClick={handleAddMetadata}
-                className={styles.iconButton}
-                title="Add series"
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-
-            {newMetadataForm && (
-              <NewSeriesForm
-                formData={newMetadataForm}
-                onUpdate={(updates) => setNewMetadataForm({ ...newMetadataForm, ...updates })}
-                onConfirm={handleAddMetadata}
-                onCancel={() => setNewMetadataForm(null)}
+            <Form.Field label={<Trans>Label</Trans>} htmlFor={`${fieldId}-${index}-label`}>
+              <Form.Input
+                id={`${fieldId}-${index}-label`}
+                value={item.label}
+                onChange={(event) => update(index, { label: event.target.value })}
               />
-            )}
-
-            <SeriesList
-              metadataList={metadataList}
-              editingId={editingMetadataId}
-              onUpdateMetadata={handleUpdateMetadata}
-              onUpdateId={handleUpdateMetadataId}
-              onToggleEdit={handleToggleEdit}
-              onRemove={handleRemoveMetadata}
-            />
-          </Form.FieldSet>
-
-          <Form.Field label={<Trans>Chart Data Preview</Trans>} htmlFor="chart-data-preview">
-            <Form.Textarea
-              id="chart-data-preview"
-              value={formatChartDataPreview(chartGroup)}
-              rows={8}
-              disabled
-              className={styles.disabledField}
-            />
-          </Form.Field>
-        </>
-      ) : (
-        <div className={styles.infoText}>
-          <Trans>
-            This view can keep its binding, but there is no registered chart group to edit.
-          </Trans>
-        </div>
-      )}
+            </Form.Field>
+            <Form.Field label={<Trans>Color</Trans>} htmlFor={`${fieldId}-${index}-color`}>
+              <Form.ColorInput
+                id={`${fieldId}-${index}-color`}
+                pickerLabel={`${_(msg`Choose color`)}: ${item.label || item.id}`}
+                value={item.color ?? '#0066cc'}
+                onChange={(event) => update(index, { color: event.target.value })}
+              />
+            </Form.Field>
+          </div>
+          <Button
+            variant="danger"
+            type="button"
+            onClick={() =>
+              onChange(
+                'data.chartSeries',
+                series.filter((_, itemIndex) => itemIndex !== index),
+              )
+            }
+          >
+            <Trans>Remove from view</Trans>
+          </Button>
+        </fieldset>
+      ))}
+      <div className={styles.actions}>
+        <Button
+          type="button"
+          onClick={() =>
+            onChange('data.chartSeries', [
+              ...series,
+              { id: `local-${crypto.randomUUID()}`, label: _(msg`Local series`) },
+            ])
+          }
+        >
+          <Trans>Add local series</Trans>
+        </Button>
+        {view.data.chartSeries && (
+          <Button onClick={() => onChange('data.chartSeries', undefined)}>
+            <Trans>Follow simulator</Trans>
+          </Button>
+        )}
+      </div>
+      <small>
+        <Trans>
+          A local series has no data until a matching source publishes it. This does not create a
+          simulator series.
+        </Trans>
+      </small>
     </>
   );
-};
+}
