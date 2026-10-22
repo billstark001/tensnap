@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useContext, useEffect } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingsStore } from '@/store/settings';
 import { ViewContextMenuRenderer } from './ViewContextMenuRenderer';
+import { EnvironmentViewportContext } from '../scenario/EnvironmentViewportContext';
 
 const onButtonAction = vi.fn();
 const deleteView = vi.fn();
@@ -13,7 +14,7 @@ const monitors = {
 };
 const scenarioState = {
   charts: null,
-  scenario: { monitors },
+  scenario: { monitors, getEnvironment: () => ({ type: '2d' }) },
 };
 
 vi.mock('../view/useViewContext', () => ({
@@ -61,6 +62,42 @@ vi.mock('@lingui/react', () => ({
 }));
 
 describe('ViewContextMenuRenderer', () => {
+  it('places viewport reset below Copy and above the Edit separator, and invokes the mounted renderer', () => {
+    const reset = vi.fn();
+    function Environment() {
+      const register = useContext(EnvironmentViewportContext)!;
+      useEffect(() => register(reset), [register]);
+      return <div>Environment canvas</div>;
+    }
+    render(
+      <ViewContextMenuRenderer
+        view={{
+          id: 'view',
+          type: 'environment',
+          left: 0,
+          top: 0,
+          width: 200,
+          height: 200,
+          expanded: true,
+          disabled: false,
+          data: { id: 'env' },
+        }}
+        type="environment"
+        dataType={null}
+      >
+        <div>
+          <Environment />
+        </div>
+      </ViewContextMenuRenderer>,
+    );
+    fireEvent.contextMenu(screen.getByText('Environment canvas'));
+    const items = screen.getAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual(['Copy', 'Reset View', 'Edit', 'Delete']);
+    const resetItem = screen.getByRole('menuitem', { name: 'Reset View' });
+    expect(resetItem.nextElementSibling).toHaveAttribute('role', 'separator');
+    fireEvent.click(resetItem);
+    expect(reset).toHaveBeenCalledOnce();
+  });
   beforeEach(() => {
     onButtonAction.mockReset();
     deleteView.mockReset();

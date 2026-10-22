@@ -2,11 +2,9 @@ import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const detailContainer = style({
-  height: 'min(72vh, 760px)',
   display: 'flex',
   flexDirection: 'row',
   gap: vars.space.sm,
-  maxHeight: '60vh',
   overflow: 'hidden',
 });
 
