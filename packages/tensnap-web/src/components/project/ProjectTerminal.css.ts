@@ -11,6 +11,14 @@ export const projectContainer = style({
   background: vars.color.terminalBackground,
 });
 
+export const terminalSelect = style({
+  width: 'auto',
+  minWidth: 100,
+  minHeight: 28,
+  paddingTop: 2,
+  paddingBottom: 2,
+});
+
 export const projectTerminal = style({
   width: '100%',
   height: '100%',

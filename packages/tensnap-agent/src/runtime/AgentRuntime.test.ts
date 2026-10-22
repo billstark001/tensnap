@@ -1488,3 +1488,126 @@ it('applies the same pending-write admission rule to manual and bounded recordin
     await runtime.stop();
   }
 });
+
+it('persists renderer-only presentation, applies it to render-all and leaves simulator declarations untouched', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-presentation-'));
+  temporaryRoots.push(rootDir);
+  const context = resolveRuntimeContextPaths({ rootDir });
+  const runtime = new AgentRuntime(context);
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  renderer.handleIncoming({ type: 'env_create', payload: { id: 'world', type: '2d' } });
+  renderer.handleIncoming({
+    type: 'env_layer_create',
+    payload: { env_id: 'world', layer_id: 'agents', layer_type: 'agent' },
+  });
+  renderer.handleIncoming({
+    type: 'env_layer_create',
+    payload: {
+      env_id: 'world',
+      layer_id: 'edges',
+      layer_type: 'edge',
+      dependency_layer_ids: { agent: 'agents' },
+    },
+  });
+  try {
+    const overrides = { edges: { link_distance: -1 } };
+    await runtime.setPresentation('world', overrides);
+    overrides.edges.link_distance = 9;
+    expect(runtime.getPresentation('world').overrides).toEqual({ edges: { link_distance: -1 } });
+    expect(renderer.scenario.getEnvironment('world')!.layers.get('edges')!.metadata).toEqual({});
+    expect(
+      JSON.parse(await readFile(join(context.contextDir, 'presentation.json'), 'utf8')),
+    ).toEqual({ world: { edges: { link_distance: -1 } } });
+    let rendered: unknown;
+    runtime.registerPainter({
+      id: 'presentation-test',
+      render: async (request) => {
+        rendered = request.snapshot.environments[0]!.layers.find(
+          (layer) => layer.id === 'edges',
+        )!.metadata;
+        return [{ painterId: 'presentation-test', kind: 'environment' }];
+      },
+    });
+    await runtime.requestRender({});
+    expect(rendered).toEqual({ link_distance: -1 });
+    await expect(runtime.setPresentation('world', { edges: { unknown: 3 } })).rejects.toThrow(
+      'Invalid edge',
+    );
+    expect(runtime.getPresentation('world').overrides.edges).toEqual({ link_distance: -1 });
+  } finally {
+    await runtime.stop();
+  }
+  const reopened = new AgentRuntime(context);
+  await reopened.initialize();
+  const { renderer: restored } = attachReviewTransport(reopened);
+  restored.handleIncoming({ type: 'env_create', payload: { id: 'world', type: '2d' } });
+  restored.handleIncoming({
+    type: 'env_layer_create',
+    payload: { env_id: 'world', layer_id: 'edges', layer_type: 'edge' },
+  });
+  try {
+    expect(reopened.getPresentation('world').overrides.edges).toEqual({ link_distance: -1 });
+    await reopened.setPresentation('world', {});
+    expect(reopened.getPresentation('world').overrides).toEqual({});
+  } finally {
+    await reopened.stop();
+  }
+});
+
+it('isolates environment preferences from unrelated render targets and filtered inspections', async () => {
+  const rootDir = await mkdtemp(join(tmpdir(), 'tensnap-presentation-scope-'));
+  temporaryRoots.push(rootDir);
+  const runtime = new AgentRuntime(resolveRuntimeContextPaths({ rootDir }));
+  await runtime.initialize();
+  const { renderer } = attachReviewTransport(runtime);
+  for (const id of ['selected', 'other']) {
+    renderer.handleIncoming({ type: 'env_create', payload: { id, type: '2d' } });
+    renderer.handleIncoming({
+      type: 'env_layer_create',
+      payload: {
+        env_id: id,
+        layer_id: 'edges',
+        layer_type: 'edge',
+      },
+    });
+  }
+  const requests: unknown[] = [];
+  runtime.registerPainter({
+    id: 'scope-test',
+    render: async (request) => {
+      requests.push(request.snapshot);
+      return [{ painterId: 'scope-test', kind: 'environment' }];
+    },
+  });
+  try {
+    await runtime.setPresentation('other', { edges: { link_distance: -1 } });
+    renderer.handleIncoming({
+      type: 'env_layer_delete',
+      payload: { env_id: 'other', layer_id: 'edges' },
+    });
+    await expect(runtime.requestRender({ envId: 'selected' })).resolves.toHaveLength(1);
+    await expect(runtime.requestRender({ chartId: 'history' })).resolves.toHaveLength(1);
+    await runtime.setPresentation('selected', { edges: { link_distance: -1 } });
+    const filtered = renderer.scenario.dump();
+    filtered.environments = [{ ...filtered.environments[0]!, layers: [] }];
+    // An inspection intentionally contains only the selected agent and its dependencies.
+    const inspection = {
+      kind: 'graph' as const,
+      environmentId: 'selected',
+      layerId: 'agents',
+      agent: { id: 'a' },
+      radius: 0,
+      neighbors: [],
+      neighborCount: 0,
+      edges: [],
+      ref: { environmentId: 'selected', layerId: 'agents', agentId: 'a' },
+      viewport: { x: 0, y: 0, width: 4, height: 4 },
+      renderSnapshot: filtered,
+    };
+    await expect(runtime.renderAgentInspection(inspection)).resolves.toHaveLength(1);
+    expect(requests).toHaveLength(3);
+  } finally {
+    await runtime.stop();
+  }
+});

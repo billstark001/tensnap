@@ -2,7 +2,11 @@ import './leafer-runtime';
 
 import { writeFileAtomically } from './atomic-file';
 import { resolveImageSize, resolveViewport, type Viewport } from '@tensnap/core/environment';
-import { layerRegistry, type LayerCreateContext } from '@tensnap/core/scenario';
+import {
+  presentEnvironmentSnapshot,
+  layerRegistry,
+  type LayerCreateContext,
+} from '@tensnap/core/scenario';
 import { HeadlessEnvironmentView } from '@tensnap/core/environment/headless';
 import {
   collectRenderData,
@@ -53,7 +57,12 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
   }
 
   async render(request: RenderRequest): Promise<RenderArtifact[] | void> {
+    const ticks = request.options.layoutTicks;
+    if (ticks !== undefined && (!Number.isSafeInteger(ticks) || ticks < 0 || ticks > 10000))
+      throw new Error('layoutTicks must be between 0 and 10000.');
     if (request.options.chartId) return [];
+    if (request.options.layerOverrides && !request.options.envId)
+      throw new Error('Layer overrides require envId.');
     const targetEnvironments = request.options.envId
       ? request.snapshot.environments.filter(
           (environment) => environment.id === request.options.envId,
@@ -74,8 +83,9 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
       );
     const errors: RenderTargetError[] = [];
     const artifacts: RenderArtifact[] = [];
-    for (const environment of targetEnvironments) {
+    for (const source of targetEnvironments) {
       try {
+        const environment = presentEnvironmentSnapshot(source, request.options.layerOverrides);
         const renderData = collectRenderData(environment);
         artifacts.push(
           await this.renderEnvironment(
@@ -86,7 +96,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
           ),
         );
       } catch (error) {
-        errors.push(renderTargetError(this.id, environment.id, error));
+        errors.push(renderTargetError(this.id, source.id, error));
       }
     }
     if (errors.length) throw new RenderBatchError(artifacts, errors);
@@ -204,7 +214,10 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
     request: RenderRequest,
     assetUrlById: Map<string, string>,
   ): Promise<void> {
-    const createdLayers: Array<{ setSceneBounds?(bounds: Partial<Viewport>): void }> = [];
+    const createdLayers: Array<{
+      setSceneBounds?(bounds: Partial<Viewport>): void;
+      settle?(ticks: number): void;
+    }> = [];
 
     // Pre-resolve background data for this environment — the headless host
     // has a special fallback path that the browser does not.
@@ -221,7 +234,7 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
       preResolvedBackground.set(layerPlan.layerId, fallbackBounds);
     }
 
-    const linkedEdgeLayers = new Map<string, unknown>();
+    const linkedEdgeLayers: LayerCreateContext['linkedEdgeLayers'] = new Map();
 
     for (const layerPlan of plan.layers) {
       // Resolve headless-specific background fallback bounds
@@ -231,21 +244,27 @@ export class HeadlessEnvironmentPainter implements ScenePainter {
       }
 
       const factoryContext: LayerCreateContext = {
-        linkedEdgeLayers: linkedEdgeLayers as Map<string, never>,
+        linkedEdgeLayers,
         resolveAssetUrl: (assetId: string) => assetUrlById.get(assetId) ?? null,
         clickable: false,
         showLabel: false,
         fallbackBackgroundSceneBounds,
-        readOnlyGraphLayout: request.options.readOnlyGraphLayout,
+        readOnlyGraphLayout:
+          request.options.readOnlyGraphLayout || request.options.layoutTicks === 0,
+        manualGraphLayout: true,
       };
 
       const created = layerRegistry.createLayer(layerPlan, factoryContext);
       if (!created) continue;
 
       envView.addLayer(created.layer as never);
-      createdLayers.push(created.layer as { setSceneBounds?(bounds: Partial<Viewport>): void });
+      createdLayers.push(created.layer);
     }
 
+    // Initial placement is enough for a normal capture. Extra force iterations
+    // are explicitly budgeted so action-result rendering stays inexpensive.
+    if (request.options.layoutTicks !== undefined && request.options.layoutTicks > 0)
+      for (const layer of createdLayers) layer.settle?.(request.options.layoutTicks);
     if (!plan.sceneBounds) {
       return;
     }

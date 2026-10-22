@@ -18,6 +18,8 @@ const TRAJECTORY_CHUNK_POINTS = 1_024;
 
 export interface TrajectoryLayerConfig {
   coordOffset?: GridCoordOffset;
+  width?: number;
+  color?: string;
   worldBounds?: TrajectoryWorldBounds;
 }
 
@@ -68,7 +70,7 @@ export class TrajectoryLayer extends BaseLayer {
   private _toSceneStroke(width: number): number {
     const scale = this.calculateViewportScale(this._viewport, this._fitMode);
     const avg = (Math.abs(scale.scaleX) + Math.abs(scale.scaleY)) / 2;
-    return Math.max(0.1, width / avg);
+    return Math.max(0.1, (this._cfg.width ?? width) / avg);
   }
 
   private _onTrajectoryData(
@@ -122,7 +124,7 @@ export class TrajectoryLayer extends BaseLayer {
       return;
     }
 
-    const color = firstPointColor ?? entry.defaultColor;
+    const color = this._cfg.color ?? firstPointColor ?? entry.defaultColor;
     const strokeWidth = this._toSceneStroke(entry.width);
 
     this._removeLine(id);

@@ -115,6 +115,10 @@ writeFileSync(
       './skills/tensnap-agent/references/docs/user-guide/agent-runtime.md',
     )
     .replaceAll(
+      '../../docs/maintainer-guide/frontend-presentation.md',
+      './skills/tensnap-agent/references/docs/maintainer-guide/frontend-presentation.md',
+    )
+    .replaceAll(
       '../../docs/api-reference/recording-storage.md',
       './skills/tensnap-agent/references/docs/api-reference/recording-storage.md',
     )

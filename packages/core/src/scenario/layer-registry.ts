@@ -170,6 +170,7 @@ export interface LayerCreateContext {
 
   /** Render graph edges at existing positions without starting a force layout. */
   readOnlyGraphLayout?: boolean;
+  manualGraphLayout?: boolean;
 }
 
 /** Return value of createLayer — abstracts the ILayer interface used by both hosts. */
@@ -856,7 +857,7 @@ function createBackgroundLayerFromPlan(
     : context.fallbackBackgroundSceneBounds
       ? { sceneBounds: context.fallbackBackgroundSceneBounds as LayerSceneBounds }
       : undefined;
-  const layer = new BackgroundLayer(plan.storage, sceneBounds);
+  const layer = new BackgroundLayer(plan.storage, { ...sceneBounds, ...plan.presentation });
   if (plan.zIndex !== undefined) {
     layer.setZIndex(plan.zIndex);
   }
@@ -870,7 +871,7 @@ function createBackgroundLayerFromPlan(
 }
 
 function createGridLayerFromPlan(plan: GridLayerPlan): CreatedLayerEntry {
-  const layer = new GridLayer(plan.storage);
+  const layer = new GridLayer(plan.storage, { presentation: plan.presentation });
   if (plan.zIndex !== undefined) {
     layer.setZIndex(plan.zIndex);
   }
@@ -890,6 +891,7 @@ function createEdgeLayerFromPlan(
   const layer = new EdgeLayer(plan.storage, plan.agentStorage, {
     ...plan.config,
     readOnlyLayout: context.readOnlyGraphLayout,
+    manualLayout: context.manualGraphLayout,
   });
   if (plan.zIndex !== undefined) {
     layer.setZIndex(plan.zIndex);
@@ -907,6 +909,7 @@ function createEdgeLayerFromPlan(
 
 function createTrajectoryLayerFromPlan(plan: TrajectoryLayerPlan): CreatedLayerEntry {
   const layer = new TrajectoryLayer(plan.storage, {
+    ...plan.presentation,
     coordOffset: plan.coordOffset,
     worldBounds: plan.worldBounds,
   });

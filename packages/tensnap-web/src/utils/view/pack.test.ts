@@ -108,7 +108,7 @@ describe('view pack utils', () => {
     expect(chartView?.type).toBe('chart');
     expect(monitorView).toMatchObject({
       type: 'monitor',
-      data: { id: 'population', renderHint: 'table' },
+      data: { id: 'population' },
     });
   });
 

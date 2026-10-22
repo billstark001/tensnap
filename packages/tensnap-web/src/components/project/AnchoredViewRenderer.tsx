@@ -19,7 +19,7 @@ const AnchoredEnvironmentView = ({ id, view }: { id: string; view: AnchoredView 
   const environment = environments.get(id);
   if (!environment) return <div>Environment not found: {id}</div>;
 
-  const displayType = environment.type;
+  const displayType = view.data.type ?? environment.type;
 
   if (displayType === '2d') {
     return (
@@ -50,7 +50,7 @@ const AnchoredParameterView = ({ id }: { id: string }) => {
   return <ParameterControl parameter={parameter} />;
 };
 
-const AnchoredChartView = ({ id }: { id: string }) => {
+const AnchoredChartView = ({ id, view }: { id: string; view: AnchoredView }) => {
   const chartRevision = useScenarioStore((store) => store.chartRevision);
   const charts = useScenarioStore((store) => store.charts);
   const chartGroup = charts?.getGroup(id);
@@ -58,7 +58,19 @@ const AnchoredChartView = ({ id }: { id: string }) => {
 
   return (
     <ViewErrorBoundary kind="chart" identifier={id} resetKey={chartRevision}>
-      <ChartView chartGroup={chartGroup} updateTrigger={chartRevision} />
+      <ChartView
+        chartGroup={
+          view.data.chartSeries
+            ? {
+                ...chartGroup,
+                metadataDict: Object.fromEntries(
+                  view.data.chartSeries.map((series) => [series.id, series]),
+                ),
+              }
+            : chartGroup
+        }
+        updateTrigger={chartRevision}
+      />
     </ViewErrorBoundary>
   );
 };
@@ -91,7 +103,7 @@ export const AnchoredViewRenderer: AnchoredViewRendererType = ({ type, id, view 
       return <AnchoredParameterView id={id} />;
     }
     case 'chart': {
-      return <AnchoredChartView id={id} />;
+      return <AnchoredChartView id={id} view={view as AnchoredView} />;
     }
     case 'monitor': {
       return <AnchoredMonitorView id={id} view={view as AnchoredView} />;

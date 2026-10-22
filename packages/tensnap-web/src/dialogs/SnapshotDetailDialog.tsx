@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { encodeRecordingFile } from '@tensnap/core/persistence';
 import { frameFromRecording, snapshotFromFrame } from '@tensnap/core/snapshot';
@@ -20,6 +21,7 @@ import {
   ClipboardCopy,
   Pause,
   Play,
+  RotateCcw,
   Sheet,
   SkipBack,
   SkipForward,
@@ -37,6 +39,10 @@ import { formatTimestamp } from '@/utils/date';
 import { useSettingsStore } from '@/store/settings';
 import { useToast } from '@/store/toast';
 import { copyCanvas } from '@/utils/data';
+import {
+  EnvironmentViewportContext,
+  useEnvironmentViewportReset,
+} from '../components/scenario/EnvironmentViewportContext';
 import { SceneRestoreDialog } from './SceneRestoreDialog';
 
 const OfflineEnvironment = (props: {
@@ -77,10 +83,12 @@ const OfflineEnvironment = (props: {
 /** Gives replay previews the same export/copy actions as their live-view counterparts. */
 const SnapshotPreviewContextMenu: React.FC<{
   chartGroup?: ChartGroup;
+  canReset?: boolean;
   className: string;
   children: React.ReactNode;
-}> = ({ chartGroup, className, children }) => {
+}> = ({ chartGroup, canReset, className, children }) => {
   const previewRef = useRef<HTMLDivElement>(null);
+  const viewportReset = useEnvironmentViewportReset();
   const toast = useToast();
 
   const handleCopy = useCallback(async () => {
@@ -98,27 +106,35 @@ const SnapshotPreviewContextMenu: React.FC<{
   }, [toast]);
 
   return (
-    <ContextMenu.Root
-      trigger={
-        <div ref={previewRef} className={className}>
-          {children}
-        </div>
-      }
-    >
-      <ContextMenu.Label>
-        <Trans>Options</Trans>
-      </ContextMenu.Label>
-      {chartGroup && (
-        <ContextMenu.Item onSelect={() => exportToCSV(chartGroup)}>
-          <Sheet />
-          <Trans>Save As CSV</Trans>
+    <EnvironmentViewportContext.Provider value={viewportReset.register}>
+      <ContextMenu.Root
+        trigger={
+          <div ref={previewRef} className={className}>
+            {children}
+          </div>
+        }
+      >
+        <ContextMenu.Label>
+          <Trans>Options</Trans>
+        </ContextMenu.Label>
+        {chartGroup && (
+          <ContextMenu.Item onSelect={() => exportToCSV(chartGroup)}>
+            <Sheet />
+            <Trans>Save As CSV</Trans>
+          </ContextMenu.Item>
+        )}
+        <ContextMenu.Item onSelect={handleCopy}>
+          <ClipboardCopy />
+          <Trans>Copy</Trans>
         </ContextMenu.Item>
-      )}
-      <ContextMenu.Item onSelect={handleCopy}>
-        <ClipboardCopy />
-        <Trans>Copy</Trans>
-      </ContextMenu.Item>
-    </ContextMenu.Root>
+        {canReset && (
+          <ContextMenu.Item onSelect={viewportReset.reset}>
+            <RotateCcw />
+            <Trans id="environment2d.resetView">Reset View</Trans>
+          </ContextMenu.Item>
+        )}
+      </ContextMenu.Root>
+    </EnvironmentViewportContext.Provider>
   );
 };
 
@@ -238,8 +254,8 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
         <Dialog.Description>
           <Trans>Inspect this recording offline. Opening it creates a disconnected copy.</Trans>
         </Dialog.Description>
-        <Dialog.Body className={styles.detailContainer}>
-          <div className={styles.replaySidebar}>
+        <Dialog.Body scrollable={false} className={styles.detailContainer}>
+          <ScrollArea className={styles.replaySidebar}>
             <div className={styles.detailRow}>
               <label className={styles.detailLabel} htmlFor="snapshot-name">
                 <Trans>Snapshot name</Trans>
@@ -404,12 +420,16 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
                 ))
               )}
             </div>
-          </div>
+          </ScrollArea>
           <Dialog.Separator vertical />
-          <div className={styles.replayContent}>
+          <ScrollArea className={styles.replayContent}>
             <div className={styles.environmentList}>
               {[...replay.environments.values()].map((environment) => (
-                <SnapshotPreviewContextMenu key={environment.id} className={styles.environmentItem}>
+                <SnapshotPreviewContextMenu
+                  key={environment.id}
+                  canReset={environment.type === '2d'}
+                  className={styles.environmentItem}
+                >
                   <div className={styles.environmentHeader}>
                     <span className={styles.environmentType}>{environment.type}</span>
                     <span className={styles.environmentLabel}>{environment.id}</span>
@@ -439,7 +459,7 @@ const SnapshotDetailDialogContent: React.FC<SnapshotDetailDialogProps> = ({
                 ))}
               </div>
             )}
-          </div>
+          </ScrollArea>
         </Dialog.Body>
         <Dialog.Footer>
           <Dialog.Button onClick={() => void exportRecording(false)}>

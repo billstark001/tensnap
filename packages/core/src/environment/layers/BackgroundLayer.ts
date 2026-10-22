@@ -27,6 +27,7 @@ export interface BackgroundLayerConfig {
    * Default: 'bottom-left'
    */
   originMode?: OriginMode;
+  interpolation?: 'nearest' | 'linear';
 }
 
 type ParsedBackgroundLayerConfig = Omit<BackgroundLayerConfig, 'sceneBounds'> & {
@@ -129,7 +130,7 @@ export class BackgroundLayer extends BaseLayer implements IBoundedLayer {
       this.bg.set({ fill: data.value });
       this._interpolation = 'nearest';
     } else {
-      this._interpolation = data.interpolation;
+      this._interpolation = this.config.interpolation ?? data.interpolation;
       this.bg.set({
         fill: { type: 'image', url: data.url, mode: 'stretch' },
       });

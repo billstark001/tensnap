@@ -228,6 +228,12 @@ const AnyViewSchema: z.ZodType = z.lazy(() =>
         id: z.string(),
         title: z.string().optional(),
         type: z.string().optional(),
+        layerOverrides: z.record(z.string(), z.record(z.string(), ProtocolValueSchema)).optional(),
+        chartSeries: z
+          .array(
+            z.object({ id: z.string().min(1), label: z.string(), color: z.string().optional() }),
+          )
+          .optional(),
         renderHint: z.enum(['auto', 'tree', 'table', 'text']).optional(),
       }),
     }),
@@ -646,6 +652,48 @@ function normalizeOwnedSnapshotBinary(snapshot: Snapshot): void {
         payload.checkpoint.data = decodeBinaryString(payload.checkpoint.data).bytes;
     }
   }
+}
+
+/** Encode synchronously while borrowing immutable scene branches; no borrowed objects escape. */
+export function encodeSnapshotWithAssets(
+  snapshot: Snapshot,
+  table: ProjectAssetTable,
+): SnapshotArchive {
+  const scene = (value: ScenarioSnapshot): ScenarioSnapshot => ({
+    ...value,
+    assets: value.assets.map((asset) => ({ ...asset })),
+  });
+  const messages = <T extends { type: string }>(values: T[]) =>
+    values.map((message) =>
+      ['asset_data', 'screenshot_response', 'scene_capture_result', 'scene_restore'].includes(
+        message.type,
+      )
+        ? structuredClone(message)
+        : message,
+    );
+  const next: Snapshot = {
+    ...snapshot,
+    metadata: structuredClone(snapshot.metadata),
+    initial: { ...snapshot.initial, scenario: scene(snapshot.initial.scenario) },
+    keyframes: snapshot.keyframes.map((frame) => ({ ...frame, scenario: scene(frame.scenario) })),
+    frames: snapshot.frames.map((frame) => ({
+      ...frame,
+      messages: messages(frame.messages),
+      controls: messages(frame.controls),
+    })),
+  };
+  normalizeOwnedSnapshotBinary(next);
+  next.metadata = omitUndefinedObjectProperties(next.metadata) as Snapshot['metadata'];
+  extractOwnedScenarioAssets(next.initial.scenario, table);
+  for (const frame of next.keyframes) extractOwnedScenarioAssets(frame.scenario, table);
+  for (const frame of next.frames)
+    for (const message of frame.messages) {
+      if (message.type !== 'asset_data') continue;
+      const payload = message.payload as { hash: string; mime: string; data?: string | Uint8Array };
+      if (payload.data !== undefined) storeAsset(table, payload.hash, payload.mime, payload.data);
+      delete payload.data;
+    }
+  return encodeSnapshotArchive(next);
 }
 
 export function extractSnapshotAssets(snapshot: Snapshot, table: ProjectAssetTable): Snapshot {

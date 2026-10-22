@@ -1,18 +1,18 @@
 # Versioning and release sources
 
-TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. The 2026-10-21 checkout prepares the package versions below. These are source versions, not a claim that new artifacts have been published:
+TenSnap uses independent package patch versions within the shared `0.3` release line. The strict wire protocol version is `0.3`; it is independent of package patch versions. The 2026-10-23 checkout prepares the package versions below. These are source versions, not a claim that new artifacts have been published:
 
 | Package or component | Version | Source to edit |
 | --- | --- | --- |
-| `@tensnap/web` | `0.3.9` | `packages/tensnap-web/package.json` |
-| `@tensnap/tauri` | `0.3.7` | `packages/tensnap-tauri/package.json`, `src-tauri/Cargo.toml` and generated `Cargo.lock` |
-| `@tensnap/core` | `0.3.7` | `packages/core/package.json` |
-| `@tensnap/agent` | `0.3.7` | `packages/tensnap-agent/package.json` |
+| `@tensnap/web` | `0.3.10` | `packages/tensnap-web/package.json` |
+| `@tensnap/tauri` | `0.3.8` | `packages/tensnap-tauri/package.json`, `src-tauri/Cargo.toml` and generated `Cargo.lock` |
+| `@tensnap/core` | `0.3.8` | `packages/core/package.json` |
+| `@tensnap/agent` | `0.3.8` | `packages/tensnap-agent/package.json` |
 | `@tensnap/benchmark` | `0.3.7` | `packages/benchmark/package.json` |
 | `@tensnap/js` | `0.3.5` | `packages/tensnap-js/package.json` |
 | `@tensnap/examples-js` | `0.3.5` | `examples/js/package.json` |
-| `@tensnap/web-common` | `0.3.4` | `packages/web-common/package.json` |
-| `@tensnap/web-adapter` | `0.3.5` | `packages/web-adapter/package.json` |
+| `@tensnap/web-common` | `0.3.5` | `packages/web-common/package.json` |
+| `@tensnap/web-adapter` | `0.3.6` | `packages/web-adapter/package.json` |
 | `@tensnap/protocol` | `0.3.3` | `packages/protocol/package.json` |
 | `@tensnap/network` | `0.3.1` | `packages/network/package.json` |
 | `@tensnap/examples-julia` | `0.3.3` | `examples/julia/package.json` |
@@ -39,7 +39,7 @@ The private pnpm wrappers under `packages/tensnap-go`, `packages/tensnap-python`
 3. Update `CHANGELOG.md` using its package-specific heading format, and update the dated version snapshot in this guide.
 4. Run `pnpm run check:versions` and the affected package tests before tagging.
 
-For a batch patch update, compare the release checkout with its upstream baseline and bump each affected package once, including changed examples and the workspace root when their own package content changes. A wrapper without a version still uses its native binding source. This checkout prepares network 0.3.1, JS 0.3.5, core/agent/benchmark/Tauri 0.3.7, Web 0.3.9, Python 0.3.4, JS examples 0.3.5 and Julia examples 0.3.3. Agent 0.3.7 has not been published; its startup improvements, CLI fixes and bundled skill updates share that prepared version. Protocol, shared UI/adapters, Go/Julia bindings and the root retain their existing versions. The wire and binding-owned persisted formats remain unchanged; current Schelling example checkpoints use schema 3.
+For a batch patch update, compare the release checkout with its upstream baseline and bump each affected package once, including changed examples and the workspace root when their own package content changes. A wrapper without a version still uses its native binding source. This checkout prepares network 0.3.1, JS 0.3.5, core/agent/Tauri 0.3.8, benchmark 0.3.7, Web 0.3.10, Python 0.3.4, JS examples 0.3.5 and Julia examples 0.3.3. The frontend presentation patch advances core, agent, Web and Tauri once from their previously prepared versions. Shared UI remains at its already-bumped 0.3.5 for controls and native CSS scrolling; Web adapters remain at their already-bumped 0.3.6 for bounded file-dialog viewports. Protocol, network, language bindings, examples, benchmark and root versions receive no additional bump from this frontend change. Documentation corrections and current-profile hash refreshes do not change simulator APIs, scientific workloads or recorded evidence. The wire and binding-owned persisted formats remain unchanged; current Schelling example checkpoints use schema 3.
 
 The JS package publishes exact workspace dependency versions. The agent's executable bundles workspace code, while its library entry points retain external dependencies: publishing network alone does not update the old CLI. Rebuild and publish network, core, JS and agent in that order so the CLI and external library entry points receive the fixes and the new core query-schema entry. The Tauri version prepares a new build of the embedded Web/shared UI; changing its version alone does not produce an installer.
 

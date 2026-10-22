@@ -2,12 +2,10 @@ import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const body = style({
-  display: 'grid',
-  gap: vars.space.lg,
   maxHeight: '70vh',
   overflowY: 'auto',
 });
-export const section = style({ display: 'grid', gap: vars.space.sm });
+export const section = style({ display: 'grid', gap: vars.space.sm, marginBottom: vars.space.lg });
 globalStyle(`${section} h3`, { margin: 0, fontSize: vars.fontSize.md });
 export const details = style({
   display: 'grid',

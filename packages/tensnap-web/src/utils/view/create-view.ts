@@ -1,6 +1,6 @@
 import { generateUniqueId } from '@/utils/common';
 import type { ContainerView, AnchoredView, ButtonView } from '@tensnap/core/persistence';
-import type { Parameter, Action, BooleanParameter } from '@/types/model';
+import type { Parameter, Action } from '@/types/model';
 import type {
   ObjectWithEnvironmentMetadata,
   ObjectWithChartMetadata,
@@ -69,12 +69,12 @@ export function createButtonView(action: Action, position?: Point, randomId = tr
 }
 
 /**
- * Creates a parameter view from a boolean parameter
- * @param parameter The boolean parameter object (required)
+ * Creates a parameter view from a simulator parameter
+ * @param parameter The parameter object (required)
  * @param position The position for the view (optional, defaults to 0,0)
  */
 export function createParameterView(
-  parameter: BooleanParameter,
+  parameter: Parameter,
   position?: Point,
   randomId = true,
 ): AnchoredView {
@@ -142,7 +142,6 @@ export function createMonitorView(
     data: {
       id: monitor.id,
       title: monitor.label,
-      renderHint: monitor.render_hint,
     },
   };
 }
@@ -176,7 +175,6 @@ export function createEnvironmentView(
     data: {
       id: environment.id,
       title: environment.label,
-      type: environment.type,
     },
   };
 }
@@ -194,7 +192,7 @@ export function createButtonViews(actions: Action[]): ButtonView[] {
  * Creates views for parameters
  */
 export function createParameterViews(parameters: Parameter[]): AnchoredView[] {
-  return parameters.map((param) => createParameterView(param as any, undefined, false));
+  return parameters.map((param) => createParameterView(param, undefined, false));
 }
 
 /**

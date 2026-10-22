@@ -65,6 +65,8 @@ export function registerArtifactRoutes(app: Hono, runtime: AgentRuntime): void {
         invalid('Render target IDs must be nonempty strings.');
     if (body.renderOptions)
       validateFields(body.renderOptions, {
+        layerOverrides: 'object',
+        layoutTicks: 'number',
         width: 'integer',
         height: 'integer',
         backgroundColor: 'string',

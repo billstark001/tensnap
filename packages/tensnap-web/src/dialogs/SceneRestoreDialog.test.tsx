@@ -173,7 +173,26 @@ describe('SceneRestoreDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 
-  it('sends the opaque checkpoint and captured time for an exact compatible restore', () => {
+  it('lets users preserve live chart history through the shared frame restore policy', async () => {
+    const session = createRestoreSession('ok');
+    const restore = vi.spyOn(session, 'restoreFrame');
+    render(
+      <SceneRestoreDialog open onOpenChange={vi.fn()} snapshot={snapshot} session={session} />,
+    );
+    const toggle = screen.getByRole('switch', { name: 'Restore chart history' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByRole('button', { name: 'Restore snapshot' }));
+    await waitFor(() =>
+      expect(restore).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ chartPolicy: 'preserve' }),
+      ),
+    );
+    session.destroy();
+  });
+
+  it('sends only the opaque checkpoint for an exact compatible restore', () => {
     const sent: RendererToSimulatorMessage[] = [];
     const session = new RendererSession();
     session.attachTransport({
@@ -228,7 +247,6 @@ describe('SceneRestoreDialog', () => {
         payload: expect.objectContaining({
           model_id: 'dialog-model',
           checkpoint: { encoding: 'application/octet-stream', data: new Uint8Array([1, 2, 3]) },
-          time: 3,
         }),
       }),
     );
@@ -236,6 +254,7 @@ describe('SceneRestoreDialog', () => {
       string,
       unknown
     >;
+    expect(payload).not.toHaveProperty('time');
     expect(payload).not.toHaveProperty('parameters');
     expect(payload).not.toHaveProperty('envs');
   });

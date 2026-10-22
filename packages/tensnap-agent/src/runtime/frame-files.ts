@@ -36,7 +36,13 @@ export function fixedRenderRequest(
 ): RenderRequest {
   return {
     snapshot: scene,
-    options,
+    options: {
+      ...options,
+      readOnlyGraphLayout:
+        options.readOnlyGraphLayout ||
+        options.layoutTicks === undefined ||
+        options.layoutTicks === 0,
+    },
     reason,
     trigger: 'explicit',
     at: new Date().toISOString(),

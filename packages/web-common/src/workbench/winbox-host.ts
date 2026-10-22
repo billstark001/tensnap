@@ -7,6 +7,8 @@ import {
   windowGeometry,
 } from './window-state';
 import WinBox from 'winbox/src/js/winbox';
+// Keep WinBox's own resize/drag chrome stylesheet in sync with the installed
+// dependency; application styling is owned by vanilla-extract below.
 import 'winbox/dist/css/winbox.min.css';
 import { createFocusTrap } from 'focus-trap';
 import type { DialogHost, WindowOptions } from './content';
@@ -108,6 +110,8 @@ export function createWinBoxHost(): DialogHost {
         if (
           windows[windows.length - 1] === element &&
           event.key === 'Escape' &&
+          !event.defaultPrevented &&
+          !(event.target instanceof Element && event.target.closest('[role="listbox"]')) &&
           options.dismissible &&
           !document.querySelector('[data-workbench-menu]')
         ) {

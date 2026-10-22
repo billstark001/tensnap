@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import type { ProtocolData } from '@tensnap/protocol';
 import {
   ValueInspector as Inspector,
@@ -100,7 +101,7 @@ function ColumnWindowTable({
     gridTemplateColumns: `repeat(${Math.max(1, columns.length)}, minmax(${COLUMN_WIDTH}px, 1fr))`,
   };
   return (
-    <div
+    <ScrollArea
       ref={setViewport}
       className={styles.tableScroll}
       role="region"
@@ -145,7 +146,7 @@ function ColumnWindowTable({
           </div>
         ))}
       </div>
-    </div>
+    </ScrollArea>
   );
 }
 
@@ -181,9 +182,13 @@ const InspectorContent = memo(function InspectorContent({
   if (!inspector || !content) {
     const raw = valueInspectorText(value);
     return (
-      <pre className={[styles.raw, compact && styles.compact, className].filter(Boolean).join(' ')}>
-        {raw.text}
-      </pre>
+      <ScrollArea
+        className={[styles.raw, compact && styles.compact, className].filter(Boolean).join(' ')}
+      >
+        <pre style={{ margin: 0, font: 'inherit', whiteSpace: 'inherit', overflowWrap: 'inherit' }}>
+          {raw.text}
+        </pre>
+      </ScrollArea>
     );
   }
 
@@ -213,14 +218,18 @@ const InspectorContent = memo(function InspectorContent({
         </nav>
       )}
       {content.kind === 'text' && (
-        <pre className={styles.raw}>
-          {typeof inspector.valueAt(path) === 'string'
-            ? (inspector.valueAt(path) as string)
-            : content.text}
-        </pre>
+        <ScrollArea className={styles.raw}>
+          <pre
+            style={{ margin: 0, font: 'inherit', whiteSpace: 'inherit', overflowWrap: 'inherit' }}
+          >
+            {typeof inspector.valueAt(path) === 'string'
+              ? (inspector.valueAt(path) as string)
+              : content.text}
+          </pre>
+        </ScrollArea>
       )}
       {content.kind === 'tree' && (
-        <div className={styles.tree}>
+        <ScrollArea className={styles.tree}>
           {content.entries.map((entry) => (
             <div className={styles.treeRow} key={entry.key}>
               <span className={styles.treeKey}>{entry.key}</span>
@@ -240,7 +249,7 @@ const InspectorContent = memo(function InspectorContent({
               )}
             </div>
           ))}
-        </div>
+        </ScrollArea>
       )}
       {content.kind === 'table' && (
         <ColumnWindowTable columns={content.columns} rows={content.rows} rowOffset={offset} />

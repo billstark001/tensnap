@@ -253,3 +253,32 @@ it.each([
   expect(response.status).toBe(400);
   expect(startRun).not.toHaveBeenCalled();
 });
+
+it('allows coordinate-preserving rendering and local presentation through the HTTP API', async () => {
+  const requestRender = vi.fn().mockResolvedValue([]);
+  const setPresentation = vi.fn().mockResolvedValue({ envId: 'world', overrides: {} });
+  const app = buildControlApp(
+    { requestRender, setPresentation } as unknown as AgentRuntime,
+    new RuntimeSseBroker(),
+    () => {},
+  );
+  const rendered = await app.request('/v1/scene/render', {
+    method: 'POST',
+    body: JSON.stringify({
+      envId: 'world',
+      layoutTicks: 0,
+      layerOverrides: { edges: { link_distance: -1 } },
+    }),
+  });
+  expect(rendered.status).toBe(200);
+  expect(requestRender.mock.calls[0][0]).toMatchObject({
+    layoutTicks: 0,
+    layerOverrides: { edges: { link_distance: -1 } },
+  });
+  const configured = await app.request('/v1/scene/presentation/world', {
+    method: 'PUT',
+    body: JSON.stringify({ overrides: {} }),
+  });
+  expect(configured.status).toBe(200);
+  expect(setPresentation).toHaveBeenCalledWith('world', {});
+});

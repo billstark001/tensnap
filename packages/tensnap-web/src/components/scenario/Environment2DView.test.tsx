@@ -117,10 +117,11 @@ vi.mock('../../dialogs/AgentDetailsDialog', () => ({
   },
 }));
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Environment2DView } from './Environment2DView';
+import { EnvironmentViewportContext } from './EnvironmentViewportContext';
 
 describe('Environment2DView', () => {
   beforeEach(() => {
@@ -141,7 +142,7 @@ describe('Environment2DView', () => {
     });
 
     const controller = testHarness.controllerInstances[0];
-    expect(controller.render).toHaveBeenCalledWith(environment);
+    expect(controller.render).toHaveBeenCalledWith(environment, undefined);
   });
 
   it('calls render again when updateTrigger changes without recreating controller', async () => {
@@ -165,7 +166,7 @@ describe('Environment2DView', () => {
     await waitFor(() => {
       expect(testHarness.controllerInstances).toHaveLength(1);
       expect(controller.render).toHaveBeenCalledTimes(2);
-      expect(controller.render).toHaveBeenNthCalledWith(2, environment);
+      expect(controller.render).toHaveBeenNthCalledWith(2, environment, undefined);
     });
   });
 
@@ -186,18 +187,32 @@ describe('Environment2DView', () => {
     expect(controller.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it('invokes controller resetView when clicking reset button', async () => {
-    render(
-      <Environment2DView environment={{ id: 'env-reset', type: '2d', layers: new Map() } as any} />,
+  it('registers a viewport reset command for the menu and releases it on unmount', async () => {
+    const command = { current: null as (() => void) | null };
+    const register = (reset: () => void) => {
+      command.current = reset;
+      return () => {
+        command.current = null;
+      };
+    };
+    const { unmount } = render(
+      <EnvironmentViewportContext.Provider value={register}>
+        <Environment2DView
+          environment={{ id: 'env-reset', type: '2d', layers: new Map() } as any}
+        />
+      </EnvironmentViewportContext.Provider>,
     );
 
     await waitFor(() => {
       expect(testHarness.controllerInstances).toHaveLength(1);
     });
 
-    fireEvent.click(screen.getByRole('button'));
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    command.current!();
 
     expect(testHarness.controllerInstances[0].resetView).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(command.current).toBeNull();
   });
 
   it('forwards render errors through toast callback and tracks latest toast function', async () => {

@@ -1,3 +1,4 @@
+import type { LayerPresentationOverrides } from '@tensnap/core/scenario';
 import type { ChartGroup } from '@tensnap/core/chart';
 import { ScenarioQuerySchema, AgentInspectionRequestSchema } from '@tensnap/core/scenario';
 import { ScenarioSnapshotSchema } from '@tensnap/core/persistence';
@@ -30,6 +31,24 @@ export function serializeRenderArtifact(artifact: RenderArtifact) {
 // #region Routes
 
 export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
+  app.get('/v1/scene/presentation/:envId', (c) => {
+    try {
+      return c.json(runtime.getPresentation(c.req.param('envId')));
+    } catch (error) {
+      return c.json({ error: String(error) }, 400);
+    }
+  });
+  app.put('/v1/scene/presentation/:envId', async (c) => {
+    const body = await readJsonObject<{
+      overrides?: LayerPresentationOverrides;
+    }>(c.req);
+    validateFields(body, { overrides: 'object' }, ['overrides']);
+    try {
+      return c.json(await runtime.setPresentation(c.req.param('envId'), body.overrides!));
+    } catch (error) {
+      return c.json({ error: String(error) }, 400);
+    }
+  });
   app.get('/v1/scene', (c) => {
     return c.json({
       status: runtime.getStatus(),
@@ -168,6 +187,8 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
 
   app.post('/v1/scene/render', async (c) => {
     const body = await readJsonObject<{
+      layerOverrides?: LayerPresentationOverrides;
+      layoutTicks?: number;
       reason?: string;
       envId?: string;
       chartId?: string;
@@ -183,6 +204,8 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     }>(c.req);
 
     validateFields(body, {
+      layerOverrides: 'object',
+      layoutTicks: 'number',
       reason: 'string',
       envId: 'string',
       chartId: 'string',
@@ -211,6 +234,8 @@ export function registerSceneRoutes(app: Hono, runtime: AgentRuntime): void {
     try {
       const artifacts = await runtime.requestRender(
         {
+          layerOverrides: body.layerOverrides,
+          layoutTicks: body.layoutTicks,
           envId: body.envId,
           chartId: body.chartId,
           width: body.width,

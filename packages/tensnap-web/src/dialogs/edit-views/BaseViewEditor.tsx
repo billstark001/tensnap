@@ -1,3 +1,4 @@
+import { Switch } from '@tensnap/web-common/components/ui/Switch';
 import React from 'react';
 import { Trans } from '@lingui/react/macro';
 import Form from '@tensnap/web-common/components/ui/Form';
@@ -79,32 +80,19 @@ export const BaseViewFields: React.FC<BaseViewEditorProps> = ({ view, onChange }
         </Form.Field>
       </Form.FieldGroup>
 
-      <Form.FieldSet>
-        {view.type === 'container' && (
-          <Form.Label htmlFor="view-expanded" className={styles.checkboxLabel}>
-            <input
-              id="view-expanded"
-              type="checkbox"
-              checked={view.expanded}
-              onChange={(e) => onChange('expanded', e.target.checked)}
-              className={styles.checkboxInput}
-            />
-            <Trans>Expanded</Trans>
-          </Form.Label>
-        )}
-        {view.type !== 'container' && (
-          <Form.Label htmlFor="view-disabled" className={styles.checkboxLabel}>
-            <input
-              id="view-disabled"
-              type="checkbox"
-              checked={view.disabled || false}
-              onChange={(e) => onChange('disabled', e.target.checked)}
-              className={styles.checkboxInput}
-            />
-            <Trans>Disabled</Trans>
-          </Form.Label>
-        )}
-      </Form.FieldSet>
+      {view.type === 'container' ? (
+        <Switch
+          label={<Trans>Expanded</Trans>}
+          checked={view.expanded}
+          onCheckedChange={(value) => onChange('expanded', value)}
+        />
+      ) : (
+        <Switch
+          label={<Trans>Disabled</Trans>}
+          checked={view.disabled}
+          onCheckedChange={(value) => onChange('disabled', value)}
+        />
+      )}
     </>
   );
 };

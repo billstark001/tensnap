@@ -1,3 +1,4 @@
+import { ScrollArea } from './ScrollArea';
 import {
   cloneElement,
   createContext,
@@ -97,9 +98,26 @@ export const Description = forwardRef<HTMLParagraphElement, HTMLAttributes<HTMLP
 export const Footer = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
   <div {...props} ref={ref} className={clsx(styles.dialogFooter, props.className)} />
 ));
-export const Body = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>((props, ref) => (
-  <div {...props} ref={ref} className={clsx(styles.dialogBody, props.className)} />
-));
+export interface DialogBodyProps extends HTMLAttributes<HTMLDivElement> {
+  /** Disable outer scrolling when children provide their own bounded viewports. */
+  scrollable?: boolean;
+}
+export const Body = forwardRef<HTMLDivElement, DialogBodyProps>(
+  ({ scrollable = true, ...props }, ref) => {
+    const Component = scrollable ? ScrollArea : 'div';
+    return (
+      <Component
+        {...props}
+        ref={ref}
+        className={clsx(
+          styles.dialogBody,
+          scrollable ? styles.dialogBodyScroll : styles.dialogBodyFixed,
+          props.className,
+        )}
+      />
+    );
+  },
+);
 export const Button = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'normal' | 'primary' | 'danger' }

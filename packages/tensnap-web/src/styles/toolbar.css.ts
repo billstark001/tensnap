@@ -169,14 +169,21 @@ export const tabsContainer = style({
   },
 });
 
+export const tabScroll = style({
+  display: 'flex',
+  alignItems: 'center',
+  flex: 1,
+  gap: vars.space.xs,
+  paddingBottom: vars.space.xs,
+});
+
 export const tabList = style({
   display: 'flex',
-  minWidth: 0,
   alignItems: 'center',
   gap: '4px',
-  overflowX: 'auto',
-  overflowY: 'hidden',
-  scrollbarWidth: 'thin',
+  width: 'max-content',
+  flex: '0 0 auto',
+  selectors: { '&:empty': { display: 'none' } },
 });
 
 export const tab = style({
@@ -274,7 +281,6 @@ export const newTabButton = style({
   cursor: 'pointer',
   fontSize: '16px',
   transition: 'all 0.2s',
-  marginBottom: '4px',
   color: vars.color.foreground,
 
   ':hover': {

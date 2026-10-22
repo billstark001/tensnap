@@ -420,6 +420,8 @@ export async function startNativeContent(
         const key = (event: KeyboardEvent) => {
           if (
             event.key === 'Escape' &&
+            !event.defaultPrevented &&
+            !(event.target instanceof Element && event.target.closest('[role="listbox"]')) &&
             options.dismissible &&
             !document.querySelector('[data-workbench-menu]')
           )

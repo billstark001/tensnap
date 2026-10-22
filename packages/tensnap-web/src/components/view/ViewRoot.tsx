@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import {
   DndContext,
   DragOverlay,
@@ -107,7 +108,7 @@ export default function ViewRoot({
         onDragEnd={onDragEnd}
         modifiers={[restrictToWindowEdges]}
       >
-        <div className={styles.container}>
+        <ScrollArea className={styles.container}>
           <div
             className={styles.rootView}
             style={{ width: rootView.width, height: rootView.height }}
@@ -159,7 +160,7 @@ export default function ViewRoot({
               />
             )}
           </div>
-        </div>
+        </ScrollArea>
 
         <DragOverlay>
           {state.content && dragOverlayBox && (

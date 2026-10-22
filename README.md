@@ -200,12 +200,11 @@ scenario = SimulationScenario(port=8765)
 model = Aviary()
 config = Config()
 
-scenario.add_all(model)
 scenario.add_all(config)
 
 
 async def main() -> None:
-    await scenario.register_model_handler(model_step=model.step)
+    await scenario.register_model(model)
     await scenario.run()
 
 

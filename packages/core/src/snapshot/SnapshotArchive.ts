@@ -21,42 +21,66 @@ const RLE_ESCAPE = 0xff;
  * well. Raw bytes are retained when RLE would be larger.
  */
 function compressRle(input: Uint8Array): Uint8Array {
-  const output: number[] = [];
+  // Size first: escaping an early 0xff run can grow the prefix even when
+  // later runs compress well. Decide from the complete payload, as before.
+  let length = 0;
   for (let index = 0; index < input.length;) {
     const value = input[index]!;
     let run = 1;
-    while (index + run < input.length && input[index + run] === value && run < 255) run += 1;
+    while (index + run < input.length && input[index + run] === value && run < 255) run++;
+    length += run >= 4 ? 3 : run * (value === RLE_ESCAPE ? 3 : 1);
+    index += run;
+  }
+  if (length >= input.length) return input;
+  const output = new Uint8Array(length);
+  let written = 0;
+  for (let index = 0; index < input.length;) {
+    const value = input[index]!;
+    let run = 1;
+    while (index + run < input.length && input[index + run] === value && run < 255) run++;
     if (run >= 4) {
-      output.push(RLE_ESCAPE, run, value);
-      index += run;
-      continue;
-    }
-    for (let count = 0; count < run; count += 1) {
-      const literal = input[index + count]!;
-      if (literal === RLE_ESCAPE) output.push(RLE_ESCAPE, 0, literal);
-      else output.push(literal);
+      output[written++] = RLE_ESCAPE;
+      output[written++] = run;
+      output[written++] = value;
+    } else {
+      for (let count = 0; count < run; count++) {
+        if (value === RLE_ESCAPE) {
+          output[written++] = RLE_ESCAPE;
+          output[written++] = 0;
+        }
+        output[written++] = value;
+      }
     }
     index += run;
   }
-  return Uint8Array.from(output);
+  return output;
 }
 
 function decompressRle(input: Uint8Array): Uint8Array {
-  const output: number[] = [];
-  for (let index = 0; index < input.length; index += 1) {
-    const value = input[index]!;
-    if (value !== RLE_ESCAPE) {
-      output.push(value);
+  let length = 0;
+  for (let index = 0; index < input.length; index++) {
+    if (input[index] !== RLE_ESCAPE) {
+      length++;
       continue;
     }
-    const count = input[++index];
-    const repeated = input[++index];
-    if (count === undefined || repeated === undefined)
-      throw new Error('Invalid RLE snapshot segment.');
-    if (count === 0) output.push(repeated);
-    else for (let repeat = 0; repeat < count; repeat += 1) output.push(repeated);
+    if (index + 2 >= input.length) throw new Error('Invalid RLE snapshot segment.');
+    length += input[index + 1] || 1;
+    index += 2;
   }
-  return Uint8Array.from(output);
+  const output = new Uint8Array(length);
+  let written = 0;
+  for (let index = 0; index < input.length; index++) {
+    const value = input[index]!;
+    if (value !== RLE_ESCAPE) {
+      output[written++] = value;
+      continue;
+    }
+    const count = input[++index]! || 1;
+    const repeated = input[++index]!;
+    output.fill(repeated, written, written + count);
+    written += count;
+  }
+  return output;
 }
 
 function asBytes(value: Uint8Array | string): Uint8Array {
@@ -242,7 +266,8 @@ export function decodeSnapshotArchive(archive: SnapshotArchive): Snapshot {
 /** Convert binary archive fields to JSON-safe data URLs without changing bytes. */
 export function snapshotArchiveForJson(archive: SnapshotArchive): SnapshotArchive {
   return {
-    ...structuredClone(archive),
+    ...archive,
+    layerCodecs: structuredClone(archive.layerCodecs),
     metadata: jsonSafeMetadata(archive.metadata),
     segments: archive.segments.map((segment) => ({
       ...segment,

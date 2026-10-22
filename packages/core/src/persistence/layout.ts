@@ -26,13 +26,24 @@ export type ButtonView = BaseView<
   }
 >;
 
+/** Presentation fields for one environment layer; simulator metadata stays unchanged. */
+export type LayerViewOverride = { [field: string]: JsonSerializable };
+export type LayerViewOverrides = { [layerId: string]: LayerViewOverride };
+
+/** One locally displayed chart series, keyed by its published or local series ID. */
+export type ChartSeriesView = { id: string; label: string; color?: string };
+
 export type AnchoredView = BaseView<
   'environment' | 'parameter' | 'chart' | 'monitor',
   {
     id: string;
     title?: string;
     type?: string;
-    /** Local display override; the simulator-owned monitor metadata remains immutable. */
+    /** Environment views only: local presentation overrides for each bound layer. */
+    layerOverrides?: LayerViewOverrides;
+    /** Chart views only: displayed series and local labels/colors; history stays unchanged. */
+    chartSeries?: ChartSeriesView[];
+    /** Monitor views only: local display override; omission follows simulator metadata. */
     renderHint?: 'auto' | 'tree' | 'table' | 'text';
   }
 >;

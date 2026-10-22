@@ -304,7 +304,7 @@ The recommended Python surface is:
 
 - `SimulationScenario` for high-level orchestration
 - `tensnap.bindings` for decorators and metadata discovery
-- `register_model_handler(model_init=None, model_step=None, model_reset=None)` for default lifecycle wiring
+- `await scenario.register_model(model, ...)` for declarations and constructor-driven lifecycle wiring
 
 Important semantics:
 
@@ -313,7 +313,8 @@ Important semantics:
 - the first simulated tick after `start` or `step` is time `1`
 - `start` and `step` both execute one tick; `start` is continuous-capable because the renderer may dispatch it repeatedly after each `action_result`
 - `reset` reinitializes the model and broadcasts the resulting time-0 state before its `action_result`
-- if `model_reset` is omitted, reset falls back to `model_init`
+- constructor-backed reset rebinds declarations and retains stable parameter identities; `await scenario.reset()` invokes that lifecycle
+- the older explicit `register_model_handler(...)` path remains for manual adapters; its omitted `model_reset` falls back to `model_init`
 
 Low-level Python integrations should go through `TenSnapServer` and layer-aware update helpers such as:
 
@@ -419,3 +420,5 @@ Web and desktop use WinBox for settings, editing, confirmations and replay. Only
 Each tool has an immutable project/content identity, a monotonic state revision, a bounded request scope and a single coalesced publication in flight. Cancellation/timeout/closure release pending calls, subscriptions and retained indexes. Receiver-owned inspection scenes release asset URLs on retarget/unmount. Menu commands resolve against the original project ID. Each Webview owns one bootstrap React root; the browser file picker has its own root. Portals do not create roots.
 
 See [workbench infrastructure](workbench-infrastructure.md) for creating windows and menus, root ownership, host capabilities and cross-window synchronization, and [workbench validation](workbench-validation.md) for reproducible automated and native interaction checks.
+
+Renderer-local editing, force layout, chart/monitor restoration and native scrolling follow the [frontend presentation contract](frontend-presentation.md). Simulator identity and declarations remain separate from layout view IDs and local display overrides.

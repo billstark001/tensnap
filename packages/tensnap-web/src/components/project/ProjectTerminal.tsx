@@ -1,3 +1,5 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
+import Form from '@tensnap/web-common/components/ui/Form';
 import type { DiagnosticSeverity } from '@tensnap/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useScenarioStore } from '@/store/scenario/store';
@@ -48,7 +50,8 @@ export function ProjectTerminal() {
         </span>
         <label className={styles.terminalControl}>
           Level
-          <select
+          <Form.Select
+            className={styles.terminalSelect}
             value={filter}
             onChange={(event) => setFilter(event.target.value as DiagnosticFilter)}
           >
@@ -58,7 +61,7 @@ export function ProjectTerminal() {
             <option value="warning">Warning</option>
             <option value="info">Info</option>
             <option value="debug">Debug</option>
-          </select>
+          </Form.Select>
         </label>
         <label className={styles.terminalControl}>
           <input
@@ -77,7 +80,7 @@ export function ProjectTerminal() {
           Clear
         </button>
       </header>
-      <div className={styles.projectTerminal} ref={terminalRef} aria-live="polite">
+      <ScrollArea className={styles.projectTerminal} ref={terminalRef} aria-live="polite">
         {visibleDiagnostics.map((diagnostic) => (
           <article key={diagnostic.id} className={getDiagnosticClassName(diagnostic.severity)}>
             <div>
@@ -98,7 +101,7 @@ export function ProjectTerminal() {
         {visibleDiagnostics.length === 0 ? (
           <p className={styles.emptyTerminal}>No diagnostics.</p>
         ) : null}
-      </div>
+      </ScrollArea>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import React, { useState, useCallback, useEffect } from 'react';
 import { t } from '@lingui/core/macro';
 import type { DirectoryEntry, FileSystemAdapter } from '@tensnap/web-common/types/file';
@@ -327,7 +328,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
         )}
 
         {!loading && !error && directoryContents.length > 0 && (
-          <div className={styles.contentList}>
+          <ScrollArea className={styles.contentList}>
             {directoryContents.map((entry) => (
               <FileItem
                 key={entry.path}
@@ -341,7 +342,7 @@ export const FileSystemBrowser: React.FC<FileSystemBrowserProps> = ({
                 onRename={(entry) => setPendingOperation({ entry, operation: 'rename' })}
               />
             ))}
-          </div>
+          </ScrollArea>
         )}
       </div>
 

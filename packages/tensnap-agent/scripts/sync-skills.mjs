@@ -12,6 +12,7 @@ const check = process.argv.includes('--check');
 const references = {
   'tensnap-agent': [
     'docs/user-guide/agent-runtime.md',
+    'docs/maintainer-guide/frontend-presentation.md',
     'docs/api-reference/recording-storage.md',
     'packages/protocol/SPECIFICATION.md',
   ],

@@ -956,26 +956,14 @@ export const createScenarioStore = (
           chart.label = nextLabel;
         }
 
-        const nextMetadataDict = props.metadataDict;
-        if (nextMetadataDict && typeof nextMetadataDict === 'object') {
-          const currentMetaIds = new Set(Object.keys(chart.metadataDict));
-          const updatedMetadataDict = structuredClone(
-            nextMetadataDict,
-          ) as typeof chart.metadataDict;
-
-          for (const metaId of currentMetaIds) {
-            if (!(metaId in updatedMetadataDict)) {
-              scenario.charts.removeMetaFromGroup(metaId, id);
-            }
-          }
-
-          for (const [metaId, meta] of Object.entries(updatedMetadataDict)) {
-            if (metaId in chart.metadataDict) {
-              scenario.charts.updateMeta(metaId, meta);
-            } else {
-              scenario.charts.addMeta(id, meta);
-            }
-          }
+        if (props.metadataDict) {
+          // Replace registration atomically; removing the last old series must
+          // not remove the group before its replacement series are registered.
+          scenario.charts.addGroup({
+            ...chart,
+            metadataDict: structuredClone(props.metadataDict),
+            data: chart.data,
+          });
         }
 
         bumpScenarioState({ chartChanged: true });

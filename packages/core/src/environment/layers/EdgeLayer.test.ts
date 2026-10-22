@@ -75,6 +75,42 @@ it.each([true, false])(
 );
 
 describe('graph geometry ownership and work bounds', () => {
+  it('keeps shared edge shapes and force temperature stable for appearance updates', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([
+      { id: 'a', x: 0, y: 0, size: 2 },
+      { id: 'b', x: 8, y: 0, size: 2 },
+    ]);
+    const edges = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    const follower = new EdgeLayer(edges, agents, { manualLayout: true });
+    const writer = new EdgeLayer(edges, agents, { manualLayout: true });
+    const state = (layer: EdgeLayer) =>
+      layer as unknown as {
+        _simulation: { alpha(): number } | null;
+        _edgeShapeMap: Map<string, { line: { points: number[] } }>;
+      };
+    const key = EdgeStorage.edgeKey('a', 'b');
+    try {
+      writer.settle(300);
+      const alpha = state(writer)._simulation!.alpha();
+      const before = state(follower)._edgeShapeMap.get(key);
+      agents.updateAgent('a', { color: '#abcdef' });
+      expect(state(follower)._edgeShapeMap.get(key)).toBe(before);
+      expect(state(writer)._simulation!.alpha()).toBe(alpha);
+      writer.setSimConfig({ link_distance: -1 });
+      agents.updateAgent('a', { x: 0, y: 0 });
+      agents.updateAgent('b', { x: 8, y: 0 });
+      agents.updateAgent('a', { size: 4 });
+      for (const layer of [follower, writer])
+        expect(state(layer)._edgeShapeMap.get(key)!.line.points).toEqual([2, 0, 7, 0]);
+    } finally {
+      writer.destroy();
+      writer.destroy();
+      follower.destroy();
+      follower.destroy();
+    }
+  });
+
   it('never writes or notifies agent storage while rendering readonly edges', () => {
     const agents = new AgentStorage();
     agents.setAgents([
@@ -143,5 +179,126 @@ describe('graph geometry ownership and work bounds', () => {
     } finally {
       layer.destroy();
     }
+  });
+});
+
+describe('force layout policy', () => {
+  it('permits node dragging only while the shared force writer is enabled', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([{ id: 'a', x: 1, y: 2 }]);
+    const edges = new EdgeStorage();
+    const first = new EdgeLayer(edges, agents, { manualLayout: true });
+    const drag = first.buildDragHandlers();
+    const second = new EdgeLayer(edges, agents, { manualLayout: true, link_distance: -1 });
+    try {
+      expect(drag.canDrag!()).toBe(false);
+      const before = agents.dump();
+      drag.onDragStart!('a', 1, 2);
+      drag.onDragMove!('a', 10, 20);
+      expect(agents.dump()).toEqual(before);
+      second.setSimConfig({ link_distance: 0 });
+      expect(drag.canDrag!()).toBe(true);
+      second.setSimConfig({ link_distance: -1 });
+      expect(drag.canDrag!()).toBe(false);
+    } finally {
+      second.destroy();
+      first.destroy();
+    }
+  });
+  it('disables every force for negative distances throughout updates and allows re-enabling at zero', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([
+      { id: 'a', x: 2, y: 3 },
+      { id: 'b', x: 2, y: 3 },
+    ]);
+    const edges = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    const layer = new EdgeLayer(edges, agents, { link_distance: -1, manualLayout: true });
+    const internal = layer as unknown as { _simulation: { alpha(): number } | null };
+    try {
+      const before = agents.dump();
+      layer.settle(300);
+      layer.onViewportChange({ x: 0, y: 0, width: 300, height: 200 }, 'contain');
+      edges.updateEdge('a', 'b', { color: '#123456' });
+      agents.updateAgent('a', { color: '#abcdef' });
+      expect(internal._simulation).toBeNull();
+      expect([...agents.getData().agents.values()].map(({ x, y }) => ({ x, y }))).toEqual([
+        { x: 2, y: 3 },
+        { x: 2, y: 3 },
+      ]);
+      expect(before.agents).toHaveLength(2);
+      layer.setSimConfig({ link_distance: 0 });
+      expect(internal._simulation).not.toBeNull();
+      layer.settle(20);
+      const alpha = internal._simulation!.alpha();
+      edges.updateEdge('a', 'b', { color: '#ffffff' });
+      expect(internal._simulation!.alpha()).toBe(alpha);
+      agents.updateAgent('a', { color: '#112233' });
+      expect(internal._simulation!.alpha()).toBe(alpha);
+      layer.settle(300);
+      agents.updateAgent('a', { x: 123, y: 234 });
+      expect(internal._simulation!.alpha()).toBe(0.1);
+      layer.setSimConfig({ link_distance: -5 });
+      expect(internal._simulation).toBeNull();
+      expect(() => layer.setSimConfig({ link_distance: NaN })).toThrow('Invalid graph');
+      expect(internal._simulation).toBeNull();
+    } finally {
+      layer.destroy();
+    }
+  });
+
+  it('has one writer, combines distinct edge storages and promotes a remaining view on disposal', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    const firstEdges = new EdgeStorage([{ source: 'a', target: 'b' }]);
+    const first = new EdgeLayer(firstEdges, agents, {
+      manualLayout: true,
+    });
+    const second = new EdgeLayer(new EdgeStorage([{ source: 'b', target: 'c' }]), agents, {
+      manualLayout: true,
+    });
+    const state = (layer: EdgeLayer) =>
+      layer as unknown as { _simulation: { alpha(): number } | null; _simLinks: unknown[] };
+    try {
+      expect(state(first)._simulation).toBeNull();
+      expect(state(second)._simLinks).toHaveLength(2);
+      const notifications = vi.fn();
+      agents.subscribe(notifications);
+      second.settle(10);
+      expect(notifications).toHaveBeenCalledTimes(1);
+      second.settle(300);
+      firstEdges.addEdge({ source: 'a', target: 'c' });
+      expect(state(second)._simulation!.alpha()).toBe(0.1);
+      expect(state(second)._simLinks).toHaveLength(3);
+      second.destroy();
+      expect(state(first)._simulation).not.toBeNull();
+      expect(state(first)._simLinks).toHaveLength(2);
+    } finally {
+      first.destroy();
+    }
+  });
+
+  it('uses repeatable bounded layout and respects pins before and after dragging', () => {
+    const render = () => {
+      const agents = new AgentStorage();
+      agents.setAgents([{ id: 1, fx: 7, fy: 8 }, { id: '1' }]);
+      const layer = new EdgeLayer(new EdgeStorage([{ source: 1, target: '1' }]), agents, {
+        manualLayout: true,
+      });
+      try {
+        layer.settle(50);
+        expect(agents.getData().agents.get(1)).toMatchObject({ x: 7, y: 8 });
+        const drag = layer.buildDragHandlers();
+        drag.onDragEnd!(1);
+        expect(agents.getData().agents.get(1)).toMatchObject({ fx: 7, fy: 8 });
+        drag.onDragStart!(1, 7, 8);
+        drag.onDragMove!(1, 1, 1);
+        drag.onDragEnd!(1);
+        expect(agents.getData().agents.get(1)).toMatchObject({ fx: 7, fy: 8 });
+        return agents.dump();
+      } finally {
+        layer.destroy();
+      }
+    };
+    expect(render()).toEqual(render());
   });
 });

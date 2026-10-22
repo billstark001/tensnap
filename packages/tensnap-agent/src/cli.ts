@@ -711,6 +711,33 @@ export function createProgram(
     },
   );
 
+  const presentation = scene
+    .command('presentation <env-id>')
+    .description('Read, set, or clear renderer-local layer overrides in this context.');
+  addOptions(presentation, [
+    jsonOption('--layer-overrides <json>', 'Complete local layer overrides.', 'object').conflicts(
+      'reset',
+    ),
+    new Option('--reset', 'Follow simulator metadata.').conflicts('layerOverrides'),
+  ]);
+  handle(presentation, async (options, [envId]) => {
+    const { baseUrl } = await requireRuntime(options);
+    const setting = options.reset || options.layerOverrides !== undefined;
+    printJson(
+      options,
+      await requestJson(
+        baseUrl,
+        `/v1/scene/presentation/${encodeURIComponent(envId)}`,
+        setting
+          ? {
+              method: 'PUT',
+              body: JSON.stringify({ overrides: options.reset ? {} : options.layerOverrides }),
+            }
+          : undefined,
+      ),
+    );
+  });
+
   const sceneRender = scene
     .command('render [reason]')
     .description('Render environments or charts to image files.');
@@ -726,6 +753,8 @@ export function createProgram(
         method: 'POST',
         body: JSON.stringify({
           reason: rest[0] ?? 'manual',
+          layerOverrides: options.layerOverrides,
+          layoutTicks: options.layoutTicks,
           envId,
           chartId,
           width: options.width,
@@ -1688,6 +1717,8 @@ function sceneRenderOptions(options: CliOptions, includeTarget = true): SceneRen
     ...(includeTarget
       ? { envId: options.env, chartId: options.chart, outputPath: options.output }
       : {}),
+    layerOverrides: options.layerOverrides,
+    layoutTicks: options.layoutTicks,
     width: options.width,
     height: options.height,
     viewport: options.viewport,

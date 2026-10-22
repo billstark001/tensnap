@@ -1,4 +1,5 @@
 import { vars } from '../../styles/global.css';
+import { root as nativeScrollArea } from './ScrollArea.css';
 import { globalStyle, style } from '@vanilla-extract/css';
 
 export const selectTrigger = style({
@@ -6,7 +7,12 @@ export const selectTrigger = style({
   alignItems: 'center',
   justifyContent: 'space-between',
   width: '100%',
-  padding: `${vars.space.xs} ${vars.space.sm}`,
+  minWidth: 0,
+  minHeight: 36,
+  gap: vars.space.sm,
+  padding: `6px ${vars.space.sm}`,
+  lineHeight: 1.5,
+  color: vars.color.foreground,
   backgroundColor: vars.color.background,
   border: `1px solid ${vars.color.secondary}`,
   borderRadius: vars.radius.sm,
@@ -25,42 +31,49 @@ export const selectTrigger = style({
       color: vars.color.darkForeground,
       borderColor: vars.color.darkBorder,
     },
+    '&[data-disabled]': { opacity: 0.6, cursor: 'not-allowed' },
   },
 });
 
-export const selectContent = style({
-  backgroundColor: vars.color.background,
-  borderRadius: vars.radius.sm,
-  border: `1px solid ${vars.color.secondary}`,
-  boxShadow: vars.shadow.lg,
+globalStyle(`${selectTrigger} > span:first-child`, {
   overflow: 'hidden',
-  position: 'relative',
-  zIndex: 50,
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  minWidth: 0,
+});
+globalStyle(`${selectTrigger} > span:last-child`, { flexShrink: 0, display: 'inline-flex' });
 
-  selectors: {
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkBackground,
-      borderColor: vars.color.darkBorder,
+export const selectContent = style([
+  nativeScrollArea,
+  {
+    backgroundColor: vars.color.background,
+    borderRadius: vars.radius.sm,
+    border: `1px solid ${vars.color.secondary}`,
+    boxShadow: vars.shadow.lg,
+    minWidth: 'var(--radix-select-trigger-width)',
+    maxWidth: 'var(--radix-select-content-available-width, calc(100vw - 8px))',
+    maxHeight: 'min(320px, var(--radix-select-content-available-height, 80vh))',
+    position: 'relative',
+    zIndex: 50,
+
+    selectors: {
+      'body[data-theme="dark"] &': {
+        backgroundColor: vars.color.darkBackground,
+        borderColor: vars.color.darkBorder,
+      },
     },
   },
-});
-
-globalStyle('[data-radix-popper-content-wrapper]', {
-  position: 'absolute',
-  top: '0',
-  left: '0',
-  willChange: 'transform',
-});
+]);
 
 export const selectItem = style({
   fontSize: vars.fontSize.sm,
-  lineHeight: 1,
+  lineHeight: 1.5,
   color: vars.color.foreground,
   borderRadius: vars.radius.sm,
   display: 'flex',
   alignItems: 'center',
-  height: 25,
-  padding: `0 ${vars.space.lg} 0 ${vars.space.md}`,
+  minHeight: 32,
+  padding: `${vars.space.xs} ${vars.space.xl} ${vars.space.xs} ${vars.space.sm}`,
   position: 'relative',
   userSelect: 'none',
   cursor: 'pointer',
@@ -86,7 +99,7 @@ export const selectItem = style({
 
 export const selectItemIndicator = style({
   position: 'absolute',
-  right: 0,
+  right: vars.space.sm,
   width: vars.space.lg,
   display: 'inline-flex',
   alignItems: 'center',

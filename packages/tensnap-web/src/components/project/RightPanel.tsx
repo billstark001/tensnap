@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import { useScenarioStore } from '@/store/scenario/store';
 import * as styles from './RightPanel.css';
 import { Trans } from '@lingui/react/macro';
@@ -254,7 +255,7 @@ export const RightPanel = () => {
           </div>
         )}
       </div>
-      <div className={styles.panelContent}>
+      <ScrollArea className={styles.panelContent}>
         {activeTab === 'snapshots' &&
           (!snapshots?.length ? (
             <EmptyState
@@ -338,7 +339,7 @@ export const RightPanel = () => {
               </div>
             </>
           ))}
-      </div>
+      </ScrollArea>
 
       <SnapshotDetailDialog
         key={selectedSnapshot?.metadata.id ?? 'no-snapshot'}

@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useRef, useEffect, useContext, useState } from 'react';
 import type { AnchoredView } from '@tensnap/core/persistence';
 import * as styles from './Environment2DView.css';
 import { AgentDetailsDialog } from '../../dialogs/AgentDetailsDialog';
-import { Trans } from '@lingui/react';
+import { EnvironmentViewportContext } from './EnvironmentViewportContext';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useToast } from '@/store/toast';
 import type { AgentRef } from '@tensnap/core';
@@ -28,6 +28,7 @@ export function Environment2DView({
 }: Environment2DViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const controllerRef = useRef<EnvironmentRendererController | null>(null);
+  const registerReset = useContext(EnvironmentViewportContext);
 
   const [selectedAgent, setSelectedAgent] = useState<{
     agent: AgentRenderState;
@@ -39,8 +40,6 @@ export function Environment2DView({
   const scenarioRef = useRef(scenario);
   const environmentIdRef = useRef(environment.id);
   const toastErrorRef = useRef(toast.error);
-  void updateTrigger;
-  void view;
 
   useEffect(() => {
     scenarioRef.current = scenario;
@@ -73,27 +72,22 @@ export function Environment2DView({
       onRenderError: (title, detail) => toastErrorRef.current(title, detail),
     });
     controllerRef.current = controller;
+    const unregisterReset = registerReset?.(() => controller.resetView());
 
     return () => {
       controller.destroy();
+      unregisterReset?.();
       controllerRef.current = null;
     };
-  }, [assets]);
+  }, [assets, registerReset]);
 
   useEffect(() => {
-    controllerRef.current?.render(environment);
-  }, [environment, updateTrigger]);
-
-  const resetView = useCallback(() => {
-    controllerRef.current?.resetView();
-  }, []);
+    controllerRef.current?.render(environment, view?.data.layerOverrides);
+  }, [environment, updateTrigger, view?.data.layerOverrides]);
 
   return (
     <div className={styles.container}>
       <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      <button className={styles.resetButton} onClick={resetView}>
-        <Trans id="environment2d.resetView" message="Reset View" />
-      </button>
       <AgentDetailsDialog
         agentType="2d"
         agent={selectedAgent?.agent ?? null}

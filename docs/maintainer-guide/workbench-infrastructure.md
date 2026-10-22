@@ -51,6 +51,12 @@ State packets contain a monotonic revision, immutable content ID and project ID,
 
 `auxiliary-owner.ts` owns authority, subscriptions and inspection indexes. `auxiliary-content.tsx` owns presentation in the caller-provided root. `auxiliary-protocol.ts` is their complete wire contract. Adding a native tool requires an explicit projection, schema, command permissions and lifecycle tests; adding `defineDialog` alone does not create another IPC surface.
 
+## Controls and scrolling
+
+Reuse `web-common/components/ui/Switch`, `ScrollArea`, `Form.Select` and `Form.ColorInput`; the custom Select shares their spacing and theme. Application-owned styles and animations use vanilla-extract. `ScrollArea` is one native scroll element: its ref, events and styles address that same element. Thin transparent-track CSS scrollbars follow hover/focus, with native touch/forced-color behavior; overlay placement and narrow gutters remain browser/OS policy.
+
+`Dialog.Body` fills remaining height and scrolls by default. Use `scrollable={false}` only for split content with its own bounded scroll viewports, such as replay and file selection. `Dialog.Footer` is a sibling outside scrolling; avoid body height caps that leave unused space below it. Open selects consume Escape before the window does. Other form editing and native picker behavior remains platform-owned. See the [presentation contract](frontend-presentation.md) for view IDs, source binding, layer preferences and restore behavior.
+
 ## Lifetimes and backpressure
 
 The owner registers its request listener before creating the Webview. The receiver registers response/state listeners before initializing. Publication is coalesced at 100 ms and allows only one emit in flight. The receiver rejects ownership changes and ignores old/duplicate revisions.
@@ -68,6 +74,8 @@ Locale activation is serialized per auxiliary document, including across cancell
 ## Menus and geometry
 
 Main and auxiliary native menu listeners use the same workbench command allowlist and main-side handlers. Save/Save As capture the originating project ID and serialization format before opening the picker; after selection they resolve that ID again and fail closed if it was removed. Rendered controls use the same save implementation, loading state and toast reporting. Settings commands carry an explicit project ID (or null for global settings), create a fresh invocation when opening or changing owners, and retain the actual `ProjectScope`; selecting another tab cannot retarget Apply. Removing the owner closes the invocation. The command registry stays free of project/UI imports; only the main window loads project command handlers. Unimplemented zoom/grid/shortcut placeholder menu items have been removed.
+
+Windows hides native menu bars at startup, auxiliary page loads and locale changes; native accelerators remain registered and the HTML menu stays visible. Other platforms keep their native menu policy.
 
 Dropdown and context menus share a DOM controller for positioning, keyboard navigation and focus return. React portals render actual menu attributes and handlers. Trigger handlers compose and respect preventDefault. There are no accepted-but-ignored Radix positioning parameters. Context menus add a real right-click interaction rather than an alias export.
 

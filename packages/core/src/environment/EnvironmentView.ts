@@ -74,6 +74,7 @@ export class EnvironmentView extends BaseEnvironmentView {
   private _lastMouseX = 0;
   private _lastMouseY = 0;
   private _lastTouchDist = 0;
+  private _pointerGesture: object | null = null;
 
   // Pre-bound handler references required for later removeEventListener calls
   private readonly _handlers: Record<string, EventListener>;
@@ -227,8 +228,17 @@ export class EnvironmentView extends BaseEnvironmentView {
 
   // #region Interaction — event handlers
 
+  claimPointerGesture(): () => void {
+    const owner = {};
+    this._pointerGesture = owner;
+    this._isDragging = false;
+    return () => {
+      if (this._pointerGesture === owner) this._pointerGesture = null;
+    };
+  }
+
   private _handleMouseDown(e: MouseEvent): void {
-    if (!this._enablePan) return;
+    if (!this._enablePan || this._pointerGesture || e.defaultPrevented || e.button !== 0) return;
     this._isDragging = true;
     this._lastMouseX = e.clientX;
     this._lastMouseY = e.clientY;
@@ -236,7 +246,7 @@ export class EnvironmentView extends BaseEnvironmentView {
   }
 
   private _handleMouseMove(e: MouseEvent): void {
-    if (!this._isDragging || !this._enablePan) return;
+    if (!this._isDragging || !this._enablePan || this._pointerGesture) return;
     const { left, top } = this.container.getBoundingClientRect();
     const prev = this._canvasToScene(this._lastMouseX - left, this._lastMouseY - top);
     const cur = this._canvasToScene(e.clientX - left, e.clientY - top);
@@ -266,7 +276,7 @@ export class EnvironmentView extends BaseEnvironmentView {
       this._lastTouchDist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
       this._isDragging = false;
       e.preventDefault();
-    } else if (e.touches.length === 1 && this._enablePan) {
+    } else if (e.touches.length === 1 && this._enablePan && !this._pointerGesture) {
       this._isDragging = true;
       this._lastMouseX = e.touches[0].clientX;
       this._lastMouseY = e.touches[0].clientY;
@@ -289,7 +299,12 @@ export class EnvironmentView extends BaseEnvironmentView {
       }
       this._lastTouchDist = dist;
       e.preventDefault();
-    } else if (e.touches.length === 1 && this._isDragging && this._enablePan) {
+    } else if (
+      e.touches.length === 1 &&
+      this._isDragging &&
+      this._enablePan &&
+      !this._pointerGesture
+    ) {
       const touch = e.touches[0];
       const prev = this._canvasToScene(this._lastMouseX - left, this._lastMouseY - top);
       const cur = this._canvasToScene(touch.clientX - left, touch.clientY - top);

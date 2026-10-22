@@ -6,3 +6,6 @@ export * as ContextMenu from './ContextMenu';
 export * as Toast from './Toast';
 export { EmptyState } from './EmptyState';
 export { Pagination } from './Pagination';
+
+export { Switch, type SwitchProps } from './Switch';
+export { ScrollArea } from './ScrollArea';

@@ -23,12 +23,50 @@
       "module": "../schelling/external-process.ts",
       "config": {
         "executable": "node",
-        "args": ["--import", "tsx", "../../benchmarks/schelling/v1/subjects/js/kernel.ts", "--width", "50", "--height", "50", "--density", "0.8", "--balance", "0.5", "--thresholds", "0.80", "--warmup-steps", "25", "--steps", "500", "--seeds", "1", "--seed", "{seed}", "--mode", "steady", "--benchmark-json"],
+        "args": [
+          "--import",
+          "tsx",
+          "../../benchmarks/schelling/v1/subjects/js/kernel.ts",
+          "--width",
+          "50",
+          "--height",
+          "50",
+          "--density",
+          "0.8",
+          "--balance",
+          "0.5",
+          "--thresholds",
+          "0.80",
+          "--warmup-steps",
+          "25",
+          "--steps",
+          "500",
+          "--seeds",
+          "1",
+          "--seed",
+          "{seed}",
+          "--mode",
+          "steady",
+          "--benchmark-json"
+        ],
         "cwd": "examples/js",
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "4c06df5183d7b9539c4373b2d48d17ed5d5dbd466c9fe6c0f1347c033e78e28b", "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7" },
+        "environmentLocks": {
+          "examples/js/package.json": "4c06df5183d7b9539c4373b2d48d17ed5d5dbd466c9fe6c0f1347c033e78e28b",
+          "pnpm-lock.yaml": "7092ba1c197c8ca337cf3ceb10622017c2500cf254b6177e72c66bc04d910090"
+        },
         "seed": 20260718,
-        "expected": { "mode": "steady", "actionCount": 1, "metrics": { "totalTicks": { "min": 500, "max": 500 }, "elapsedMs": { "min": 0 } }, "state": { "instrumentation": "none", "actualSteps": { "min": 500, "max": 500 }, "satisfiedPct": { "min": 0, "max": 1 }, "segregationIndex": { "min": 0, "max": 1 } } }
+        "expected": {
+          "mode": "steady",
+          "actionCount": 1,
+          "metrics": { "totalTicks": { "min": 500, "max": 500 }, "elapsedMs": { "min": 0 } },
+          "state": {
+            "instrumentation": "none",
+            "actualSteps": { "min": 500, "max": 500 },
+            "satisfiedPct": { "min": 0, "max": 1 },
+            "segregationIndex": { "min": 0, "max": 1 }
+          }
+        }
       }
     },
     {
@@ -36,7 +74,14 @@
       "system": "JavaScript + TenSnap binding + Web host (rAF frame latency)",
       "primaryMetric": "actionToRenderCompleteMs",
       "featureLevel": "agents+charts+monitor",
-      "dimensions": { "grid": "50x50", "finalTick": 500, "similarityThreshold": 0.8, "warmupActions": 5, "measuredActions": 495, "renderTrigger": "requestAnimationFrame" },
+      "dimensions": {
+        "grid": "50x50",
+        "finalTick": 500,
+        "similarityThreshold": 0.8,
+        "warmupActions": 5,
+        "measuredActions": 495,
+        "renderTrigger": "requestAnimationFrame"
+      },
       "stateEquivalenceGroup": "js-ui-v2",
       "browserOptions": {
         "renderTriggerMode": "requestAnimationFrame"
@@ -60,7 +105,10 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "4c06df5183d7b9539c4373b2d48d17ed5d5dbd466c9fe6c0f1347c033e78e28b", "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7" },
+        "environmentLocks": {
+          "examples/js/package.json": "4c06df5183d7b9539c4373b2d48d17ed5d5dbd466c9fe6c0f1347c033e78e28b",
+          "pnpm-lock.yaml": "7092ba1c197c8ca337cf3ceb10622017c2500cf254b6177e72c66bc04d910090"
+        },
         "seed": 20260718
       }
     },
@@ -69,7 +117,14 @@
       "system": "JavaScript + TenSnap binding + Web host (timeout throughput)",
       "primaryMetric": "actionToRunCompletionMs",
       "featureLevel": "agents+charts+monitor",
-      "dimensions": { "grid": "50x50", "finalTick": 500, "similarityThreshold": 0.8, "warmupActions": 5, "measuredActions": 495, "renderTrigger": "setTimeout" },
+      "dimensions": {
+        "grid": "50x50",
+        "finalTick": 500,
+        "similarityThreshold": 0.8,
+        "warmupActions": 5,
+        "measuredActions": 495,
+        "renderTrigger": "setTimeout"
+      },
       "stateEquivalenceGroup": "js-ui-v2",
       "browserOptions": {
         "renderTriggerMode": "setTimeout"
@@ -93,7 +148,10 @@
         "width": 900,
         "height": 700,
         "timeoutMs": 120000,
-        "environmentLocks": { "examples/js/package.json": "4c06df5183d7b9539c4373b2d48d17ed5d5dbd466c9fe6c0f1347c033e78e28b", "pnpm-lock.yaml": "d89d808ea246781fa21f1bc098a8204b1424846faa5f9673f9371ce5381885d7" },
+        "environmentLocks": {
+          "examples/js/package.json": "4c06df5183d7b9539c4373b2d48d17ed5d5dbd466c9fe6c0f1347c033e78e28b",
+          "pnpm-lock.yaml": "7092ba1c197c8ca337cf3ceb10622017c2500cf254b6177e72c66bc04d910090"
+        },
         "seed": 20260718
       }
     }

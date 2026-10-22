@@ -15,6 +15,8 @@ export interface EnvironmentLayerHost {
   readonly fitMode: EnvironmentViewFitMode;
   readonly interactionEnabled: boolean;
   getSurfaceSize(): EnvironmentSurfaceSize;
+  /** Give a layer exclusive ownership of a pointer gesture until it releases it. */
+  claimPointerGesture?(): () => void;
   setCanvasSmoothing?(enabled: boolean, quality?: 'low' | 'medium' | 'high'): void;
 }
 

@@ -15,6 +15,7 @@ export const dialogDescription = style({
 });
 
 export const dialogBody = style({
+  flex: 1,
   minHeight: 0,
   overflowY: 'auto',
 
@@ -28,6 +29,13 @@ export const dialogBody = style({
       overflow: 'hidden',
     },
   },
+});
+export const dialogBodyFixed = style({ overflow: 'hidden' });
+
+// Let the scrollbar reach the window edge while preserving content padding.
+export const dialogBodyScroll = style({
+  marginRight: `calc(-1 * ${vars.space.md})`,
+  paddingRight: vars.space.md,
 });
 
 export const dialogFooter = style({

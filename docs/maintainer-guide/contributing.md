@@ -256,6 +256,10 @@ python -m pyright -p ../../pyrightconfig.json --warnings
 
 Pyright and Pylance share the repository-root `pyrightconfig.json` in basic mode. Local checks and CI cover library source and `tests/typing`. From the repository root, `pnpm --filter @tensnap/python lint` runs the shared Pyright and Ruff checks; see [development setup](development-setup.md#code-quality) for details.
 
+### Frontend styling
+
+Use vanilla-extract (`*.css.ts`) for application-owned static styles and animations. Reuse the shared `@tensnap/web-common/components/ui/Switch` and `ScrollArea` components in Web/Tauri instead of defining local Radix wrappers. Plain CSS and CSS modules should be migrated when encountered. Keep dependency-owned stylesheets, such as WinBox's resize/window mechanics, with that dependency rather than copying and maintaining a local fork. Dynamic geometry may remain in element style properties.
+
 ### TypeScript/React Code Style
 
 - **Formatter**: Oxfmt, configured at the repository root

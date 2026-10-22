@@ -22,6 +22,7 @@ Welcome to the TenSnap documentation! TenSnap (short for "NetLogo Snapshot", wit
 - **[Architecture Overview](./maintainer-guide/architecture.md)** - System architecture and design
 - **[Development Setup](./maintainer-guide/development-setup.md)** - Toolchain, lint and test commands
 - **[Versioning and Releases](./maintainer-guide/versioning.md)** - Package versions, release sources and publishing
+- **[Frontend Presentation](./maintainer-guide/frontend-presentation.md)** - View bindings, local layer/chart/monitor preferences, force layout and restoration
 - **[Workbench Infrastructure](./maintainer-guide/workbench-infrastructure.md)** - Window hosts, state ownership and auxiliary protocols
 - **[Reproducibility](./maintainer-guide/reproducibility.md)** - Model-owned RNGs, initialization parameters, checkpoints and example checks
 - **[Workbench Validation](./maintainer-guide/workbench-validation.md)** - Automated and platform interaction checks

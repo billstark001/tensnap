@@ -14,3 +14,5 @@ export * from './query';
 export * from './query-schema';
 
 export { createAgentInspectionView, type AgentInspectionView } from './inspection-view';
+
+export * from './presentation';

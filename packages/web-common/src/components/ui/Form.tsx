@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useMemo } from 'react';
 import * as formStyles from './Form.css';
 import clsx from 'clsx';
 
@@ -77,13 +77,74 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ children, className, ...props }, ref) => {
     return (
-      <select ref={ref} className={`${formStyles.formInput} ${className || ''}`} {...props}>
+      <select ref={ref} className={clsx(formStyles.formSelect, className)} {...props}>
         {children}
       </select>
     );
   },
 );
 Select.displayName = 'Select';
+
+let colorContext: CanvasRenderingContext2D | null = null;
+function pickerColor(value: string): string {
+  if (/^#[\da-f]{6}$/i.test(value)) return value;
+  if (/^#[\da-f]{3}$/i.test(value))
+    return `#${[...value.slice(1)].map((digit) => digit + digit).join('')}`;
+  if (typeof document === 'undefined') return '#000000';
+  if (!colorContext) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 1;
+    colorContext = canvas.getContext('2d', { willReadFrequently: true });
+  }
+  if (!colorContext) return '#000000';
+  colorContext.fillStyle = '#000000';
+  colorContext.fillStyle = value;
+  const normalized = colorContext.fillStyle;
+  if (/^#[\da-f]{6}$/i.test(normalized)) return normalized;
+  // Avoid premultiplied-alpha rounding in the common rgba() case.
+  const rgb = normalized.match(/^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)(?:,|\))/);
+  if (rgb)
+    return `#${rgb
+      .slice(1)
+      .map((channel) => Number(channel).toString(16).padStart(2, '0'))
+      .join('')}`;
+  colorContext.clearRect(0, 0, 1, 1);
+  colorContext.fillRect(0, 0, 1, 1);
+  const [r, g, b] = colorContext.getImageData(0, 0, 1, 1).data;
+  return `#${[r!, g!, b!].map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
+export interface ColorInputProps extends Omit<InputProps, 'type' | 'value'> {
+  value: string;
+  pickerLabel: string;
+}
+
+/** Keep existing CSS color values editable while offering the native color picker. */
+export const ColorInput = forwardRef<HTMLInputElement, ColorInputProps>(
+  ({ value, pickerLabel, className, ...props }, ref) => {
+    const color = useMemo(() => pickerColor(value), [value]);
+    return (
+      <div className={formStyles.colorField}>
+        <input
+          type="color"
+          aria-label={pickerLabel}
+          className={formStyles.colorPicker}
+          value={color}
+          disabled={props.disabled || props.readOnly}
+          onChange={props.onChange}
+        />
+        <input
+          {...props}
+          ref={ref}
+          type="text"
+          value={value}
+          className={clsx(formStyles.colorValue, className)}
+        />
+      </div>
+    );
+  },
+);
+ColorInput.displayName = 'ColorInput';
 
 // Field Component (combines Label + Input)
 export interface FieldProps {
@@ -135,6 +196,7 @@ export default {
   Input,
   Textarea,
   Select,
+  ColorInput,
   Field,
   FieldGroup,
 };

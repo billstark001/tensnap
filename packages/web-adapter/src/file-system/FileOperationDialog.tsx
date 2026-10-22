@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import { useEffect, useId, useState } from 'react';
 import { t } from '@lingui/core/macro';
 import { Dialog, Form } from '@tensnap/web-common/components/ui';
@@ -93,60 +94,65 @@ export function FileOperationDialog({
     >
       <Dialog.Description>{entry.name}</Dialog.Description>
       <form
+        className={styles.operationForm}
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
         }}
       >
-        {operation === 'rename' ? (
-          <Form.FieldSet>
-            <Form.Label htmlFor={id}>{t`Name`}</Form.Label>
-            <Form.Input
-              id={id}
-              value={name}
-              disabled={busy}
-              onChange={(event) => setName(event.target.value)}
-              autoFocus
-            />
-          </Form.FieldSet>
-        ) : (
-          <>
-            <Form.Label>{t`Destination directory`}</Form.Label>
-            <Breadcrumbs currentDirectory={directory} onNavigate={navigate} />
-            <div className={styles.moveDirectoryList}>
-              {directory !== '/' && (
-                <button
-                  type="button"
-                  className={styles.actionButton}
-                  disabled={busy}
-                  onClick={() => navigate(getParentPath(directory))}
-                >{t`Parent directory`}</button>
-              )}
-              {loading ? (
-                <p>{t`Loading...`}</p>
-              ) : (
-                directories.map((item) => (
-                  <button
-                    key={item.path}
-                    type="button"
-                    className={styles.actionButton}
-                    disabled={
-                      busy || item.path === entry.path || item.path.startsWith(`${entry.path}/`)
-                    }
-                    onClick={() => navigate(item.path)}
-                  >
-                    📁 {item.name}
-                  </button>
-                ))
-              )}
-            </div>
-          </>
-        )}
-        {error && (
-          <p role="alert" className={styles.operationError}>
-            {error}
-          </p>
-        )}
+        <Dialog.Body>
+          {operation === 'rename' ? (
+            <Form.FieldSet>
+              <Form.Label htmlFor={id}>{t`Name`}</Form.Label>
+              <Form.Input
+                id={id}
+                value={name}
+                disabled={busy}
+                onChange={(event) => setName(event.target.value)}
+                autoFocus
+              />
+            </Form.FieldSet>
+          ) : (
+            <>
+              <Form.Label>{t`Destination directory`}</Form.Label>
+              <Breadcrumbs currentDirectory={directory} onNavigate={navigate} />
+              <ScrollArea className={styles.moveDirectoryList}>
+                <div className={styles.directoryEntries}>
+                  {directory !== '/' && (
+                    <button
+                      type="button"
+                      className={styles.actionButton}
+                      disabled={busy}
+                      onClick={() => navigate(getParentPath(directory))}
+                    >{t`Parent directory`}</button>
+                  )}
+                  {loading ? (
+                    <p>{t`Loading...`}</p>
+                  ) : (
+                    directories.map((item) => (
+                      <button
+                        key={item.path}
+                        type="button"
+                        className={styles.actionButton}
+                        disabled={
+                          busy || item.path === entry.path || item.path.startsWith(`${entry.path}/`)
+                        }
+                        onClick={() => navigate(item.path)}
+                      >
+                        📁 {item.name}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+          {error && (
+            <p role="alert" className={styles.operationError}>
+              {error}
+            </p>
+          )}
+        </Dialog.Body>
         <Dialog.Footer>
           <Dialog.Button disabled={busy} onClick={onClose}>{t`Cancel`}</Dialog.Button>
           <Dialog.Button

@@ -72,7 +72,6 @@ export const dataContent = style({
   padding: '8px',
   borderRadius: '4px',
   fontSize: '12px',
-  overflow: 'auto',
   maxHeight: '200px',
   border: `1px solid ${vars.color.inputBorder}`,
   fontFamily: 'Monaco, Consolas, "Courier New", monospace',

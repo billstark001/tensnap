@@ -10,7 +10,7 @@ import type {
 import { useScenarioStore } from '../../store/scenario/store';
 import { useProjectStore } from '@/store/project';
 import * as styles from './ParameterControl.css';
-import * as Switch from '@radix-ui/react-switch';
+import { Switch } from '@tensnap/web-common/components/ui/Switch';
 import * as Select from '@tensnap/web-common/components/ui/Select';
 import { useThrottled } from '@tensnap/web-common/react';
 
@@ -145,17 +145,14 @@ function SwitchParameterControl({
 }) {
   return (
     <div className={styles.controlContainer}>
-      <label className={styles.switchLabel} htmlFor="airplane-mode">
-        {parameter.label}
-      </label>
-      <Switch.Root
-        className={styles.switchRoot}
+      <Switch
+        label={parameter.label}
+        labelPosition="before"
+        labelClassName={styles.switchLabel}
         checked={parameter.value}
         disabled={disabled}
         onCheckedChange={onChange}
-      >
-        <Switch.Thumb className={styles.switchThumb} />
-      </Switch.Root>
+      />
     </div>
   );
 }

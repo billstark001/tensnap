@@ -47,29 +47,31 @@ export const CreateDialog: React.FC<CreateDialogProps> = ({
       open={isOpen}
       onOpenChange={onOpenChange}
     >
-      <Dialog.Description></Dialog.Description>
-      <div>
-        <Form.FieldSet>
-          <Form.Label>{t`Type`}</Form.Label>
-          <Form.Select
-            value={newItemType}
-            onChange={(e) => setNewItemType(e.target.value as 'file' | 'directory')}
-          >
-            <option value="file">{t`File`}</option>
-            <option value="directory">{t`Directory`}</option>
-          </Form.Select>
-        </Form.FieldSet>
-        <Form.FieldSet>
-          <Form.Label>{t`Name`}</Form.Label>
-          <Form.Input
-            type="text"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            placeholder={newItemType === 'file' ? t`Enter file name` : t`Enter directory name`}
-            onKeyDown={handleKeyDown}
-          />
-        </Form.FieldSet>
-      </div>
+      <Dialog.Body>
+        <Dialog.Description></Dialog.Description>
+        <div>
+          <Form.FieldSet>
+            <Form.Label>{t`Type`}</Form.Label>
+            <Form.Select
+              value={newItemType}
+              onChange={(e) => setNewItemType(e.target.value as 'file' | 'directory')}
+            >
+              <option value="file">{t`File`}</option>
+              <option value="directory">{t`Directory`}</option>
+            </Form.Select>
+          </Form.FieldSet>
+          <Form.FieldSet>
+            <Form.Label>{t`Name`}</Form.Label>
+            <Form.Input
+              type="text"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              placeholder={newItemType === 'file' ? t`Enter file name` : t`Enter directory name`}
+              onKeyDown={handleKeyDown}
+            />
+          </Form.FieldSet>
+        </div>
+      </Dialog.Body>
       <Dialog.Footer>
         <Dialog.Close asChild>
           <Dialog.Button>{t`Cancel`}</Dialog.Button>

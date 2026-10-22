@@ -33,6 +33,7 @@ export interface BackgroundLayerPlan {
   key: string;
   layerId: string;
   storage: BackgroundStorage;
+  presentation?: { interpolation?: 'nearest' | 'linear' };
   sceneBounds?: LayerSceneBounds;
   zIndex?: number;
 }
@@ -43,6 +44,7 @@ export interface GridLayerPlan {
   key: string;
   layerId: string;
   storage: GridEnvStorage;
+  presentation?: Partial<GridEnvData>;
   zIndex?: number;
 }
 
@@ -64,6 +66,7 @@ export interface TrajectoryLayerPlan {
   key: string;
   layerId: string;
   storage: TrajectoryStorage;
+  presentation?: { width?: number; color?: string };
   agentLayerId: string;
   coordOffset: GridCoordOffset;
   worldBounds?: LayerSceneBounds;
@@ -436,6 +439,7 @@ export function createRenderPlan(
           key: buildPlanKey(baseKey, {}),
           layerId: layer.id,
           storage: layer.storage as BackgroundStorage,
+          presentation: layer.presentation as BackgroundLayerPlan['presentation'],
           sceneBounds,
           zIndex: getLayerZIndex(layer, registry),
         });
@@ -449,6 +453,7 @@ export function createRenderPlan(
           key: buildPlanKey(baseKey, {}),
           layerId: layer.id,
           storage: layer.storage as GridEnvStorage,
+          presentation: layer.presentation as GridLayerPlan['presentation'],
           zIndex: getLayerZIndex(layer, registry),
         });
         break;
@@ -533,6 +538,7 @@ export function createRenderPlan(
       key: buildPlanKey(layerEntryById.get(layer.id)!, { coordOffset, worldBounds, zIndex }),
       layerId: layer.id,
       storage: layer.storage as TrajectoryStorage,
+      presentation: layer.presentation as TrajectoryLayerPlan['presentation'],
       agentLayerId: linkedAgentLayerId,
       coordOffset,
       worldBounds,
@@ -557,7 +563,13 @@ export function createRenderPlan(
     agentLayers.push({
       role: 'agent',
       kind: 'agent',
-      key: buildPlanKey(baseKey, { usesGraphInteraction, coordOffset, originMode, zIndex }),
+      key: buildPlanKey(baseKey, {
+        usesGraphInteraction,
+        coordOffset,
+        originMode,
+        zIndex,
+        edgeKey: linkedEdgeLayer?.key,
+      }),
       layerId: layer.id,
       storage: layer.storage as AgentStorage,
       coordOffset,

@@ -3,7 +3,7 @@ name: Build Tauri App
 on:
   push:
     tags:
-      - 'app-v*'  # Trigger on tags like app-v0.1.0
+      - 'app-v*' # Trigger on tags like app-v0.1.0
   workflow_dispatch:
     inputs:
       release_tag:
@@ -84,6 +84,7 @@ jobs:
           tagName: ${{ inputs.release_tag || github.ref_name }}
           releaseName: 'Tensnap ${{ inputs.release_tag || github.ref_name }}'
           releaseBody: 'See the assets to download and install this version.'
+          uploadPlainBinary: ${{ runner.os == 'Windows' }}
           releaseDraft: true
           prerelease: false
           tauriScript: pnpm exec tauri

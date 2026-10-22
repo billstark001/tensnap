@@ -67,7 +67,7 @@ const MAX_GRID_LINES_PER_LEVEL = 10_000;
 // #region Exported interfaces
 
 export interface GridLayerConfig {
-  // Reserved for future per-layer visual overrides.
+  presentation?: Partial<GridEnvData>;
 }
 
 // #endregion
@@ -80,13 +80,15 @@ export class GridLayer extends BaseLayer {
 
   private _envData: GridEnvData;
 
-  constructor(storage: GridEnvStorage, _config: GridLayerConfig = {}) {
+  constructor(storage: GridEnvStorage, config: GridLayerConfig = {}) {
     super();
 
-    this._envData = storage.getData();
+    this._envData = config.presentation
+      ? { ...storage.getData(), ...config.presentation }
+      : storage.getData();
 
     this.registerStorage(storage, (data) => {
-      this._envData = data;
+      this._envData = config.presentation ? { ...data, ...config.presentation } : data;
       this._rebuild();
     });
   }

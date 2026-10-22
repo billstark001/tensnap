@@ -6,7 +6,6 @@ import type { AssetDataPayload, MetadataUpdatePayload } from '@tensnap/protocol'
 import { decodeMessagePack, encodeMessagePack, encodeBytesAsDataUrl } from '@tensnap/protocol';
 import {
   decodeSnapshotArchive,
-  encodeSnapshotArchive,
   isSnapshotArchive,
   snapshotArchiveForJson,
   materializeSnapshot,
@@ -17,7 +16,7 @@ import {
   SnapshotSchema,
   SnapshotArchiveSchema,
   ProjectAssetBlobSchema,
-  extractSnapshotAssets,
+  encodeSnapshotWithAssets,
   hydrateSnapshotAssets,
 } from './project';
 
@@ -126,9 +125,7 @@ export function createRecordingFile(
       `Recording resources are incomplete: ${report.missingAssets.join(', ')}${report.externalUrls.length ? '; external URLs: ' + report.externalUrls.join(', ') : ''}`,
     );
   const assetTable: AssetTable = {};
-  const stripped = extractSnapshotAssets(snapshot, assetTable);
-  stripped.metadata = omitUndefinedObjectProperties(stripped.metadata) as Snapshot['metadata'];
-  const recording = encodeSnapshotArchive(stripped);
+  const recording = encodeSnapshotWithAssets(snapshot, assetTable);
   return {
     kind: 'tensnap-recording',
     version: 1,

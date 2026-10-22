@@ -28,7 +28,7 @@ import { BaseLayer } from './BaseLayer';
 import type { EnvironmentViewFitMode } from '../host';
 import type { EdgeDelta, EdgeStorageData } from '../storages/EdgeStorage';
 import { EdgeStorage } from '../storages/EdgeStorage';
-import type { AgentStorage, AgentRenderState } from '../storages/AgentStorage';
+import type { AgentDelta, AgentStorage, AgentRenderState } from '../storages/AgentStorage';
 import type { AgentLayerConfig } from './AgentLayer';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { Viewport, GraphEdge } from '../types';
@@ -52,19 +52,21 @@ interface EdgeShapeEntry {
   link: SimLink;
 }
 
-const DEFAULT_GRAPH_CONFIG: Required<GraphEnvConfig> = {
+export const DEFAULT_GRAPH_CONFIG: Readonly<Required<GraphEnvConfig>> = {
   link_distance: 4,
   charge_strength: -2,
   centering_strength: 0.1,
   collision_radius: 2,
   max_component_distance: 4,
   component_spacing: 5,
-};
+} as const;
 
 // #endregion
 
 export class EdgeLayer extends BaseLayer {
   readonly defaultZIndex = 20;
+  private static readonly writers = new WeakMap<AgentStorage, EdgeLayer>();
+  private static readonly views = new WeakMap<AgentStorage, Set<EdgeLayer>>();
 
   // #region Private fields
 
@@ -77,14 +79,26 @@ export class EdgeLayer extends BaseLayer {
   private _simLinkMap = new Map<string, SimLink>();
   /** O(1) EdgeShapeEntry lookup by canonical edge key. */
   private _edgeShapeMap = new Map<string, EdgeShapeEntry>();
-  private _simConfig: Required<GraphEnvConfig>;
+  private _simConfig: Readonly<Required<GraphEnvConfig>>;
 
   private readonly _agentStorage: AgentStorage;
   private readonly _edgeStorage: EdgeStorage;
   /** Inspection/headless callers can render existing positions without d3-force. */
   private readonly _readOnlyLayout: boolean;
+  private readonly _manualLayout: boolean;
+  private get _layoutEnabled(): boolean {
+    return (
+      !this._readOnlyLayout &&
+      EdgeLayer.writers.get(this._agentStorage) === this &&
+      this._simConfig.link_distance >= 0
+    );
+  }
   private _ticking = false;
-  private _dragPinned = new Map<AgentId, { fx: number; fy: number }>();
+  private _destroyed = false;
+  private _dragPinned = new Map<
+    AgentId,
+    { fx: number; fy: number; restoreFx: number | null; restoreFy: number | null }
+  >();
 
   // #endregion
 
@@ -93,20 +107,33 @@ export class EdgeLayer extends BaseLayer {
   constructor(
     edgeStorage: EdgeStorage,
     agentStorage: AgentStorage,
-    config: GraphEnvConfig & { readOnlyLayout?: boolean } = {},
+    config: GraphEnvConfig & { readOnlyLayout?: boolean; manualLayout?: boolean } = {},
   ) {
     super();
     this._agentStorage = agentStorage;
     this._edgeStorage = edgeStorage;
     this._readOnlyLayout = config.readOnlyLayout === true;
+    this._manualLayout = config.manualLayout === true;
     this._simConfig = { ...DEFAULT_GRAPH_CONFIG, ...config };
+    for (const key of Object.keys(DEFAULT_GRAPH_CONFIG) as (keyof GraphEnvConfig)[])
+      if (!Number.isFinite(this._simConfig[key]))
+        throw new Error(`Invalid graph configuration: ${key}.`);
 
     if (!this._readOnlyLayout) {
-      this._initSimulation();
+      const views = EdgeLayer.views.get(agentStorage) ?? new Set<EdgeLayer>();
+      views.add(this);
+      EdgeLayer.views.set(agentStorage, views);
+      const previous = EdgeLayer.writers.get(agentStorage);
+      previous?._releaseDragPins();
+      previous?._simulation?.stop().on('tick', null);
+      if (previous) previous._simulation = null;
+      EdgeLayer.writers.set(agentStorage, this);
     }
+    if (this._layoutEnabled) this._initSimulation();
     this.registerStorage(edgeStorage, (data, delta) => this._onEdgeData(data, delta));
     this.registerStorage(agentStorage, (_data, delta) => {
-      if (!this._ticking && !delta?.positionsFlushed) this._onAgentData();
+      if (!this._ticking && (!delta?.positionsFlushed || !this._layoutEnabled))
+        this._onAgentData(delta);
     });
     this._onEdgeData(edgeStorage.getData());
   }
@@ -117,18 +144,36 @@ export class EdgeLayer extends BaseLayer {
 
   /** Update d3-force parameters at runtime and reheat the simulation. */
   setSimConfig(config: GraphEnvConfig): void {
-    this._simConfig = { ...DEFAULT_GRAPH_CONFIG, ...config };
-    this._reconfigureSimulation();
-    this._simulation?.alpha(0.3).restart();
+    const next = { ...DEFAULT_GRAPH_CONFIG, ...config };
+    for (const key of Object.keys(DEFAULT_GRAPH_CONFIG) as (keyof GraphEnvConfig)[])
+      if (!Number.isFinite(next[key])) throw new Error(`Invalid graph configuration: ${key}.`);
+    this._simConfig = next;
+    this._simulation?.stop().on('tick', null);
+    this._simulation = null;
+    this._releaseDragPins();
+    this._simNodeMap.clear();
+    if (this._layoutEnabled) this._initSimulation();
+    this._fullEdgeRebuild(this._edgeStorage.getData().edges);
+  }
+
+  /** Bounded synchronous layout for headless hosts; rendering must not depend on timer timing. */
+  settle(ticks: number): void {
+    if (!Number.isSafeInteger(ticks) || ticks < 0 || ticks > 10000)
+      throw new Error('Layout ticks must be between 0 and 10000.');
+    if (!this._layoutEnabled) return;
+    this._simulation?.stop().tick(ticks);
+    this._tick();
   }
 
   /** Returns partial AgentLayerConfig with drag handlers wired to the simulation. */
   buildDragHandlers(): Pick<
     AgentLayerConfig,
-    'draggable' | 'onDragStart' | 'onDragMove' | 'onDragEnd'
+    'draggable' | 'canDrag' | 'onDragStart' | 'onDragMove' | 'onDragEnd'
   > {
     return {
-      draggable: true,
+      draggable: !this._readOnlyLayout,
+      canDrag: () =>
+        !this._readOnlyLayout && EdgeLayer.writers.get(this._agentStorage)?._layoutEnabled === true,
       onDragStart: (id, x, y) => this._handleDragStart(id, x, y),
       onDragMove: (id, dx, dy) => this._handleDragMove(id, dx, dy),
       onDragEnd: (id) => this._handleDragEnd(id),
@@ -141,9 +186,6 @@ export class EdgeLayer extends BaseLayer {
 
   onViewportChange(viewport: Viewport, fitMode: EnvironmentViewFitMode): void {
     this.applyViewportTransform(viewport, fitMode);
-    if (!this._readOnlyLayout) {
-      this._simulation?.alpha(0.05).restart();
-    }
   }
 
   // #endregion
@@ -191,15 +233,20 @@ export class EdgeLayer extends BaseLayer {
     // change Leafer shapes, but need not reindex every d3 link or reheat it.
     if (added.length) {
       this._syncLinkForce();
-      if (!this._readOnlyLayout) {
-        this._simulation?.alpha(0.1).restart();
-      }
     }
+    if (!this._readOnlyLayout && (added.length || removed.length))
+      EdgeLayer.writers.get(this._agentStorage)?._reheat();
+  }
+
+  private _reheat(): void {
+    if (!this._layoutEnabled) return;
+    this._simulation?.alpha(0.1);
+    if (!this._manualLayout) this._simulation?.restart();
   }
 
   private _fullEdgeRebuild(edges: ReadonlyMap<string, GraphEdge>): void {
     this._rebuildSimNodes(this._agentStorage.getData().agents);
-    if (!this._readOnlyLayout) {
+    if (this._layoutEnabled) {
       this._assignInitialPositions(this._simNodes, edges);
       this._pushSimPositions();
     }
@@ -210,21 +257,29 @@ export class EdgeLayer extends BaseLayer {
     }
 
     this._syncLinkForce();
-    if (!this._readOnlyLayout) {
+    if (this._layoutEnabled) {
       this._reconfigureSimulation();
-      this._simulation?.nodes(this._simNodes).alpha(0.3).restart();
+      this._simulation?.nodes(this._simNodes).alpha(0.3);
+      if (!this._manualLayout) this._simulation?.restart();
     }
     this._rebuildAllEdgeShapes();
+    if (!this._readOnlyLayout && !this._layoutEnabled)
+      EdgeLayer.writers.get(this._agentStorage)?._reheat();
   }
 
-  private _onAgentData(): void {
-    if (this._readOnlyLayout) {
-      this._fullEdgeRebuild(this._edgeStorage.getData().edges);
+  private _onAgentData(delta?: AgentDelta): void {
+    if (delta?.positionsFlushed) {
+      for (const agent of this._agentStorage.getData().agents.values()) {
+        const node = this._simNodeMap.get(agent.id);
+        if (node) Object.assign(node, agent);
+      }
+      this._edgeShapeMap.forEach((entry) => this._updateEdgeGeometry(entry));
       return;
     }
     const agents = this._agentStorage.getData().agents;
+    const updatesOnly = delta && !delta.replaced && !delta.added.length && !delta.removed.length;
     let sameSet = agents.size === this._simNodes.length;
-    if (sameSet) {
+    if (sameSet && !updatesOnly) {
       for (const id of agents.keys()) {
         if (!this._simNodeMap.has(id)) {
           sameSet = false;
@@ -233,20 +288,35 @@ export class EdgeLayer extends BaseLayer {
       }
     }
 
+    let dynamicsChanged = false;
+    let geometryChanged = false;
     if (sameSet) {
       // Fast path: refresh non-simulation fields in-place; preserve dynamics.
-      for (const agent of agents.values()) {
+      for (const agent of updatesOnly ? delta.updated : agents.values()) {
         const node = this._simNodeMap.get(agent.id)!;
         const { x, y, vx, vy, fx, fy } = node;
+        if (agent.size !== node.size) geometryChanged = true;
+        if (
+          (agent.x !== undefined && agent.x !== x) ||
+          (agent.y !== undefined && agent.y !== y) ||
+          (agent.fx ?? null) !== (fx ?? null) ||
+          (agent.fy ?? null) !== (fy ?? null)
+        )
+          dynamicsChanged = true;
         Object.assign(node, agent);
+        node.size = agent.size;
         node.x = agent.x ?? x;
         node.y = agent.y ?? y;
         node.vx = vx ?? 0;
         node.vy = vy ?? 0;
-        node.fx = fx ?? null;
-        node.fy = fy ?? null;
+        node.fx = this._dragPinned.has(agent.id) ? fx : (agent.fx ?? null);
+        node.fy = this._dragPinned.has(agent.id) ? fy : (agent.fy ?? null);
       }
     } else {
+      if (!this._layoutEnabled) {
+        this._fullEdgeRebuild(this._edgeStorage.getData().edges);
+        return;
+      }
       // Slow path: rebuild node set; patch existing SimLink references in-place.
       this._rebuildSimNodes(agents);
       // Assign initial positions to new nodes before pushing them back, to prevent
@@ -261,7 +331,9 @@ export class EdgeLayer extends BaseLayer {
       this._pushSimPositions();
     }
 
-    this._simulation?.alpha(0.1).restart();
+    if (!sameSet || dynamicsChanged || geometryChanged)
+      this._edgeShapeMap.forEach((entry) => this._updateEdgeGeometry(entry));
+    if (!sameSet || dynamicsChanged) this._reheat();
   }
 
   // #endregion
@@ -293,6 +365,7 @@ export class EdgeLayer extends BaseLayer {
       .force('y', d3.forceY<SimNode>(0).strength(centeringStrength))
       .force('collision', d3.forceCollide<SimNode>().radius(collisionRadius))
       .on('tick', () => this._tick());
+    this._simulation.stop();
   }
 
   private _reconfigureSimulation(): void {
@@ -310,7 +383,7 @@ export class EdgeLayer extends BaseLayer {
   }
 
   /** Rebuild _simLinks from _simLinkMap and push to the link force. */
-  private _syncLinkForce(): void {
+  private _syncLinkForce(notifyWriter = true): void {
     const validLinks: SimLink[] = [];
 
     for (const [key, link] of this._simLinkMap) {
@@ -336,6 +409,21 @@ export class EdgeLayer extends BaseLayer {
       }
     }
 
+    // One force simulation owns a shared agent storage. Include each enabled edge
+    // storage once, while every layer retains ownership of its own shapes.
+    const writer = EdgeLayer.writers.get(this._agentStorage);
+    if (writer === this) {
+      const storages = new Set([this._edgeStorage]);
+      for (const view of EdgeLayer.views.get(this._agentStorage) ?? []) {
+        if (view._simConfig.link_distance < 0 || storages.has(view._edgeStorage)) continue;
+        storages.add(view._edgeStorage);
+        for (const edge of view._edgeStorage.getData().edges.values()) {
+          const link = this._buildSimLink(edge, this._simNodeMap);
+          if (this._simNodeMap.has(link.sourceId) && this._simNodeMap.has(link.targetId))
+            validLinks.push(link);
+        }
+      }
+    } else if (notifyWriter && !this._readOnlyLayout) writer?._syncLinkForce(false);
     this._simLinks = validLinks;
     this._linkForce?.links(this._simLinks);
   }
@@ -461,15 +549,15 @@ export class EdgeLayer extends BaseLayer {
    */
   private _rebuildSimNodes(agents: ReadonlyMap<AgentId, AgentRenderState>): void {
     this._simNodes = [...agents.values()].map((agent) => {
-      const prev = this._readOnlyLayout ? undefined : this._simNodeMap.get(agent.id);
+      const prev = this._layoutEnabled ? this._simNodeMap.get(agent.id) : undefined;
       return {
         ...agent,
         x: prev?.x ?? agent.x,
         y: prev?.y ?? agent.y,
         vx: prev?.vx ?? 0,
         vy: prev?.vy ?? 0,
-        fx: prev?.fx ?? null,
-        fy: prev?.fy ?? null,
+        fx: agent.fx ?? null,
+        fy: agent.fy ?? null,
       } as SimNode;
     });
     this._simNodeMap = new Map(this._simNodes.map((n) => [n.id, n]));
@@ -478,6 +566,16 @@ export class EdgeLayer extends BaseLayer {
   // #endregion
 
   // #region Initial positions
+
+  private _seed(id: AgentId, axis: number): number {
+    let hash = 2166136261;
+    for (const char of `${typeof id}:${id}:${axis}`)
+      hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+    hash ^= hash >>> 16;
+    hash = Math.imul(hash, 0x7feb352d);
+    hash ^= hash >>> 15;
+    return (hash >>> 0) / 4294967296;
+  }
 
   private _assignInitialPositions(nodes: SimNode[], edges: ReadonlyMap<string, GraphEdge>): void {
     const components = this._findComponents(nodes, edges);
@@ -505,8 +603,8 @@ export class EdgeLayer extends BaseLayer {
     if (components.length <= 1) {
       nodes.forEach((n) => {
         if (n.x == null || n.y == null || overlapping) {
-          n.x = (firstX ?? 0) + (Math.random() - 0.5) * scatter * 2;
-          n.y = (firstY ?? 0) + (Math.random() - 0.5) * scatter * 2;
+          n.x = n.fx ?? (firstX ?? 0) + (this._seed(n.id, 0) - 0.5) * scatter * 2;
+          n.y = n.fy ?? (firstY ?? 0) + (this._seed(n.id, 1) - 0.5) * scatter * 2;
         }
       });
       return;
@@ -524,9 +622,9 @@ export class EdgeLayer extends BaseLayer {
       const r = cellSize / 4;
       comp.forEach((n) => {
         if (n.x == null || n.y == null || overlapping) {
-          const a = Math.random() * 2 * Math.PI;
-          n.x = cx + Math.cos(a) * Math.random() * r;
-          n.y = cy + Math.sin(a) * Math.random() * r;
+          const a = this._seed(n.id, 0) * 2 * Math.PI;
+          n.x = n.fx ?? cx + Math.cos(a) * this._seed(n.id, 1) * r;
+          n.y = n.fy ?? cy + Math.sin(a) * this._seed(n.id, 2) * r;
         }
       });
     });
@@ -573,17 +671,41 @@ export class EdgeLayer extends BaseLayer {
 
   // #region Drag handlers
 
+  private _releaseDragPins(): void {
+    const pins = [...this._dragPinned];
+    this._dragPinned.clear();
+    for (const [id, pin] of pins)
+      this._agentStorage.setAgentFixed(id, pin.restoreFx, pin.restoreFy);
+  }
+
   private _handleDragStart(id: AgentId, _x: number, _y: number): void {
+    if (this._readOnlyLayout) return;
+    const writer = EdgeLayer.writers.get(this._agentStorage);
+    if (writer && writer !== this) {
+      writer._handleDragStart(id, _x, _y);
+      return;
+    }
+    if (!this._layoutEnabled) return;
     const node = this._simNodeMap.get(id);
     if (!node) return;
+    const restoreFx = node.fx ?? null,
+      restoreFy = node.fy ?? null;
     node.fx = node.x ?? 0;
     node.fy = node.y ?? 0;
-    this._dragPinned.set(id, { fx: node.fx, fy: node.fy });
+    this._dragPinned.set(id, { fx: node.fx, fy: node.fy, restoreFx, restoreFy });
     this._agentStorage.setAgentFixed(id, node.fx, node.fy);
-    this._simulation?.alphaTarget(0.3).restart();
+    this._simulation?.alphaTarget(0.3);
+    if (!this._manualLayout) this._simulation?.restart();
   }
 
   private _handleDragMove(id: AgentId, dx: number, dy: number): void {
+    if (this._readOnlyLayout) return;
+    const writer = EdgeLayer.writers.get(this._agentStorage);
+    if (writer && writer !== this) {
+      writer._handleDragMove(id, dx, dy);
+      return;
+    }
+    if (!this._layoutEnabled) return;
     const node = this._simNodeMap.get(id);
     const pinned = this._dragPinned.get(id);
     if (!node || !pinned) return;
@@ -595,11 +717,19 @@ export class EdgeLayer extends BaseLayer {
   }
 
   private _handleDragEnd(id: AgentId): void {
+    if (this._readOnlyLayout) return;
+    const writer = EdgeLayer.writers.get(this._agentStorage);
+    if (writer && writer !== this) {
+      writer._handleDragEnd(id);
+      return;
+    }
+    const pinned = this._dragPinned.get(id);
+    if (!pinned) return;
     const node = this._simNodeMap.get(id);
     if (node) {
-      node.fx = null;
-      node.fy = null;
-      this._agentStorage.setAgentFixed(id, null, null);
+      node.fx = pinned.restoreFx;
+      node.fy = pinned.restoreFy;
+      this._agentStorage.setAgentFixed(id, node.fx, node.fy);
     }
     this._dragPinned.delete(id);
     this._simulation?.alphaTarget(0);
@@ -610,6 +740,24 @@ export class EdgeLayer extends BaseLayer {
   // #region Destroy
 
   destroy(): void {
+    if (this._destroyed) return;
+    this._destroyed = true;
+    this._releaseDragPins();
+    if (!this._readOnlyLayout) {
+      const views = EdgeLayer.views.get(this._agentStorage)!;
+      views.delete(this);
+      if (EdgeLayer.writers.get(this._agentStorage) === this) {
+        EdgeLayer.writers.delete(this._agentStorage);
+        const remaining = [...views];
+        const next = remaining[remaining.length - 1];
+        if (next) {
+          EdgeLayer.writers.set(this._agentStorage, next);
+          next.setSimConfig(next._simConfig);
+        }
+      }
+      if (!views.size) EdgeLayer.views.delete(this._agentStorage);
+      else EdgeLayer.writers.get(this._agentStorage)?._syncLinkForce(false);
+    }
     this._simulation?.stop().on('tick', null);
     this._simulation = null;
     for (const { line, arrowhead } of this._edgeShapeMap.values()) {

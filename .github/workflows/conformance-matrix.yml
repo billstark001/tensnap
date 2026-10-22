@@ -1,10 +1,13 @@
-name: Protocol conformance matrix
+name: TenSnap CI
 
 on:
   pull_request:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   cross-binding-core:
@@ -39,3 +42,62 @@ jobs:
       - run: julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.instantiate()'
       - name: Run live conformance against all four bindings
         run: python conformance/run_matrix.py --check
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - run: pnpm install --frozen-lockfile
+      - name: Check versions, bundled docs and JavaScript lint
+        run: |
+          pnpm check:versions
+          pnpm --filter @tensnap/agent skills:check
+          pnpm lint:js
+      - name: Check frontend types
+        run: pnpm --filter @tensnap/core --filter @tensnap/web-common --filter @tensnap/web-adapter --filter @tensnap/web --filter @tensnap/tauri typecheck
+      - name: Check catalogs
+        run: |
+          pnpm i18n:verify
+          git diff --exit-code -- packages/tensnap-web/src/locales packages/tensnap-tauri/src/locales packages/web-adapter/src/locales
+      - name: Test renderer and frontend behavior
+        run: |
+          pnpm --filter @tensnap/core test
+          pnpm --filter @tensnap/web-adapter test
+          pnpm --filter @tensnap/web test
+          pnpm --filter @tensnap/benchmark exec vitest run src/evaluation/evaluation.test.ts
+      - name: Build renderer and Web
+        run: |
+          pnpm --filter @tensnap/core build
+          pnpm --filter @tensnap/web build
+
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/tensnap-tauri/src-tauri -> target
+      - run: pnpm install --frozen-lockfile
+      - name: Build desktop without bundling or publishing
+        run: pnpm --filter @tensnap/tauri exec tauri build --debug --no-bundle
+      - name: Test native menu behavior
+        run: cargo test --locked --manifest-path packages/tensnap-tauri/src-tauri/Cargo.toml

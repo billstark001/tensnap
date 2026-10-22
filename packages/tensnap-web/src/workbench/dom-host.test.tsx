@@ -332,7 +332,7 @@ it('places menus in viewport space outside clipped windows and keeps modal menu 
   await waitFor(() => expect(trigger.closest('.winbox')).not.toHaveStyle({ visibility: 'hidden' }));
   vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({ left: 600, bottom: 420 } as DOMRect);
   fireEvent.click(trigger);
-  const overlay = screen.getByRole('menu').parentElement!;
+  const overlay = screen.getByRole('menu').closest<HTMLElement>('[data-workbench-menu]')!;
   expect(overlay.parentElement).toBe(document.body);
   vi.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
     width: 180,

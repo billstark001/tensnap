@@ -39,7 +39,6 @@ export const fullPanel = style({
 export const projectTerminal = style({
   background: vars.color.terminalBackground,
   color: vars.color.terminalForeground,
-  overflow: 'auto',
 
   selectors: {
     'body[data-theme="dark"] &': {

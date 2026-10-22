@@ -2,6 +2,9 @@ import { globalStyle, style } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
 export const root = style({
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
   minWidth: 0,
   border: `1px solid ${vars.color.inputBorder}`,
   borderRadius: vars.radius.sm,

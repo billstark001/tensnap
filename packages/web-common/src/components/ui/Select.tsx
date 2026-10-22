@@ -19,8 +19,8 @@ export const Root = (props: SelectProps) => {
   return (
     <RadixSelect.Root {...rest}>
       <RadixSelect.Trigger
-        className={clsx(styles.selectTrigger, triggerClassName)}
         {...triggerProps}
+        className={clsx(styles.selectTrigger, triggerClassName, triggerProps?.className)}
       >
         <RadixSelect.Value />
         <RadixSelect.Icon>
@@ -29,9 +29,9 @@ export const Root = (props: SelectProps) => {
       </RadixSelect.Trigger>
       <RadixSelect.Portal container={portalContainer}>
         <RadixSelect.Content
-          className={clsx(styles.selectContent, contentClassName)}
           position="popper"
           {...contentProps}
+          className={clsx(styles.selectContent, contentClassName, contentProps?.className)}
         >
           {children}
         </RadixSelect.Content>

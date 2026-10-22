@@ -1,10 +1,23 @@
 import { Trans } from '@lingui/react/macro';
 import ContextMenu from '@tensnap/web-common/components/ui/ContextMenu';
 import type { ViewContextMenuRendererType } from '../view/types';
-import { ClipboardCopy, Edit, Pause, Play, Sheet, StepForward, Trash2 } from 'lucide-react';
+import {
+  ClipboardCopy,
+  Edit,
+  Pause,
+  Play,
+  RotateCcw,
+  Sheet,
+  StepForward,
+  Trash2,
+} from 'lucide-react';
 import { EditViewDialog } from '@/dialogs/edit-views/EditViewDialog';
 import { useCallback, useState } from 'react';
-import type { AnyView, ButtonView } from '@tensnap/core/persistence';
+import type { AnchoredView, AnyView, ButtonView } from '@tensnap/core/persistence';
+import {
+  EnvironmentViewportContext,
+  useEnvironmentViewportReset,
+} from '../scenario/EnvironmentViewportContext';
 import { useViewContext } from '../view/useViewContext';
 import { useToast } from '@/store/toast';
 import { useScenarioStore } from '@/store/scenario/store';
@@ -19,6 +32,14 @@ import { useLingui } from '@lingui/react';
 
 export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   const { view, type, parentView, children, node } = props;
+  const viewportReset = useEnvironmentViewportReset();
+  const environment = useScenarioStore((store) =>
+    type === 'environment'
+      ? store.scenario.getEnvironment((view as AnchoredView).data.id)
+      : undefined,
+  );
+  const canReset =
+    type === 'environment' && ((view as AnchoredView).data.type ?? environment?.type) === '2d';
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingView, setEditingView] = useState<AnyView | null>(null);
@@ -58,9 +79,9 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
 
   const handleSaveEdit = useCallback(
     (updatedView: AnyView, objectData?: any) => {
-      return updateView(updatedView, objectData);
+      return updateView(updatedView, objectData, editingView!);
     },
-    [updateView],
+    [updateView, editingView],
   );
 
   const handleCopyCanvas = useCallback(async () => {
@@ -123,7 +144,7 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
   }, [continuousActionId, continuousRunIsActive, onButtonAction]);
 
   return (
-    <>
+    <EnvironmentViewportContext.Provider value={viewportReset.register}>
       <ContextMenu.Root trigger={children}>
         <ContextMenu.Label>
           <Trans>Options</Trans>
@@ -140,6 +161,13 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
           <ContextMenu.Item onSelect={handleCopyCanvas}>
             <ClipboardCopy />
             <Trans>Copy</Trans>
+          </ContextMenu.Item>
+        )}
+
+        {canReset && (
+          <ContextMenu.Item onSelect={viewportReset.reset}>
+            <RotateCcw />
+            <Trans id="environment2d.resetView">Reset View</Trans>
           </ContextMenu.Item>
         )}
 
@@ -207,6 +235,6 @@ export const ViewContextMenuRenderer: ViewContextMenuRendererType = (props) => {
           }}
         />
       )}
-    </>
+    </EnvironmentViewportContext.Provider>
   );
 };

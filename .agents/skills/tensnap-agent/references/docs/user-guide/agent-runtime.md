@@ -153,6 +153,8 @@ The evidence directory contains `manifest.json`, `state.recording.json` (or `sta
 
 `frame restore` verifies the manifest, artifact checksums, single-frame state, provenance and checkpoint association before model dispatch. It requires an explicit `--mode checkpoint|projected` and verified source/target model ID and schema. The default history policy is `replace`, using the entire saved chart prefix. `--history preserve` retains live charts; `--history truncate` uses the saved model time or an explicit `--history-time`. Checkpoint restore never automatically sends projected `time`, `parameters`, or `envs`. The low-level `scene restore` also accepts local `--history-time` and `--replacement-charts <json>`; the released payload-time fallback for truncate remains supported.
 
+Online restore clears old monitor observations only after success; values must be republished by the simulator. Failure preserves live observations. Local chart/monitor effects are recorded with existing messages, so replay and keyframe seeks agree. View presentation preferences survive restoration.
+
 Restore returns `modelStatus`, `historyStatus`, and `stateKnown`. Failed/unknown model restores do not install the saved chart history. Timeout/abort stops the wait, leaves state unknown when appropriate, and never starts a comparison action automatically. To rerun, verify successful restoration, issue an action/run with `--wait`, and save to a new evidence directory. `frame compare` compares the entire public scene, including charts and model time, exactly by default. It reports field paths and before/after values. Checkpoints are compared only as opaque encoding and decoded-byte equality, without interpreting model-private fields.
 
 A historical frame without an associated checkpoint remains viewable, renderable and exportable. Only the recording's actual initial boundary can carry its initial checkpoint; rolling retention removes that checkpoint when the initial boundary advances. Seek/cursor movement does not create model checkpoints. GUI full recording and current-frame export are separate controls in the replay dialog; current-frame exports preserve original recording/frame provenance through subsequent imports and exports.
@@ -268,3 +270,19 @@ tensnap-agent recording render-range new-run.store --from 10 --to 30 --env main 
 These commands are offline. Recovery verifies the contiguous committed prefix, stream/asset integrity and index completeness; an uncommitted tail is excluded from ordinary reads. Rebuilding verifies immutable descriptors before atomically replacing only the derived index and requires exclusive writer ownership. An interrupted store remains read-only; start a new collection in a new directory to collect again. No recovery command resumes the model or invokes a provider. Range export preserves original frame provenance, complete initial chart/log history available at its start and only checkpoints actually captured at their original boundary.
 
 See [the storage API and format contract](../api-reference/recording-storage.md) for ownership, host persistence guarantees, cancellation and resource accounting.
+
+### Renderer-local layer preferences
+
+Use the same presentation fields as the GUI without changing simulator declarations:
+
+```sh
+tensnap-agent scene presentation world
+tensnap-agent scene presentation world --layer-overrides '{"edges":{"link_distance":-1}}'
+tensnap-agent scene presentation world --reset
+tensnap-agent scene render --env world --layout-ticks 0
+tensnap-agent scene render --env world --layout-ticks 300 --layer-overrides '{"edges":{"link_distance":6}}'
+```
+
+The presentation command replaces that environment's sparse local overrides and persists them in the current context. Render-time overrides merge over stored preferences for that request. Render-all also applies each environment's stored preferences. A finite negative link distance disables all force layout; zero remains a valid enabled target length. Tick budgets accept 0–10000; zero preserves coordinates. Fixed-frame exports preserve recorded coordinates unless an explicit positive budget requests relayout. Live simulator state is never modified by rendering.
+
+The control API exposes `GET/PUT /v1/scene/presentation/:envId` (PUT body: `{ "overrides": { ... } }`). Render requests accept `layerOverrides` with an explicit `envId`, plus `layoutTicks`. See the [frontend behavior contract](../maintainer-guide/frontend-presentation.md) for editable fields, inheritance, binding and restore semantics.

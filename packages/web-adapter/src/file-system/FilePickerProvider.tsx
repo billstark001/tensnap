@@ -203,7 +203,7 @@ export const FilePickerProvider: React.FC<FilePickerProviderProps> = ({ children
       >
         <Dialog.Description>{dialogDescription}</Dialog.Description>
 
-        <Dialog.Body>
+        <Dialog.Body scrollable={false}>
           <FileSystemBrowser
             key={browserKey}
             fileSystem={fileSystem}

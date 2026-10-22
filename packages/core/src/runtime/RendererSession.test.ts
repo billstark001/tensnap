@@ -12,7 +12,7 @@ import type {
 } from '@tensnap/protocol';
 import { assert, describe, expect, it, vi } from 'vitest';
 import { RendererSession, type RendererSessionCommitDetail } from './RendererSession';
-import { materializeSnapshot, type Snapshot } from '../snapshot';
+import { materializeSnapshot, SnapshotPlayer, type Snapshot } from '../snapshot';
 import type { AgentStorage, TrajectoryStorage } from '../environment';
 
 function createTransport(sent: RendererToSimulatorMessage[]): ISimulatorTransport {
@@ -1223,3 +1223,103 @@ it('finalizes manual recording once on connection loss and never carries it into
   session.destroy();
   expect(complete).toHaveBeenCalledOnce();
 });
+
+it.each(['ok', 'error'] as const)(
+  'only commits fresh simulator monitor observations after restore (%s)',
+  async (status) => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+    session.handleIncoming({
+      type: 'monitor_create',
+      payload: { id: 'm', label: 'Monitor', render_hint: 'table' },
+    });
+    session.handleIncoming({
+      type: 'monitor_update',
+      payload: { id: 'm', value: { old: true }, revision: 1 },
+    });
+    const restore = session.restoreScene({ checkpoint: { encoding: 'raw', data: 'AQ==' } });
+    const request = sent[sent.length - 1]!;
+    const request_id = (request.payload as { request_id: string }).request_id;
+    session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id } });
+    expect(session.scenario.monitors.get('m')!.value).toEqual({ old: true });
+    session.handleIncoming({ type: 'scene_restore_end', payload: { request_id, status } });
+    await restore;
+    expect(session.scenario.monitors.get('m')).toEqual(
+      status === 'ok'
+        ? { id: 'm', label: 'Monitor', render_hint: 'table' }
+        : { id: 'm', label: 'Monitor', render_hint: 'table', value: { old: true }, revision: 1 },
+    );
+    session.destroy();
+  },
+);
+
+it.each(['preserve', 'replace', 'truncate'] as const)(
+  'records local restore effects for forward playback and keyframe seeks (%s)',
+  async (chartPolicy) => {
+    const sent: RendererToSimulatorMessage[] = [];
+    const session = new RendererSession();
+    session.attachTransport(createTransport(sent));
+    announce(session, 'test-instance', ['scene.restore.checkpoint']);
+    session.handleIncoming({
+      type: 'chart_create',
+      payload: {
+        id: 'history',
+        label: 'History',
+        data_list: [{ id: 'v', label: 'Value', color: '#112233' }],
+      },
+    });
+    session.handleIncoming({
+      type: 'chart_update',
+      payload: {
+        updates: [
+          { id: 'v', time: 1, value: 2 },
+          { id: 'v', time: 7, value: 8 },
+        ],
+      },
+    });
+    session.handleIncoming({ type: 'monitor_create', payload: { id: 'stale', label: 'Stale' } });
+    session.handleIncoming({ type: 'monitor_create', payload: { id: 'fresh', label: 'Fresh' } });
+    for (const id of ['stale', 'fresh'])
+      session.handleIncoming({
+        type: 'monitor_update',
+        payload: { id, value: 'before', revision: 1 },
+      });
+    const replacementCharts = session.scenario.charts.dump();
+    replacementCharts[0]!.data = [{ time: 3, v: 42 }];
+    session.startRecording({ keyframeEvery: 1 });
+    const restored = session.restoreScene(
+      { checkpoint: { encoding: 'raw', data: 'AQ==' } },
+      {
+        chartPolicy,
+        replacementCharts,
+        historyTime: 1,
+      },
+    );
+    const request_id = (sent[sent.length - 1]!.payload as { request_id: string }).request_id;
+    session.handleIncoming({ type: 'scene_restore_begin', payload: { request_id } });
+    session.handleIncoming({
+      type: 'monitor_update',
+      payload: { id: 'fresh', value: 'after', revision: 2 },
+    });
+    session.handleIncoming({ type: 'scene_restore_end', payload: { request_id, status: 'ok' } });
+    await restored;
+    const snapshot = session.stopRecording()!;
+    const expected = session.scenario.dump();
+    const end = snapshot.frames[snapshot.frames.length - 1]!.index;
+    const replay = materializeSnapshot(snapshot, end);
+    expect(replay.monitors).toEqual(expected.monitors);
+    expect(replay.charts).toEqual(expected.charts);
+    const player = new SnapshotPlayer(snapshot);
+    try {
+      expect(player.seek(end).dump().monitors).toEqual(expected.monitors);
+      expect(player.scenario.dump().charts).toEqual(expected.charts);
+      player.seek(0);
+      expect(player.seek(end).dump().charts).toEqual(expected.charts);
+    } finally {
+      player.close();
+      session.destroy();
+    }
+  },
+);

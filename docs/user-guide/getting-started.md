@@ -70,7 +70,7 @@ Try these interactions:
 The current recommended Python workflow is:
 
 1. Attach environment/layer/item metadata with decorators from `tensnap.bindings`.
-2. Register model/config/chart/action bindings with `SimulationScenario.add_all(...)`.
+2. Use `await scenario.register_model(model)` for model declarations and constructor-driven stepping/reset; register separate config objects with `add_all(...)`.
 3. Let `SimulationScenario` handle sync and incremental updates.
 
 ```python
@@ -122,12 +122,11 @@ scenario = SimulationScenario(port=8765)
 model = Aviary()
 config = Config()
 
-scenario.add_all(model)
 scenario.add_all(config)
 
 
 async def main() -> None:
-    await scenario.register_model_handler(model_step=model.step)
+    await scenario.register_model(model)
     await scenario.run()
 
 
