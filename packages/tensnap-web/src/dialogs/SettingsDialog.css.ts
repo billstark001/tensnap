@@ -63,48 +63,6 @@ export const settingControl = style({
   textAlign: 'left',
 });
 
-export const switchContainer = style({
-  display: 'inline-flex',
-  alignItems: 'center',
-});
-
-export const switchRoot = style({
-  width: '42px',
-  height: '24px',
-  backgroundColor: vars.color.secondary,
-  borderRadius: '12px',
-  position: 'relative',
-  border: 'none',
-  cursor: 'pointer',
-  transition: 'background-color 0.2s ease',
-
-  selectors: {
-    '&[data-state="checked"]': {
-      backgroundColor: vars.color.primary,
-    },
-    '&:focus': {
-      outline: `2px solid ${vars.color.primary}`,
-      outlineOffset: '2px',
-    },
-  },
-});
-
-export const switchThumb = style({
-  display: 'block',
-  width: '18px',
-  height: '18px',
-  backgroundColor: vars.color.terminalForeground,
-  borderRadius: '9px',
-  transition: 'transform 0.2s ease',
-  transform: 'translateX(3px)',
-
-  selectors: {
-    '[data-state="checked"] &': {
-      transform: 'translateX(21px)',
-    },
-  },
-});
-
 export const projectSettingsContainer = style({
   display: 'flex',
   flexDirection: 'column',
@@ -142,22 +100,7 @@ export const visuallyHidden = style({
   border: 0,
 });
 
-export const projectSettingsFooter = style({
-  display: 'flex',
-  justifyContent: 'flex-end',
-  gap: vars.space.sm,
-  paddingTop: vars.space.md,
-  borderTop: `1px solid ${vars.color.border}`,
-
-  selectors: {
-    'body[data-theme="dark"] &': {
-      borderTopColor: vars.color.darkBorder,
-    },
-  },
-});
-
 export const themeLabel = style({
-  marginLeft: vars.space.sm,
   fontSize: vars.fontSize.xs,
   color: vars.color.foreground,
 

@@ -99,55 +99,56 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({
 
   return (
     <Dialog.Root type="ExportDialog" title={title} open={isOpen} onOpenChange={onOpenChange}>
-      <Dialog.Description>
-        {t`Export path`}: {currentPath}
-      </Dialog.Description>
+      <Dialog.Body>
+        <Dialog.Description>
+          {t`Export path`}: {currentPath}
+        </Dialog.Description>
 
-      <div>
-        {error && (
-          <div
-            style={{
-              padding: '12px',
-              backgroundColor: '#ffebee',
-              color: '#c62828',
-              borderRadius: '6px',
-              marginBottom: '16px',
-            }}
-          >
-            {error}
-          </div>
-        )}
+        <div>
+          {error && (
+            <div
+              style={{
+                padding: '12px',
+                backgroundColor: '#ffebee',
+                color: '#c62828',
+                borderRadius: '6px',
+                marginBottom: '16px',
+              }}
+            >
+              {error}
+            </div>
+          )}
 
-        <Form.FieldSet>
-          <Form.Label>{t`Select export format`}</Form.Label>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {allOptions.map((option) => (
-              <button
-                key={option.key}
-                disabled={exporting}
-                className={styles.exportOption}
-                onClick={() => handleOptionClick(option)}
-              >
-                <div style={{ fontWeight: '500', marginBottom: '4px' }}>{option.title}</div>
-                <div className={styles.exportOptionDescription}>{option.description}</div>
-              </button>
-            ))}
-          </div>
-        </Form.FieldSet>
+          <Form.FieldSet>
+            <Form.Label>{t`Select export format`}</Form.Label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {allOptions.map((option) => (
+                <button
+                  key={option.key}
+                  disabled={exporting}
+                  className={styles.exportOption}
+                  onClick={() => handleOptionClick(option)}
+                >
+                  <div style={{ fontWeight: '500', marginBottom: '4px' }}>{option.title}</div>
+                  <div className={styles.exportOptionDescription}>{option.description}</div>
+                </button>
+              ))}
+            </div>
+          </Form.FieldSet>
 
-        {exporting && (
-          <div
-            style={{
-              marginTop: '16px',
-              textAlign: 'center',
-              color: '#666666',
-            }}
-          >
-            {t`Exporting, please wait...`}
-          </div>
-        )}
-      </div>
-
+          {exporting && (
+            <div
+              style={{
+                marginTop: '16px',
+                textAlign: 'center',
+                color: '#666666',
+              }}
+            >
+              {t`Exporting, please wait...`}
+            </div>
+          )}
+        </div>
+      </Dialog.Body>
       <Dialog.Footer>
         <Dialog.Close asChild>
           <Dialog.Button disabled={exporting}>{t`Cancel`}</Dialog.Button>

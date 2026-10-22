@@ -145,51 +145,6 @@ export const option = style({
   },
 });
 
-const BORDER_SIZE = 2;
-const THUMB_SIZE = 20;
-const THUMB_SIZE_HORIZONTAL = 36;
-const THUMB_PADDING = 2;
-
-export const switchRoot = style({
-  width: `${THUMB_SIZE_HORIZONTAL + THUMB_PADDING * 2 + BORDER_SIZE * 2}px`,
-  height: `${THUMB_SIZE + THUMB_PADDING * 2 + BORDER_SIZE * 2}px`,
-  backgroundColor: vars.color.background,
-  border: `${BORDER_SIZE}px solid ${vars.color.foreground}`,
-  borderRadius: '9999px',
-  position: 'relative',
-  selectors: {
-    '&[data-state="checked"]': {
-      backgroundColor: vars.color.primary,
-    },
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkSecondary,
-      borderColor: vars.color.darkForeground,
-    },
-    'body[data-theme="dark"] &[data-state="checked"]': {
-      backgroundColor: vars.color.primary,
-    },
-  },
-});
-
-export const switchThumb = style({
-  display: 'block',
-  width: `${THUMB_SIZE}px`,
-  height: `${THUMB_SIZE}px`,
-  backgroundColor: vars.color.foreground,
-  borderRadius: '9999px',
-  transition: 'transform 100ms',
-  transform: `translateX(${THUMB_PADDING}px)`,
-  willChange: 'transform',
-  selectors: {
-    '&[data-state="checked"]': {
-      transform: `translateX(${THUMB_PADDING + THUMB_SIZE_HORIZONTAL - THUMB_SIZE}px)`,
-    },
-    'body[data-theme="dark"] &': {
-      backgroundColor: vars.color.darkForeground,
-    },
-  },
-});
-
 export const switchLabel = style({
   color: vars.color.foreground,
   fontSize: vars.fontSize.sm,

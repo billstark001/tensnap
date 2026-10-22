@@ -27,11 +27,11 @@ msgstr "Action menu"
 #~ msgid "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 #~ msgstr "Are you sure you want to delete \"{0}\"? This will delete all nested content."
 
-#: src/file-system/CreateDialog.tsx:75
-#: src/file-system/ExportDialog.tsx:153
-#: src/file-system/FileOperationDialog.tsx:151
-#: src/file-system/FilePickerProvider.tsx:227
-#: src/file-system/FileSystemBrowser.tsx:383
+#: src/file-system/CreateDialog.tsx:77
+#: src/file-system/ExportDialog.tsx:154
+#: src/file-system/FileOperationDialog.tsx:157
+#: src/file-system/FilePickerProvider.tsx:238
+#: src/file-system/FileSystemBrowser.tsx:384
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -40,11 +40,11 @@ msgid "Clear search"
 msgstr "Clear search"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:233
+#: src/file-system/FilePickerProvider.tsx:244
 msgid "Confirm Selection ({0})"
 msgstr "Confirm Selection ({0})"
 
-#: src/file-system/CreateDialog.tsx:78
+#: src/file-system/CreateDialog.tsx:80
 msgid "Create"
 msgstr "Create"
 
@@ -52,30 +52,30 @@ msgstr "Create"
 msgid "Create New Item"
 msgstr "Create New Item"
 
-#: src/file-system/FilePickerProvider.tsx:171
+#: src/file-system/FilePickerProvider.tsx:182
 msgid "Current directory: {currentDirectory}"
 msgstr "Current directory: {currentDirectory}"
 
 #: src/file-system/FileItem.tsx:94
-#: src/file-system/FileSystemBrowser.tsx:382
+#: src/file-system/FileSystemBrowser.tsx:383
 msgid "Delete"
 msgstr "Delete"
 
 #. placeholder {0}: pendingDeleteEntry?.name ?? ''
-#: src/file-system/FileSystemBrowser.tsx:376
+#: src/file-system/FileSystemBrowser.tsx:377
 msgid "Delete \"{0}\"?"
 msgstr "Delete \"{0}\"?"
 
-#: src/file-system/FileOperationDialog.tsx:114
+#: src/file-system/FileOperationDialog.tsx:117
 msgid "Destination directory"
 msgstr "Destination directory"
 
-#: src/file-system/CreateDialog.tsx:59
+#: src/file-system/CreateDialog.tsx:60
 #: src/file-system/FileItem.tsx:50
 msgid "Directory"
 msgstr "Directory"
 
-#: src/file-system/FileSystemBrowser.tsx:316
+#: src/file-system/FileSystemBrowser.tsx:317
 msgid "Directory is empty"
 msgstr "Directory is empty"
 
@@ -83,7 +83,7 @@ msgstr "Directory is empty"
 msgid "Download this file"
 msgstr "Download this file"
 
-#: src/file-system/FileSystemBrowser.tsx:321
+#: src/file-system/FileSystemBrowser.tsx:322
 msgid "Drag files here"
 msgstr "Drag files here"
 
@@ -91,12 +91,12 @@ msgstr "Drag files here"
 msgid "Drag files here to upload"
 msgstr "Drag files here to upload"
 
-#: src/file-system/CreateDialog.tsx:68
+#: src/file-system/CreateDialog.tsx:69
 msgid "Enter directory name"
 msgstr "Enter directory name"
 
-#: src/file-system/CreateDialog.tsx:68
-#: src/file-system/FilePickerProvider.tsx:219
+#: src/file-system/CreateDialog.tsx:69
+#: src/file-system/FilePickerProvider.tsx:230
 msgid "Enter file name"
 msgstr "Enter file name"
 
@@ -116,23 +116,23 @@ msgstr "Export as ZIP compressed file, preserving directory structure"
 msgid "Export Options"
 msgstr "Export Options"
 
-#: src/file-system/ExportDialog.tsx:103
+#: src/file-system/ExportDialog.tsx:104
 msgid "Export path"
 msgstr "Export path"
 
-#: src/file-system/ExportDialog.tsx:146
+#: src/file-system/ExportDialog.tsx:147
 msgid "Exporting, please wait..."
 msgstr "Exporting, please wait..."
 
-#: src/file-system/FileSystemBrowser.tsx:222
+#: src/file-system/FileSystemBrowser.tsx:223
 msgid "Failed to create item"
 msgstr "Failed to create item"
 
-#: src/file-system/FileSystemBrowser.tsx:244
+#: src/file-system/FileSystemBrowser.tsx:245
 msgid "Failed to delete item"
 msgstr "Failed to delete item"
 
-#: src/file-system/FileSystemBrowser.tsx:275
+#: src/file-system/FileSystemBrowser.tsx:276
 msgid "Failed to download file"
 msgstr "Failed to download file"
 
@@ -144,37 +144,37 @@ msgstr "Failed to execute export option"
 msgid "Failed to export"
 msgstr "Failed to export"
 
-#: src/file-system/FileSystemBrowser.tsx:305
+#: src/file-system/FileSystemBrowser.tsx:306
 msgid "Failed to load"
 msgstr "Failed to load"
 
-#: src/file-system/FileSystemBrowser.tsx:67
+#: src/file-system/FileSystemBrowser.tsx:68
 msgid "Failed to load directory"
 msgstr "Failed to load directory"
 
-#: src/file-system/FileOperationDialog.tsx:77
+#: src/file-system/FileOperationDialog.tsx:78
 msgid "Failed to move item"
 msgstr "Failed to move item"
 
-#: src/file-system/FileSystemBrowser.tsx:160
+#: src/file-system/FileSystemBrowser.tsx:161
 msgid "Failed to upload files"
 msgstr "Failed to upload files"
 
-#: src/file-system/CreateDialog.tsx:58
+#: src/file-system/CreateDialog.tsx:59
 msgid "File"
 msgstr "File"
 
-#: src/file-system/FilePickerProvider.tsx:212
+#: src/file-system/FilePickerProvider.tsx:223
 msgid "File name:"
 msgstr "File name:"
 
-#: src/file-system/FileSystemBrowser.tsx:264
+#: src/file-system/FileSystemBrowser.tsx:265
 msgid "File not found"
 msgstr "File not found"
 
-#: src/file-system/FileOperationDialog.tsx:61
-#: src/file-system/FileSystemBrowser.tsx:201
+#: src/file-system/FileOperationDialog.tsx:62
 #: src/file-system/FileSystemBrowser.tsx:202
+#: src/file-system/FileSystemBrowser.tsx:203
 msgid "Invalid name"
 msgstr "Invalid name"
 
@@ -182,8 +182,8 @@ msgstr "Invalid name"
 msgid "JSON Format"
 msgstr "JSON Format"
 
-#: src/file-system/FileOperationDialog.tsx:126
-#: src/file-system/FileSystemBrowser.tsx:300
+#: src/file-system/FileOperationDialog.tsx:130
+#: src/file-system/FileSystemBrowser.tsx:301
 msgid "Loading..."
 msgstr "Loading..."
 
@@ -192,12 +192,12 @@ msgid "More Actions"
 msgstr "More Actions"
 
 #: src/file-system/FileItem.tsx:88
-#: src/file-system/FileOperationDialog.tsx:82
+#: src/file-system/FileOperationDialog.tsx:83
 msgid "Move"
 msgstr "Move"
 
-#: src/file-system/CreateDialog.tsx:63
-#: src/file-system/FileOperationDialog.tsx:103
+#: src/file-system/CreateDialog.tsx:64
+#: src/file-system/FileOperationDialog.tsx:106
 msgid "Name"
 msgstr "Name"
 
@@ -213,7 +213,7 @@ msgstr "Next page"
 msgid "No {itemName} available"
 msgstr "No {itemName} available"
 
-#: src/file-system/FilePickerProvider.tsx:219
+#: src/file-system/FilePickerProvider.tsx:230
 msgid "No file selected"
 msgstr "No file selected"
 
@@ -221,16 +221,16 @@ msgstr "No file selected"
 msgid "No results found"
 msgstr "No results found"
 
-#: src/file-system/FilePickerProvider.tsx:234
+#: src/file-system/FilePickerProvider.tsx:245
 msgid "Open"
 msgstr "Open"
 
-#: src/file-system/FilePickerProvider.tsx:162
+#: src/file-system/FilePickerProvider.tsx:173
 msgid "Open File"
 msgstr "Open File"
 
 #: ../web-common/src/components/ui/EmptyState.tsx:151
-#: src/file-system/FileSystemBrowser.tsx:322
+#: src/file-system/FileSystemBrowser.tsx:323
 msgid "Or click to browse"
 msgstr "Or click to browse"
 
@@ -238,7 +238,7 @@ msgstr "Or click to browse"
 msgid "Page {pageNum}"
 msgstr "Page {pageNum}"
 
-#: src/file-system/FileOperationDialog.tsx:123
+#: src/file-system/FileOperationDialog.tsx:127
 msgid "Parent directory"
 msgstr "Parent directory"
 
@@ -251,11 +251,11 @@ msgid "Refresh"
 msgstr "Refresh"
 
 #: src/file-system/FileItem.tsx:91
-#: src/file-system/FileOperationDialog.tsx:82
+#: src/file-system/FileOperationDialog.tsx:83
 msgid "Rename"
 msgstr "Rename"
 
-#: src/file-system/FileSystemBrowser.tsx:308
+#: src/file-system/FileSystemBrowser.tsx:309
 msgid "Retry"
 msgstr "Retry"
 
@@ -263,28 +263,28 @@ msgstr "Retry"
 msgid "Root"
 msgstr "Root"
 
-#: src/file-system/FilePickerProvider.tsx:231
+#: src/file-system/FilePickerProvider.tsx:242
 msgid "Save"
 msgstr "Save"
 
-#: src/file-system/FilePickerProvider.tsx:159
+#: src/file-system/FilePickerProvider.tsx:170
 msgid "Save File"
 msgstr "Save File"
 
-#: src/file-system/ExportDialog.tsx:122
+#: src/file-system/ExportDialog.tsx:123
 msgid "Select export format"
 msgstr "Select export format"
 
-#: src/file-system/FilePickerProvider.tsx:161
+#: src/file-system/FilePickerProvider.tsx:172
 msgid "Select Files"
 msgstr "Select Files"
 
 #. placeholder {0}: selectedItems.length
-#: src/file-system/FilePickerProvider.tsx:173
+#: src/file-system/FilePickerProvider.tsx:184
 msgid "Selected {0} files"
 msgstr "Selected {0} files"
 
-#: src/file-system/FilePickerProvider.tsx:212
+#: src/file-system/FilePickerProvider.tsx:223
 msgid "Selected file:"
 msgstr "Selected file:"
 
@@ -293,11 +293,11 @@ msgstr "Selected file:"
 msgid "This directory is empty"
 msgstr "This directory is empty"
 
-#: src/file-system/FileSystemBrowser.tsx:380
+#: src/file-system/FileSystemBrowser.tsx:381
 msgid "This file will be permanently deleted."
 msgstr "This file will be permanently deleted."
 
-#: src/file-system/FileSystemBrowser.tsx:379
+#: src/file-system/FileSystemBrowser.tsx:380
 msgid "This will delete all nested content."
 msgstr "This will delete all nested content."
 
@@ -305,7 +305,7 @@ msgstr "This will delete all nested content."
 msgid "Try adjusting your search criteria"
 msgstr "Try adjusting your search criteria"
 
-#: src/file-system/CreateDialog.tsx:53
+#: src/file-system/CreateDialog.tsx:54
 msgid "Type"
 msgstr "Type"
 

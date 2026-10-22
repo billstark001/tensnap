@@ -107,3 +107,31 @@ describe('ParameterControl', () => {
     expect(screen.getByRole('slider')).not.toBeDisabled();
   });
 });
+
+it('uses individually labelled shared switches and preserves guarded boolean changes', () => {
+  scenarioState.connected = true;
+  scenarioState.session = { identityStatus: 'matching', run: { status: null }, setParameter };
+  const controls = (
+    <>
+      <ParameterControl
+        parameter={{ id: 'enabled', label: 'Enabled', type: 'boolean', value: false }}
+      />
+      <ParameterControl
+        parameter={{ id: 'visible', label: 'Visible', type: 'boolean', value: true }}
+      />
+    </>
+  );
+  const { rerender } = render(controls);
+  const enabled = screen.getByRole('switch', { name: 'Enabled' });
+  const visible = screen.getByRole('switch', { name: 'Visible' });
+  expect(enabled.id).not.toBe(visible.id);
+  fireEvent.click(enabled);
+  expect(setParameter).toHaveBeenLastCalledWith('enabled', true);
+  scenarioState.connected = false;
+  rerender(
+    <ParameterControl
+      parameter={{ id: 'enabled', label: 'Enabled', type: 'boolean', value: false }}
+    />,
+  );
+  expect(screen.getByRole('switch', { name: 'Enabled' })).toBeDisabled();
+});

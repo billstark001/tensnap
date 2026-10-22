@@ -3,6 +3,7 @@ import { useLingui } from '@lingui/react';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import { useState } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import Form from '@tensnap/web-common/components/ui/Form';
 import type { DialogOpenProps } from '@tensnap/web-common/react';
 import { Trans } from '@lingui/react/macro';
 import type { Snapshot } from '@tensnap/core/snapshot';
@@ -26,7 +27,7 @@ function SelectRecordingDialogContent({
   return (
     <Dialog.Root title={_(msg`Select recording`)} open={open} onOpenChange={onOpenChange}>
       <Dialog.Body>
-        <select
+        <Form.Select
           aria-label="Recording"
           value={id ?? ''}
           onChange={(event) => setSelected(event.target.value)}
@@ -36,7 +37,7 @@ function SelectRecordingDialogContent({
               {snapshot.metadata.label ?? snapshot.metadata.id} ({snapshot.frames.length})
             </option>
           ))}
-        </select>
+        </Form.Select>
       </Dialog.Body>
       <Dialog.Footer>
         <Dialog.Button

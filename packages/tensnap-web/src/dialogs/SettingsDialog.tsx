@@ -1,10 +1,10 @@
 import { clearWindowPlacements } from '@tensnap/web-common/workbench/window-state';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { IPFamily } from '@tensnap/network';
-import React, { useState, useCallback, useMemo, useSyncExternalStore } from 'react';
+import React, { useState, useCallback, useMemo, useSyncExternalStore, useId } from 'react';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
 import * as Select from '@tensnap/web-common/components/ui/Select';
-import * as Switch from '@radix-ui/react-switch';
+import { Switch } from '@tensnap/web-common/components/ui/Switch';
 import type { DialogOpenProps } from '@tensnap/web-common/react';
 import {
   ACTION_TIMEOUT_SECONDS_OPTIONS,
@@ -31,6 +31,7 @@ const subscribeNone = () => () => {};
 const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }) => {
   const { _ } = useLingui();
   const toast = useToast();
+  const themeSwitchId = useId();
 
   const {
     ip_family,
@@ -142,416 +143,420 @@ const SettingsDialogContent: React.FC<DialogOpenProps> = ({ open, onOpenChange }
 
   return (
     <Dialog.Root title={_(msg`Settings`)} open={open} onOpenChange={onOpenChange} size="lg">
-      <Dialog.Description className={styles.visuallyHidden}>
-        <Trans>Configure application and project settings.</Trans>
-      </Dialog.Description>
+      <Dialog.Body>
+        <Dialog.Description className={styles.visuallyHidden}>
+          <Trans>Configure application and project settings.</Trans>
+        </Dialog.Description>
 
-      <div className={styles.settingsContainer}>
-        {/* System Settings */}
-        <div className={styles.sectionContainer}>
-          <h3 className={styles.sectionTitle}>
-            <Trans>System Settings</Trans>
-          </h3>
-
-          <Dialog.Button
-            onClick={async () => {
-              await clearWindowPlacements();
-              toast.success(_(msg`Window positions cleared`));
-            }}
-          >
-            <Trans>Clear saved window positions</Trans>
-          </Dialog.Button>
-          <div className={styles.systemSettingsGrid}>
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Theme</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <div className={styles.switchContainer}>
-                  <Switch.Root
-                    className={styles.switchRoot}
-                    checked={theme === 'dark'}
-                    onCheckedChange={toggleTheme}
-                  >
-                    <Switch.Thumb className={styles.switchThumb} />
-                  </Switch.Root>
-                  <span className={styles.themeLabel}>
-                    {theme === 'dark' ? <Trans>Dark</Trans> : <Trans>Light</Trans>}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Language</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root value={locale} onValueChange={handleLocaleChange}>
-                  {Object.entries(locales).map(([code, name]) => (
-                    <Select.Item key={code} value={code}>
-                      {name}
-                    </Select.Item>
-                  ))}
-                </Select.Root>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Save Format</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root value={saveFormat} onValueChange={setSaveFormat}>
-                  <Select.Item value="msgpack">MessagePack</Select.Item>
-                  <Select.Item value="json">JSON</Select.Item>
-                </Select.Root>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label htmlFor="system-ip-family" className={styles.settingLabel}>
-                <Trans>IP family</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root
-                  triggerProps={{ id: 'system-ip-family' }}
-                  value={ip_family}
-                  onValueChange={(family) => setIPFamily(family as IPFamily)}
-                >
-                  <Select.Item value="auto">
-                    <Trans>Auto</Trans>
-                  </Select.Item>
-                  <Select.Item value="ipv4">
-                    <Trans>IPv4 only</Trans>
-                  </Select.Item>
-                  <Select.Item value="ipv6">
-                    <Trans>IPv6 only</Trans>
-                  </Select.Item>
-                </Select.Root>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Client Message Validation</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root
-                  value={clientMessageValidation}
-                  onValueChange={(value) =>
-                    setClientMessageValidation(value as 'off' | 'warning' | 'error')
-                  }
-                >
-                  <Select.Item value="off">
-                    <Trans>Off</Trans>
-                  </Select.Item>
-                  <Select.Item value="warning">
-                    <Trans>Warning</Trans>
-                  </Select.Item>
-                  <Select.Item value="error">
-                    <Trans>Error</Trans>
-                  </Select.Item>
-                </Select.Root>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Server Message Validation</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root
-                  value={serverMessageValidation}
-                  onValueChange={(value) =>
-                    setServerMessageValidation(value as 'off' | 'warning' | 'error')
-                  }
-                >
-                  <Select.Item value="off">
-                    <Trans>Off</Trans>
-                  </Select.Item>
-                  <Select.Item value="warning">
-                    <Trans>Warning</Trans>
-                  </Select.Item>
-                  <Select.Item value="error">
-                    <Trans>Error</Trans>
-                  </Select.Item>
-                </Select.Root>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Render Trigger</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root
-                  value={renderTriggerMode}
-                  onValueChange={(value) =>
-                    setRenderTriggerMode(value as 'auto' | 'setTimeout' | 'requestAnimationFrame')
-                  }
-                >
-                  <Select.Item value="auto">
-                    <Trans>Auto</Trans>
-                  </Select.Item>
-                  <Select.Item value="setTimeout">setTimeout</Select.Item>
-                  <Select.Item value="requestAnimationFrame">requestAnimationFrame</Select.Item>
-                </Select.Root>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Max TPS</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <div>
-                  <Form.Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={maxTps}
-                    onChange={(e) => setMaxTps(Number(e.target.value))}
-                  />
-                  <div className={styles.fieldHint}>
-                    <Trans>0 means unlimited</Trans>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Max FPS</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <div>
-                  <Form.Input
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={maxRenderFps}
-                    onChange={(e) => setMaxRenderFps(Number(e.target.value))}
-                  />
-                  <div className={styles.fieldHint}>
-                    <Trans>0 means unlimited</Trans>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Snapshot playback FPS</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <div>
-                  <Form.Input
-                    type="number"
-                    min={1}
-                    max={MAX_SNAPSHOT_PLAYBACK_FPS}
-                    step={1}
-                    value={snapshotPlaybackFps}
-                    onChange={(e) => setSnapshotPlaybackFps(Number(e.target.value))}
-                  />
-                  <div className={styles.fieldHint}>
-                    <Trans>Maximum 120 FPS</Trans>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.settingItem}>
-              <label className={styles.settingLabel}>
-                <Trans>Action Timeout</Trans>
-              </label>
-              <div className={styles.settingControl}>
-                <Select.Root
-                  value={String(actionTimeoutSeconds)}
-                  onValueChange={(value) => setActionTimeoutSeconds(Number(value))}
-                >
-                  {ACTION_TIMEOUT_SECONDS_OPTIONS.map((seconds) => (
-                    <Select.Item key={seconds} value={String(seconds)}>
-                      {seconds}s
-                    </Select.Item>
-                  ))}
-                </Select.Root>
-              </div>
-            </div>
-          </div>
-          <div className={styles.fieldHint}>
-            <Trans>
-              IP family applies to new connections and reconnects. Browsers can force it for IP
-              addresses or local ws://localhost connections. Other domain names require Auto.
-            </Trans>
-          </div>
-        </div>
-
-        <Dialog.Separator />
-
-        {/* Project Settings */}
-        {activeProject && (
+        <div className={styles.settingsContainer}>
+          {/* System Settings */}
           <div className={styles.sectionContainer}>
             <h3 className={styles.sectionTitle}>
-              <Trans>Project Settings</Trans>
+              <Trans>System Settings</Trans>
             </h3>
 
-            <div className={styles.projectSettingsContainer}>
-              <div className={styles.projectSettingsForm}>
-                <Form.FieldSet>
-                  <Form.Label>
-                    <Trans>Project File</Trans>
-                  </Form.Label>
-                  <Form.Input
-                    className={styles.projectPathInput}
-                    type="text"
-                    value={activeProject.filepath ?? ''}
-                    readOnly
-                    title={activeProject.filepath ?? _(msg`Unsaved project`)}
-                    placeholder={_(msg`Unsaved project`)}
+            <Dialog.Button
+              onClick={async () => {
+                await clearWindowPlacements();
+                toast.success(_(msg`Window positions cleared`));
+              }}
+            >
+              <Trans>Clear saved window positions</Trans>
+            </Dialog.Button>
+            <div className={styles.systemSettingsGrid}>
+              <div className={styles.settingItem}>
+                <label
+                  className={styles.settingLabel}
+                  id={`${themeSwitchId}-label`}
+                  htmlFor={themeSwitchId}
+                >
+                  <Trans>Theme</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Switch
+                    id={themeSwitchId}
+                    aria-labelledby={`${themeSwitchId}-label`}
+                    checked={theme === 'dark'}
+                    onCheckedChange={toggleTheme}
+                    label={theme === 'dark' ? <Trans>Dark</Trans> : <Trans>Light</Trans>}
+                    labelClassName={styles.themeLabel}
                   />
-                  <div className={styles.fieldHint}>
-                    <Trans>The full path is shown here and is not editable.</Trans>
-                  </div>
-                </Form.FieldSet>
-                <Form.FieldSet>
-                  <Form.Label>
-                    <Trans>Project Source</Trans>
-                  </Form.Label>
-                  <Select.Root
-                    value={projectSource.kind}
-                    onValueChange={(kind) => {
-                      if (kind === 'websocket')
-                        updateProjectSource({
-                          kind,
-                          url:
-                            projectSource.kind === 'websocket'
-                              ? projectSource.url
-                              : 'ws://localhost:8765',
-                        });
-                      if (kind === 'inmemory')
-                        updateProjectSource({
-                          kind,
-                          model_id:
-                            projectSource.kind === 'inmemory'
-                              ? projectSource.model_id
-                              : (builtinModels[0]?.id ?? ''),
-                        });
-                      if (kind === 'snapshot')
-                        updateProjectSource({
-                          kind,
-                          snapshot_id:
-                            projectSource.kind === 'snapshot'
-                              ? projectSource.snapshot_id
-                              : (snapshots[0]?.metadata.id ?? ''),
-                        });
-                    }}
-                  >
-                    <Select.Item value="websocket">
-                      <Trans>WebSocket simulator</Trans>
-                    </Select.Item>
-                    <Select.Item value="inmemory">
-                      <Trans>Built-in browser model</Trans>
-                    </Select.Item>
-                    <Select.Item value="snapshot" disabled={!snapshots.length}>
-                      <Trans>Snapshot playback</Trans>
-                    </Select.Item>
-                  </Select.Root>
-                </Form.FieldSet>
-                {projectSource.kind === 'websocket' && (
-                  <Form.FieldSet>
-                    <Form.Label>
-                      <Trans>Backend URL</Trans>
-                    </Form.Label>
-                    <Form.Input
-                      type="text"
-                      value={projectSource.url}
-                      onChange={(e) =>
-                        updateProjectSource({ ...projectSource, url: e.target.value })
-                      }
-                      placeholder={_(msg`Enter backend WebSocket server address`)}
-                    />
-                    {ipFamilyError(projectSource.url, ip_family) && (
-                      <div className={styles.fieldHint} role="alert">
-                        {ipFamilyError(projectSource.url, ip_family)}
-                      </div>
-                    )}
-                    <div className={styles.fieldHint}>
-                      <Trans>
-                        Change the WebSocket server URL for the current project. The connection will
-                        be reestablished.
-                      </Trans>
-                    </div>
-                  </Form.FieldSet>
-                )}
-                {projectSource.kind === 'inmemory' && (
-                  <Form.FieldSet>
-                    <Form.Label>
-                      <Trans>Built-in model</Trans>
-                    </Form.Label>
-                    <Select.Root
-                      value={projectSource.model_id}
-                      onValueChange={(model_id) =>
-                        updateProjectSource({ kind: 'inmemory', model_id })
-                      }
-                    >
-                      {builtinModels.map((model) => (
-                        <Select.Item key={model.id} value={model.id}>
-                          {model.name}
-                        </Select.Item>
-                      ))}
-                    </Select.Root>
-                    <div className={styles.fieldHint}>
-                      <Trans>This project runs a local JavaScript simulator in the browser.</Trans>
-                    </div>
-                  </Form.FieldSet>
-                )}
-                {projectSource.kind === 'snapshot' && (
-                  <Form.FieldSet>
-                    <Form.Label>
-                      <Trans>Snapshot</Trans>
-                    </Form.Label>
-                    <Select.Root
-                      value={projectSource.snapshot_id}
-                      onValueChange={(snapshot_id) =>
-                        updateProjectSource({ kind: 'snapshot', snapshot_id })
-                      }
-                    >
-                      {snapshots.map((snapshot) => (
-                        <Select.Item key={snapshot.metadata.id} value={snapshot.metadata.id}>
-                          {snapshot.metadata.label || snapshot.metadata.id}
-                        </Select.Item>
-                      ))}
-                    </Select.Root>
-                    <div className={styles.fieldHint}>
-                      <Trans>
-                        Snapshot sources are disconnected and permit playback controls only.
-                      </Trans>
-                    </div>
-                  </Form.FieldSet>
-                )}
+                </div>
               </div>
 
-              <div className={styles.projectSettingsFooter}>
-                <Dialog.Button onClick={handleProjectSettingsReset} disabled={!hasProjectChanges}>
-                  <Trans>Reset</Trans>
-                </Dialog.Button>
-                <Dialog.Button
-                  variant="primary"
-                  onClick={handleProjectSettingsConfirm}
-                  disabled={
-                    !hasProjectChanges ||
-                    (projectSource.kind === 'websocket' &&
-                      !!ipFamilyError(projectSource.url, ip_family))
-                  }
-                >
-                  <Trans>Apply</Trans>
-                </Dialog.Button>
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Language</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root value={locale} onValueChange={handleLocaleChange}>
+                    {Object.entries(locales).map(([code, name]) => (
+                      <Select.Item key={code} value={code}>
+                        {name}
+                      </Select.Item>
+                    ))}
+                  </Select.Root>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Save Format</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root value={saveFormat} onValueChange={setSaveFormat}>
+                    <Select.Item value="msgpack">MessagePack</Select.Item>
+                    <Select.Item value="json">JSON</Select.Item>
+                  </Select.Root>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label htmlFor="system-ip-family" className={styles.settingLabel}>
+                  <Trans>IP family</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root
+                    triggerProps={{ id: 'system-ip-family' }}
+                    value={ip_family}
+                    onValueChange={(family) => setIPFamily(family as IPFamily)}
+                  >
+                    <Select.Item value="auto">
+                      <Trans>Auto</Trans>
+                    </Select.Item>
+                    <Select.Item value="ipv4">
+                      <Trans>IPv4 only</Trans>
+                    </Select.Item>
+                    <Select.Item value="ipv6">
+                      <Trans>IPv6 only</Trans>
+                    </Select.Item>
+                  </Select.Root>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Client Message Validation</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root
+                    value={clientMessageValidation}
+                    onValueChange={(value) =>
+                      setClientMessageValidation(value as 'off' | 'warning' | 'error')
+                    }
+                  >
+                    <Select.Item value="off">
+                      <Trans>Off</Trans>
+                    </Select.Item>
+                    <Select.Item value="warning">
+                      <Trans>Warning</Trans>
+                    </Select.Item>
+                    <Select.Item value="error">
+                      <Trans>Error</Trans>
+                    </Select.Item>
+                  </Select.Root>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Server Message Validation</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root
+                    value={serverMessageValidation}
+                    onValueChange={(value) =>
+                      setServerMessageValidation(value as 'off' | 'warning' | 'error')
+                    }
+                  >
+                    <Select.Item value="off">
+                      <Trans>Off</Trans>
+                    </Select.Item>
+                    <Select.Item value="warning">
+                      <Trans>Warning</Trans>
+                    </Select.Item>
+                    <Select.Item value="error">
+                      <Trans>Error</Trans>
+                    </Select.Item>
+                  </Select.Root>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Render Trigger</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root
+                    value={renderTriggerMode}
+                    onValueChange={(value) =>
+                      setRenderTriggerMode(value as 'auto' | 'setTimeout' | 'requestAnimationFrame')
+                    }
+                  >
+                    <Select.Item value="auto">
+                      <Trans>Auto</Trans>
+                    </Select.Item>
+                    <Select.Item value="setTimeout">setTimeout</Select.Item>
+                    <Select.Item value="requestAnimationFrame">requestAnimationFrame</Select.Item>
+                  </Select.Root>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Max TPS</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <div>
+                    <Form.Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={maxTps}
+                      onChange={(e) => setMaxTps(Number(e.target.value))}
+                    />
+                    <div className={styles.fieldHint}>
+                      <Trans>0 means unlimited</Trans>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Max FPS</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <div>
+                    <Form.Input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={maxRenderFps}
+                      onChange={(e) => setMaxRenderFps(Number(e.target.value))}
+                    />
+                    <div className={styles.fieldHint}>
+                      <Trans>0 means unlimited</Trans>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Snapshot playback FPS</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <div>
+                    <Form.Input
+                      type="number"
+                      min={1}
+                      max={MAX_SNAPSHOT_PLAYBACK_FPS}
+                      step={1}
+                      value={snapshotPlaybackFps}
+                      onChange={(e) => setSnapshotPlaybackFps(Number(e.target.value))}
+                    />
+                    <div className={styles.fieldHint}>
+                      <Trans>Maximum 120 FPS</Trans>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.settingItem}>
+                <label className={styles.settingLabel}>
+                  <Trans>Action Timeout</Trans>
+                </label>
+                <div className={styles.settingControl}>
+                  <Select.Root
+                    value={String(actionTimeoutSeconds)}
+                    onValueChange={(value) => setActionTimeoutSeconds(Number(value))}
+                  >
+                    {ACTION_TIMEOUT_SECONDS_OPTIONS.map((seconds) => (
+                      <Select.Item key={seconds} value={String(seconds)}>
+                        {seconds}s
+                      </Select.Item>
+                    ))}
+                  </Select.Root>
+                </div>
               </div>
             </div>
+            <div className={styles.fieldHint}>
+              <Trans>
+                IP family applies to new connections and reconnects. Browsers can force it for IP
+                addresses or local ws://localhost connections. Other domain names require Auto.
+              </Trans>
+            </div>
           </div>
-        )}
-      </div>
+
+          <Dialog.Separator />
+
+          {/* Project Settings */}
+          {activeProject && (
+            <div className={styles.sectionContainer}>
+              <h3 className={styles.sectionTitle}>
+                <Trans>Project Settings</Trans>
+              </h3>
+
+              <div className={styles.projectSettingsContainer}>
+                <div className={styles.projectSettingsForm}>
+                  <Form.FieldSet>
+                    <Form.Label>
+                      <Trans>Project File</Trans>
+                    </Form.Label>
+                    <Form.Input
+                      className={styles.projectPathInput}
+                      type="text"
+                      value={activeProject.filepath ?? ''}
+                      readOnly
+                      title={activeProject.filepath ?? _(msg`Unsaved project`)}
+                      placeholder={_(msg`Unsaved project`)}
+                    />
+                    <div className={styles.fieldHint}>
+                      <Trans>The full path is shown here and is not editable.</Trans>
+                    </div>
+                  </Form.FieldSet>
+                  <Form.FieldSet>
+                    <Form.Label>
+                      <Trans>Project Source</Trans>
+                    </Form.Label>
+                    <Select.Root
+                      value={projectSource.kind}
+                      onValueChange={(kind) => {
+                        if (kind === 'websocket')
+                          updateProjectSource({
+                            kind,
+                            url:
+                              projectSource.kind === 'websocket'
+                                ? projectSource.url
+                                : 'ws://localhost:8765',
+                          });
+                        if (kind === 'inmemory')
+                          updateProjectSource({
+                            kind,
+                            model_id:
+                              projectSource.kind === 'inmemory'
+                                ? projectSource.model_id
+                                : (builtinModels[0]?.id ?? ''),
+                          });
+                        if (kind === 'snapshot')
+                          updateProjectSource({
+                            kind,
+                            snapshot_id:
+                              projectSource.kind === 'snapshot'
+                                ? projectSource.snapshot_id
+                                : (snapshots[0]?.metadata.id ?? ''),
+                          });
+                      }}
+                    >
+                      <Select.Item value="websocket">
+                        <Trans>WebSocket simulator</Trans>
+                      </Select.Item>
+                      <Select.Item value="inmemory">
+                        <Trans>Built-in browser model</Trans>
+                      </Select.Item>
+                      <Select.Item value="snapshot" disabled={!snapshots.length}>
+                        <Trans>Snapshot playback</Trans>
+                      </Select.Item>
+                    </Select.Root>
+                  </Form.FieldSet>
+                  {projectSource.kind === 'websocket' && (
+                    <Form.FieldSet>
+                      <Form.Label>
+                        <Trans>Backend URL</Trans>
+                      </Form.Label>
+                      <Form.Input
+                        type="text"
+                        value={projectSource.url}
+                        onChange={(e) =>
+                          updateProjectSource({ ...projectSource, url: e.target.value })
+                        }
+                        placeholder={_(msg`Enter backend WebSocket server address`)}
+                      />
+                      {ipFamilyError(projectSource.url, ip_family) && (
+                        <div className={styles.fieldHint} role="alert">
+                          {ipFamilyError(projectSource.url, ip_family)}
+                        </div>
+                      )}
+                      <div className={styles.fieldHint}>
+                        <Trans>
+                          Change the WebSocket server URL for the current project. The connection
+                          will be reestablished.
+                        </Trans>
+                      </div>
+                    </Form.FieldSet>
+                  )}
+                  {projectSource.kind === 'inmemory' && (
+                    <Form.FieldSet>
+                      <Form.Label>
+                        <Trans>Built-in model</Trans>
+                      </Form.Label>
+                      <Select.Root
+                        value={projectSource.model_id}
+                        onValueChange={(model_id) =>
+                          updateProjectSource({ kind: 'inmemory', model_id })
+                        }
+                      >
+                        {builtinModels.map((model) => (
+                          <Select.Item key={model.id} value={model.id}>
+                            {model.name}
+                          </Select.Item>
+                        ))}
+                      </Select.Root>
+                      <div className={styles.fieldHint}>
+                        <Trans>
+                          This project runs a local JavaScript simulator in the browser.
+                        </Trans>
+                      </div>
+                    </Form.FieldSet>
+                  )}
+                  {projectSource.kind === 'snapshot' && (
+                    <Form.FieldSet>
+                      <Form.Label>
+                        <Trans>Snapshot</Trans>
+                      </Form.Label>
+                      <Select.Root
+                        value={projectSource.snapshot_id}
+                        onValueChange={(snapshot_id) =>
+                          updateProjectSource({ kind: 'snapshot', snapshot_id })
+                        }
+                      >
+                        {snapshots.map((snapshot) => (
+                          <Select.Item key={snapshot.metadata.id} value={snapshot.metadata.id}>
+                            {snapshot.metadata.label || snapshot.metadata.id}
+                          </Select.Item>
+                        ))}
+                      </Select.Root>
+                      <div className={styles.fieldHint}>
+                        <Trans>
+                          Snapshot sources are disconnected and permit playback controls only.
+                        </Trans>
+                      </div>
+                    </Form.FieldSet>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Dialog.Body>
+      {activeProject && (
+        <Dialog.Footer>
+          <Dialog.Button onClick={handleProjectSettingsReset} disabled={!hasProjectChanges}>
+            <Trans>Reset</Trans>
+          </Dialog.Button>
+          <Dialog.Button
+            variant="primary"
+            onClick={handleProjectSettingsConfirm}
+            disabled={
+              !hasProjectChanges ||
+              (projectSource.kind === 'websocket' && !!ipFamilyError(projectSource.url, ip_family))
+            }
+          >
+            <Trans>Apply</Trans>
+          </Dialog.Button>
+        </Dialog.Footer>
+      )}
     </Dialog.Root>
   );
 };

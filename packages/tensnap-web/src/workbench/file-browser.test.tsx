@@ -38,7 +38,10 @@ it('opens the same file actions from the ellipsis, right-click and keyboard with
   ]);
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
   fireEvent.contextMenu(row, { clientX: 200, clientY: 150 });
-  expect(screen.getByRole('menu').parentElement).toHaveStyle({ left: '200px', top: '150px' });
+  expect(screen.getByRole('menu').closest('[data-workbench-menu]')).toHaveStyle({
+    left: '200px',
+    top: '150px',
+  });
   fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
   fireEvent.keyDown(row, { key: 'F10', shiftKey: true });
   expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument();

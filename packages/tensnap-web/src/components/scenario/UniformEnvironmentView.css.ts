@@ -63,15 +63,16 @@ export const agentCount = style({
 
 export const agentsList = style({
   flex: '1 1 0',
+  marginBottom: '16px',
+  minHeight: 0,
+});
+
+export const agentsGrid = style({
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))',
   gridAutoRows: 'minmax(64px, max-content)',
   alignContent: 'start',
   gap: '12px',
-  marginBottom: '16px',
-  minHeight: 0,
-  maxHeight: 'none',
-  overflowY: 'auto',
   padding: '8px',
 });
 

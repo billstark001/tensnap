@@ -1,3 +1,4 @@
+import { ScrollArea } from './ScrollArea';
 import {
   cloneElement,
   createContext,
@@ -119,9 +120,11 @@ export function Content({ children, ...props }: HTMLAttributes<HTMLDivElement>) 
   const menu = useContext(MenuContext);
   return menu.element
     ? createPortal(
-        <div {...props} role="menu">
-          {children}
-        </div>,
+        <ScrollArea style={{ maxHeight: 'inherit' }}>
+          <div {...props} role="menu">
+            {children}
+          </div>
+        </ScrollArea>,
         menu.element,
       )
     : null;

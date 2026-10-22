@@ -461,13 +461,13 @@ export const dropdownItemDanger = style([
   },
 ]);
 
-export const moveDirectoryList = style({
+export const moveDirectoryList = style({ maxHeight: '200px', marginTop: '12px' });
+export const directoryEntries = style({ display: 'flex', flexDirection: 'column', gap: '8px' });
+export const operationForm = style({
   display: 'flex',
   flexDirection: 'column',
-  gap: '8px',
-  maxHeight: '200px',
-  overflowY: 'auto',
-  marginTop: '12px',
+  minHeight: 0,
+  flex: 1,
 });
 
 export const operationError = style({ color: vars.color.danger });

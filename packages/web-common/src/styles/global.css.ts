@@ -114,6 +114,7 @@ globalStyle('*, *::before, *::after', {
 });
 
 globalStyle('html, body', {
+  colorScheme: 'light',
   minHeight: '100%',
   fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   fontSize: vars.fontSize.md,
@@ -123,6 +124,7 @@ globalStyle('html, body', {
 });
 
 globalStyle('body[data-theme="dark"]', {
+  colorScheme: 'dark',
   color: vars.color.darkForeground,
   backgroundColor: vars.color.darkBackground,
 });

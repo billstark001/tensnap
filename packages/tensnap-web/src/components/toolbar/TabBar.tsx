@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import React, { useState } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import * as styles from '@/styles/toolbar.css';
@@ -56,29 +57,30 @@ export const TabBar: React.FC<TabBarProps> = ({
   return (
     <Tabs.Root value={currentActiveTab} onValueChange={handleTabChange}>
       <div className={clsx(styles.tabsContainer, className)}>
-        <Tabs.List className={styles.tabList}>
-          {tabs.map((tab) => (
-            <Tabs.Trigger
-              key={tab.id}
-              value={tab.id}
-              className={currentActiveTab === tab.id ? styles.activeTab : styles.tab}
-              title={tab.title ?? tab.name}
-            >
-              <span className={styles.tabLabel}>{tab.name}</span>
-              <span
-                className={styles.tabCloseButton}
-                onClick={(e) => handleTabClose(e, tab.id)}
-                aria-label={_(msg`Close ${tab.name}`)}
+        <ScrollArea className={styles.tabScroll}>
+          <Tabs.List className={styles.tabList}>
+            {tabs.map((tab) => (
+              <Tabs.Trigger
+                key={tab.id}
+                value={tab.id}
+                className={currentActiveTab === tab.id ? styles.activeTab : styles.tab}
+                title={tab.title ?? tab.name}
               >
-                ×
-              </span>
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-
-        <button className={styles.newTabButton} onClick={onNewTab} aria-label={_(msg`New Tab`)}>
-          +
-        </button>
+                <span className={styles.tabLabel}>{tab.name}</span>
+                <span
+                  className={styles.tabCloseButton}
+                  onClick={(e) => handleTabClose(e, tab.id)}
+                  aria-label={_(msg`Close ${tab.name}`)}
+                >
+                  ×
+                </span>
+              </Tabs.Trigger>
+            ))}
+          </Tabs.List>
+          <button className={styles.newTabButton} onClick={onNewTab} aria-label={_(msg`New Tab`)}>
+            +
+          </button>
+        </ScrollArea>
       </div>
 
       {tabs.map((tab) => (

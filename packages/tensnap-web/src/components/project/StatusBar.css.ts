@@ -1,12 +1,12 @@
 import { vars } from '@tensnap/web-common/styles/global.css';
-import { style } from '@vanilla-extract/css';
+import { keyframes, style } from '@vanilla-extract/css';
 
 export const statusBar = style({
   containerType: 'inline-size',
   containerName: 'statusbar',
   minWidth: 0,
   whiteSpace: 'nowrap',
-  padding: vars.space.sm,
+  padding: `${vars.space.sm} ${vars.space.md}`,
   display: 'flex',
   alignItems: 'center',
   gap: vars.space.sm,
@@ -128,15 +128,26 @@ export const buttonGroup = style({
 });
 
 export const statusMetrics = style({
+  flex: '1 1 0',
+  minWidth: 0,
+});
+export const statusMetricsContent = style({
   display: 'flex',
   alignItems: 'center',
   gap: vars.space.sm,
-  flex: '1 1 0',
-  minWidth: 0,
-  overflowX: 'auto',
+  width: 'max-content',
+  minWidth: '100%',
   whiteSpace: 'nowrap',
-  scrollbarWidth: 'thin',
 });
 export const buttonText = style({
   '@container': { 'statusbar (max-width: 1000px)': { display: 'none' } },
+});
+
+const spin = keyframes({
+  from: { transform: 'rotate(0deg)' },
+  to: { transform: 'rotate(360deg)' },
+});
+export const spinningIcon = style({
+  animation: `${spin} 1s linear infinite`,
+  '@media': { '(prefers-reduced-motion: reduce)': { animation: 'none' } },
 });

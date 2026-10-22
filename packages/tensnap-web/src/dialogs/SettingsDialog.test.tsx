@@ -1,6 +1,6 @@
 import { ProjectScope } from '../ProjectScope';
 import type * as Transport from '@/transport';
-import { fireEvent, render, screen, cleanup } from '@testing-library/react';
+import { fireEvent, render, screen, cleanup, act } from '@testing-library/react';
 import { I18nProvider } from '@lingui/react';
 import { setupI18n } from '@lingui/core';
 import { afterEach, expect, it, vi } from 'vitest';
@@ -96,5 +96,26 @@ it('updates recording choices when the owning project renames or imports recordi
     if (scrollIntoView)
       Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', scrollIntoView);
     else Reflect.deleteProperty(HTMLElement.prototype, 'scrollIntoView');
+  }
+});
+
+it('uses the shared theme switch with an accessible label and keyboard activation', async () => {
+  const { default: userEvent } = await import('@testing-library/user-event');
+  const user = userEvent.setup();
+  const theme = useSettingsStore.getState().theme;
+  try {
+    render(
+      <I18nProvider i18n={i18n}>
+        <SettingsDialog open onOpenChange={() => {}} />
+      </I18nProvider>,
+    );
+    const control = screen.getByRole('switch', { name: 'Theme' });
+    expect(control).toHaveAttribute('aria-checked', String(theme === 'dark'));
+    await user.click(control);
+    expect(useSettingsStore.getState().theme).toBe(theme === 'dark' ? 'light' : 'dark');
+    await user.keyboard(' ');
+    expect(useSettingsStore.getState().theme).toBe(theme);
+  } finally {
+    act(() => useSettingsStore.getState().setTheme(theme));
   }
 });

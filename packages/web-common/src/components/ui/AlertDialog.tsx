@@ -24,7 +24,9 @@ function ConfirmDialogContent({
 }: ConfirmDialogProps) {
   return (
     <Dialog.Root modal title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
-      <Dialog.Description>{description}</Dialog.Description>
+      <Dialog.Body>
+        <Dialog.Description>{description}</Dialog.Description>
+      </Dialog.Body>
       <Dialog.Footer>
         <Dialog.Button onClick={() => onOpenChange(false)}>{cancelLabel}</Dialog.Button>
         <Dialog.Button variant={confirmVariant} onClick={() => onConfirm()}>
@@ -52,7 +54,9 @@ function AlertDialogContent({
 }: AlertDialogProps) {
   return (
     <Dialog.Root modal title={title} open={open} onOpenChange={onOpenChange} dismissible={false}>
-      <Dialog.Description>{description}</Dialog.Description>
+      <Dialog.Body>
+        <Dialog.Description>{description}</Dialog.Description>
+      </Dialog.Body>
       <Dialog.Footer>
         <Dialog.Button
           variant="primary"

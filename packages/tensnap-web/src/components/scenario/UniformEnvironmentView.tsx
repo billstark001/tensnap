@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 // UniformEnvironmentView.tsx
 import { useState, useMemo, useCallback, useSyncExternalStore } from 'react';
 import type { AgentItem as UniformAgent } from '@tensnap/protocol/layers';
@@ -226,18 +227,20 @@ export function UniformEnvironmentView({
         <EmptyAgentState hasSearch={!!searchTerm} onClearSearch={handleClearSearch} />
       ) : (
         <>
-          <div className={styles.agentsList}>
-            {paginatedAgents.map(({ key, agent, ref }) => (
-              <AgentCard
-                key={key}
-                agent={agent}
-                resolveAssetUrl={(assetId) =>
-                  assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)
-                }
-                onClick={() => handleAgentClick(ref)}
-              />
-            ))}
-          </div>
+          <ScrollArea className={styles.agentsList}>
+            <div className={styles.agentsGrid}>
+              {paginatedAgents.map(({ key, agent, ref }) => (
+                <AgentCard
+                  key={key}
+                  agent={agent}
+                  resolveAssetUrl={(assetId) =>
+                    assets?.getUrl(assetId) ?? scenario?.assets.getUrl(assetId)
+                  }
+                  onClick={() => handleAgentClick(ref)}
+                />
+              ))}
+            </div>
+          </ScrollArea>
 
           <Pagination
             currentPage={safeCurrentPage}

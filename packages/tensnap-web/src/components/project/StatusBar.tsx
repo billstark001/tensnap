@@ -1,3 +1,4 @@
+import { ScrollArea } from '@tensnap/web-common/components/ui/ScrollArea';
 import { DialogScopeContext } from '@tensnap/web-common/workbench/dialog-content';
 import { useScenarioStore } from '@/store/scenario/store';
 import { useTransportStore } from '@/store/transport';
@@ -137,70 +138,72 @@ export function StatusBar({
 
   return (
     <div className={styles.statusBar}>
-      <div
+      <ScrollArea
         className={styles.statusMetrics}
         role="group"
         aria-label={_(msg`Runtime status`)}
         tabIndex={0}
       >
-        <span className={connectionClassName} title={connectionError ?? undefined}>
-          {connectionLabel}
-        </span>
-        <span className={styles.statusMeta}>
-          <span>
-            <Trans>Time Step:</Trans>
+        <div className={styles.statusMetricsContent}>
+          <span className={connectionClassName} title={connectionError ?? undefined}>
+            {connectionLabel}
           </span>
-          <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
-        </span>
-        {runSummary && (
-          <span className={styles.statusMeta} title={runSummary}>
-            <span>
-              <Trans>Run:</Trans>
-            </span>
-            <span className={styles.metricValue}>{runSummary}</span>
-          </span>
-        )}
-        <span className={styles.statusMeta}>
-          <span>
-            <Trans>TPS:</Trans>
-          </span>
-          <span className={styles.metricValue}>
-            {runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}
-          </span>
-        </span>
-        <span className={styles.statusMeta}>
-          <span>
-            <Trans>MSPT:</Trans>
-          </span>
-          <span className={styles.metricValue}>
-            {runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}
-          </span>
-        </span>
-        <span className={styles.statusMeta}>
-          <span>
-            <Trans>Model:</Trans>
-          </span>
-          <span className={styles.metricValue}>
-            {simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}
-          </span>
-        </span>
-        {simulatorCommMs != null && (
           <span className={styles.statusMeta}>
             <span>
-              <Trans>Comm:</Trans>
+              <Trans>Time Step:</Trans>
             </span>
-            <span className={styles.metricValue}>{simulatorCommMs.toFixed(1)}</span>
+            <span className={styles.metricValue}>{currentTime == null ? 'N/A' : currentTime}</span>
           </span>
-        )}
-        {simulatorRenderMs != null && (
+          {runSummary && (
+            <span className={styles.statusMeta} title={runSummary}>
+              <span>
+                <Trans>Run:</Trans>
+              </span>
+              <span className={styles.metricValue}>{runSummary}</span>
+            </span>
+          )}
           <span className={styles.statusMeta}>
             <span>
-              <Trans>Srv Render:</Trans>
+              <Trans>TPS:</Trans>
             </span>
-            <span className={styles.metricValue}>{simulatorRenderMs.toFixed(1)}</span>
+            <span className={styles.metricValue}>
+              {runtimeTps == null ? 'N/A' : runtimeTps.toFixed(1)}
+            </span>
           </span>
-        )}
-      </div>
+          <span className={styles.statusMeta}>
+            <span>
+              <Trans>MSPT:</Trans>
+            </span>
+            <span className={styles.metricValue}>
+              {runtimeMspt == null ? 'N/A' : runtimeMspt.toFixed(1)}
+            </span>
+          </span>
+          <span className={styles.statusMeta}>
+            <span>
+              <Trans>Model:</Trans>
+            </span>
+            <span className={styles.metricValue}>
+              {simulatorMspt == null ? 'N/A' : simulatorMspt.toFixed(1)}
+            </span>
+          </span>
+          {simulatorCommMs != null && (
+            <span className={styles.statusMeta}>
+              <span>
+                <Trans>Comm:</Trans>
+              </span>
+              <span className={styles.metricValue}>{simulatorCommMs.toFixed(1)}</span>
+            </span>
+          )}
+          {simulatorRenderMs != null && (
+            <span className={styles.statusMeta}>
+              <span>
+                <Trans>Srv Render:</Trans>
+              </span>
+              <span className={styles.metricValue}>{simulatorRenderMs.toFixed(1)}</span>
+            </span>
+          )}
+        </div>
+      </ScrollArea>
       <div className={styles.buttonGroup}>
         <button
           onClick={handleReconnect}
@@ -213,7 +216,10 @@ export function StatusBar({
             cursor: reconnectDisabled ? 'not-allowed' : 'pointer',
           }}
         >
-          <RefreshCw size={16} className={isReconnecting || isConnecting ? 'spinning-icon' : ''} />
+          <RefreshCw
+            size={16}
+            className={isReconnecting || isConnecting ? styles.spinningIcon : undefined}
+          />
           <span className={styles.buttonText}>
             <Trans>Reconnect</Trans>
           </span>
@@ -241,15 +247,6 @@ export function StatusBar({
             <Trans>Settings</Trans>
           </span>
         </button>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          .spinning-icon {
-            animation: spin 1s linear infinite;
-          }
-        `}</style>
 
         {onToggleRightPanel && (
           <button
