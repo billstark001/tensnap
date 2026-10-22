@@ -473,7 +473,7 @@ reinitializer = BoundModelReinitializer(
 await scenario.register_model(model, reinitializer=reinitializer)
 ```
 
-`init_kwargs` retains excluded construction options rather than exposing them as controls. `init_args` retains positional constructor resources without also passing them as keyword arguments. Default Mesa cleanup removes its old step wrapper before reconstruction; a custom `cleanup` callback may be supplied on the strategy.
+`init_kwargs` retains excluded construction options rather than exposing them as controls. `init_args` retains positional constructor resources without also passing them as keyword arguments. Default Mesa cleanup calls `prepare_mesa_model_reinit(...)` before reconstruction; a custom `cleanup` callback may be supplied on the strategy.
 
 Checkpoint callbacks still belong to the model and use the existing paired declarations or scenario constructor. After applying a checkpoint, the scenario refreshes construction choices from restored model attributes, then applies explicit projected parameter overrides. Constructor controls without a corresponding restored model attribute retain their current values; checkpoint-only restore does not recover UI values that the model never saved. The scenario re-registers declarations and primes publication state against the restored model. Combined checkpoint/projection requests validate layer topology against the restored configuration. When rollback hooks are available, a failed restore recovers the previous staged constructor controls and initialization status from transaction-local memory; these rollback values are not serialized. A `model_time` callback synchronizes protocol time after registration, initialization/reset, step and restore; it must return a nonnegative integer. For Mesa's default step-count clock, use `model_time=lambda: int(mesa_model_time(model))`.
 
@@ -491,11 +491,55 @@ Related generic helpers exported from `tensnap.bindings.lifecycle`:
 Mesa-specific cleanup helpers that remain under `tensnap.bindings.mesa`:
 
 - `cleanup_mesa_model_step(...)`
+- `prepare_mesa_model_reinit(model)` for constructor-based reconstruction
 - `mesa_clock_restore` for `@scene_restore(time=...)`
 - `mesa_model_time(model)` to read the version-appropriate public clock
 - `validate_mesa_model_time_restore(model, time)` and `restore_mesa_model_time(model, time)` for the default step schedule
 
 `default_cleanup_for_model(...)` is still exported from `tensnap.bindings.lifecycle` and re-exported from the deprecated Mesa compatibility surface for cases where you want to compose it with additional cleanup callbacks explicitly.
+
+### Mesa reconstruction utilities
+
+`prepare_mesa_model_reinit(model) -> None` is exported from `tensnap.bindings.mesa` and implemented in `tensnap.bindings.mesa.utils`. A model-owned checkpoint callback can use it immediately before calling its constructor:
+
+```python
+from tensnap.bindings.mesa import prepare_mesa_model_reinit
+
+prepare_mesa_model_reinit(model)
+type(model).__init__(model, width=width, height=height, seed=seed)
+```
+
+The utility prepares Mesa bookkeeping; the following constructor initializes population, RNGs and time. Use it as part of replacing the population. The operation is scoped to the target model, is safe to repeat before construction, and raises `TypeError` for non-Mesa objects.
+
+| Operation | Mesa versions and behavior | No-op condition |
+| --- | --- | --- |
+| Remove the instance `step` wrapper | Mesa 3.0–3.5.1 installs an instance wrapper; removing it lets the next constructor wrap the original model method. | The instance has no own `step` attribute. |
+| Reset the legacy agent ID allocator | Mesa 3.0–3.4 keeps `Agent._ids[model]` outside the model. Only the target model's entry is removed. Verified with 3.0.3, 3.3.1 and 3.4.0. | `Agent._ids` is absent, is not a dictionary, or has no entry for the target model. |
+| Leave model-owned IDs to the constructor | Mesa 3.5.0 and 3.5.1 allocate IDs in `Model.register_agent`; `Model.__init__` resets their model-owned counter. | The ID cleanup portion is a no-op; step cleanup still applies. |
+
+The whole utility is a no-op when both the instance wrapper and the legacy counter entry are absent, including a repeated preparation before construction. Compatibility dispatch checks the runtime layout. The version boundary is documented in upstream [Mesa 3.4.0 agent allocation](https://github.com/projectmesa/mesa/blob/v3.4.0/mesa/agent.py) and [Mesa 3.5.0 model initialization](https://github.com/projectmesa/mesa/blob/v3.5.0/mesa/model.py).
+
+`cleanup_mesa_model_step(model)` remains available for step-only cleanup. It leaves ID allocation to the caller's reconstruction strategy.
+
+### Cell-space and clock compatibility
+
+All Mesa namespace fallbacks and private bookkeeping access live in `tensnap.bindings.mesa.utils`. The following cell-space exports are the native Mesa classes, with a shared typing surface:
+
+```python
+from tensnap.bindings.mesa.utils import Cell, CellAgent, OrthogonalMooreGrid
+```
+
+Imports resolve lazily: Mesa 3.0/3.1 uses `mesa.experimental.cell_space`, while Mesa 3.2–3.5 uses `mesa.discrete_space`. Only absence of the stable namespace triggers fallback; errors from a missing dependency inside that namespace propagate. Importing TenSnap without requesting these classes keeps Mesa optional. Existing examples now share these exports instead of maintaining a local import shim.
+
+The existing `mesa_model_time`, `validate_mesa_model_time_restore` and `restore_mesa_model_time` APIs also use the utils implementation. Their imports through `tensnap`, `tensnap.bindings.mesa` and `tensnap.bindings.mesa.clock` remain supported. `mesa_clock_restore` binds the same validation and application functions for scene restoration.
+
+| Operation | Mesa versions and behavior | No-op condition |
+| --- | --- | --- |
+| Read model time | Mesa 3.0–3.3 reads `steps`; Mesa 3.4/3.5 reads `time`. | This is a read-only operation. |
+| Restore the scalar clock | Set the available native `steps` and `time` fields after validation. | Scalar assignment runs for every supported clock after validation. |
+| Rebase the default step schedule | Mesa 3.5.0/3.5.1 rebases its default event generator so the next native step advances exactly once. | Generator rebasing is a no-op on Mesa 3.0–3.4, whose wrapper uses scalar counters. |
+
+Clock restore rejects external simulators, extra pending events and unsupported default schedules before mutation. The native cell-space namespace transition is documented in [Mesa 3.1.1](https://github.com/projectmesa/mesa/blob/v3.1.1/mesa/experimental/cell_space/__init__.py) and [Mesa 3.2.0](https://github.com/projectmesa/mesa/blob/v3.2.0/mesa/discrete_space/__init__.py).
 
 ### `MesaSimulationHandler`
 

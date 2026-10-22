@@ -17,31 +17,33 @@ if TYPE_CHECKING:
         merge_registry_changes,
     )
 
-    from .clock import (
-        mesa_clock_restore,
-        mesa_model_time,
-        restore_mesa_model_time,
-        validate_mesa_model_time_restore,
-    )
+    from .clock import mesa_clock_restore
     from .datacollector import (
         BindDataCollectorConfig,
         bind_datacollector,
         get_registered_collectors,
     )
     from .handler import MesaSimulationHandler
-    from .utils import cleanup_mesa_model_step
+    from .utils import (
+        cleanup_mesa_model_step,
+        mesa_model_time,
+        prepare_mesa_model_reinit,
+        restore_mesa_model_time,
+        validate_mesa_model_time_restore,
+    )
 
 
 _DIRECT_EXPORTS = {
     "mesa_clock_restore": (".clock", "mesa_clock_restore"),
-    "mesa_model_time": (".clock", "mesa_model_time"),
-    "restore_mesa_model_time": (".clock", "restore_mesa_model_time"),
-    "validate_mesa_model_time_restore": (".clock", "validate_mesa_model_time_restore"),
+    "mesa_model_time": (".utils", "mesa_model_time"),
+    "restore_mesa_model_time": (".utils", "restore_mesa_model_time"),
+    "validate_mesa_model_time_restore": (".utils", "validate_mesa_model_time_restore"),
     "BindDataCollectorConfig": (".datacollector", "BindDataCollectorConfig"),
     "bind_datacollector": (".datacollector", "bind_datacollector"),
     "get_registered_collectors": (".datacollector", "get_registered_collectors"),
     "MesaSimulationHandler": (".handler", "MesaSimulationHandler"),
     "cleanup_mesa_model_step": (".utils", "cleanup_mesa_model_step"),
+    "prepare_mesa_model_reinit": (".utils", "prepare_mesa_model_reinit"),
 }
 
 _DEPRECATED_EXPORTS = {
@@ -78,6 +80,7 @@ __all__ = [
     "merge_registry_changes",
     "mesa_clock_restore",
     "mesa_model_time",
+    "prepare_mesa_model_reinit",
     "restore_mesa_model_time",
     "validate_mesa_model_time_restore",
 ]

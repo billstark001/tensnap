@@ -4,13 +4,11 @@ from typing import Any
 
 import mesa
 import numpy as np
-from _mesa_space import OrthogonalMooreGrid
 from tensnap import (
     NumberParameter,
     bind_kwargs,
     chart,
     checkpoint,
-    cleanup_mesa_model_step,
     env,
     grid_layer,
     layer_restore,
@@ -20,7 +18,8 @@ from tensnap import (
     restore_mesa_model_time,
     scene_restore,
 )
-from tensnap.bindings.mesa import mesa_clock_restore
+from tensnap.bindings.mesa import mesa_clock_restore, prepare_mesa_model_reinit
+from tensnap.bindings.mesa.utils import OrthogonalMooreGrid
 
 
 def _nested_tuple(value: Any) -> Any:
@@ -138,7 +137,7 @@ class GameOfLife(mesa.Model):
         if alive.shape != (width, height):
             raise ValueError("checkpoint board shape does not match its dimensions")
 
-        cleanup_mesa_model_step(self)
+        prepare_mesa_model_reinit(self)
         type(self).__init__(self, width=width, height=height, seed=metadata["seed"])
         self.alive = alive
         self.alive_count = int(alive.sum())

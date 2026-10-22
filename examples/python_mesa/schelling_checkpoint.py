@@ -9,6 +9,7 @@ import json
 
 from schelling import SchellingAgent, SchellingModel
 from tensnap import cleanup_mesa_model_step, restore_mesa_model_time
+from tensnap.bindings.mesa import prepare_mesa_model_reinit
 
 
 def _tuples(value):
@@ -50,7 +51,7 @@ def _apply_checkpoint(model: SchellingModel, saved: dict) -> None:
             raise ValueError("invalid or duplicate Schelling position")
         positions.add((x, y))
 
-    cleanup_mesa_model_step(model)
+    prepare_mesa_model_reinit(model)
     type(model).__init__(
         model,
         width=width,

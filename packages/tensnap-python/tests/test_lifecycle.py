@@ -4,8 +4,9 @@ from typing import Annotated
 import pytest
 
 import tensnap.bindings as binding_api
-from mesa import Model
+from mesa import Agent, Model
 from tensnap import SimulationScenario
+from tensnap.bindings.mesa import prepare_mesa_model_reinit
 from tensnap.bindings.lifecycle import (
     BoundModelReinitializer,
     KwargBinding,
@@ -237,6 +238,62 @@ def test_default_cleanup_for_model_handles_mesa_models_in_lifecycle():
 
     assert "step" not in vars(model)
     assert default_cleanup_for_model(object()) is None
+
+
+def test_mesa_reinitialization_repeats_agent_ids_and_preserves_other_models():
+    class OtherAgent(Agent):
+        pass
+
+    class PopulationModel(Model):
+        def __init__(self):
+            super().__init__(rng=7)
+            for _ in range(3):
+                Agent(self)
+                OtherAgent(self)
+
+    model, other = PopulationModel(), PopulationModel()
+    initial_ids = [agent.unique_id for agent in model.agents]
+    other_ids = [agent.unique_id for agent in other.agents]
+    reinitializer = BoundModelReinitializer(model)
+    for _ in range(2):
+        Agent(model)
+        reinitializer.reinitialize_model()
+        assert [agent.unique_id for agent in model.agents] == initial_ids
+        assert all(agent.model is model for agent in model.agents)
+        assert [agent.unique_id for agent in other.agents] == other_ids
+
+    assert OtherAgent(model).unique_id == max(initial_ids) + 1
+    assert OtherAgent(other).unique_id == max(other_ids) + 1
+
+
+def test_mesa_preparation_is_noop_without_instance_bookkeeping():
+    model = object.__new__(Model)
+    assert vars(model) == {}
+    prepare_mesa_model_reinit(model)
+    prepare_mesa_model_reinit(model)
+    assert vars(model) == {}
+
+
+def test_mesa_preparation_rejects_unrelated_objects_before_mutation():
+    class UnrelatedModel:
+        def __init__(self):
+            self.step = lambda: None
+
+    model = UnrelatedModel()
+    step = model.step
+    with pytest.raises(TypeError, match="mesa.Model instance"):
+        prepare_mesa_model_reinit(model)
+    assert model.step is step
+
+
+def test_mesa_preparation_leaves_modern_id_allocation_untouched():
+    if isinstance(getattr(Agent, "_ids", None), dict):
+        pytest.skip("Mesa before 3.5 uses the legacy class-level ID allocator")
+    model = Model(rng=7)
+    first_id = Agent(model).unique_id
+    prepare_mesa_model_reinit(model)
+    prepare_mesa_model_reinit(model)
+    assert Agent(model).unique_id == first_id + 1
 
 
 @pytest.mark.asyncio

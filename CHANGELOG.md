@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep optional seeds and RNGs model-owned. Preserve constructor overlays, rollback isolation and restored clocks across reset and checkpoint replay; make failed registration retryable and support async lifecycle callbacks.
 - Replace mypy with pinned Pyright for library-wide checks and public API typing contracts; correct annotations and decorator exports. Retain Ruff and Python 3.10 compatibility checks.
 
+### Fixed
+
+- Expose `tensnap.bindings.mesa.prepare_mesa_model_reinit` for constructor-based reconstruction. Centralize step-wrapper cleanup and the Mesa 3.0-3.4 agent ID workaround; ID cleanup is a no-op for Mesa 3.5's model-owned allocator. Use the utility in default lifecycle cleanup and Schelling checkpoint restore, keeping compatibility internals out of example models.
+- Share native cell-space imports and clock/scheduler compatibility through Mesa utils, including the Mesa 3.0/3.1 namespace fallback and Mesa 3.5 event rebasing. Reuse reconstruction cleanup in Game of Life and remove duplicate cleanup from the deprecated handler; document applicable versions and no-op behavior.
+
 ## @tensnap/examples-js [0.3.5] - 2026-10-21
 
 ### Changed

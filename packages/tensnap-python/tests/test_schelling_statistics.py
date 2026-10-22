@@ -7,6 +7,7 @@ from types import MethodType
 import pytest
 
 from tensnap import cleanup_mesa_model_step
+from tensnap.bindings.mesa import prepare_mesa_model_reinit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "examples/python_mesa"))
 from schelling import SchellingAgent, SchellingModel
@@ -23,6 +24,41 @@ def state(model):
         (a.unique_id, a.cell.coordinate, a.group, a.is_satisfied())
         for a in model.agents
     ]
+
+
+@pytest.mark.parametrize("collect_data", [False, True])
+def test_prepared_constructor_rebuilds_ids_rng_and_clock_without_changing_other_models(
+    collect_data,
+):
+    kwargs = {
+        "width": 8,
+        "height": 8,
+        "density": 0.5,
+        "seed": 7,
+        "collect_data": collect_data,
+    }
+    model = SchellingModel(**kwargs)
+    other = SchellingModel(width=8, height=8, density=0.5, seed=29)
+    initial = capture_checkpoint(model)
+    other_before = capture_checkpoint(other)
+    model.step()
+    expected = capture_checkpoint(model)
+
+    for _ in range(2):
+        prepare_mesa_model_reinit(model)
+        prepare_mesa_model_reinit(model)
+        type(model).__init__(model, **kwargs)
+        assert capture_checkpoint(model) == initial
+        model.step()
+        assert capture_checkpoint(model) == expected
+        assert model.steps == model.tick == 1
+        assert capture_checkpoint(other) == other_before
+
+    empty = next(cell for cell in other.grid.all_cells if cell.is_empty)
+    added = SchellingAgent(other, empty, group=1)
+    assert added.unique_id == max(agent["id"] for agent in other_before["agents"]) + 1
+    cleanup_mesa_model_step(model)
+    cleanup_mesa_model_step(other)
 
 
 @pytest.mark.parametrize("collect_data", [False, True])

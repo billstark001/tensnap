@@ -4,6 +4,18 @@ from typing_extensions import assert_type
 
 from tensnap import action as root_action, chart as root_chart, monitor as root_monitor
 from tensnap.bindings import action, chart, monitor
+from tensnap.bindings.mesa import prepare_mesa_model_reinit
+from tensnap.bindings.mesa.utils import Cell, CellAgent, OrthogonalMooreGrid
+
+
+def prepare_mesa_model(model: object) -> None:
+    assert_type(prepare_mesa_model_reinit(model), None)
+
+
+def cell_space_types(grid: OrthogonalMooreGrid, agent: CellAgent) -> Cell:
+    assert_type(grid[(0, 0)], Cell)
+    assert_type(agent.cell.coordinate, tuple[int, ...])
+    return agent.cell
 
 
 def advance() -> bool:

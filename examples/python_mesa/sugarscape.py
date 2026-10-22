@@ -3,7 +3,6 @@
 from typing import cast
 
 import numpy as np
-from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import DataCollector, Model
 from tensnap import (
     NumberParameter,
@@ -16,6 +15,7 @@ from tensnap import (
     matrix_agent_layer,
     trajectory_layer,
 )
+from tensnap.bindings.mesa.utils import Cell, CellAgent, OrthogonalMooreGrid
 
 
 @agent(x="cell.coordinate[0]", y="cell.coordinate[1]")

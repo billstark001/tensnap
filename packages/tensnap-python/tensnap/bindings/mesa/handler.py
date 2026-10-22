@@ -10,6 +10,7 @@ start / reset coroutines are registered as actions during __init__.
 
 import logging
 from collections.abc import Callable
+from functools import partial
 from typing import (
     Any,
     List,
@@ -23,6 +24,7 @@ from tensnap.bindings.lifecycle import (
     BoundModelReinitializer,
     KwargBinding,
     RegistryChanges,
+    default_cleanup_for_model,
     merge_registry_changes,
 )
 from tensnap.models import EnvironmentBinding, LayerBinding
@@ -153,13 +155,16 @@ class MesaSimulationHandler(DefaultSimulationHandler):
             kwarg_bindings,
             init_args=self.model_init_args,
             init_kwargs=self.model_init_kwargs,
+            # This legacy handler also accepts Mesa-style models that do not
+            # inherit mesa.Model; preserve their step-only cleanup on reset.
+            cleanup=default_cleanup_for_model(self.model)
+            or partial(cleanup_mesa_model_step, self.model),
         )
 
     # region Model lifecycle
 
     def _init_model(self) -> None:
         assert self.model is not None
-        cleanup_mesa_model_step(self.model)
         self.model_reinitializer.reinitialize_model()
 
     def _unregister_auto(self, scenario: "SimulationScenario") -> None:

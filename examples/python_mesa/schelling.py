@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import cast
 
-from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from mesa import Model
 from mesa.datacollection import DataCollector
+from tensnap.bindings.mesa.utils import Cell, CellAgent, OrthogonalMooreGrid
 
 DEFAULT_GRID_W = 50
 DEFAULT_GRID_H = 50

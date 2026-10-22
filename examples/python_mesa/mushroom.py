@@ -7,7 +7,6 @@ from enum import Enum
 from typing import List, Tuple, cast
 
 import mesa
-from _mesa_space import Cell, CellAgent, OrthogonalMooreGrid
 from tensnap import (
     NumberParameter,
     agent,
@@ -19,6 +18,7 @@ from tensnap import (
     trajectory_layer,
     xy_key_codec,
 )
+from tensnap.bindings.mesa.utils import Cell, CellAgent, OrthogonalMooreGrid
 
 # endregion
 

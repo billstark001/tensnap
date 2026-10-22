@@ -19,8 +19,8 @@ from .basic.parameter import (
     unwrap_annotated_type,
 )
 from .mesa.utils import (
-    cleanup_mesa_model_step as _cleanup_mesa_model_step,
     is_mesa_model_class,
+    prepare_mesa_model_reinit,
 )
 
 # region Shared types and helpers
@@ -45,7 +45,7 @@ def default_cleanup_for_model(model: object) -> CleanupCallback | None:
     if is_mesa_model_class(model.__class__):
 
         def cleanup() -> None:
-            _cleanup_mesa_model_step(model)
+            prepare_mesa_model_reinit(model)
 
         return cleanup
     return None

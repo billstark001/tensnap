@@ -124,6 +124,35 @@ async def test_mesa_handler_reset_uses_model_field_for_conflicting_kwarg():
     assert handler.model.grid.height == 6
 
 
+@pytest.mark.asyncio
+async def test_mesa_handler_reset_preserves_step_cleanup_for_duck_typed_models():
+    class WrappedStepModel(FakeMesaModel):
+        def __init__(self):
+            super().__init__()
+            self.wrapper_calls = 0
+            self.step_calls = 0
+            step = self.step
+
+            def wrapped_step():
+                self.wrapper_calls += 1
+                step()
+
+            self.step = wrapped_step
+
+        def step(self):
+            self.step_calls += 1
+
+    scenario = SimulationScenario()
+    handler = MesaSimulationHandler(model_class=WrappedStepModel)
+    await scenario.register_handler(handler)
+    assert handler.model is not None
+    for _ in range(2):
+        await handler.on_reset()
+        await handler._model_step_impl()
+        assert handler.model.wrapper_calls == 1
+        assert handler.model.step_calls == 1
+
+
 def test_bind_datacollector_injects_charts_after_model_init_without_handler_magic():
     model = DataCollectorModel()
 
