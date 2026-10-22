@@ -22,7 +22,12 @@ def parser(
     result.add_argument(
         "command", choices=["serve", "run", "batch"], nargs="?", default="serve"
     )
-    result.add_argument("--policy", choices=["rule", "llm", "replay"], default="rule")
+    result.add_argument(
+        "--policy",
+        choices=["rule", "llm", "replay"],
+        default="rule",
+        help="Initial policy; serve also enables LLM switching when credentials are configured",
+    )
     result.add_argument("--seed", type=int, default=7)
     if scenarios is not None:
         result.add_argument(
@@ -46,7 +51,7 @@ def parser(
         "--env-file", type=Path, help="Explicit dotenv path; never sourced as shell"
     )
     result.add_argument(
-        "--record", type=Path, help="New JSONL decision tape (LLM only)"
+        "--record", type=Path, help="New JSONL tape for live LLM decisions"
     )
     result.add_argument(
         "--replay",
@@ -76,7 +81,7 @@ async def execute(
 ) -> int:
     integer(args.steps, "steps", 1, 1000000)
     integer(args.port, "port", 1, 65535)
-    if args.policy != "llm" and args.record:
+    if args.command != "serve" and args.policy != "llm" and args.record:
         raise ValueError("--record requires --policy llm")
     if (args.policy == "replay") != bool(args.replay):
         raise ValueError("--policy replay requires --replay, and vice versa")
@@ -96,19 +101,20 @@ async def execute(
     configs = [config_type(**{**config_fields, "seed": seed}) for seed in seeds]
     if scenarios is not None and args.scenario is not None:
         configs = [scenarios[args.scenario].configure(config) for config in configs]
-    provider = None
-    if args.policy == "llm":
-        provider = DecisionTape(
-            LLMConfig.load(
+    providers = {}
+    try:
+        if args.policy == "llm" or args.command == "serve":
+            config = LLMConfig.load(
                 args.env_file,
+                required=args.policy == "llm" or bool(args.record),
                 max_calls=args.max_calls,
                 max_tokens=args.max_tokens,
-            ),
-            record=args.record,
-        )
-    elif args.policy == "replay":
-        provider = DecisionTape(replay=args.replay)
-    try:
+            )
+            if config is not None:
+                providers["llm"] = DecisionTape(config, record=args.record)
+        if args.policy == "replay":
+            providers["replay"] = DecisionTape(replay=args.replay)
+        provider = providers.get(args.policy)
         if args.command == "serve":
             if args.checkpoint_in:
                 raise ValueError("Use scene restore for a connected TenSnap server")
@@ -124,7 +130,13 @@ async def execute(
                 )
             from .viz import serve
 
-            await serve(kind, model_type(configs[0], provider), args.port, load_view())
+            await serve(
+                kind,
+                model_type(configs[0], provider),
+                args.port,
+                load_view(),
+                providers=providers,
+            )
             return 0
         runs = []
         failed = False
@@ -193,7 +205,7 @@ async def execute(
         )
         return 2 if failed else 0
     finally:
-        if provider:
+        for provider in providers.values():
             await provider.close()
 
 

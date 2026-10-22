@@ -36,11 +36,20 @@ class ModelView:
         ),
     ]
 
-    def __init__(self, model) -> None:
+    def __init__(self, model, *, providers=None) -> None:
         self.model = model
         self._selected_agent = 0
         self._seed = model.config.seed
-        self._provider = model.provider
+        self._providers = dict(providers or {})
+        if model.provider is not None:
+            self._providers[model.provider.mode] = model.provider
+        # Keep a default provider for budgets and legacy checkpoints that only
+        # distinguished rule decisions from provider-backed decisions.
+        self._provider = (
+            model.provider
+            or self._providers.get("llm")
+            or self._providers.get("replay")
+        )
         self._policy = model.provider.mode if model.provider else "rule"
         self._pending_scenario = None
         self._active_scenario = None
@@ -69,9 +78,15 @@ class ModelView:
             return None
         if policy not in ("llm", "replay"):
             raise ValueError("policy must be rule, llm or replay")
-        if self._provider is None or self._provider.mode != policy:
-            raise ValueError(f"Start the server with --policy {policy} to configure it")
-        return self._provider
+        if policy not in self._providers:
+            if policy == "llm":
+                raise ValueError(
+                    "LLM credentials are not configured; supply --env-file or API key environment variables when starting the server"
+                )
+            raise ValueError(
+                "Start the server with --policy replay --replay PATH to configure replay"
+            )
+        return self._providers[policy]
 
     @property
     def scenario(self) -> str:
@@ -167,7 +182,22 @@ class ModelView:
 
     @monitor("inference", "Inference budget (never rewinds)", render_hint="tree")
     def inference(self):
-        return self._provider.status() if self._provider else {"mode": "rule"}
+        status = self._provider.status() if self._provider else {"mode": "rule"}
+        if len(self._providers) > 1:
+            status = {
+                **status,
+                "providers": {
+                    mode: provider.status()
+                    for mode, provider in self._providers.items()
+                },
+            }
+        return {
+            **status,
+            "active_policy": self.model.provider.mode
+            if self.model.provider
+            else "rule",
+            "available_policies": ["rule", *self._providers],
+        }
 
     @monitor("metrics", "Current metrics", render_hint="tree")
     def metrics(self):
@@ -185,6 +215,9 @@ class ModelView:
             "controls": {
                 "seed": self.seed,
                 "policy": self.policy,
+                "active_policy": self.model.provider.mode
+                if self.model.provider
+                else "rule",
                 "scenario": self._pending_scenario,
                 "active_scenario": self._active_scenario,
                 "options": dict(self._pending_options),
@@ -198,7 +231,11 @@ class ModelView:
         )
         controls = saved.get("controls", {})
         seed = integer(controls.get("seed", config.seed), "seed", 0, 2**32 - 1)
-        provider = self._provider if saved["model"]["uses_provider"] else None
+        active_policy = controls.get("active_policy")
+        if active_policy is None:
+            provider = self._provider if saved["model"]["uses_provider"] else None
+        else:
+            provider = self._provider_for_policy(active_policy)
         if saved["model"]["uses_provider"] and provider is None:
             raise ValueError("Checkpoint requires a configured decision provider")
         policy = controls.get("policy", provider.mode if provider else "rule")
@@ -238,8 +275,8 @@ def controls(extra, *, include=()):
     )
 
 
-async def build_scenario(model, view_type, port=8765):
-    view = view_type(model)
+async def build_scenario(model, view_type, port=8765, *, providers=None):
+    view = view_type(model, providers=providers)
     scenario = SimulationScenario(
         host="127.0.0.1",
         port=port,
@@ -290,10 +327,10 @@ async def build_scenario(model, view_type, port=8765):
     return scenario, view
 
 
-async def serve(kind, model, port, view_type):
-    scenario, _view = await build_scenario(model, view_type, port)
+async def serve(kind, model, port, view_type, *, providers=None):
+    scenario, view = await build_scenario(model, view_type, port, providers=providers)
     print(
         f"TenSnap {kind} ({'rule' if model.provider is None else model.provider.mode}): "
-        f"ws://127.0.0.1:{port}"
+        f"ws://127.0.0.1:{port}; available policies: {', '.join(['rule', *view._providers])}"
     )
     await scenario.run()

@@ -64,7 +64,9 @@ class LLMConfig:
             )
 
     @classmethod
-    def load(cls, env_file: Path | None = None, **overrides) -> LLMConfig:
+    def load(
+        cls, env_file: Path | None = None, *, required: bool = True, **overrides
+    ) -> LLMConfig | None:
         values = {}
         if env_file is not None:
             from dotenv import dotenv_values
@@ -74,6 +76,16 @@ class LLMConfig:
             values.update(dotenv_values(env_file, interpolate=False))
         # Existing environment values take precedence over file values.
         values.update(os.environ)
+        api_key = (
+            values.get("LLM_API_KEY")
+            or values.get("DEEPSEEK_API_KEY")
+            or values.get("API_SECRET")
+            or values.get("OPENAI_API_KEY", "")
+        )
+        if overrides.get("api_key") is not None:
+            api_key = overrides["api_key"]
+        if not api_key and not required:
+            return None
         base_url = values.get("LLM_BASE_URL", "https://api.deepseek.com")
         default_extra = (
             '{"thinking":{"type":"disabled"}}'
@@ -82,10 +94,7 @@ class LLMConfig:
         )
         try:
             kwargs = {
-                "api_key": values.get("LLM_API_KEY")
-                or values.get("DEEPSEEK_API_KEY")
-                or values.get("API_SECRET")
-                or values.get("OPENAI_API_KEY", ""),
+                "api_key": api_key,
                 "base_url": base_url,
                 "model": values.get("LLM_MODEL", "deepseek-flash"),
                 "max_calls": int(values.get("LLM_MAX_CALLS", "32")),

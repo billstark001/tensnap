@@ -56,7 +56,7 @@ PYTHONPATH=examples python -m python_llm.naming_game serve --policy rule --port 
 PYTHONPATH=examples python -m python_llm.mini_commons_harvest serve --policy rule --port 8766
 ```
 
-For subsequent model commands, likewise replace `python -m examples.python_llm.<model>` with `PYTHONPATH=examples python -m python_llm.<model>`. This uses the same model files and stable model IDs without uninstalling another package. It also works with `run`, `batch`, `replay` and live LLM options.
+For subsequent model commands, likewise replace `python -m examples.python_llm.<model>` with `PYTHONPATH=examples python -m python_llm.<model>`. This uses the same model files and stable model IDs without uninstalling another package. It also works with `run`, `batch`, `--policy replay` and live LLM options.
 
 ### Route C: reuse an existing example environment
 
@@ -78,10 +78,10 @@ The server requires `websockets>=13`. For development, prefix a `serve` command 
 
 ### Route D: headless rules without the TenSnap binding
 
-Rule-mode `run` and `batch` do not need the binding or an inference client. Naming uses NetworkX for its contact network:
+Rule-mode `run` and `batch` do not need the binding or an inference client. Naming uses NetworkX for its contact network; the optional `spring` layout also needs NumPy:
 
 ```bash
-python -m pip install 'networkx>=3.4,<4'
+python -m pip install 'networkx>=3.4,<4' 'numpy>=1.24'
 python -m examples.python_llm.naming_game run --policy rule --steps 20
 python -m examples.python_llm.mini_commons_harvest run --policy rule --steps 24
 ```
@@ -100,13 +100,24 @@ python -m examples.python_llm.mini_commons_harvest serve --policy rule --port 87
 
 Keep the terminal running. The printed `ws://127.0.0.1:<port>` is the model's WebSocket endpoint; serving alone does not advance the model. Connect the TenSnap GUI to that URL, or use the agent CLI below. Stop the Python backend with Ctrl-C.
 
-Both models provide agent data, a `selected_agent` index control, structured inspection monitors, charts, reset, reseed and model-owned checkpoints. Edit `seed`, `policy` or the `scenario` enum while stopped, then **Reset** to apply the choices. Accepted edits stay visible without changing the active trajectory; checkpoints retain pending choices. **Reset with next seed** increments the selected seed and resets. The policy enum offers `rule`, `llm` and `replay`; selecting a provider mode requires starting the server with that `--policy` and its credentials/tape. That configured provider can be reused when switching back from rule mode, retaining its inference budget. Use one controlling GUI/CLI at a time.
+Both models provide agent data, a `selected_agent` index control, structured inspection monitors, charts, reset, reseed and model-owned checkpoints. Edit `seed`, `policy` or the `scenario` enum while stopped, then **Reset** to apply the choices. Accepted edits stay visible without changing the active trajectory; checkpoints retain pending choices. **Reset with next seed** increments the selected seed and resets. Use one controlling GUI/CLI at a time.
+
+`--policy` chooses the initial mode. Server startup prepares these available policies:
+
+| Startup configuration | Initial policy | Available policies |
+| --- | --- | --- |
+| No credentials or tape | `rule` | `rule` |
+| Credentials via `--env-file` or API key environment variables | `rule` by default; `llm` with `--policy llm` | `rule`, `llm` |
+| `--policy replay --replay PATH` | `replay` | `rule`, `replay` |
+| Replay options plus LLM credentials | `replay` | `rule`, `replay`, `llm` |
+
+The enum lists all three modes; selecting an unavailable mode is rejected and its previous value is restored. The startup message and inference monitor list the available modes. Supplying credentials enables selection without contacting the provider. Configured providers are reused across switches, retaining cached responses and inference usage; Reset restarts the active provider's logical decision cursor. Restart the server to change credentials or add a replay tape.
 
 Each model's `scenarios.py` owns its named conditions and environment initialization. The views and [factorial runner](experiments.py) share those definitions. Naming includes population sizes, initial conventions, graph layouts and a two-clique bridge, alongside the original topology/minority conditions. Its `agent_count`, `initial_names`, `layout`, `topology` and `degree` controls also allow custom initializations. Commons includes all three rule controls crossed with message delivery and drought.
 
 ## Connect the agent CLI: minimal path
 
-The CLI requires Node.js 22+ and `@tensnap/agent`. Check an existing installation with `tensnap-agent --version`; the recording/frame workflow below targets **0.3.5**. If needed, install it with `npm install -g @tensnap/agent --allow-scripts=canvas`. A project-local installation can use `npx --no-install tensnap-agent`.
+The CLI requires Node.js 22+ and `@tensnap/agent`. Check an existing installation with `tensnap-agent --version`; use `--help` and the [runtime guide](../../docs/user-guide/agent-runtime.md) for its commands. If needed, install it with `npm install -g @tensnap/agent --allow-scripts=canvas`. A project-local installation can use `npx --no-install tensnap-agent`.
 
 With the Naming backend still running, use a separate terminal:
 
@@ -134,6 +145,17 @@ The shared client uses `httpx` for OpenAI-compatible Chat Completions and `pytho
 
 Copy `examples/python_llm/.env.example` to an ignored local `.env` and pass its path with `--env-file`, or supply environment variables directly. Dotenv files are loaded only when explicitly selected, parsed as data with interpolation disabled, and never sourced as shell scripts. Existing environment variables override file entries. Key aliases, in priority order: `LLM_API_KEY`, `DEEPSEEK_API_KEY`, `API_SECRET`, `OPENAI_API_KEY`.
 
+To start in rule mode and enable switching to LLM decisions from the frontend:
+
+```bash
+python -m examples.python_llm.naming_game serve \
+  --env-file /path/to/private.env --max-calls 12
+```
+
+Select `policy=llm`, then Reset and run. Startup, policy selection and Reset make no LLM requests; stepping in LLM mode can send requests. `--policy llm` starts directly in LLM mode. The inference monitor's `active_policy` is the mode currently executing, which can differ from a pending UI selection. `available_policies` lists the configured choices; with both live and replay providers, `providers` reports their separate usage. `--record PATH` also works for a rule-started server with credentials and records its subsequent LLM decisions. Headless rule runs continue without loading provider configuration.
+
+A missing explicitly selected `--env-file` stops startup. When an API key is present, its LLM settings are validated at startup. Starting directly in LLM mode, or requesting a live decision tape with `--record`, requires credentials. `run` and `batch` select one policy for the whole command; their `--record` option requires `--policy llm`.
+
 ```bash
 # Live mode: actions can make paid requests.
 python -m examples.python_llm.naming_game serve --policy llm \
@@ -141,11 +163,11 @@ python -m examples.python_llm.naming_game serve --policy llm \
   --record examples/python_llm/artifacts/naming-decisions.jsonl
 ```
 
-- The default live request cap is **32**, shared across reset, restore and batch runs in the process. Failed requests count. No automatic retry or rule fallback occurs. Naming uses two decisions per interaction; Commons uses one per activation.
+- The default live request cap is **32**, shared across policy switches, reset, restore and batch runs in the process. Failed requests count. No automatic retry or rule fallback occurs. Naming uses up to two provider decisions per interaction; fixed agents make no provider call. Commons uses one per activation.
 - `LLM_MAX_TOKENS` caps output per request; prompts have bounded local histories and a 16,000-character limit. Inference monitors/results expose usage. Token limits are not currency budgets.
 - The implementation defaults to `https://api.deepseek.com`, `deepseek-flash`, with thinking disabled. Set `LLM_BASE_URL` and `LLM_MODEL` for another compatible provider. `LLM_EXTRA_BODY` accepts only `thinking` and `reasoning_effort`.
 - Invalid JSON, truncation, illegal actions, timeouts and HTTP errors stop the operation. A rejected step leaves model state and clock unchanged; paid requests remain counted.
-- A decision tape stores observations, JSON decisions, model ID and reported usage. It excludes credentials, headers, raw provider error bodies and reasoning content. New tapes are created exclusively with local-only permissions.
+- A decision tape stores the logical call index, request fingerprint, system prompt, observation, JSON decision, provider model name and reported usage. It excludes credentials, headers, raw provider error bodies and reasoning content. New tapes are created exclusively with local-only permissions.
 
 Provider references: [API configuration](https://api-docs.deepseek.com/zh-cn/) and [thinking mode](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/).
 
@@ -218,7 +240,7 @@ This assumes a fresh backend at tick 0 and a tape containing at least five steps
 
 `action run` and `run start` return acceptance unless asked to wait. `--wait` covers settlement; `--until persisted` also waits for saved recording evidence. A wait timeout does not cancel the accepted operation: continue waiting with its request/run ID rather than dispatching again. Inspect `succeededActions`, `failedActions`, `primaryFailure` and `stateKnown`; `completedActions` includes failed results. Action failure takes precedence over the action quota in the primary failure report.
 
-`frame save --checkpoint required` captures aligned model state and a fixed renderer frame. The checkpoint saves agents, memories, resources/edges, configuration, both RNG states, time, selection and decision cursor. `frame restore --mode checkpoint --history replace` also restores the saved chart prefix. The model checkpoint alone does not reconstruct renderer history. Headless JSON uses `--checkpoint-in`; protocol captures use `scene restore --checkpoint`; frame evidence uses `frame restore`.
+`frame save --checkpoint required` captures aligned model state and a fixed renderer frame. The checkpoint saves agents, memories, resources/edges, configuration, both RNG states, time, selection and decision cursor, plus active and pending controls. The receiving server must have the saved active and pending policies available. Credentials, provider caches and usage counters remain external to the checkpoint. `frame restore --mode checkpoint --history replace` also restores the saved chart prefix. The model checkpoint alone does not reconstruct renderer history. Headless JSON uses `--checkpoint-in`; protocol consumers send a `scene_restore` request with checkpoint data; the agent CLI restores frame evidence with `frame restore`.
 
 ### Complete history with restorable historical boundaries
 
@@ -264,7 +286,7 @@ python -m pip install -e 'packages/tensnap-python[dev]'
 python -m pytest examples/python_llm/tests -q -o addopts=''
 ```
 
-Tests use an in-memory HTTP transport, never a paid API. They cover seeded continuation, replay, immutable projections, local observations, resource conservation, invalid operations, budgets and TenSnap clocks/monitors.
+Tests use an in-memory HTTP transport, never a paid API. They cover credential-based policy availability, switching and cleanup, seeded continuation, replay, population/name/layout presets, immutable projections, local observations, resource conservation, invalid operations, budgets and TenSnap clocks/monitors.
 
 Lint this model and check formatting across all Python examples. The shared [examples configuration](../ruff.toml) targets Python 3.10:
 

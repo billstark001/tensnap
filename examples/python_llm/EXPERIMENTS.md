@@ -14,6 +14,8 @@ Use the environment routes in [README](README.md#choose-a-python-environment) an
 
 Conditions and environment generation live in [naming scenarios](naming_game/scenarios.py) and [commons scenarios](mini_commons_harvest/scenarios.py). The runner reads these definitions directly, and every run records its `scenario` ID. The same conditions are selectable in each model's frontend `scenario` enum; seed and scenario edits apply on Reset. Naming's runner still branches from its shared stable checkpoint, while interactive Reset initializes a fresh population with the selected condition.
 
+The Naming runner uses only the four mixed/community × minority conditions, with unassigned initial names and circle coordinates. Population, initial-convention and layout demonstration presets are separate interactive/headless initializations. Credential-based policy selection in `serve` does not change this rule-only runner or its paired-prefix procedure.
+
 ## Naming: network structure × fixed minority
 
 **Scientific question.** When a fixed minority advocates an alternative convention, does community structure protect the incumbent convention, slow replacement, or sustain different local conventions? The experiment estimates dependence on the specified contact network; it does not identify a universal tipping threshold.
