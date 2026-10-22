@@ -494,7 +494,7 @@ export class SnapshotRecorder {
     this.flush('control');
     this.snapshot.metadata.endedAt = now();
     this.snapshot.byteLength = this.estimatedByteLength;
-    const complete = clone(this.snapshot);
+    const complete = this.snapshot;
     this.snapshot = null;
     this.nextFrameIndex = 1;
     this.pendingMessages = [];

@@ -389,3 +389,53 @@ it('omits optional undefined fields before segment encoding for both portable fo
   }
   expect(snapshot.initial.scenario.actions[0]).toHaveProperty('continuous', undefined);
 });
+
+it.each(['json', 'msgpack'] as const)(
+  'preserves local view presentation in %s projects',
+  (format) => {
+    const views = createDefaultRootLayout([
+      {
+        id: 'env-view',
+        type: 'environment',
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 200,
+        disabled: false,
+        expanded: true,
+        data: { id: 'world', layerOverrides: { edges: { link_distance: -1 } } },
+      },
+      {
+        id: 'chart-view',
+        type: 'chart',
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 200,
+        disabled: false,
+        expanded: true,
+        data: { id: 'history', chartSeries: [{ id: 'a', label: 'Local label', color: '#123456' }] },
+      },
+      {
+        id: 'monitor-view',
+        type: 'monitor',
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 200,
+        disabled: false,
+        expanded: true,
+        data: { id: 'm', renderHint: 'tree' },
+      },
+    ]);
+    const snapshot = fixture();
+    const project = {
+      version: 3 as const,
+      source: { kind: 'snapshot' as const, snapshot_id: snapshot.metadata.id },
+      mainView: views,
+      scenario: snapshot.initial.scenario,
+      snapshots: [snapshot],
+    };
+    expect(decodeProjectFile(encodeProjectFile(project, format), format).mainView).toEqual(views);
+  },
+);

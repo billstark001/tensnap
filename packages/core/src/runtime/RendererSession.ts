@@ -669,12 +669,12 @@ export class RendererSession extends LazyEventTarget {
       }
       const scene = this.scenario.dump();
       const lastActionRequestId = this.lastCommittedActionRequestId;
-      return structuredClone({
+      return {
         id: crypto.randomUUID(),
         capturedAt: Date.now(),
         scene,
-        ...(checkpoint ? { checkpoint } : {}),
-        ...(identity ? { modelIdentity: identity } : {}),
+        ...(checkpoint ? { checkpoint: structuredClone(checkpoint) } : {}),
+        ...(identity ? { modelIdentity: structuredClone(identity) } : {}),
         source: {
           kind: 'live' as const,
           commitRevision: this.commitRevision,
@@ -688,7 +688,7 @@ export class RendererSession extends LazyEventTarget {
             : ('renderer-only' as const),
         checkpointStatus: status,
         ...(reason ? { checkpointReason: reason } : {}),
-      });
+      };
     } catch (error) {
       // A failed boundary sample must not resume automated dispatch into an unverified state.
       if (!settleRun) this.run.stop('stopped');
