@@ -5,6 +5,7 @@ from typing import cast
 import numpy as np
 from mesa import DataCollector, Model
 from tensnap import (
+    EnumParameter,
     NumberParameter,
     agent,
     agent_layer,
@@ -141,9 +142,30 @@ def sugar_field_circular(width: int, height: int):
 @trajectory_layer(agent_layer_id="agents", width=False, length=10)
 @bind_kwargs(
     custom_bindings={
+        "width": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
+        "height": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
+        "agent_count": NumberParameter(
+            "", min=0, max=None, step=1, allow_runtime_change=False
+        ),
+        "sugar_growth_rate": NumberParameter(
+            "", min=0, max=None, step=1, allow_runtime_change=False
+        ),
+        "vision_min": NumberParameter(
+            "", min=1, max=None, step=1, allow_runtime_change=False
+        ),
+        "vision_max": NumberParameter(
+            "", min=2, max=None, step=1, allow_runtime_change=False
+        ),
+        "grid_type": EnumParameter(
+            "", options=["circular", "random"], allow_runtime_change=False
+        ),
         "seed": NumberParameter(
             "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
-        )
+        ),
     }
 )
 @bind_datacollector()

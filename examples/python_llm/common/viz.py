@@ -7,11 +7,9 @@ from typing import Annotated
 
 from tensnap import (
     BindParameterConfig,
-    NumberParameter,
     SimulationScenario,
     action,
     monitor,
-    params,
 )
 
 from .config import integer
@@ -19,8 +17,15 @@ from .config import integer
 
 class ModelView:
     initial_options = ()
-    selected_agent: int
-    seed: int
+    selected_agent: Annotated[
+        int, BindParameterConfig("number", min=0, max=199, step=1)
+    ]
+    seed: Annotated[
+        int,
+        BindParameterConfig(
+            "number", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
+        ),
+    ]
     policy: Annotated[
         str,
         BindParameterConfig(
@@ -262,19 +267,6 @@ class ModelView:
         self.simulation.set_time_step(self.model.tick)
 
 
-def controls(extra, *, include=()):
-    return params(
-        include=["selected_agent", "seed", "policy", "scenario", *extra, *include],
-        custom_bindings={
-            "selected_agent": NumberParameter("", min=0, max=199, step=1),
-            "seed": NumberParameter(
-                "", min=0, max=2**32 - 1, step=1, allow_runtime_change=False
-            ),
-            **extra,
-        },
-    )
-
-
 async def build_scenario(model, view_type, port=8765, *, providers=None):
     view = view_type(model, providers=providers)
     scenario = SimulationScenario(
@@ -286,16 +278,6 @@ async def build_scenario(model, view_type, port=8765, *, providers=None):
     )
     view.simulation = scenario
     scenario.add_all(view)
-    # Binding discovery reads class-local declarations. Register shared base
-    # members explicitly as bound callables through the public namespace API.
-    scenario.add_monitors(
-        {
-            "selected": view.selected,
-            "inference": view.inference,
-            "metrics": view.metrics,
-        }
-    )
-    scenario.add_actions({"reseed": view.reseed})
     scenario.parameters["selected_agent"].max = len(model.agents) - 1
     # The adapter owns protocol clock synchronization; the model owns RNG state.
     scenario.configure_scene_restore(

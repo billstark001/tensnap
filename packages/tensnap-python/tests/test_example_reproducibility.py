@@ -4,18 +4,10 @@ import asyncio
 import copy
 import json
 import random
-import sys
-from pathlib import Path
 from unittest.mock import AsyncMock
 
 import numpy as np
 import pytest
-
-from tensnap import SimulationScenario, cleanup_mesa_model_step
-from tensnap.bindings.basic.restore import encode_checkpoint
-
-ROOT = Path(__file__).resolve().parents[3]
-sys.path[:0] = [str(ROOT / "examples/python"), str(ROOT / "examples/python_mesa")]
 from cgol import GameOfLife
 from flock import Bird, FlockConfig, FlockSimulation
 from hk import AdaptiveNetworkHKModel
@@ -27,6 +19,9 @@ from schelling_study import run_trial
 from schelling_tensnap import SchellingModel, create_schelling_scenario
 from sirs import ERNetworkEnvironment, GridEnvironment, SIRSSimulation
 from sugarscape import SugarAgent, Sugarscape
+
+from tensnap import SimulationScenario, cleanup_mesa_model_step
+from tensnap.bindings.basic.restore import encode_checkpoint
 
 
 def walk(seed):

@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Tuple
+from typing import Annotated
 
 import tensnap as t
 
-Position = Tuple[int, int]
+Position = tuple[int, int]
 DEFAULT_WIDTH = 17
 DEFAULT_HEIGHT = 13
 FIRE_EVACUATION_CHECKPOINT_SCHEMA = "fire-evacuation-v2"
@@ -53,15 +53,28 @@ DEFAULT_EXITS, DEFAULT_FIRE_SOURCES, DEFAULT_WALLS = build_evacuation_layout(
 
 @dataclass(slots=True)
 class EnvConfig:
-    width: Annotated[int, t.param("number", label="Width", min=4, max=64, step=1)] = (
-        DEFAULT_WIDTH
-    )
-    height: Annotated[int, t.param("number", label="Height", min=4, max=64, step=1)] = (
-        DEFAULT_HEIGHT
-    )
+    width: Annotated[
+        int,
+        t.param(
+            "number", label="Width", min=4, max=64, step=1, allow_runtime_change=False
+        ),
+    ] = DEFAULT_WIDTH
+    height: Annotated[
+        int,
+        t.param(
+            "number", label="Height", min=4, max=64, step=1, allow_runtime_change=False
+        ),
+    ] = DEFAULT_HEIGHT
     num_evacuees: Annotated[
         int,
-        t.param("number", label="Evacuees", min=1, max=128, step=1),
+        t.param(
+            "number",
+            label="Evacuees",
+            min=1,
+            max=128,
+            step=1,
+            allow_runtime_change=False,
+        ),
     ] = 28
     max_steps: Annotated[
         int,
@@ -113,9 +126,11 @@ class EnvConfig:
         float,
         t.param("number", label="Progress Reward", min=0.0, max=1.0, step=0.01),
     ] = 0.05
-    invalid_action_penalty: float = -0.05
-    unresolved_penalty: float = -2.0
-    sample_fire_source: bool = True
+    invalid_action_penalty: Annotated[float, t.param("number")] = -0.05
+    unresolved_penalty: Annotated[float, t.param("number")] = -2.0
+    sample_fire_source: Annotated[
+        bool, t.param("boolean", allow_runtime_change=False)
+    ] = True
     exits: tuple[Position, ...] = DEFAULT_EXITS
     fire_sources: tuple[Position, ...] = DEFAULT_FIRE_SOURCES
     walls: tuple[Position, ...] = field(default_factory=lambda: DEFAULT_WALLS)

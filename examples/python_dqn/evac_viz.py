@@ -83,7 +83,7 @@ class GuideModelManager:
         return self._guide_model
 
     @guide_model.setter
-    def set_guide_model(self, value: str) -> None:
+    def guide_model(self, value: str) -> None:
         self._guide_model = value
 
     def _new_dqn_agent(self, seed: int | None = None) -> DQNAgent:
@@ -122,7 +122,7 @@ async def configure_visualization_scenario(
     model_reinitializer = BoundModelReinitializer(model, init_args=(env_config,))
     guide_mgr = GuideModelManager(model, dqn_config, device, guide_model_dir)
 
-    scenario.add_parameters(env_config)
+    scenario.add_all(env_config)
     scenario.add_all(guide_mgr)
 
     def step() -> bool:

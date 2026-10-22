@@ -5,7 +5,6 @@ from typing import Annotated
 
 from tensnap import (
     BindParameterConfig,
-    NumberParameter,
     agent,
     agent_layer,
     chart,
@@ -16,7 +15,7 @@ from tensnap import (
 )
 
 from ..common.config import integer, probability
-from ..common.viz import ModelView, controls
+from ..common.viz import ModelView
 from .model import Interaction, Player
 from .scenarios import INITIAL_NAMES, LAYOUTS, NAMING_SCENARIOS, TOPOLOGIES
 
@@ -30,10 +29,6 @@ edge(
 )(Interaction)
 
 
-@controls(
-    {"exploration": NumberParameter("", min=0, max=1, step=0.01)},
-    include=["agent_count", "topology", "initial_names", "layout", "degree"],
-)
 @edge_layer(
     "contacts",
     agent_layer_id="agents",
@@ -56,7 +51,9 @@ edge(
 class NamingView(ModelView):
     """Declare graph projection and researcher-facing controls around one model."""
 
-    exploration: float
+    exploration: Annotated[
+        float, BindParameterConfig("number", min=0, max=1, step=0.01)
+    ]
     scenarios = NAMING_SCENARIOS
     initial_options = ("agents", "topology", "initial_names", "layout", "degree")
     agent_count: Annotated[

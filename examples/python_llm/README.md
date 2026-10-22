@@ -102,6 +102,8 @@ Keep the terminal running. The printed `ws://127.0.0.1:<port>` is the model's We
 
 Both models provide agent data, a `selected_agent` index control, structured inspection monitors, charts, reset, reseed and model-owned checkpoints. Edit `seed`, `policy` or the `scenario` enum while stopped, then **Reset** to apply the choices. Accepted edits stay visible without changing the active trajectory; checkpoints retain pending choices. **Reset with next seed** increments the selected seed and resets. Use one controlling GUI/CLI at a time.
 
+The views declare each control once with `Annotated[..., BindParameterConfig(...)]` beside its property. `scenario.add_all(view)` registers explicit controls and inherited actions, charts and monitors from `ModelView`; shared members need no second registration. The Commons `rule` enum has one declaration on the view.
+
 `--policy` chooses the initial mode. Server startup prepares these available policies:
 
 | Startup configuration | Initial policy | Available policies |
