@@ -67,12 +67,11 @@ scenario = SimulationScenario(port=8765)
 model = Aviary()
 config = Config()
 
-scenario.add_all(model)
 scenario.add_all(config)
 
 
 async def main() -> None:
-    await scenario.register_model_handler(model_step=model.step)
+    await scenario.register_model(model)
     await scenario.run()
 
 
@@ -347,7 +346,7 @@ Reuse paired checkpoint hooks for current RNG positions; a seed alone only resta
 
 - `register_handler(handler) -> None`
 - `register_model(model, *, reinitializer=None, model_step=None, model_time=None, after_reinitialize=None, observe=None) -> BoundModelReinitializer`
-- `register_model_handler(model_init=None, model_step=None, model_reset=None) -> None`
+- `register_model_handler(model_init=None, model_step=None, model_reset=None) -> None` (older manual-adapter path)
 - `run() -> None`
 
 `DefaultSimulationHandler` initializes lazily at time `0`, emits the first simulated tick as time `1`, computes full environment snapshots for init/reset, and emits layer-level incremental item diffs on subsequent steps. Step broadcasts use metadata-only environment snapshots so item projection is not repeated before the layer diff pass. If `model_reset` is omitted, reset falls back to `model_init`.

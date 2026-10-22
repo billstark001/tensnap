@@ -14,7 +14,7 @@ pnpm --filter @tensnap/agent test:package
 pnpm lint:js
 pnpm -r typecheck
 pnpm --filter @tensnap/web build
-pnpm --filter @tensnap/tauri exec tauri build --debug --bundles app --no-sign
+pnpm --filter @tensnap/tauri exec tauri build --debug --no-bundle
 ```
 
 The recording workflow starts a real seeded Schelling WebSocket model and built CLI runtime. It verifies default JSON behavior, explicit MessagePack run/manual recording, catalog discovery, full recording export/read, mixed-format fixed-frame comparison, checkpoint restore/rerun and identical offline images. It writes a machine-readable report under `.tensnap/recording-acceptance-*/acceptance.json`. The model and runtime are stopped in cleanup.
@@ -76,4 +76,13 @@ For the responsive workbench and single-root follow-up:
 1. Resize the workspace to roughly 640, 900, 1100 and 1400 CSS pixels in English, Chinese and Japanese. Generate a long run summary. Status labels/badges stay on one line; scroll/focus the left status group to read all values. The right controls remain visible, with icon-only labels below the container threshold. Verify reconnect, info, settings and panel toggles still work.
 2. Web: open an inspector, change its radius and disable Follow. Click another agent in the originating view: the same window shows the new agent and recenters once while preserving radius/follow/geometry. Continue interacting with the workbench and confirm there is no dimming overlay. Repeat with uniform agents.
 3. Tauri: repeat inspector retargeting during an active simulation. Switch project tabs: the inspector must remain tied to its owner. Repeatedly open/close an auxiliary tool, including during initialization; the console must have no duplicate-root warning and each child must release its listeners.
-4. Help → Documentation from the rendered menu, the native menu and an auxiliary window's native menu must open the GitHub docs in the system browser on desktop, or a browser tab on Web. No extra native popup should appear. These OS/browser interactions are manual checks; automated tests intercept their adapters.
+4. Help → Documentation from the rendered menu and, on platforms where native bars remain visible, the main/auxiliary native menus must open the GitHub docs in the system browser on desktop, or a browser tab on Web. No extra native popup should appear. These OS/browser interactions are manual checks; automated tests intercept their adapters.
+
+## Presentation and cross-platform regression checks
+
+1. Edit each scene object: bindings select existing objects, identities/declarations stay read-only, and parameter Save reaches the connected session. Clear sparse layer/chart/monitor preferences and confirm inheritance resumes. Color pickers and CSS color text agree without rewriting existing alpha values.
+2. Drag a force-enabled node after zooming and after repeated icon changes: only that node gesture moves, using scene scale and Y orientation. Drag nodes in grid/disabled-force layouts and empty canvas to pan. Preserve original pins and release ownership when a node disappears or its view closes. Include views sharing agent storage.
+3. Set negative, zero and omitted `link_distance` through GUI/CLI preferences. Fixed-frame exports preserve coordinates by default; explicit positive `--layout-ticks` opts into bounded layout. Test preference persistence, per-render overrides and reset without changing simulator declarations.
+4. Restore with replace/preserve/truncate chart policies, including failure. Successful online restore clears stale monitor values until republished; failures retain live values. Verify recorded forward playback and keyframe seeks reproduce those effects, and view preferences remain intact.
+5. Resize short and long Settings, Edit, Restore, replay and file dialogs. Footer actions stay outside scrolling with standard bottom padding. Native tracks reach the intended viewport edge, hover/focus does not change layout width, and menus/selects support keyboard navigation and nested Escape dismissal. Compare light/dark themes and Windows/macOS; do not assume CSS can force identical native overlay gutters on every engine.
+6. On Windows, verify one HTML menu bar at startup, after switching languages and after opening tools; confirm existing keyboard shortcuts still work. macOS retains its native menu. Installer and plain `.exe` assets use the same release build; the executable requires WebView2.

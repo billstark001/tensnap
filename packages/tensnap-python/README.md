@@ -61,12 +61,11 @@ scenario = SimulationScenario(port=8765)
 model = Aviary()
 config = Config()
 
-scenario.add_all(model)
 scenario.add_all(config)
 
 
 async def main() -> None:
-    await scenario.register_model_handler(model_step=model.step)
+    await scenario.register_model(model)
     await scenario.run()
 
 
@@ -106,9 +105,9 @@ class Aviary:
         self.birds = [Bird(1, (2, 3))]
 ```
 
-`SimulationScenario` registers the renderer-driven built-in actions `start`, `step`, and `reset` during construction. The initial synchronized state is always time `0`, and the first simulated tick emitted by `start` or `step` is `1`. For most targets, use `scenario.add_all(target)` to register available environment/layer, chart, and action bindings. Parameters are opt-in with `@params(...)` or an explicit config.
+`SimulationScenario` registers the renderer-driven built-in actions `start`, `step`, and `reset` during construction. The initial synchronized state is always time `0`, and the first simulated tick emitted by `start` or `step` is `1`. For model lifecycle, use `await scenario.register_model(model)` to register declarations and constructor-driven stepping/reset. Use `scenario.add_all(target)` for separate declarations. Parameters are opt-in with `@params(...)` or an explicit config.
 
-`register_model_handler(model_init=None, model_step=None, model_reset=None)` lets you keep `reset` distinct from `init`. If `model_reset` is omitted, the default handler falls back to `model_init`.
+The older manual `register_model_handler(model_init=None, model_step=None, model_reset=None)` path lets explicit adapters keep `reset` distinct from `init`. If `model_reset` is omitted, the default handler falls back to `model_init`.
 
 Reset reconciles declarations with strict CRUD, deletes the previous agent set before creating reset state, clears chart history, and preserves stable trajectory configuration so the renderer can apply `on_reset`.
 

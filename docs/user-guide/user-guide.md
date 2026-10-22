@@ -20,8 +20,8 @@ The current high-level path is:
 
 1. Define your model objects.
 2. Attach environment/layer/item metadata with decorators from `tensnap.bindings`.
-3. Register model/config/chart/action bindings with `SimulationScenario.add_all(...)`.
-4. Use targeted `add_*` methods only when you need manual control.
+3. Use `await scenario.register_model(model)` to register model declarations and constructor-driven lifecycle.
+4. Use `add_all(config)` or targeted `add_*` methods for separate declarations when needed.
 5. Start the renderer and connect to the running scenario.
 
 ### Minimal Example
@@ -75,12 +75,11 @@ scenario = SimulationScenario(port=8765)
 model = Aviary()
 config = Config()
 
-scenario.add_all(model)
 scenario.add_all(config)
 
 
 async def main() -> None:
-    await scenario.register_model_handler(model_step=model.step)
+    await scenario.register_model(model)
     await scenario.run()
 
 
@@ -190,8 +189,8 @@ The default Python handler semantics are:
 
 - initial synchronized state is time `0`
 - the first simulated tick emitted by `start` or `step` is time `1`
-- `register_model_handler(model_init=None, model_step=None, model_reset=None)` keeps reset distinct from init when you provide both callbacks
-- if `model_reset` is omitted, reset falls back to `model_init`
+- `await scenario.register_model(model)` registers declarations and reconstructs the same model object from constructor options on reset
+- `await scenario.reset()` performs the registered reset and state reconciliation; constructor-only controls apply on reset
 
 These semantics are important when you expose resettable models or charts keyed by simulation time.
 
@@ -243,11 +242,23 @@ The current renderer UI typically includes:
 
 Exact layout can vary by package (`tensnap-web` vs `tensnap-tauri`) and by current application state.
 
+## Editing Views and Layout
+
+Right-click a scene view and choose **Edit**. **Bound object** selects an existing simulator object; the view ID and simulator declarations remain read-only. Changing an environment's **Display** chooses its frontend renderer without converting the simulator environment. Parameter edits apply through the connected session on Save; types, options, bounds and runtime permissions remain simulator-owned.
+
+Environment layer settings show inherited values even when omitted by the simulator. Local overrides affect presentation only; **Follow simulator** clears them. A finite negative edge `link_distance` disables every force and initial scattering; zero remains a valid target length. Enabled force layouts allow node dragging. Grid layouts and disabled force layouts pan the canvas when dragged, including over nodes. Existing `fx`/`fy` pins survive a temporary drag. Views sharing agent data share computed layout coordinates.
+
+Choose **Reset View** from the context menu immediately after Copy to fit a 2D view again; replay previews offer the same command. It resets the viewport, not model state or node positions.
+
+Chart-series labels, colors and the displayed series list belong to the view. Removing an entry leaves shared history intact; adding one waits for matching data and does not create a simulator source. Monitor display hints can follow the simulator or override its suggestion locally. Color fields provide a picker and retain CSS color text, including alpha values. See the [presentation contract](../maintainer-guide/frontend-presentation.md) for persistence and CLI equivalents.
+
 ## Running, Recording, and Offline Replay
 
 Continuous actions are renderer-driven. A configured bounded run has a maximum step count and may also have a stop expression or wall-clock deadline. A manual run has no required step limit and continues until paused, stopped, or ended by the simulator. The UI shows the completed step count and stop reason; use Stop to end a run that you started manually.
 
 You can record a configured continuous run, or start/stop recording from the snapshot controls to capture manual steps, external simulator updates, and parameter changes. Recordings are replayed as a disconnected, offline copy. Opening one does **not** restore a connected simulator or modify the simulator process that produced it.
+
+Use **Restore to live simulator** in replay to request an explicit checkpoint or projected restore. **Restore chart history** defaults on; turn it off to preserve live history, or choose truncate to discard points after the saved model time. Chart changes commit only after a successful restore. Online monitor values wait for fresh simulator observations; a failed restore preserves live values. Restoring model state does not reset view preferences.
 
 Saved projects deduplicate resolved image/data assets across the live scenario and every recording. MessagePack is the compact default; JSON remains useful for inspecting a project by hand. Both preserve the same project semantics.
 
@@ -259,7 +270,7 @@ The browser and desktop use movable/resizable WinBox windows for settings, editi
 
 Window dialogs remember their position and size separately by type. The browser stores these preferences in localStorage; desktop stores them in its local settings cache. Use **Settings → Clear saved window positions** to reset all of them. Reopening a window fits its remembered geometry to the available screen. Close WinBox dialogs with their titlebar control or Escape; native tools use the operating system's close control or Escape. Clicking the backdrop leaves dialogs open. A pending operation can temporarily prevent dismissal.
 
-On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. The desktop native menu follows the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
+On the desktop app, choose JSON or MessagePack in Settings before Save As. The native dialog proposes the matching extension and authorizes the exact path it returns, so avoid renaming the file outside the dialog before the first save. Windows displays the HTML menu bar and hides the duplicate native bar while keeping native accelerators. Other desktop platforms retain their existing menus, with native labels following the language selected in Settings. Project tabs show compact filenames to keep the workspace stable; use Project Settings to view the complete, read-only project path.
 
 Recording replay places navigation buttons below its timeline: first frame, previous frame, play/pause, next frame and last frame. Stepping moves between retained frames, including recordings whose first frame is not zero. Manual navigation pauses playback; reaching the last frame stops playback, and Play from the end restarts at the first frame.
 
@@ -318,7 +329,7 @@ These repository examples are the best reference implementations today.
 1. Keep simulation logic separate from visualization registration.
 2. Prefer the `tensnap.bindings` decorators over undocumented compatibility shortcuts in new code.
 3. Treat layers as the primary modeling unit for 2D and graph rendering.
-4. Register `model_reset` separately when reset behavior is not identical to initialization.
+4. Use constructor registration for model reconstruction; keep private stochastic continuation state in paired model-owned checkpoints.
 5. Use the examples as the reference for end-to-end runnable setups.
 
 ## Related Documentation

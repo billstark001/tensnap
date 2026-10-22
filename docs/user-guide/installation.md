@@ -22,7 +22,7 @@ This guide covers different ways to install and run TenSnap depending on your us
 - **Node.js 24.0 or higher**
 - **pnpm 12.x** (preferred package manager)
 
-### For Desktop Application
+### For Desktop Source Builds
 
 - **Rust 1.88 or later and Cargo** (for building Tauri)
 - All prerequisites for Web Interface Development
@@ -99,7 +99,9 @@ pnpm add @tensnap/js
 
 ### Method 3: Desktop Application (Tauri)
 
-For a standalone desktop application:
+Download installers from [GitHub Releases](https://github.com/billstark001/tensnap/releases); prebuilt applications do not require Node.js or Rust. Windows releases include a plain `.exe` alongside the existing installers. Download the executable to run without installing TenSnap; the system still needs the WebView2 runtime used by the desktop application.
+
+To build the desktop application from source:
 
 #### Install Rust
 
@@ -122,7 +124,7 @@ xcode-select --install
 
 ```bash
 sudo apt update
-sudo apt install libwebkit2gtk-4.0-dev \
+sudo apt install libwebkit2gtk-4.1-dev \
     build-essential \
     curl \
     wget \

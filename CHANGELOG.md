@@ -26,7 +26,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## Unreleased
+## @tensnap/web [0.3.10] - 2026-10-23
+
+### Added
+
+- Bind scene views to existing simulator objects while keeping view identities and simulator declarations read-only. Edit environment layer preferences, chart series labels/colors and monitor display hints locally, with explicit inheritance/reset controls and color pickers.
+- Select chart-history restoration independently of checkpoint/projected model restoration. Apply parameter edits through the live session with validation and conflict checks.
+
+### Fixed
+
+- Keep chart history intact when editing displayed series. Reset live and replay viewports from the context menu after Copy; restrict node dragging to enabled force layouts.
+- Align selects, switches, status/tab spacing and native scroll viewports. Keep dialog buttons outside scrolling and anchored at the bottom, including replay windows; Escape closes a select before its dialog.
+
+## @tensnap/tauri [0.3.8] - 2026-10-23
+
+### Fixed
+
+- Hide the duplicate native menu bar on Windows, including after locale changes and in auxiliary windows, while retaining accelerators and the HTML menu. Other platforms retain their menu behavior.
+- Bundle the updated Web/shared UI and upload the plain Windows executable alongside installers through the existing release action. The executable still requires WebView2.
+
+## @tensnap/agent [0.3.8] - 2026-10-23
+
+### Added
+
+- Add context-local `scene presentation <env-id>` preferences and matching control endpoints, with per-render `--layer-overrides` and bounded `--layout-ticks` options.
+
+### Changed
+
+- Preserve stored coordinates for fixed-frame exports by default; explicit positive layout budgets opt into relayout. Live renders use deterministic initial placement without extra force iterations unless requested. Rendering operates on detached scenes.
+- Bundle the shared frontend presentation/restore contract with offline CLI documentation.
+
+## @tensnap/core [0.3.8] - 2026-10-23
+
+### Added
+
+- Share validated renderer-local presentation overrides and saved view preferences across hosts without new protocol fields.
+
+### Fixed
+
+- Disable all forces and initial scattering for finite negative `link_distance`; preserve zero target lengths and persistent pins. Coordinate one force writer per shared agent storage and convert exclusive node gestures through scene scale and orientation without duplicate handlers after icon changes.
+- Commit chart-history policies and fresh monitor observations only after successful online restore. Record renderer-local restore effects with existing messages so forward playback and keyframe seeks agree.
+
+### Changed
+
+- Reduce stop/capture/archive encoding copies and RLE allocation for the first part of [issue #36](https://github.com/billstark001/tensnap/issues/36). Public detached ownership and recording formats remain intact; full archive retention and incremental recording storage are separate work.
+
+## @tensnap/web-adapter [0.3.6] - 2026-10-23
+
+### Fixed
+
+- Keep file dialogs and directory lists scrollable with native CSS scrollbars when content windows are resized.
+
+## @tensnap/web-common [0.3.5] - 2026-10-23
+
+### Added
+
+- Unify theme, parameter and scene-editor switches around the original Settings appearance. Share native color pickers and themed select spacing, preserve caller styling, and add native scroll viewports with thin CSS scrollbars for dialogs, inspectors, content panels, menus and tab strips. Migrate application-owned CSS and inline animation rules to vanilla-extract; retain WinBox's dependency-owned stylesheet.
 
 ## @tensnap/core [0.3.7] - 2026-10-21
 
