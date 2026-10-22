@@ -603,7 +603,7 @@ msgstr "打开录像失败"
 msgid "Failed to reconnect"
 msgstr "重新连接失败"
 
-#: src/components/toolbar/useFileOperations.ts:117
+#: src/components/toolbar/useFileOperations.ts:115
 msgid "Failed to save file"
 msgstr "保存文件失败"
 
@@ -639,7 +639,7 @@ msgstr "文件导入失败"
 #~ msgid "File Manager"
 #~ msgstr "文件管理器"
 
-#: src/components/toolbar/useFileOperations.ts:115
+#: src/components/toolbar/useFileOperations.ts:113
 msgid "File saved"
 msgstr "文件已保存"
 
@@ -1369,7 +1369,7 @@ msgstr "运行状态"
 msgid "Save"
 msgstr "保存"
 
-#: src/components/toolbar/useFileOperations.ts:132
+#: src/components/toolbar/useFileOperations.ts:130
 msgid "Save As"
 msgstr "另存为"
 

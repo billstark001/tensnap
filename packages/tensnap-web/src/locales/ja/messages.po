@@ -603,7 +603,7 @@ msgstr "録画を開けませんでした"
 msgid "Failed to reconnect"
 msgstr "再接続に失敗しました"
 
-#: src/components/toolbar/useFileOperations.ts:117
+#: src/components/toolbar/useFileOperations.ts:115
 msgid "Failed to save file"
 msgstr "ファイルを保存できませんでした"
 
@@ -639,7 +639,7 @@ msgstr "ファイルのインポートに失敗しました"
 #~ msgid "File Manager"
 #~ msgstr "ファイルマネージャー"
 
-#: src/components/toolbar/useFileOperations.ts:115
+#: src/components/toolbar/useFileOperations.ts:113
 msgid "File saved"
 msgstr "ファイルを保存しました"
 
@@ -1369,7 +1369,7 @@ msgstr "実行状態"
 msgid "Save"
 msgstr "保存"
 
-#: src/components/toolbar/useFileOperations.ts:132
+#: src/components/toolbar/useFileOperations.ts:130
 msgid "Save As"
 msgstr "名前を付けて保存"
 

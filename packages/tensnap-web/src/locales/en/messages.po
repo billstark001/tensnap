@@ -603,7 +603,7 @@ msgstr "Failed to open recording"
 msgid "Failed to reconnect"
 msgstr "Failed to reconnect"
 
-#: src/components/toolbar/useFileOperations.ts:117
+#: src/components/toolbar/useFileOperations.ts:115
 msgid "Failed to save file"
 msgstr "Failed to save file"
 
@@ -639,7 +639,7 @@ msgstr "File import failed"
 #~ msgid "File Manager"
 #~ msgstr "File Manager"
 
-#: src/components/toolbar/useFileOperations.ts:115
+#: src/components/toolbar/useFileOperations.ts:113
 msgid "File saved"
 msgstr "File saved"
 
@@ -1369,7 +1369,7 @@ msgstr "Runtime status"
 msgid "Save"
 msgstr "Save"
 
-#: src/components/toolbar/useFileOperations.ts:132
+#: src/components/toolbar/useFileOperations.ts:130
 msgid "Save As"
 msgstr "Save As"
 
