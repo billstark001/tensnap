@@ -1,12 +1,15 @@
+import { Switch } from '@tensnap/web-common/components/ui/Switch';
 import { defineDialog } from '@tensnap/web-common/workbench/dialog-content';
 import type { RendererSession, RestoreChartPolicy } from '@tensnap/core/runtime';
 import {
   materializeSnapshot,
+  frameFromRecording,
   projectedRestoreChangesTopology,
   projectSnapshotForRestore,
   type Snapshot,
 } from '@tensnap/core/snapshot';
 import * as Dialog from '@tensnap/web-common/components/ui/Dialog';
+import Form from '@tensnap/web-common/components/ui/Form';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from '@/store/toast';
 import * as styles from './SceneRestoreDialog.css';
@@ -120,53 +123,23 @@ function SceneRestoreDialogContent({
     onPendingChange(true);
     let restored = false;
     try {
-      const identity =
-        snapshot.metadata.model_identity ??
-        (checkpoint
-          ? { model_id: checkpoint.model_id, state_schema_version: checkpoint.state_schema_version }
-          : undefined);
-      if (restoreMode === 'checkpoint') {
-        if (!checkpoint) throw new Error('This snapshot does not contain an exact checkpoint.');
-        const capturedTime = materializeSnapshot(snapshot, frame).metadata.time;
-        const result = await session.restoreScene(
-          {
-            request_id: id,
-            ...(identity?.state_schema_version === undefined
-              ? {}
-              : { state_schema_version: identity.state_schema_version }),
-            ...(info?.instance_id ? { expected_instance_id: info.instance_id } : {}),
-            checkpoint: { encoding: checkpoint.encoding, data: checkpoint.data },
-            ...(canProject && typeof capturedTime === 'number' ? { time: capturedTime } : {}),
-          },
-          { signal: controller.signal },
+      const captured = frameFromRecording(snapshot, frame);
+      // Old saved captures can carry verified identity only on their checkpoint.
+      captured.modelIdentity ??= snapshot.metadata.checkpoint
+        ? {
+            model_id: snapshot.metadata.checkpoint.model_id,
+            state_schema_version: snapshot.metadata.checkpoint.state_schema_version,
+          }
+        : undefined;
+      const result = await session.restoreFrame(captured, {
+        mode: restoreMode,
+        chartPolicy,
+        signal: controller.signal,
+      });
+      if (result.modelStatus !== 'restored')
+        throw new Error(
+          result.error ?? result.result?.error?.message ?? 'Simulator restore failed.',
         );
-        if (result.status !== 'ok') {
-          throw new Error(result.error?.message ?? _(t`Simulator returned ${result.status}.`));
-        }
-      } else {
-        const state = materializeSnapshot(snapshot, frame);
-        const projected = projectSnapshotForRestore(state);
-        const result = await session.restoreScene(
-          {
-            request_id: id,
-            ...(identity?.state_schema_version === undefined
-              ? {}
-              : { state_schema_version: identity.state_schema_version }),
-            ...(info?.instance_id ? { expected_instance_id: info.instance_id } : {}),
-            time: projected.time,
-            parameters: projected.parameters,
-            envs: projected.envs,
-          },
-          {
-            chartPolicy,
-            replacementCharts: chartPolicy === 'replace' ? state.charts : undefined,
-            signal: controller.signal,
-          },
-        );
-        if (result.status !== 'ok') {
-          throw new Error(result.error?.message ?? _(t`Simulator returned ${result.status}.`));
-        }
-      }
       toast.success(_(msg`Snapshot restored`));
       restored = true;
     } catch (error) {
@@ -242,7 +215,7 @@ function SceneRestoreDialogContent({
             <span>
               <Trans>Restore method</Trans>
             </span>
-            <select
+            <Form.Select
               value={restoreMode}
               disabled={Boolean(requestId)}
               onChange={(event) => setRestoreMode(event.target.value as RestoreMode)}
@@ -253,15 +226,22 @@ function SceneRestoreDialogContent({
               <option value="projected">
                 <Trans>Projected scene</Trans>
               </option>
-            </select>
+            </Form.Select>
           </label>
         )}
-        {restoreMode === 'projected' && (
-          <label className={styles.field}>
+        {
+          <div className={styles.field}>
+            <Switch
+              label={<Trans>Restore chart history</Trans>}
+              checked={chartPolicy === 'replace'}
+              disabled={Boolean(unavailableReason) || Boolean(requestId)}
+              onCheckedChange={(checked) => setChartPolicy(checked ? 'replace' : 'preserve')}
+            />
             <span>
               <Trans>Chart policy</Trans>
             </span>
-            <select
+            <Form.Select
+              aria-label="Chart policy"
               value={chartPolicy}
               disabled={Boolean(unavailableReason) || Boolean(requestId)}
               onChange={(event) => setChartPolicy(event.target.value as RestoreChartPolicy)}
@@ -278,9 +258,9 @@ function SceneRestoreDialogContent({
               >
                 <Trans>Truncate live charts at restore time</Trans>
               </option>
-            </select>
-          </label>
-        )}
+            </Form.Select>
+          </div>
+        }
         {restoreMode === 'checkpoint' && checkpoint && (
           <p className={styles.summary}>
             <Trans>

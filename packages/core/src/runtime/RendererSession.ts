@@ -88,6 +88,7 @@ interface IncomingTransaction {
   requestId: string;
   scenario: Scenario;
   messages: SimulatorToRendererMessage[];
+  recordingPrelude?: SimulatorToRendererMessage[];
   chartPolicy?: RestoreChartPolicy;
   replacementCharts?: ChartGroup[];
   truncateTime?: number;
@@ -1154,12 +1155,30 @@ export class RendererSession extends LazyEventTarget {
     }
     const staging = this.createStagingScenario();
     staging.load(this.scenario.dump());
+    const recordingPrelude: SimulatorToRendererMessage[] = [];
+    // Online monitor values belong to the restored simulator. Never retain an
+    // observation from the pre-restore state when it is not republished.
+    staging.monitors.load(
+      [...staging.monitors.all.values()].map((monitor) => {
+        const metadata = { ...monitor };
+        delete metadata.value;
+        delete metadata.revision;
+        // Replay must observe the same invalidation, including when no fresh
+        // monitor_update follows. Existing message types keep archives portable.
+        recordingPrelude.push(
+          { type: 'monitor_delete', payload: { id: monitor.id } },
+          { type: 'monitor_create', payload: metadata },
+        );
+        return metadata;
+      }),
+    );
     const options = active.restoreOptions;
     this.transaction = {
       kind: 'scene-restore',
       requestId: payload.request_id,
       scenario: staging,
       messages: [message],
+      recordingPrelude,
       chartPolicy: options?.chartPolicy,
       replacementCharts: options?.replacementCharts,
       truncateTime: options?.truncateTime,
@@ -1194,9 +1213,12 @@ export class RendererSession extends LazyEventTarget {
         if (transaction.chartPolicy === 'truncate' && transaction.truncateTime !== undefined) {
           transaction.scenario.charts.truncateAll(transaction.truncateTime, false);
         }
+        const recordingMessages = this.recorder.active
+          ? this.restoreRecordingMessages(transaction)
+          : transaction.messages;
         this.scenario.load(transaction.scenario.dump());
         this.lastCommittedActionRequestId = undefined;
-        this.recorder.recordMessages(transaction.messages);
+        this.recorder.recordMessages(recordingMessages);
         this.dispatch('commit', {
           revision: ++this.commitRevisionValue,
           origin: 'scene-restore',
@@ -1218,6 +1240,50 @@ export class RendererSession extends LazyEventTarget {
     } satisfies RendererSessionMessageDetail);
     this.transaction = null;
     this.completeActiveRequest('scene-restore', structuredClone(payload));
+  }
+
+  /** Encode renderer-local restore effects with existing replayable messages. */
+  private restoreRecordingMessages(transaction: IncomingTransaction): SimulatorToRendererMessage[] {
+    const messages = [...(transaction.recordingPrelude ?? []), ...transaction.messages];
+    if (transaction.chartPolicy === 'truncate' && transaction.truncateTime !== undefined) {
+      messages.push({
+        type: 'chart_update',
+        payload: {
+          operations: [
+            {
+              operation: 'truncate',
+              kind: 'all',
+              time: transaction.truncateTime,
+              inclusive: false,
+            },
+          ],
+        },
+      });
+    } else if (transaction.chartPolicy === 'replace') {
+      for (const group of this.scenario.charts.getGroupList())
+        messages.push({ type: 'chart_delete', payload: { kind: 'group', id: group.id } });
+      for (const group of transaction.scenario.charts.getGroupList()) {
+        const metadata = Object.values(group.metadataDict);
+        messages.push({
+          type: 'chart_create',
+          payload:
+            metadata.length === 1 && metadata[0]!.id === group.id
+              ? { ...metadata[0]!, label: group.label }
+              : { id: group.id, label: group.label, data_list: metadata },
+        });
+        messages.push({
+          type: 'chart_update',
+          payload: {
+            updates: group.data.flatMap((point) =>
+              Object.entries(point)
+                .filter(([id]) => id !== 'time')
+                .map(([id, value]) => ({ id, time: point.time, value })),
+            ),
+          },
+        });
+      }
+    }
+    return messages;
   }
 
   private completeSceneCapture(

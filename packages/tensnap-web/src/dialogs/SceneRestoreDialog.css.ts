@@ -1,9 +1,10 @@
 import { style } from '@vanilla-extract/css';
 import { vars } from '@tensnap/web-common/styles/global.css';
 
-export const body = style({ display: 'grid', gap: vars.space.md });
+export const body = style({ display: 'grid', alignContent: 'start', gap: vars.space.md });
 export const field = style({
   display: 'grid',
+  alignContent: 'start',
   gap: vars.space.xs,
   color: vars.color.foreground,
   selectors: { 'body[data-theme="dark"] &': { color: vars.color.darkForeground } },
