@@ -13,9 +13,9 @@ import hashlib
 import io
 import json
 import os
-from pathlib import Path, PurePosixPath
 import tarfile
 import tempfile
+from pathlib import Path, PurePosixPath
 
 INVENTORY = "ARCHIVE_MANIFEST.json"
 

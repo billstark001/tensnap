@@ -5,8 +5,9 @@
     "build": "python -m pip wheel --no-deps . -w dist",
     "test": "pytest",
     "typecheck": "python -m pyright -p ../../pyrightconfig.json --warnings",
-    "lint": "pnpm run typecheck && ruff check tensnap && ruff check --select TID251 --config 'extend-exclude=[]' tensnap",
-    "format": "ruff format tensnap",
+    "lint": "pnpm run typecheck && ruff check tensnap tests benchmarks ../../examples && pnpm run format:check",
+    "format": "ruff format tensnap tests benchmarks ../../examples",
+    "format:check": "ruff format --check tensnap tests benchmarks ../../examples",
     "clean": "rm -rf build dist *.egg-info __pycache__"
   }
 }

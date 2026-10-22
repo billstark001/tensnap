@@ -90,7 +90,7 @@ pnpm --filter @tensnap/julia format
 pnpm --filter @tensnap/julia lint
 ```
 
-Both commands use two-space indentation and target `src`; `lint` checks without writing files.
+Both commands use two-space indentation and cover `src`, `test` and `benchmarks`; `lint` checks without writing files. From the repository root, `pnpm lint:julia` and `pnpm format:julia` also cover examples, conformance fixtures and benchmark adapters.
 
 ## Release
 

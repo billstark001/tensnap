@@ -4,13 +4,13 @@ import copy
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-import run_matrix
 
+import run_matrix
 from run_matrix import (
     apply_agent_frames,
     population_counts,
-    require_agent_projection,
     require_action_order,
+    require_agent_projection,
     require_full_digest,
     require_future_replay,
     require_identity,
@@ -31,7 +31,7 @@ class HarnessCanaries(unittest.TestCase):
         ):
             target = run_matrix.ROOT / relative
 
-            def changed(path):
+            def changed(path, target=target):
                 original = read_bytes(path)
                 return (
                     original + b"\nchanged for fingerprint canary"

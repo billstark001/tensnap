@@ -11,17 +11,17 @@ from __future__ import annotations
 
 import argparse
 import base64
-from io import BytesIO
-from hashlib import sha256
 import json
 import os
-from pathlib import Path
 import platform
 import time
-from typing import Iterable
+from collections.abc import Iterable
+from hashlib import sha256
+from io import BytesIO
+from pathlib import Path
 
-from PIL import Image
 import pynetlogo
+from PIL import Image
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[5] / "examples" / "python_mesa"
 DEFAULT_MODEL = EXAMPLE_DIR / "schelling.nlogox"

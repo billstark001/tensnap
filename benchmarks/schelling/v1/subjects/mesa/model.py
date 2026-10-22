@@ -1,13 +1,13 @@
 """Thin compatibility import for the user-facing Mesa Schelling model."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 EXAMPLE_DIR = Path(__file__).parents[5] / "examples/python_mesa"
 if str(EXAMPLE_DIR) not in sys.path:
     sys.path.insert(0, str(EXAMPLE_DIR))
 
-from schelling import (  # noqa: E402
+from schelling import (
     DEFAULT_BALANCE,
     DEFAULT_DENSITY,
     DEFAULT_GRID_H,

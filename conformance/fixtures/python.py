@@ -9,7 +9,6 @@ from tensnap import agent, agent_layer, chart, env, grid_layer
 from tensnap.bindings import BindParameterConfig, action, monitor
 from tensnap.scenario import SimulationScenario
 
-
 STATE_PATH = Path(os.environ["TENSNAP_CONFORMANCE_STATE"])
 
 

@@ -4,6 +4,7 @@ import asyncio
 import json
 from unittest.mock import AsyncMock
 
+import msgpack
 import pytest
 from websockets.exceptions import ConnectionClosedOK
 from websockets.protocol import State
@@ -31,8 +32,6 @@ class TestMessageEncoding:
         }
 
     def test_encode_message_msgpack(self):
-        import msgpack
-
         result = encode_message(
             ServerToClientMessageType.ENV_LAYER_UPDATE,
             {"env_id": "env1", "layer_id": "grid", "data": {"x": 5}},

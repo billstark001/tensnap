@@ -232,7 +232,7 @@ class NetLogoEvacuationEnv:
             )
 
     @staticmethod
-    def _format_value(value: int | float | str | bool) -> str:
+    def _format_value(value: float | str | bool) -> str:
         if isinstance(value, bool):
             return "true" if value else "false"
         if isinstance(value, str):

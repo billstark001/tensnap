@@ -3,9 +3,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 import tensnap.bindings as binding_api
+import tensnap.bindings as bindings_module
+import tensnap.bindings.basic as basic_bindings
+import tensnap.models as model_types
 from tensnap import SimulationScenario
 from tensnap.bindings import chart
-from tensnap.server import ServerToClientMessageType as MT
+from tensnap.server import ServerToClientMessageType as MessageType
 
 
 def test_chart_property_group_keeps_properties_readable_and_registers_one_group():
@@ -86,7 +89,7 @@ async def test_scenario_broadcasts_all_grouped_chart_series():
     await_args = scenario.server.broadcast.await_args
     assert await_args is not None
     message_type, payload = await_args.args
-    assert message_type == MT.CHART_UPDATE
+    assert message_type == MessageType.CHART_UPDATE
     assert payload == {
         "updates": [
             {"id": "alive", "value": 3, "time": 7},
@@ -186,9 +189,6 @@ def test_chart_infers_id_and_supports_both_property_decorator_orders():
 
 
 def test_model_metadata_exports_are_available_from_new_and_compat_paths():
-    import tensnap.bindings as bindings_module
-    import tensnap.bindings.basic as basic_bindings
-    import tensnap.models as model_types
 
     assert model_types.ChartGroupMetadata is not None
     assert model_types.ActionMetadata is not None

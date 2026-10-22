@@ -12,7 +12,7 @@
     "standalone:schelling": "julia --startup-file=no --project=. schelling_standalone.jl",
     "build": "pnpm run instantiate",
     "test": "julia --startup-file=no --project=. test_examples.jl && julia --startup-file=no --project=. test_package.jl",
-    "lint": "echo 'No lint configured'",
-    "format": "echo 'No formatter configured'"
+    "lint": "jlfmt --indent=2 --check .",
+    "format": "jlfmt --indent=2 --inplace ."
   }
 }

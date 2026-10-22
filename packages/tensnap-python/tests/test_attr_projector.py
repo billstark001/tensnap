@@ -7,7 +7,6 @@ from typing import Any
 
 import pytest
 
-
 from tensnap.utils.attr import (
     make_attr_getter,
     make_attr_getter_and_setter,

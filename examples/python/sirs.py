@@ -9,7 +9,6 @@ epidemiological model with support for three different interaction structures:
 """
 
 from enum import IntEnum
-from typing import List, Tuple
 
 import networkx as nx
 import numpy as np
@@ -104,13 +103,12 @@ class Environment:
             num_agents: Total number of agents in the environment
         """
         self.num_agents = num_agents
-        self.agents: List[Agent] = []
+        self.agents: list[Agent] = []
 
     def init(self, rng: np.random.Generator):
         """Rebuild any stochastic topology using the simulation-owned RNG."""
-        pass
 
-    def get_neighbors(self, agent_id: int) -> List[int]:
+    def get_neighbors(self, agent_id: int) -> list[int]:
         """
         Get the neighbors of a given agent.
 
@@ -132,7 +130,7 @@ class WellMixedEnvironment(Environment):
     This represents a homogeneous population with no spatial or network structure.
     """
 
-    def get_neighbors(self, agent_id: int) -> List[int]:
+    def get_neighbors(self, agent_id: int) -> list[int]:
         """
         Get all other agents as neighbors.
 
@@ -192,7 +190,7 @@ class GridEnvironment(Environment):
         self._active_rows, self._active_cols = self.rows, self.cols
         self.num_agents = self.rows * self.cols
 
-    def _id_to_coords(self, agent_id: int) -> Tuple[int, int]:
+    def _id_to_coords(self, agent_id: int) -> tuple[int, int]:
         """Convert agent ID to grid coordinates."""
         return agent_id // self._active_cols, agent_id % self._active_cols
 
@@ -200,7 +198,7 @@ class GridEnvironment(Environment):
         """Convert grid coordinates to agent ID."""
         return row * self._active_cols + col
 
-    def get_neighbors(self, agent_id: int) -> List[int]:
+    def get_neighbors(self, agent_id: int) -> list[int]:
         """
         Get neighboring agents in the grid (4-connectivity).
 
@@ -261,7 +259,7 @@ class ERNetworkEnvironment(Environment):
         self.num_agents = num_agents
         self.connection_prob = connection_prob
 
-    def render_tensnap_edge(self, edge: Tuple[int, int]) -> dict:
+    def render_tensnap_edge(self, edge: tuple[int, int]) -> dict:
         return {
             "source": edge[0],
             "target": edge[1],
@@ -274,7 +272,7 @@ class ERNetworkEnvironment(Environment):
             self.num_agents, self.connection_prob, seed=rng
         )
 
-    def get_neighbors(self, agent_id: int) -> List[int]:
+    def get_neighbors(self, agent_id: int) -> list[int]:
         """
         Get neighbors of an agent in the network.
 
@@ -359,7 +357,7 @@ class SIRSSimulation:
         self.history = {"susceptible": [], "infected": [], "recovered": []}
         self.last_states = self.count_states(add_history=True)
 
-    def count_states(self, add_history: bool = False) -> Tuple[int, int, int]:
+    def count_states(self, add_history: bool = False) -> tuple[int, int, int]:
         """Count agents in each state."""
         counts = [0, 0, 0]
         for person in self.agents:
@@ -379,10 +377,12 @@ class SIRSSimulation:
                 # S -> I: Check for infection from neighbors
                 neighbors = self.environment.get_neighbors(person.id)
                 for neighbor_id in neighbors:
-                    if self.agents[neighbor_id].is_infected():
-                        if self.rng.random() < self.beta:
-                            new_states[person.id] = State.INFECTED
-                            break
+                    if (
+                        self.agents[neighbor_id].is_infected()
+                        and self.rng.random() < self.beta
+                    ):
+                        new_states[person.id] = State.INFECTED
+                        break
 
             elif person.is_infected():
                 # I -> R: Recovery

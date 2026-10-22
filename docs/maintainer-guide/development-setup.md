@@ -30,7 +30,7 @@ pnpm install  # Installs all workspace packages
 
 The workspace compiles with TypeScript 7. `zod-to-ts` still executes the removed pre-v7 JavaScript compiler API, so `.pnpmfile.cjs` gives it a private TypeScript 6 runtime. Do not remove that compatibility dependency until upstream supports the TypeScript 7 APIs; application and library typechecks continue to resolve TypeScript 7.
 
-`pnpm lint` runs Oxlint across repository JavaScript/TypeScript and then package typechecks and native linters. Oxlint warnings fail the check; use `pnpm lint:js` for the focused zero-warning check. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python formatters.
+`pnpm lint` runs Oxlint across repository JavaScript/TypeScript, checks all repository Python files with Ruff and Julia sources with JuliaFormatter, and runs package typechecks and native linters. Oxlint warnings fail the check; use `pnpm lint:js` for the focused zero-warning check. `pnpm lint:python` runs repository-wide Python lint and formatting checks. `pnpm format:js` formats JavaScript/TypeScript with Oxfmt; `pnpm format:md` formats Markdown with `proseWrap: "never"`. `pnpm format` runs both and the Go/Python/Julia formatters. `pnpm format:python` includes all repository Python files, including runtime tests, benchmarks, conformance tools and examples. `pnpm lint:julia` and `pnpm format:julia` cover the equivalent Julia source, test, example and adapter directories.
 
 Oxlint enforces `typescript/consistent-type-imports` globally, including tests. Use static `import type` declarations (or named `type` specifiers) for types. Type-position `import('module').Type` and `typeof import('module')` are forbidden; use a top-level type namespace import for module type queries. Runtime dynamic `import()` remains available for lazy loading.
 
@@ -173,16 +173,17 @@ Some Schelling launchers are intentionally thin. Visualization commands delegate
 
 ```bash
 cd packages/tensnap-python
-ruff format tensnap/  # Format code
-ruff check tensnap/   # Lint
-python -m pyright -p ../../pyrightconfig.json --warnings  # Type check
+pnpm format        # Format library, tests, benchmarks and Python examples
+pnpm format:check  # Check formatting without writing
+pnpm lint          # Pyright, Ruff lint and formatting checks
+pnpm typecheck     # Pyright alone
 ```
 
 Python type checks use the root `pyrightconfig.json` in basic mode, targeting Python 3.10. The shared scope is `packages/tensnap-python/tensnap` and `packages/tensnap-python/tests/typing`; runtime tests, examples and build outputs are outside the batch check. Pylance reads the same root configuration when the repository is opened in VS Code. Select the same development interpreter in the editor and terminal so dependencies resolve consistently. The development extra pins the Pyright version used by local checks and CI.
 
 Pylance can still report diagnostics in an opened runtime test or example outside this batch scope; `include` controls file discovery, not diagnostic suppression. To check such a file from the CLI, pass its path explicitly with `-p pyrightconfig.json` from the repository root. Use `python -c 'import tensnap; print(tensnap.__file__)'` to check runtime imports separately: a different interpreter or an older installed package can resolve differently from the workspace paths used by static analysis.
 
-Run `pnpm --filter @tensnap/python typecheck` from the repository root for types alone, or `pnpm --filter @tensnap/python lint` for the same Pyright and Ruff checks used by CI. The Ruff checks retain the package's lint exclusions while checking Python 3.10 import compatibility across all library source files.
+Run `pnpm --filter @tensnap/python typecheck` from the repository root for types alone, or `pnpm --filter @tensnap/python lint` for the same Pyright and Ruff checks used by CI. Ruff covers every library module, runtime test, package benchmark and Python example, including formatting and Python 3.10 import compatibility in library code. The configuration has no whole-file exclusions; documented rule exceptions preserve public signatures, protocol dispatch structure, numeric test expectations and optional test imports.
 
 Repository-wide frontend/tooling lint can be run from the workspace root:
 
@@ -208,6 +209,8 @@ go test ./...
 ### Julia
 
 ```bash
+pnpm lint:julia    # Check all repository Julia sources
+pnpm format:julia  # Format them with two-space indentation
 julia --project=packages/tensnap-julia -e 'using Pkg; Pkg.test()'
 ```
 

@@ -12,14 +12,13 @@ import logging
 from collections.abc import Callable
 from functools import partial
 from typing import (
-    Any,
-    List,
-    Optional,
     TYPE_CHECKING,
+    Any,
 )
 
-import tensnap.bindings as binding_api
+from typing_extensions import deprecated
 
+import tensnap.bindings as binding_api
 from tensnap.bindings.lifecycle import (
     BoundModelReinitializer,
     KwargBinding,
@@ -31,7 +30,6 @@ from tensnap.models import EnvironmentBinding, LayerBinding
 from tensnap.scenario import DefaultSimulationHandler
 from tensnap.utils.attr import make_attr_getter, make_attr_projector
 from tensnap.utils.func import call_function
-from typing_extensions import deprecated
 
 from .utils import cleanup_mesa_model_step
 
@@ -108,7 +106,8 @@ def build_default_layered_binder(
 
 
 @deprecated(
-    "MesaSimulationHandler is deprecated; use SimulationScenario.register_model instead."
+    "MesaSimulationHandler is deprecated; "
+    "use SimulationScenario.register_model instead."
 )
 class MesaSimulationHandler(DefaultSimulationHandler):
     """
@@ -121,13 +120,13 @@ class MesaSimulationHandler(DefaultSimulationHandler):
     def __init__(
         self,
         model_class: type[Any],
-        model_init_args: Optional[list] = None,
-        model_init_kwargs: Optional[dict] = None,
+        model_init_args: list | None = None,
+        model_init_kwargs: dict | None = None,
         agent_iterable_projector: "str | Callable" = "agents",
-        on_model_init: Optional[Callable] = None,
-        on_model_step: Optional[Callable] = None,
-        on_model_reset: Optional[Callable] = None,
-        kwarg_bindings: Optional[list[KwargBinding]] = None,
+        on_model_init: Callable | None = None,
+        on_model_step: Callable | None = None,
+        on_model_reset: Callable | None = None,
+        kwarg_bindings: list[KwargBinding] | None = None,
     ) -> None:
         super().__init__(
             model_init=self._model_init_impl,
@@ -143,10 +142,10 @@ class MesaSimulationHandler(DefaultSimulationHandler):
         self.on_model_step = on_model_step
         self.on_model_reset = on_model_reset
 
-        self.model: Optional[Any] = None
-        self.environment_id: Optional[str] = None
-        self._auto_params: List[str] = []
-        self._auto_charts: List[str] = []
+        self.model: Any | None = None
+        self.environment_id: str | None = None
+        self._auto_params: list[str] = []
+        self._auto_charts: list[str] = []
         self._auto_registered: RegistryChanges = {}
 
         self.model = self.model_class(*self.model_init_args, **self.model_init_kwargs)

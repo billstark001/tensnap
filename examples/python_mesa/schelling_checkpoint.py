@@ -40,7 +40,7 @@ def capture_checkpoint(model: SchellingModel) -> dict:
 
 def _apply_checkpoint(model: SchellingModel, saved: dict) -> None:
     if not isinstance(saved, dict) or not isinstance(saved.get("agents"), list):
-        raise ValueError("invalid Schelling checkpoint")
+        raise TypeError("invalid Schelling checkpoint")
     width, height = int(saved["width"]), int(saved["height"])
     if width <= 0 or height <= 0:
         raise ValueError("invalid Schelling grid dimensions")

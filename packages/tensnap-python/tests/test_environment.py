@@ -1,12 +1,10 @@
 """Tests for the new environment/layer binding surface."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
 from tensnap import bindings as binding_api
-from tensnap.bindings.basic import layer_utils
-from tensnap.handler import DefaultSimulationHandler
 from tensnap.bindings import (
     agent,
     agent_layer,
@@ -17,6 +15,8 @@ from tensnap.bindings import (
     grid_layer,
     value,
 )
+from tensnap.bindings.basic import layer_utils
+from tensnap.handler import DefaultSimulationHandler
 from tensnap.models import (
     EnvironmentBinding,
     EnvironmentRegistration,
@@ -196,7 +196,7 @@ class TestEnvironmentRegistration:
             item_changed_getter="changed",
         )
         class Model:
-            agents = [Agent()]
+            agents: ClassVar[list[Agent]] = [Agent()]
 
         binding = binding_api.layer_bindings(Model)[0]
 

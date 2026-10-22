@@ -1,5 +1,5 @@
 import random
-from typing import Any, Dict, List
+from typing import Any
 
 import networkx as nx
 import numpy as np
@@ -51,7 +51,7 @@ class AdaptiveNetworkHKModel:
         influence_strength: float = 0.1,
         k_random: int = 3,
         rewire_prob: float = 0.1,
-        initial_opinions: List[float] | None = None,
+        initial_opinions: list[float] | None = None,
         edge_prob: float = 0.1,
         seed: int = 7,
     ):
@@ -82,11 +82,11 @@ class AdaptiveNetworkHKModel:
         self.initial_opinions = initial_opinions
         self.graph: nx.DiGraph = nx.DiGraph()
         self.opinions: np.ndarray = np.zeros(n_agents)
-        self.opinion_history: List[np.ndarray] = []
+        self.opinion_history: list[np.ndarray] = []
 
         self.init()
 
-    def render_tensnap_node(self, node_id: int) -> Dict[str, Any]:
+    def render_tensnap_node(self, node_id: int) -> dict[str, Any]:
         """为TenSnap渲染节点属性"""
         opinion = self.opinions[node_id]
         return {
@@ -102,7 +102,7 @@ class AdaptiveNetworkHKModel:
             "size": 0.5 + abs(opinion) * 2,
         }
 
-    def render_tensnap_edge(self, edge: tuple[int, int]) -> Dict[str, Any]:
+    def render_tensnap_edge(self, edge: tuple[int, int]) -> dict[str, Any]:
         """为TenSnap渲染边属性"""
         source, target = edge
         return {
@@ -139,11 +139,11 @@ class AdaptiveNetworkHKModel:
         # 记录历史
         self.opinion_history = [self.opinions.copy()]
 
-    def get_neighbors(self, agent_id: int) -> List[int]:
+    def get_neighbors(self, agent_id: int) -> list[int]:
         """获取指向某个主体的邻居"""
         return list(self.graph.predecessors(agent_id))
 
-    def get_out_neighbors(self, agent_id: int) -> List[int]:
+    def get_out_neighbors(self, agent_id: int) -> list[int]:
         """获取某个主体指向的邻居"""
         return list(self.graph.successors(agent_id))
 
@@ -185,7 +185,7 @@ class AdaptiveNetworkHKModel:
         else:
             return current_opinion
 
-    def find_incompatible_connections(self, agent_id: int) -> List[int]:
+    def find_incompatible_connections(self, agent_id: int) -> list[int]:
         """找到与主体意见差别过大的连接"""
         current_opinion = self.opinions[agent_id]
         out_neighbors = self.get_out_neighbors(agent_id)
@@ -215,7 +215,7 @@ class AdaptiveNetworkHKModel:
             return self.random.choice(compatible_agents)
         return None
 
-    def rewire_connections(self) -> Dict[str, int]:
+    def rewire_connections(self) -> dict[str, int]:
         """重新连接网络"""
         rewire_stats = {"disconnections": 0, "new_connections": 0}
 
@@ -236,7 +236,7 @@ class AdaptiveNetworkHKModel:
 
         return rewire_stats
 
-    def step(self) -> Dict[str, Any]:
+    def step(self) -> dict[str, Any]:
         """执行一次迭代"""
         # 同步更新意见
         new_opinions = np.zeros_like(self.opinions)
@@ -262,7 +262,7 @@ class AdaptiveNetworkHKModel:
 
         return stats
 
-    def run_simulation(self, n_steps: int, verbose: bool = True) -> List[Dict]:
+    def run_simulation(self, n_steps: int, verbose: bool = True) -> list[dict]:
         """运行模拟"""
         stats_history = []
 

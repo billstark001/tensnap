@@ -10,18 +10,22 @@ include("schelling.jl")
 include("schelling_tensnap.jl")
 
 config = SchellingConfig(
-	gridwidth = parse_env(Int, "TENSNAP_SCHELLING_WIDTH", DEFAULT_GRID_W),
-	gridheight = parse_env(Int, "TENSNAP_SCHELLING_HEIGHT", DEFAULT_GRID_H),
-	density = parse_env(Float64, "TENSNAP_SCHELLING_DENSITY", DEFAULT_DENSITY),
-	balance = parse_env(Float64, "TENSNAP_SCHELLING_BALANCE", DEFAULT_BALANCE),
-	similarity_threshold = parse_env(Float64, "TENSNAP_SCHELLING_THRESHOLD", DEFAULT_SIMILARITY_THRESHOLD),
-	seed = parse_env(Int, "TENSNAP_SCHELLING_SEED", 7),
+  gridwidth = parse_env(Int, "TENSNAP_SCHELLING_WIDTH", DEFAULT_GRID_W),
+  gridheight = parse_env(Int, "TENSNAP_SCHELLING_HEIGHT", DEFAULT_GRID_H),
+  density = parse_env(Float64, "TENSNAP_SCHELLING_DENSITY", DEFAULT_DENSITY),
+  balance = parse_env(Float64, "TENSNAP_SCHELLING_BALANCE", DEFAULT_BALANCE),
+  similarity_threshold = parse_env(
+    Float64,
+    "TENSNAP_SCHELLING_THRESHOLD",
+    DEFAULT_SIMILARITY_THRESHOLD,
+  ),
+  seed = parse_env(Int, "TENSNAP_SCHELLING_SEED", 7),
 )
 server_port = parse_env(Int, "TENSNAP_SERVER_PORT", 8765)
 scenario = create_schelling_scenario(
-	config;
-	port = server_port,
-	use_msgpack = parse_env(Bool, "TENSNAP_USE_MSGPACK", true),
+  config;
+  port = server_port,
+  use_msgpack = parse_env(Bool, "TENSNAP_USE_MSGPACK", true),
 )
 
 @info "Starting Schelling TenSnap server" url="ws://localhost:$server_port"

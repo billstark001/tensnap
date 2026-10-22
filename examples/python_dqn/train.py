@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from statistics import mean
-from typing import Iterable
 
 from torch.types import Device
 

@@ -55,17 +55,6 @@ dev = [
 line-length = 88
 target-version = "py310"
 
-extend-exclude = [
-  "tensnap/bindings/basic/parameter.py",
-  "tensnap/bindings/basic/chart.py",
-  "tensnap/bindings/mesa/datacollector.py",
-  "tensnap/bindings/mesa/handler.py",
-  "tensnap/scenario.py",
-  "tensnap/utils/environment_state.py",
-  "tensnap/utils/model.py",
-  "tensnap/utils/object.py",
-]
-
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "TID251"]
 
@@ -92,6 +81,16 @@ select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF", "TID251"]
 combine-as-imports = true
 
 [tool.ruff.lint.per-file-ignores]
+# Numeric literals describe expected results directly in regression tests.
+"tests/**" = ["PLR2004"]
+# DQN imports follow importorskip so the optional Torch dependency stays optional.
+"tests/test_example_parameters.py" = ["PLC0415"]
+# Benchmark axes and published constructor/callback signatures stay explicit.
+"benchmarks/item_diff.py" = ["PLR0913"]
+"tensnap/bindings/mesa/handler.py" = ["PLR0913", "PLR0917"]
+# Protocol transactions and collector discovery enumerate their supported cases.
+"tensnap/scenario.py" = ["PLR0911", "PLR0912", "PLR0913", "PLR0915"]
+"tensnap/bindings/mesa/datacollector.py" = ["PLR0912"]
 "tensnap/__init__.py" = ["F401", "F403"]
 "tensnap/models/__init__.py" = ["F401", "F403"]
 "tensnap/bindings/basic/__init__.py" = ["F401", "F403"]

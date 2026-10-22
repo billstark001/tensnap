@@ -6,7 +6,7 @@ from __future__ import annotations
 import random
 from collections import deque
 from dataclasses import asdict, dataclass
-from typing import Deque, NamedTuple
+from typing import NamedTuple
 
 import torch
 from torch import Tensor, nn
@@ -26,7 +26,7 @@ class Transition(NamedTuple):
 class ReplayBuffer:
     def __init__(self, capacity: int, rng: random.Random) -> None:
         self.rng = rng
-        self._buffer: Deque[Transition] = deque(maxlen=capacity)
+        self._buffer: deque[Transition] = deque(maxlen=capacity)
 
     def add(self, transition: Transition) -> None:
         self._buffer.append(transition)
