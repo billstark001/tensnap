@@ -67,6 +67,8 @@ export const DEFAULT_GRAPH_CONFIG: Readonly<AgentLayerConfig> = {
 export interface AgentLayerConfig {
   /** Enable drag-to-move (graph mode). Default: false. */
   draggable?: boolean;
+  /** Rechecked during a gesture, for graph layouts whose force policy can change. */
+  canDrag?: () => boolean;
   /** Show agent-id label below the shape. Default: false. */
   showLabel?: boolean;
   /** Register click events. Default: true. */
@@ -119,6 +121,8 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   private _cachedAgents = new Map<AgentId, AgentRenderState>();
   private _draggingId: AgentId | null = null;
+  private _gestureId: AgentId | null = null;
+  private _releasePointerGesture: (() => void) | null = null;
 
   // #endregion
 
@@ -129,6 +133,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
     this._cfg = {
       draggable: false,
+      canDrag: () => true,
       showLabel: false,
       clickable: true,
       contextMenuable: false,
@@ -298,7 +303,8 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       group.set({ zIndex: INSPECTION_HIGHLIGHT_Z_INDEX });
     }
 
-    this._bindEvents(shape, group, agent.id);
+    this._bindShapeEvents(shape, agent.id);
+    this._bindGroupEvents(group, agent.id);
     this._agentsGroup.add(group);
     this._agentShapes.set(agent.id, {
       group,
@@ -330,7 +336,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
       entry.shape.off?.();
       entry.shape = nextShape;
       entry.group.addAt(nextShape, 0);
-      this._bindEvents(nextShape, entry.group, agent.id);
+      this._bindShapeEvents(nextShape, agent.id);
       entry.icon = icon;
       entry.assetUrl = assetUrl;
       entry.size = coords.size;
@@ -450,6 +456,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   }
 
   private _removeAgent(id: AgentId): void {
+    if (this._gestureId === id || this._draggingId === id) this._finishDrag();
     const entry = this._agentShapes.get(id);
     if (!entry) return;
     entry.shape.off?.();
@@ -459,6 +466,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   }
 
   private _clearAgents(): void {
+    this._finishDrag();
     for (const entry of this._agentShapes.values()) {
       entry.shape.off?.();
       entry.group.off?.();
@@ -471,7 +479,7 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
 
   // #region Events
 
-  private _bindEvents(shape: UI, group: Group, id: AgentId): void {
+  private _bindShapeEvents(shape: UI, id: AgentId): void {
     const cfg = this._cfg;
 
     if (cfg.clickable) {
@@ -488,6 +496,10 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
         if (a) cfg.onAgentContextMenu(a, e);
       });
     }
+  }
+
+  private _bindGroupEvents(group: Group, id: AgentId): void {
+    const cfg = this._cfg;
     if (cfg.draggable) this._attachDrag(group, id);
 
     group.on(LeaferPointerEvent.DOUBLE_TAP, (e: any) => {
@@ -503,10 +515,19 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
   // #region Drag
 
   private _attachDrag(group: Group, id: AgentId): void {
-    const { onDragStart, onDragMove, onDragEnd } = this._cfg;
+    const { onDragStart, onDragMove } = this._cfg;
+
+    group.on(LeaferPointerEvent.DOWN, (e: LeaferPointerEvent) => {
+      if (!this.interactionEnabled || !this._cfg.canDrag() || !e.left) return;
+      e.stop();
+      this._finishDrag();
+      this._gestureId = id;
+      this._releasePointerGesture = this.host?.claimPointerGesture?.() ?? null;
+    });
+    group.on(LeaferPointerEvent.UP, () => this._finishDrag());
 
     group.on(LeaferDragEvent.START, (e: LeaferDragEvent) => {
-      if (!this.interactionEnabled) return;
+      if (!this.interactionEnabled || !this._cfg.canDrag()) return;
       e?.stop();
       this._draggingId = id;
       const agent = this._cachedAgents.get(id);
@@ -514,32 +535,40 @@ export class AgentLayer extends BaseLayer implements IBoundedLayer {
     });
 
     group.on(LeaferDragEvent.DRAG, (e: LeaferDragEvent) => {
-      if (!this.interactionEnabled) return;
+      if (!this.interactionEnabled || !this._cfg.canDrag()) return;
       if (this._draggingId !== id) return;
       e?.stop();
-      onDragMove(id, e.moveX, e.moveY);
+      const move = e.getInnerMove(this.group);
+      onDragMove(id, move.x, move.y);
     });
 
     group.on(LeaferDragEvent.END, (e: LeaferDragEvent) => {
-      if (!this.interactionEnabled) return;
       if (this._draggingId !== id) return;
       e?.stop();
-      this._draggingId = null;
-      onDragEnd(id);
+      this._finishDrag();
     });
+  }
+
+  private _finishDrag(): void {
+    const id = this._draggingId;
+    this._draggingId = this._gestureId = null;
+    if (id !== null) this._cfg.onDragEnd(id);
+    this._releasePointerGesture?.();
+    this._releasePointerGesture = null;
   }
 
   // #endregion
 
   protected override onInteractionChanged(enabled: boolean): void {
     if (!enabled) {
-      this._draggingId = null;
+      this._finishDrag();
     }
   }
 
   // #region Destroy
 
   destroy(): void {
+    this._finishDrag();
     this._clearAgents();
     super.destroy();
   }

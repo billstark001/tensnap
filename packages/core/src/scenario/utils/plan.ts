@@ -54,6 +54,7 @@ function createLayerState(layer: ScenarioLayerSnapshot): ScenarioLayerState {
     id: layer.id,
     layerType: layer.layerType,
     metadata: cloneValue(layer.metadata ?? {}),
+    presentation: layer.presentation,
     dependencyLayerIds: cloneValue(layer.dependencyLayerIds ?? {}),
     storage: createLayerStorage(layer),
   };

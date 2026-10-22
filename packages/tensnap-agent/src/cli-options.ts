@@ -8,7 +8,7 @@ import type {
 } from '@tensnap/protocol';
 import type { RenderTriggerMode } from './types';
 import type { SkillOptions } from './skills';
-import type { ScenarioQuery, FieldPath } from '@tensnap/core/scenario';
+import type { ScenarioQuery, FieldPath, LayerPresentationOverrides } from '@tensnap/core/scenario';
 
 export interface CliOptions extends SkillOptions {
   cursor?: string;
@@ -20,6 +20,9 @@ export interface CliOptions extends SkillOptions {
   idType?: 'string' | 'number';
   layer?: string;
   radius?: number;
+  layerOverrides?: LayerPresentationOverrides;
+  layoutTicks?: number;
+  reset?: boolean;
   fields?: FieldPath[];
   policy?: string;
   from?: number;
@@ -102,7 +105,7 @@ export function addOptions(command: Command, options: Option[]): void {
 export function numericOption(
   flags: string,
   description: string,
-  rule: 'finite' | 'integer' | 'positive' | 'port' | 'quality' = 'finite',
+  rule: 'finite' | 'integer' | 'positive' | 'port' | 'quality' | 'layout-ticks' = 'finite',
 ): Option {
   const option = new Option(flags, description);
   return option.argParser((raw) => {
@@ -111,6 +114,8 @@ export function numericOption(
       throw new CliInputError(`Flag ${option.long} must be a finite number.`);
     if (rule === 'port' && (!Number.isInteger(value) || value < 0 || value > 65535))
       throw new CliInputError('Flag --port must be an integer from 0 through 65535.');
+    if (rule === 'layout-ticks' && (!Number.isSafeInteger(value) || value < 0 || value > 10000))
+      throw new CliInputError('--layout-ticks must be an integer from 0 through 10000.');
     if (rule === 'integer' && (!Number.isSafeInteger(value) || value <= 0))
       throw new CliInputError(`Flag ${option.long} must be a positive safe integer.`);
     if (rule === 'positive' && value <= 0)
@@ -226,6 +231,16 @@ export function imageOptions(targetsExclusive = true): Option[] {
     new Option('--format <format>', 'Image format.').choices(['png', 'jpeg']),
     numericOption('--quality <number>', 'JPEG quality.', 'quality'),
     new Option('--background-color <color>', 'Image background color.'),
+    jsonOption(
+      '--layer-overrides <json>',
+      'Renderer-local layer metadata overrides for --env.',
+      'object',
+    ),
+    numericOption(
+      '--layout-ticks <count>',
+      'Bounded graph layout ticks; 0 preserves coordinates.',
+      'layout-ticks',
+    ),
     new Option('--output <path>', 'Output path.'),
   ];
 }

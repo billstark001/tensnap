@@ -3,6 +3,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AgentStorage } from '../storages/AgentStorage';
 import { AgentLayer } from './AgentLayer';
+import { DragEvent, PointerEvent } from '@leafer-ui/core';
+import type { Group } from '@leafer-ui/core';
 
 type AgentEntry = {
   group: Record<string, unknown>;
@@ -61,6 +63,72 @@ describe('AgentLayer inspection highlight', () => {
       expect.objectContaining({ minX: expect.any(Number), maxX: expect.any(Number) }),
     );
     layer.destroy();
+  });
+});
+
+describe('AgentLayer drag gestures', () => {
+  it('claims only enabled node gestures, transforms deltas once after icon changes, and releases on cancellation', () => {
+    const agents = new AgentStorage();
+    agents.setAgents([{ id: 'a', x: 1, y: 2 }]);
+    let enabled = false;
+    const release = vi.fn();
+    const claim = vi.fn(() => release);
+    const move = vi.fn();
+    const end = vi.fn();
+    const layer = new AgentLayer(agents, {
+      draggable: true,
+      canDrag: () => enabled,
+      onDragMove: move,
+      onDragEnd: end,
+    });
+    layer.attachToHost({
+      leafer: { add() {}, remove() {} } as never,
+      viewport: { x: 0, y: 0, width: 10, height: 10 },
+      fitMode: 'contain',
+      interactionEnabled: true,
+      getSurfaceSize: () => ({ width: 500, height: 500 }),
+      claimPointerGesture: claim,
+    });
+    const group = getEntry(layer, 'a').group as unknown as Group;
+    const down = () =>
+      group.emit(
+        PointerEvent.DOWN,
+        new PointerEvent({ type: PointerEvent.DOWN, x: 0, y: 0, buttons: 1 }),
+      );
+    const start = () =>
+      group.emit(DragEvent.START, new DragEvent({ type: DragEvent.START, x: 0, y: 0 }));
+    try {
+      down();
+      start();
+      expect(claim).not.toHaveBeenCalled();
+      enabled = true;
+      for (const icon of ['square', 'triangle', 'circle'] as const)
+        agents.updateAgent('a', { icon });
+      down();
+      start();
+      expect(claim).toHaveBeenCalledOnce();
+      const delta = {
+        type: DragEvent.DRAG,
+        x: 0,
+        y: 0,
+        moveX: 50,
+        moveY: 25,
+        getInnerMove: () => ({ x: 1, y: -0.5 }),
+      };
+      group.emit(DragEvent.DRAG, new DragEvent(delta));
+      expect(move).toHaveBeenCalledExactlyOnceWith('a', 1, -0.5);
+      group.emit(PointerEvent.UP, new PointerEvent({ type: PointerEvent.UP, x: 0, y: 0 }));
+      group.emit(DragEvent.END, new DragEvent({ type: DragEvent.END, x: 0, y: 0 }));
+      expect(end).toHaveBeenCalledExactlyOnceWith('a');
+      expect(release).toHaveBeenCalledOnce();
+      down();
+      start();
+      agents.clearAgents();
+      expect(release).toHaveBeenCalledTimes(2);
+      expect(end).toHaveBeenCalledTimes(2);
+    } finally {
+      layer.destroy();
+    }
   });
 });
 

@@ -253,6 +253,35 @@ afterEach(() => {
 });
 
 describe('EnvironmentView and HeadlessEnvironmentView host equivalence', () => {
+  it('keeps layer-owned gestures out of canvas panning and ignores right-button presses', () => {
+    const container = createContainer();
+    const view = new EnvironmentView(container, {
+      createLeafer: createFakeLeafer,
+      enablePan: true,
+    });
+    view.setViewport(0, 0, 640, 480);
+    const move = () =>
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 60, clientY: 35 }));
+    const down = (button = 0) =>
+      container.dispatchEvent(new MouseEvent('mousedown', { button, clientX: 10, clientY: 10 }));
+    try {
+      const first = view.claimPointerGesture();
+      const release = view.claimPointerGesture();
+      first();
+      down();
+      move();
+      expect(view.viewport).toEqual({ x: 0, y: 0, width: 640, height: 480 });
+      release();
+      down(2);
+      move();
+      expect(view.viewport.x).toBe(0);
+      down();
+      move();
+      expect(view.viewport).toEqual({ x: -50, y: 25, width: 640, height: 480 });
+    } finally {
+      view.destroy();
+    }
+  });
   it('preserves shared scene semantics across browser and headless hosts', () => {
     const browserLayers = createSceneLayers();
     const headlessLayers = createSceneLayers();

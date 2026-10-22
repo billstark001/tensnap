@@ -185,3 +185,24 @@ it.each([
   if (argv.includes('--format'))
     expect(result.options.format).toBe(argv[argv.indexOf('--format') + 1]);
 });
+
+it('accepts zero layout ticks and local presentation without changing protocol options', async () => {
+  const result = await invocation([
+    'scene',
+    'render',
+    '--env',
+    'world',
+    '--layout-ticks',
+    '0',
+    '--layer-overrides',
+    '{"edges":{"link_distance":-1}}',
+  ]);
+  expect(result.options.layoutTicks).toBe(0);
+  expect(result.options.layerOverrides).toEqual({ edges: { link_distance: -1 } });
+});
+
+it.each(['-1', '1.5', '10001'])('rejects invalid layout tick budget %s', async (value) => {
+  await expect(invocation(['scene', 'render', '--layout-ticks', value])).rejects.toThrow(
+    '0 through 10000',
+  );
+});

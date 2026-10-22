@@ -25,6 +25,7 @@ import type {
   MonitorMetadata,
   MonitorUpdatePayload,
   NormalizedLogPayload,
+  ProtocolData,
   Parameter,
   ParameterChangePayload,
   ParameterSyncPayload,
@@ -39,6 +40,8 @@ export interface ScenarioLayerState {
   id: string;
   layerType: string;
   metadata: Record<string, unknown>;
+  /** Ephemeral renderer-local fields, excluded from simulator snapshots. */
+  presentation?: Record<string, ProtocolData>;
   storage: ScenarioLayerStorage;
   dependencyLayerIds: Record<string, string>;
 }
@@ -59,6 +62,7 @@ export interface ScenarioLayerSnapshot {
   id: string;
   layerType: string;
   metadata: Record<string, unknown>;
+  presentation?: Record<string, ProtocolData>;
   dependencyLayerIds: Record<string, string>;
   storageSnapshot: unknown;
 }

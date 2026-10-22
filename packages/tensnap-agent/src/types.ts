@@ -10,7 +10,7 @@ import type {
   ProtocolEncoding,
   ProtocolValidationLevel,
 } from '@tensnap/protocol';
-import type { ScenarioSnapshot } from '@tensnap/core/scenario';
+import type { ScenarioSnapshot, LayerPresentationOverrides } from '@tensnap/core/scenario';
 
 export type RenderTriggerMode = 'manual' | 'action-result';
 export type RenderFormat = 'png' | 'jpeg';
@@ -138,4 +138,8 @@ export interface SceneRenderOptions {
   includeData?: boolean;
   /** Render graph edges at the stored coordinates without running d3-force. */
   readOnlyGraphLayout?: boolean;
+  /** Overrides for envId only; never sent to the simulator. */
+  layerOverrides?: LayerPresentationOverrides;
+  /** Explicit bounded layout; zero preserves stored positions. */
+  layoutTicks?: number;
 }

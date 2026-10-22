@@ -10,6 +10,7 @@
  * environment without pulling in the React/Zustand web-app shell.
  */
 
+import { presentEnvironment, type LayerPresentationOverrides } from './presentation';
 import { EnvironmentView } from '../environment/EnvironmentView';
 import type { AgentId } from '@tensnap/protocol/layers';
 import type { AgentRenderState, AgentStorage, Viewport } from '../environment';
@@ -49,7 +50,7 @@ export class EnvironmentRendererController {
     private readonly options: EnvironmentRendererControllerOptions = {},
   ) {}
 
-  render(environment: ScenarioEnvironmentState): void {
+  render(environment: ScenarioEnvironmentState, overrides?: LayerPresentationOverrides): void {
     if (this.lastEnvironmentId !== environment.id) {
       this.destroy();
       this.lastEnvironmentId = environment.id;
@@ -64,7 +65,7 @@ export class EnvironmentRendererController {
       });
     }
 
-    const plan = createRenderPlan(environment);
+    const plan = createRenderPlan(presentEnvironment(environment, overrides));
 
     try {
       this.reconcile(plan);
@@ -137,6 +138,16 @@ export class EnvironmentRendererController {
       for (const layerPlan of plans) {
         const existing = previous.get(layerPlan.layerId);
         if (existing?.key === layerPlan.key) {
+          if (
+            'agentLayerId' in layerPlan &&
+            layerPlan.agentLayerId !== undefined &&
+            'buildDragHandlers' in existing.layer
+          ) {
+            this.layerFactoryContext.linkedEdgeLayers.set(
+              layerPlan.agentLayerId,
+              existing.layer as { buildDragHandlers(): Record<string, unknown> },
+            );
+          }
           next.set(layerPlan.layerId, existing);
           continue;
         }
@@ -165,7 +176,9 @@ export class EnvironmentRendererController {
 
     this.syncSceneBounds(plan);
 
-    const shouldFit = !this.lastPlan || this.lastPlan.buildKey !== plan.buildKey;
+    const shouldFit =
+      !this.lastPlan ||
+      JSON.stringify(this.lastPlan.sceneBounds) !== JSON.stringify(plan.sceneBounds);
     this.fitPadding = plan.fitPadding;
     if (shouldFit) {
       this.envView.fitToScene({ padding: plan.fitPadding });

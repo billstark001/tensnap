@@ -566,6 +566,30 @@ it('renders stored graph coordinates through dependency layers without changing 
   const snapshot = scenario.dump();
   const before = structuredClone(snapshot);
   const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  const { EdgeLayer } = await import('@tensnap/core/environment');
+  const settle = vi.spyOn(EdgeLayer.prototype, 'settle');
+  try {
+    await painter.render({
+      at: 'test',
+      reason: 'default-work-budget',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: { envId: 'graph', persist: false, width: 32, height: 32 },
+    });
+    expect(settle).not.toHaveBeenCalled();
+    await painter.render({
+      at: 'test',
+      reason: 'explicit-work-budget',
+      trigger: 'explicit',
+      snapshot,
+      assets: {},
+      options: { envId: 'graph', layoutTicks: 5, persist: false, width: 32, height: 32 },
+    });
+    expect(settle).toHaveBeenCalledExactlyOnceWith(5);
+  } finally {
+    settle.mockRestore();
+  }
   for (let index = 0; index < 2; index++) {
     const result = await painter.render({
       at: 'test',
@@ -651,4 +675,79 @@ it('keeps successful environments when another target fails while collecting ren
   } finally {
     projection.mockRestore();
   }
+});
+
+it('renders deterministic bounded layouts and preserves graph coordinates when disabled', async () => {
+  const snapshot: ScenarioSnapshot = {
+    metadata: {},
+    actions: [],
+    parameters: [],
+    charts: [],
+    monitors: [],
+    logs: [],
+    assets: [],
+    environments: [
+      {
+        id: 'world',
+        type: '2d',
+        layers: [
+          {
+            id: 'agents',
+            layerType: 'agent',
+            metadata: {},
+            dependencyLayerIds: {},
+            storageSnapshot: {
+              agents: [
+                { id: 'a', x: 1, y: 2 },
+                { id: 'b', x: 10, y: 8 },
+              ],
+            },
+          },
+          {
+            id: 'edges',
+            layerType: 'edge',
+            metadata: {},
+            dependencyLayerIds: { agent: 'agents' },
+            storageSnapshot: { edges: [{ source: 'a', target: 'b' }] },
+          },
+        ],
+      },
+    ],
+  };
+  const before = structuredClone(snapshot);
+  const painter = new HeadlessEnvironmentPainter({ capturesDir: tmpdir() });
+  const request = {
+    at: 'fixed',
+    reason: 'policy-test',
+    trigger: 'explicit' as const,
+    snapshot,
+    options: { envId: 'world', width: 160, height: 120, includeData: true, persist: false },
+    assets: {},
+  };
+  const first = await painter.render({
+    ...request,
+    options: { ...request.options, layoutTicks: 50 },
+  });
+  const second = await painter.render({
+    ...request,
+    options: { ...request.options, layoutTicks: 50 },
+  });
+  expect(first?.[0].data).toEqual(second?.[0].data);
+  const fixed = await painter.render({
+    ...request,
+    options: { ...request.options, layoutTicks: 0 },
+  });
+  const disabled = await painter.render({
+    ...request,
+    options: {
+      ...request.options,
+      layoutTicks: 50,
+      layerOverrides: { edges: { link_distance: -1 } },
+    },
+  });
+  expect(disabled?.[0].data).toEqual(fixed?.[0].data);
+  expect(snapshot).toEqual(before);
+  await expect(
+    painter.render({ ...request, options: { ...request.options, layoutTicks: -1 } }),
+  ).rejects.toThrow('0 and 10000');
 });

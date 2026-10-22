@@ -1,3 +1,12 @@
+import { join } from 'node:path';
+import {
+  presentEnvironment,
+  presentEnvironmentSnapshot,
+  layerPresentationFields,
+  layerPresentationMetadata,
+  LayerPresentationOverridesSchema,
+  type LayerPresentationOverrides,
+} from '@tensnap/core/scenario';
 import type { RuntimeContextPaths } from './context-paths';
 import { listRecordingFiles } from './recording-catalog';
 import { NodeRecordingStore } from './NodeRecordingStore';
@@ -156,6 +165,8 @@ export class AgentRuntime extends EventEmitter {
   private disconnecting?: Promise<void>;
   private stopping?: Promise<void>;
   private initialized = false;
+  private presentation: Record<string, LayerPresentationOverrides> = {};
+  private presentationWrites: Promise<void> = Promise.resolve();
   private readonly recordingEntries = new Map<string, RecordingStatus>();
   private collectionStarting = false;
   private activeCollection?: RecordingCollection;
@@ -240,6 +251,21 @@ export class AgentRuntime extends EventEmitter {
   async initialize(): Promise<void> {
     await ensureRuntimeContext(this.context);
     await this.restoreRecordingCatalog();
+    try {
+      const saved = JSON.parse(
+        await readFile(join(this.context.contextDir, 'presentation.json'), 'utf8'),
+      );
+      if (!saved || typeof saved !== 'object' || Array.isArray(saved))
+        throw new Error('Invalid saved presentation.');
+      this.presentation = Object.fromEntries(
+        Object.entries(saved).map(([id, values]) => [
+          id,
+          LayerPresentationOverridesSchema.parse(values),
+        ]),
+      );
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
     this.initialized = true;
     await this.persistStatus();
     await this.log('info', 'runtime', 'Runtime initialized.', {
@@ -366,6 +392,67 @@ export class AgentRuntime extends EventEmitter {
       isConnected: this.renderer.isConnected,
       simulatorCapabilities: this.renderer.simulatorInfo?.capabilities,
     };
+  }
+
+  getPresentation(envId: string) {
+    const environment = this.renderer.scenario.getEnvironment(envId);
+    if (!environment) throw new Error(`Unknown environment: ${envId}.`);
+    const overrides = this.presentation[envId] ?? {};
+    const effective = presentEnvironment(environment, overrides);
+    return structuredClone({
+      envId,
+      overrides,
+      layers: [...effective.layers.values()].map((layer) => ({
+        id: layer.id,
+        layerType: layer.layerType,
+        fields: Object.fromEntries(
+          Object.entries(layerPresentationFields(layer.layerType)).map(([key, field]) => [
+            key,
+            {
+              value:
+                overrides[layer.id]?.[key] ??
+                layerPresentationMetadata(layer)[key] ??
+                field.defaultValue,
+              source:
+                overrides[layer.id]?.[key] !== undefined
+                  ? 'local'
+                  : layerPresentationMetadata(environment.layers.get(layer.id)!)[key] !== undefined
+                    ? 'simulator'
+                    : 'default',
+            },
+          ]),
+        ),
+      })),
+    });
+  }
+
+  async setPresentation(
+    envId: string,
+    overrides: LayerPresentationOverrides,
+  ): Promise<ReturnType<AgentRuntime['getPresentation']>> {
+    const owned = LayerPresentationOverridesSchema.parse(overrides);
+    const environment = this.renderer.scenario.getEnvironment(envId);
+    if (!environment) throw new Error(`Unknown environment: ${envId}.`);
+    presentEnvironment(environment, owned);
+    const work = this.presentationWrites.then(async () => {
+      const next = { ...this.presentation };
+      if (Object.keys(owned).length)
+        Object.defineProperty(next, envId, {
+          value: owned,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        });
+      else delete next[envId];
+      await writeFileAtomically(
+        join(this.context.contextDir, 'presentation.json'),
+        JSON.stringify(next),
+      );
+      this.presentation = next;
+    });
+    this.presentationWrites = work.catch(() => {});
+    await work;
+    return this.getPresentation(envId);
   }
 
   getRenderSettings(): RenderSettings {
@@ -1086,6 +1173,25 @@ export class AgentRuntime extends EventEmitter {
     trigger: RenderTriggerMode | 'explicit',
     snapshot?: ScenarioSnapshot,
   ): RuntimeRenderRequest {
+    if (options.layerOverrides && !options.envId) throw new Error('Layer overrides require envId.');
+    if (
+      options.layoutTicks !== undefined &&
+      (!Number.isSafeInteger(options.layoutTicks) ||
+        options.layoutTicks < 0 ||
+        options.layoutTicks > 10000)
+    )
+      throw new Error('layoutTicks must be between 0 and 10000.');
+    const source = snapshot ?? this.renderer.scenario.dump();
+    const presented = {
+      ...source,
+      environments: source.environments.map((environment) =>
+        // Inspection owns a filtered snapshot. Preferences for other layers or
+        // environments must not affect that snapshot or a chart-only render.
+        snapshot || options.chartId || (options.envId && options.envId !== environment.id)
+          ? environment
+          : presentEnvironmentSnapshot(environment, this.presentation[environment.id]),
+      ),
+    };
     const backgroundColor = normalizeRenderBackgroundColor(
       options.backgroundColor,
       this.control.render.backgroundColor,
@@ -1095,7 +1201,7 @@ export class AgentRuntime extends EventEmitter {
       reason,
       trigger,
       sceneRevision: this.control.sceneRevision,
-      snapshot: snapshot ?? this.renderer.scenario.dump(),
+      snapshot: presented,
       options: {
         ...options,
         ...(options.viewport ? { viewport: { ...options.viewport } } : {}),
