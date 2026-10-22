@@ -1,6 +1,7 @@
 """Public parameter discovery, ownership, and lifecycle contracts."""
 
 from dataclasses import dataclass
+from functools import wraps
 from threading import Lock
 from typing import Annotated
 from unittest.mock import AsyncMock
@@ -65,6 +66,42 @@ def test_field_declaration_wins_over_constructor_annotation():
     assert [(name, p.id, p.type) for name, p in parameters(Model("b"))] == [
         ("mode", "choice", "enum")
     ]
+
+
+def test_wrapped_constructor_uses_original_declarations_for_every_discovery_path():
+    class Model:
+        count = 1
+
+        def __init__(
+            self,
+            count: Annotated[int, BindParameterConfig("number", id="population")] = 3,
+        ):
+            self.count = count
+
+    original = Model.__init__
+
+    @wraps(original)
+    def wrapper(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+
+    # A decorator need not copy annotations, including Python 3.14 wraps when
+    # annotations were assigned directly rather than deferred by the compiler.
+    wrapper.__annotations__ = {}
+    Model.__init__ = wrapper
+    bind_kwargs()(Model)
+
+    assert [
+        (binding.name, binding.parameter.id) for binding in get_bind_kwargs(Model)
+    ] == [("count", "population")]
+    model = Model(count=5)
+    assert [(name, p.id, p.value) for name, p in parameters(model)] == [
+        ("count", "population", 5)
+    ]
+    scenario = SimulationScenario()
+    scenario.add_all(model)
+    assert scenario.dump_parameters() == {"population": 5}
+    scenario.set_parameter("population", 9)
+    assert model.count == 9
 
 
 def test_custom_override_applies_to_explicit_field_and_constructor_declarations():

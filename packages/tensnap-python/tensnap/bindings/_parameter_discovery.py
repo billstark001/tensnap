@@ -75,6 +75,7 @@ def _discover(  # noqa: PLR0913 - Explicit adapters keep scanning separate from 
     instance_fields: Mapping[str, Any] | None = None,
 ) -> list[tuple[str, Parameter]]:
     annotations = annotations or {}
+    initializer = inspect.unwrap(initializer) if initializer is not None else None
     init_names = (
         inspect.get_annotations(initializer)
         if initializer is not None and hasattr(initializer, "__annotations__")

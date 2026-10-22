@@ -26,7 +26,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## @tensnap/python [0.3.6] - 2026-10-23
+
+### Fixed
+
+- Read constructor declarations from the original unwrapped callable. Preserve explicit annotations through decorators whose wrappers omit annotation metadata, including Python 3.14's `functools.wraps` behavior for directly assigned annotations. Apply the same declaration source to constructor controls, model discovery and scenario registration.
+
+### Changed
+
+- Run the Python 3.10–3.14 regression matrix before merging, in addition to publication checks.
+
 ## @tensnap/python [0.3.5] - 2026-10-23
+
+Publication stopped during Python 3.14 validation before any upload. The changes below ship in 0.3.6; the failed-attempt tag remains unchanged.
 
 ### Fixed
 
