@@ -9,6 +9,51 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import urlsplit
 
+# These fields are optional on the wire, independently of their local defaults.
+REQUEST_OPTIONS = (
+    "temperature",
+    "max_tokens",
+    "response_format",
+    "stream",
+    "max_completion_tokens",
+    "top_p",
+    "presence_penalty",
+    "frequency_penalty",
+)
+
+
+def _number(value, name, convert):
+    try:
+        if isinstance(value, bool):
+            raise TypeError
+        if convert is int and isinstance(value, float) and not value.is_integer():
+            raise ValueError
+        return convert(value)
+    except (ValueError, TypeError, OverflowError):
+        raise ValueError(
+            f"Invalid numeric {name}; expected {convert.__name__}"
+        ) from None
+
+
+def _optional(value, name, convert):
+    if isinstance(value, str) and value.strip().lower() == "omit":
+        return None
+    if convert is str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"{name} must be a nonempty string or omit")
+        return value.strip()
+    return _number(value, name, convert)
+
+
+def _range(value, name, low, high):
+    if value is not None and (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or not low <= value <= high
+    ):
+        raise ValueError(f"{name} must be in [{low}, {high}] or omit")
+
 
 def integer(value: object, name: str, low: int, high: int) -> int:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -32,10 +77,16 @@ class LLMConfig:
     base_url: str = "https://api.deepseek.com"
     model: str = "deepseek-flash"
     max_calls: int = 32
-    max_tokens: int = 128
+    max_tokens: int | None = 128
     timeout: float = 45
-    temperature: float = 0.7
+    temperature: float | None = 0.7
     extra_body: dict = field(default_factory=dict, repr=False)
+    response_format: str | None = "json_object"
+    stream: bool | None = False
+    max_completion_tokens: int | None = None
+    top_p: float | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
 
     def __post_init__(self) -> None:
         url = urlsplit(self.base_url)
@@ -50,11 +101,29 @@ class LLMConfig:
                 "Set LLM_API_KEY (or DEEPSEEK_API_KEY/API_SECRET) and LLM_MODEL"
             )
         integer(self.max_calls, "LLM_MAX_CALLS", 1, 10000)
-        integer(self.max_tokens, "LLM_MAX_TOKENS", 16, 4096)
+        for name in ("max_tokens", "max_completion_tokens"):
+            if getattr(self, name) is not None:
+                integer(getattr(self, name), f"LLM_{name.upper()}", 16, 4096)
+        if self.max_tokens is not None and self.max_completion_tokens is not None:
+            raise ValueError(
+                "Choose one output limit: set LLM_MAX_TOKENS=omit when using "
+                "LLM_MAX_COMPLETION_TOKENS (or --max-tokens omit)"
+            )
         if not math.isfinite(self.timeout) or not 0 < self.timeout <= 300:
             raise ValueError("LLM_TIMEOUT must be in (0, 300]")
-        if not math.isfinite(self.temperature) or not 0 <= self.temperature <= 2:
-            raise ValueError("LLM_TEMPERATURE must be in [0, 2]")
+        _range(self.temperature, "LLM_TEMPERATURE", 0, 2)
+        _range(self.top_p, "LLM_TOP_P", 0, 1)
+        _range(self.presence_penalty, "LLM_PRESENCE_PENALTY", -2, 2)
+        _range(self.frequency_penalty, "LLM_FREQUENCY_PENALTY", -2, 2)
+        if self.response_format is not None and (
+            not isinstance(self.response_format, str)
+            or not self.response_format.strip()
+        ):
+            raise ValueError("LLM_RESPONSE_FORMAT must be a nonempty string or omit")
+        if self.stream is not None and self.stream is not False:
+            raise ValueError(
+                "LLM_STREAM must be false or omit; streaming is unsupported"
+            )
         if not isinstance(self.extra_body, dict) or set(self.extra_body) - {
             "thinking",
             "reasoning_effort",
@@ -62,6 +131,44 @@ class LLMConfig:
             raise ValueError(
                 "LLM_EXTRA_BODY only accepts thinking and reasoning_effort"
             )
+
+    def request_options(self) -> dict:
+        """Only explicitly enabled options; omitted fields never become JSON null."""
+        options = {
+            name: getattr(self, name)
+            for name in REQUEST_OPTIONS
+            if getattr(self, name) is not None
+        }
+        if "response_format" in options:
+            options["response_format"] = {"type": options["response_format"]}
+        return {**options, **self.extra_body}
+
+    def effective_settings(self) -> dict:
+        """Public settings: never include credentials, URLs or extra-body values."""
+        limit = (
+            self.max_tokens
+            if self.max_tokens is not None
+            else self.max_completion_tokens
+        )
+        return {
+            "model": self.model,
+            "request_options": {
+                name: getattr(self, name)
+                if getattr(self, name) is not None
+                else "omitted"
+                for name in REQUEST_OPTIONS
+            },
+            "extra_body_fields": sorted(self.extra_body),
+            "omitted_fields": [
+                name for name in REQUEST_OPTIONS if getattr(self, name) is None
+            ],
+            "timeout_seconds": self.timeout,
+            "output_token_limit": limit,
+            "output_token_limit_note": "Requested from provider"
+            if limit is not None
+            else "No output token limit sent by client",
+            "max_calls": self.max_calls,
+        }
 
     @classmethod
     def load(
@@ -86,26 +193,58 @@ class LLMConfig:
             api_key = overrides["api_key"]
         if not api_key and not required:
             return None
-        base_url = values.get("LLM_BASE_URL", "https://api.deepseek.com")
+
+        def setting(name, default):
+            override = overrides.get(name)
+            return (
+                override
+                if override is not None
+                else values.get(f"LLM_{name.upper()}", default)
+            )
+
+        base_url = setting("base_url", "https://api.deepseek.com")
         default_extra = (
             '{"thinking":{"type":"disabled"}}'
             if urlsplit(base_url).hostname == "api.deepseek.com"
             else "{}"
         )
+        kwargs = {
+            "api_key": api_key,
+            "base_url": base_url,
+            "model": setting("model", "deepseek-flash"),
+            "max_calls": _number(setting("max_calls", "32"), "LLM_MAX_CALLS", int),
+            "timeout": _number(setting("timeout", "45"), "LLM_TIMEOUT", float),
+        }
+        for name, default, convert in (
+            ("max_tokens", "128", int),
+            ("temperature", "0.7", float),
+            ("response_format", "json_object", str),
+            ("max_completion_tokens", "omit", int),
+            ("top_p", "omit", float),
+            ("presence_penalty", "omit", float),
+            ("frequency_penalty", "omit", float),
+        ):
+            kwargs[name] = _optional(
+                setting(name, default), f"LLM_{name.upper()}", convert
+            )
+        stream = setting("stream", "false")
+        if stream is False or (
+            isinstance(stream, str) and stream.strip().lower() == "false"
+        ):
+            kwargs["stream"] = False
+        elif isinstance(stream, str) and stream.strip().lower() == "omit":
+            kwargs["stream"] = None
+        else:
+            raise ValueError(
+                "LLM_STREAM must be false or omit; streaming is unsupported"
+            )
         try:
-            kwargs = {
-                "api_key": api_key,
-                "base_url": base_url,
-                "model": values.get("LLM_MODEL", "deepseek-flash"),
-                "max_calls": int(values.get("LLM_MAX_CALLS", "32")),
-                "max_tokens": int(values.get("LLM_MAX_TOKENS", "128")),
-                "timeout": float(values.get("LLM_TIMEOUT", "45")),
-                "temperature": float(values.get("LLM_TEMPERATURE", "0.7")),
-                "extra_body": json.loads(values.get("LLM_EXTRA_BODY", default_extra)),
-            }
+            extra = setting("extra_body", default_extra)
+            kwargs["extra_body"] = (
+                json.loads(extra) if isinstance(extra, str) else extra
+            )
         except (ValueError, TypeError):
-            raise ValueError("Invalid numeric or JSON LLM configuration") from None
-        kwargs.update(
-            {key: value for key, value in overrides.items() if value is not None}
-        )
+            raise ValueError(
+                "Invalid JSON LLM_EXTRA_BODY; expected an object"
+            ) from None
         return cls(**kwargs)

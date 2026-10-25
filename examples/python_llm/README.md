@@ -147,7 +147,7 @@ Replace `tensnap-agent` in examples with `node packages/tensnap-agent/dist/cli.j
 
 The shared client uses `httpx` for OpenAI-compatible Chat Completions and `python-dotenv` for configuration. Model packages supply their own CLI options and views; `common` never imports either model package.
 
-Copy `examples/python_llm/.env.example` to an ignored local `.env` and pass its path with `--env-file`, or supply environment variables directly. Dotenv files are loaded only when explicitly selected, parsed as data with interpolation disabled, and never sourced as shell scripts. Existing environment variables override file entries. Key aliases, in priority order: `LLM_API_KEY`, `DEEPSEEK_API_KEY`, `API_SECRET`, `OPENAI_API_KEY`.
+Copy `examples/python_llm/.env.example` to an ignored local `.env` and pass its path with `--env-file`, or supply environment variables directly. Dotenv files are loaded only when explicitly selected, parsed as data with interpolation disabled, and never sourced as shell scripts. Precedence is **explicit CLI options > environment variables > env-file entries > defaults**. Key aliases, in priority order: `LLM_API_KEY`, `DEEPSEEK_API_KEY`, `API_SECRET`, `OPENAI_API_KEY`.
 
 To start in rule mode and enable switching to LLM decisions from the frontend:
 
@@ -157,6 +157,8 @@ python -m examples.python_llm.naming_game serve \
 ```
 
 Select `policy=llm`, then Reset and run. Startup, policy selection and Reset make no LLM requests; stepping in LLM mode can send requests. `--policy llm` starts directly in LLM mode. The inference monitor's `active_policy` is the mode currently executing, which can differ from a pending UI selection. `available_policies` lists the configured choices; with both live and replay providers, `providers` reports their separate usage. `--record PATH` also works for a rule-started server with credentials and records its subsequent LLM decisions. Headless rule runs continue without loading provider configuration.
+
+**GUI action timeout:** For slow inference, increase **Settings → System Settings → Action Timeout** from the default 5 seconds to 60 seconds. Naming can make two sequential API requests per step; the frontend may time out first, then show one completed step without a terminal error while further dispatch remains stopped. This deadline is independent of `LLM_TIMEOUT` and `--max-calls`. After a timeout, let the in-flight request finish, then reconnect to synchronize state before restarting.
 
 A missing explicitly selected `--env-file` stops startup. When an API key is present, its LLM settings are validated at startup. Starting directly in LLM mode, or requesting a live decision tape with `--record`, requires credentials. `run` and `batch` select one policy for the whole command; their `--record` option requires `--policy llm`.
 
@@ -168,12 +170,62 @@ python -m examples.python_llm.naming_game serve --policy llm \
 ```
 
 - The default live request cap is **32**, shared across policy switches, reset, restore and batch runs in the process. Failed requests count. No automatic retry or rule fallback occurs. Naming uses up to two provider decisions per interaction; fixed agents make no provider call. Commons uses one per activation.
-- `LLM_MAX_TOKENS` caps output per request; prompts have bounded local histories and a 16,000-character limit. Inference monitors/results expose usage. Token limits are not currency budgets.
+- `LLM_MAX_TOKENS` requests an output limit per call (default 128). If it and `LLM_MAX_COMPLETION_TOKENS` are both omitted, the client sends **no output token limit**; provider defaults apply. Prompts have bounded local histories and a 16,000-character limit. Inference monitors/results expose usage. Token limits are not currency budgets.
 - The implementation defaults to `https://api.deepseek.com`, `deepseek-flash`, with thinking disabled. Set `LLM_BASE_URL` and `LLM_MODEL` for another compatible provider. `LLM_EXTRA_BODY` accepts only `thinking` and `reasoning_effort`.
 - Invalid JSON, truncation, illegal actions, timeouts and HTTP errors stop the operation. A rejected step leaves model state and clock unchanged; paid requests remain counted.
 - A decision tape stores the logical call index, request fingerprint, system prompt, observation, JSON decision, provider model name and reported usage. It excludes credentials, headers, raw provider error bodies and reasoning content. New tapes are created exclusively with local-only permissions.
 
 Provider references: [API configuration](https://api-docs.deepseek.com/zh-cn/) and [thinking mode](https://api-docs.deepseek.com/zh-cn/guides/thinking_mode/).
+
+### Optional request fields and gateway compatibility
+
+Some gateways and local models reject optional Chat Completions fields. Each standard option below accepts the reserved value `omit` to **exclude the field entirely**, rather than sending JSON `null`. Unset options retain their defaults; blank values, `null` and `none` are not numeric omission aliases. The omission keyword is case insensitive; surrounding whitespace is trimmed.
+
+| Environment variable | CLI option | Default | Accepted values |
+| --- | --- | --- | --- |
+| `LLM_TEMPERATURE` | `--temperature` | `0.7` | Number in [0, 2], or `omit` |
+| `LLM_MAX_TOKENS` | `--max-tokens` | `128` | Integer in [16, 4096], or `omit` |
+| `LLM_RESPONSE_FORMAT` | `--response-format` | `json_object` | Any nonempty string, or `omit` |
+| `LLM_STREAM` | `--stream` | `false` | `false` or `omit`; streaming responses are unsupported |
+| `LLM_MAX_COMPLETION_TOKENS` | `--max-completion-tokens` | `omit` | Integer in [16, 4096], or `omit`; requires `max_tokens` to be omitted |
+| `LLM_TOP_P` | `--top-p` | `omit` | Number in [0, 1], or `omit` |
+| `LLM_PRESENCE_PENALTY` | `--presence-penalty` | `omit` | Number in [-2, 2], or `omit` |
+| `LLM_FREQUENCY_PENALTY` | `--frequency-penalty` | `omit` | Number in [-2, 2], or `omit` |
+
+A response-format string is sent as `{"response_format":{"type":"<value>"}}`, without a fixed enum of accepted provider names. `omit` removes the whole field. Selecting `json_schema` forwards that type but does not generate a schema; providers requiring a schema will still reject it. `text`, custom formats and omission all retain the system prompt's JSON instruction and strict local JSON-object/action validation.
+
+For a gateway that rejects `temperature`, `max_tokens` and `json_object`, edit your private env file:
+
+```dotenv
+LLM_TEMPERATURE=omit
+LLM_MAX_TOKENS=omit
+LLM_RESPONSE_FORMAT=omit
+LLM_EXTRA_BODY={}
+```
+
+The equivalent standard-option overrides are:
+
+```bash
+python -m examples.python_llm.naming_game serve --policy llm \
+  --env-file /path/to/private.env --temperature omit --max-tokens omit \
+  --response-format omit --max-calls 12
+```
+
+If the gateway also rejects `stream`, set `LLM_STREAM=omit` or add `--stream omit`. If it accepts `text`, `--response-format text` sends that type instead. To request the alternative output cap, use `--max-tokens omit --max-completion-tokens 128`. Request caps (`--max-calls`) and the HTTP timeout remain active even when all optional wire fields are omitted.
+
+`LLM_EXTRA_BODY` still accepts only `thinking` and `reasoning_effort`; `{}` clears those extras but **does not remove standard request fields**. Defaults are unchanged: temperature 0.7, max_tokens 128, response_format json_object, stream false, and the existing DeepSeek thinking setting when loaded for that endpoint. Additional options default to omission. Configuration is explicit: no capability probes, automatic parameter deletion, HTTP retries or rule fallback are performed.
+
+Server startup prints `LLM effective settings`. The same configuration appears under `settings` in the inference monitor and headless JSON results, including when credentials are configured on a rule-started server. It shows the model, each standard option (or `omitted`), an explicit `omitted_fields` list, extra-body field names, timeout, request cap and requested output token limit. If neither output limit is sent, `output_token_limit` is `null` and its note says `No output token limit sent by client`. Credentials, endpoint URLs and extra-body values are excluded from this public summary.
+
+For HTTP 400/422 failures, the client extracts recognized request fields from `error.param`, error messages or validation locations, plus known error codes/types, and suggests the corresponding configuration option. For example:
+
+```text
+LLM returned HTTP 400. Provider error code/type: unsupported_parameter.
+Provider error references: temperature.
+Check provider support and value; set LLM_TEMPERATURE=omit to change or exclude this field.
+```
+
+These references identify fields mentioned by the provider; they do not prove that omission is the right fix for an invalid value. Plain-text errors are also scanned for known field names without displaying the original text. If the error identifies no known field, the client reports the cause as undetermined and lists the optional fields actually sent. Authentication, endpoint/model, rate-limit, server, timeout and connection failures have separate hints. Raw response bodies and arbitrary remote codes/values are withheld. Output errors separately identify malformed completion envelopes, truncation (`finish_reason=length`), invalid JSON and non-object JSON. Failed requests still count toward the budget and do not advance model state; no automatic retry is made.
 
 ## Decision-tape replay and repeated runs
 

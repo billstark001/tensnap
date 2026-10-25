@@ -14,7 +14,7 @@ import time
 from dataclasses import asdict, fields
 from pathlib import Path
 
-from .config import LLMConfig, integer
+from .config import REQUEST_OPTIONS, LLMConfig, integer
 from .llm import DecisionError, DecisionTape
 
 
@@ -92,9 +92,18 @@ def parser(
         type=int,
         help="Total live request cap across reset/restore/batch",
     )
-    result.add_argument(
-        "--max-tokens", type=int, help="Maximum output tokens per request"
-    )
+    for name, help_text in {
+        "max_tokens": "Output token limit (16–4096), or omit; default 128",
+        "temperature": "Sampling temperature (0–2), or omit; default 0.7",
+        "response_format": "Any nonempty response_format.type string, or omit; default json_object",
+        "stream": "false or omit; default false (streaming is unsupported)",
+        "max_completion_tokens": "Alternative output token limit (16–4096), or omit; requires --max-tokens omit",
+        "top_p": "Nucleus sampling probability (0–1), or omit; default omit",
+        "presence_penalty": "Presence penalty (-2–2), or omit; default omit",
+        "frequency_penalty": "Frequency penalty (-2–2), or omit; default omit",
+    }.items():
+        # Keep explicit 'omit' distinct from an absent CLI option (None).
+        result.add_argument(f"--{name.replace('_', '-')}", help=help_text)
     result.add_argument(
         "--output", type=Path, help="Headless JSON result including final checkpoint"
     )
@@ -141,7 +150,7 @@ async def execute(
                 args.env_file,
                 required=args.policy == "llm" or bool(args.record),
                 max_calls=args.max_calls,
-                max_tokens=args.max_tokens,
+                **{name: getattr(args, name) for name in REQUEST_OPTIONS},
             )
             if config is not None:
                 providers["llm"] = DecisionTape(config, record=args.record)

@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from examples.python_llm.common import cli, viz
-from examples.python_llm.common.config import LLMConfig
+from examples.python_llm.common.config import REQUEST_OPTIONS, LLMConfig
 from examples.python_llm.common.llm import DecisionTape
 from examples.python_llm.mini_commons_harvest.__main__ import (
     add_arguments as commons_arguments,
@@ -40,6 +40,8 @@ def isolated_credentials(monkeypatch):
         "LLM_MODEL",
         "LLM_EXTRA_BODY",
         "LLM_MAX_CALLS",
+        "LLM_TIMEOUT",
+        *(f"LLM_{name.upper()}" for name in REQUEST_OPTIONS),
     ]:
         monkeypatch.delenv(name, raising=False)
 
@@ -236,3 +238,133 @@ async def test_headless_rule_execution_does_not_load_provider_credentials(monkey
         )
         == 0
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("active_policy", ["rule", "llm"])
+async def test_startup_and_inference_show_effective_settings_without_requests(
+    active_policy, monkeypatch, capsys
+):
+    live = DecisionTape(
+        LLMConfig(
+            api_key="fixture-private-key",
+            temperature=None,
+            max_tokens=None,
+            response_format=None,
+            extra_body={"thinking": {"private": "fixture-private-extra"}},
+        )
+    )
+    model = NamingGame(provider=live if active_policy == "llm" else None)
+    captured = []
+    build_scenario = viz.build_scenario
+
+    async def capture_scenario(*args, **kwargs):
+        scenario, view = await build_scenario(*args, **kwargs)
+        scenario.run = AsyncMock()
+        captured.append((scenario, view))
+        return scenario, view
+
+    monkeypatch.setattr(viz, "build_scenario", capture_scenario)
+    await viz.serve("naming_game", model, 8765, NamingView, providers={"llm": live})
+    output = capsys.readouterr().out
+    settings = json.loads(output.split("LLM effective settings: ", 1)[1])
+    assert settings["request_options"]["temperature"] == "omitted"
+    assert settings["output_token_limit"] is None
+    assert "No output token limit sent by client" in output
+    assert "fixture-private" not in output
+    scenario, view = captured[0]
+    scenario.run.assert_awaited_once()
+    assert view.inference()["settings"] == settings
+    assert view.inference()["active_policy"] == active_policy
+    assert live._client is None and live.live_calls == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "kind,model_type,config_type,view_type,arguments,calls_per_step", MODELS
+)
+async def test_cli_provider_options_reach_wire_and_headless_report(
+    kind,
+    model_type,
+    config_type,
+    view_type,
+    arguments,
+    calls_per_step,
+    monkeypatch,
+    tmp_path,
+    capsys,
+):
+    env = tmp_path / "provider.env"
+    env.write_text(
+        "LLM_API_KEY=fixture-private-key\nLLM_TEMPERATURE=0.2\n"
+        "LLM_MAX_TOKENS=128\nLLM_EXTRA_BODY={}\n"
+    )
+    monkeypatch.setenv("LLM_TEMPERATURE", "0.5")
+    args = cli.parser(kind, config_type(), arguments).parse_args(
+        [
+            "run",
+            "--policy",
+            "llm",
+            "--env-file",
+            str(env),
+            "--steps",
+            "1",
+            "--temperature",
+            "omit",
+            "--max-tokens",
+            "omit",
+            "--max-completion-tokens",
+            "256",
+            "--response-format",
+            "vendor/custom",
+            "--stream",
+            "omit",
+            "--top-p",
+            "0.8",
+            "--presence-penalty",
+            "0.2",
+            "--frequency-penalty",
+            "-0.2",
+        ]
+    )
+    requests = []
+
+    def respond(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps({"name": "Q", "action": "wait"}),
+                        },
+                    }
+                ]
+            },
+        )
+
+    def tape_factory(*args, **kwargs):
+        return DecisionTape(*args, **kwargs, transport=httpx.MockTransport(respond))
+
+    monkeypatch.setattr(cli, "DecisionTape", tape_factory)
+    assert (
+        await cli.execute(kind, model_type, config_type, lambda: view_type, args) == 0
+    )
+    assert len(requests) == calls_per_step
+    for payload in requests:
+        assert "temperature" not in payload and "max_tokens" not in payload
+        assert "stream" not in payload and "thinking" not in payload
+        assert payload["max_completion_tokens"] == 256
+        assert payload["response_format"] == {"type": "vendor/custom"}
+        assert payload["top_p"] == 0.8
+        assert payload["presence_penalty"] == 0.2
+        assert payload["frequency_penalty"] == -0.2
+    output = capsys.readouterr().out
+    report = json.loads(output)
+    assert report["inference"]["settings"]["output_token_limit"] == 256
+    assert (
+        report["inference"]["settings"]["request_options"]["temperature"] == "omitted"
+    )
+    assert "fixture-private-key" not in output

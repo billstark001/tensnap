@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from typing import Annotated
 
@@ -315,4 +316,10 @@ async def serve(kind, model, port, view_type, *, providers=None):
         f"TenSnap {kind} ({'rule' if model.provider is None else model.provider.mode}): "
         f"ws://127.0.0.1:{port}; available policies: {', '.join(['rule', *view._providers])}"
     )
+    for provider in view._providers.values():
+        if provider.config is not None:
+            print(
+                "LLM effective settings: "
+                + json.dumps(provider.config.effective_settings(), ensure_ascii=False)
+            )
     await scenario.run()

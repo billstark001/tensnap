@@ -1,7 +1,7 @@
 """A small OpenAI-compatible client with a replayable decision tape.
 
 Only model prompts, JSON answers and usage enter the tape. Headers, credentials,
-provider error bodies and reasoning content are never recorded or displayed.
+raw provider error bodies and reasoning content are never recorded or displayed.
 """
 
 from __future__ import annotations
@@ -9,10 +9,11 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
-from .config import LLMConfig, integer
+from .config import REQUEST_OPTIONS, LLMConfig, integer
 
 
 class DecisionError(RuntimeError):
@@ -21,6 +22,114 @@ class DecisionError(RuntimeError):
 
 class BudgetExceeded(DecisionError):
     pass
+
+
+_ERROR_CODES = {
+    "unsupported_parameter",
+    "unsupported_value",
+    "unknown_parameter",
+    "invalid_parameter",
+    "invalid_value",
+    "invalid_request_error",
+    "extra_forbidden",
+    "model_not_found",
+    "invalid_api_key",
+    "insufficient_quota",
+    "rate_limit_exceeded",
+}
+
+
+def _http_error(response, options: dict) -> str:
+    """Extract known diagnostics, never echo arbitrary remote text or values."""
+    fields, codes = set(), set()
+    sent = {"model", "messages", *options}
+
+    def parameter(value):
+        if isinstance(value, str):
+            parts = value.removeprefix("body.").split(".")
+            if parts[0] in sent:
+                fields.add(parts[0])
+
+    def inspect(error):
+        if isinstance(error, str):
+            message = error
+        elif isinstance(error, dict):
+            parameter(error.get("param"))
+            location = error.get("loc")
+            if isinstance(location, list):
+                for part in location:
+                    parameter(part)
+            for key in ("code", "type"):
+                if isinstance(error.get(key), str) and error[key] in _ERROR_CODES:
+                    codes.add(error[key])
+            message = error.get("message", error.get("msg", ""))
+        else:
+            return
+        # Several local servers put the parameter only in a textual error.
+        # Report a reference, not a diagnosis of an unsupported parameter.
+        if isinstance(message, str):
+            for name in sent:
+                if re.search(rf"(?<!\w){re.escape(name)}(?!\w)", message):
+                    fields.add(name)
+
+    if len(response.content) <= 65536:
+        try:
+            body = response.json()
+        except ValueError:
+            inspect(response.text)
+            body = None
+        if isinstance(body, str):
+            inspect(body)
+        if isinstance(body, dict):
+            inspect(body.get("error", body))
+            detail = body.get("detail")
+            if isinstance(detail, list):
+                for error in detail[:8]:
+                    inspect(error)
+            else:
+                inspect(detail)
+
+    parts = [f"LLM returned HTTP {response.status_code}."]
+    if codes:
+        parts.append(f"Provider error code/type: {', '.join(sorted(codes))}.")
+    if response.status_code in (400, 422):
+        if fields:
+            parts.append(f"Provider error references: {', '.join(sorted(fields))}.")
+            for name in sorted(fields):
+                if name in REQUEST_OPTIONS:
+                    alternative = "text or " if name == "response_format" else ""
+                    parts.append(
+                        f"Check provider support and value; set LLM_{name.upper()}="
+                        f"{alternative}omit to change or exclude this field."
+                    )
+                elif name in ("thinking", "reasoning_effort"):
+                    parts.append(
+                        f"Check {name} in LLM_EXTRA_BODY; remove it or use "
+                        "LLM_EXTRA_BODY={} to exclude extra fields."
+                    )
+        else:
+            parts.append(
+                "No recognized parameter error was returned; cause undetermined."
+            )
+        names = sorted(options)
+        parts.append(
+            "Optional fields sent: " + (", ".join(names) if names else "none") + "."
+        )
+        if not fields:
+            parts.append(
+                "Check provider support for these fields; LLM_<FIELD>=omit excludes "
+                "a standard option, and LLM_EXTRA_BODY={} clears extra fields."
+            )
+    elif response.status_code in (401, 403):
+        parts.append("Check the configured API key and provider access permissions.")
+    elif response.status_code == 404:
+        parts.append("Check LLM_BASE_URL and LLM_MODEL against the provider endpoint.")
+    elif response.status_code == 429:
+        parts.append("Check provider rate limits and account quota.")
+    elif response.status_code >= 500:
+        parts.append("Provider/server failure; check provider availability and logs.")
+    parts.append("Raw response body withheld; no automatic retry was attempted.")
+    return " ".join(parts)
 
 
 class DecisionTape:
@@ -89,6 +198,7 @@ class DecisionTape:
             "replayed_calls": self.replayed_calls,
             "total_tokens": self.total_tokens,
             "max_calls": self.config.max_calls if self.config else 0,
+            **({"settings": self.config.effective_settings()} if self.config else {}),
         }
 
     async def decide(self, system: str, observation: dict) -> dict:
@@ -120,6 +230,7 @@ class DecisionTape:
                 follow_redirects=False,
             )
         self.live_calls += 1  # Failed requests also consume the budget. No retries.
+        options = cfg.request_options()
         try:
             response = await self._client.post(
                 cfg.base_url.rstrip("/") + "/chat/completions",
@@ -133,36 +244,63 @@ class DecisionTape:
                             "content": json.dumps(observation, ensure_ascii=False),
                         },
                     ],
-                    "response_format": {"type": "json_object"},
-                    "temperature": cfg.temperature,
-                    "max_tokens": cfg.max_tokens,
-                    "stream": False,
-                    **cfg.extra_body,
+                    **options,
                 },
             )
+        except httpx.TimeoutException:
+            raise DecisionError(
+                "LLM request timed out; check provider availability and LLM_TIMEOUT; "
+                "no automatic retry was attempted"
+            ) from None
+        except httpx.ConnectError:
+            raise DecisionError(
+                "LLM connection failed; check LLM_BASE_URL and network access; "
+                "no automatic retry was attempted"
+            ) from None
         except httpx.HTTPError:
             raise DecisionError(
                 "LLM transport failed; no automatic retry was attempted"
             ) from None
         if response.status_code != 200:
-            raise DecisionError(
-                f"LLM returned HTTP {response.status_code}; response body withheld"
-            )
+            raise DecisionError(_http_error(response, options))
         try:
             body = response.json()
+            if not isinstance(body, dict):
+                raise TypeError("non-object completion")
             usage = body.get("usage", {})
+            if not isinstance(usage, dict):
+                raise TypeError("non-object usage")
             tokens = integer(usage.get("total_tokens", 0), "usage tokens", 0, 10**9)
             self.total_tokens += tokens
             choice = body["choices"][0]
-            if choice.get("finish_reason") != "stop":
-                raise ValueError("incomplete")
-            answer = json.loads(choice["message"]["content"])
-            if not isinstance(answer, dict):
-                raise TypeError("non-object")
+            if not isinstance(choice, dict):
+                raise TypeError("non-object choice")
+            finish_reason = choice.get("finish_reason")
+            content = choice["message"]["content"]
         except (ValueError, TypeError, KeyError, IndexError):
             raise DecisionError(
-                "LLM must return a complete JSON object; no retry attempted"
+                "LLM returned a malformed completion response or invalid usage; "
+                "expected choices[0].message.content; no retry attempted"
             ) from None
+        if finish_reason == "length":
+            raise DecisionError(
+                "LLM output was truncated (finish_reason=length); check the output "
+                "token limit and provider limits; no retry attempted"
+            )
+        if finish_reason != "stop":
+            raise DecisionError(
+                "LLM completion did not finish normally (expected finish_reason=stop); "
+                "no retry attempted"
+            )
+        try:
+            answer = json.loads(content)
+        except (ValueError, TypeError):
+            raise DecisionError(
+                "LLM did not return valid JSON; a JSON object is required even when "
+                "LLM_RESPONSE_FORMAT=text or omit; no retry attempted"
+            ) from None
+        if not isinstance(answer, dict):
+            raise DecisionError("LLM must return a JSON object; no retry attempted")
         item = {
             "index": self.cursor,
             "fingerprint": fingerprint,
