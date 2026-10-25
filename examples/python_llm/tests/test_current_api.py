@@ -1,7 +1,9 @@
 """Current-only API and trajectory checks against the historical Git snapshot."""
 
+import copy
 import hashlib
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +16,18 @@ from examples.python_llm.naming_game.model import NamingConfig, NamingGame
 REFERENCE = json.loads(
     (Path(__file__).parent / "fixtures/latest_dynamics.json").read_text()
 )
+
+
+def dynamics_digest(actual, kind):
+    """Keep trajectory/RNG state exact; canonicalize only visual circle positions."""
+    canonical = copy.deepcopy(actual)
+    if kind == "naming":
+        for player in canonical["checkpoint"]["state"]["agents"]:
+            for coordinate in ("x", "y"):
+                player[coordinate] = round(
+                    player[coordinate], REFERENCE["coordinate_decimal_places"]
+                )
+    return hashlib.sha256(json.dumps(canonical, sort_keys=True).encode()).hexdigest()
 
 
 @pytest.mark.asyncio
@@ -32,13 +46,33 @@ async def test_latest_mechanisms_match_the_committed_dynamics(case):
     actual = {"checkpoint": model.capture(), "metrics": model.metrics()}
     if case["kind"] == "naming":
         # Additive initialization controls retain the historical defaults;
-        # normalize only those new fields, leaving state and RNGs exact.
+        # Normalize only those new fields and libm-dependent layout roundoff.
         assert actual["checkpoint"]["config"].pop("initial_names") == "unassigned"
         assert actual["checkpoint"]["config"].pop("layout") == "circle"
-    assert (
-        hashlib.sha256(json.dumps(actual, sort_keys=True).encode()).hexdigest()
-        == case["sha256"]
-    )
+    assert dynamics_digest(actual, case["kind"]) == case["sha256"]
+
+
+def test_dynamics_digest_preserves_nonvisual_state_and_detects_layout_changes():
+    model = NamingGame()
+    actual = {"checkpoint": model.capture(), "metrics": model.metrics()}
+    original = copy.deepcopy(actual)
+    expected = dynamics_digest(actual, "naming")
+    close = copy.deepcopy(actual)
+    player = close["checkpoint"]["state"]["agents"][0]
+    player["x"] = math.nextafter(player["x"], math.inf)
+    assert dynamics_digest(close, "naming") == expected
+    player["x"] += 1e-6
+    assert dynamics_digest(close, "naming") != expected
+    for field in ("random_state", "policy_random_state"):
+        changed = copy.deepcopy(actual)
+        state = json.loads(changed["checkpoint"][field])
+        state[1][0] ^= 1
+        changed["checkpoint"][field] = json.dumps(state)
+        assert dynamics_digest(changed, "naming") != expected
+    changed = copy.deepcopy(actual)
+    changed["metrics"]["q_share"] += 1e-15
+    assert dynamics_digest(changed, "naming") != expected
+    assert actual == original
 
 
 @pytest.mark.parametrize("factory", [NamingGame, MiniCommons])

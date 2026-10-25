@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Normalize only visual circle-coordinate roundoff in historical Naming Game regression checks, keeping scientific state and both RNG states exact across macOS/Linux publication jobs.
 - Document the minimum Python binding version and distinguish edge item data from layer metadata across all four language APIs. Cover edge data and nested updates across Python, Go, Julia, and JS, and verify examples against a built Python wheel.
 
 ## @tensnap/js [0.3.6] - 2026-10-25

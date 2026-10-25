@@ -1,6 +1,7 @@
 {
   "source_commit": "15ea092056534c33cd5843473f09d1e3e979dd32",
-  "normalization": "Current checkpoint version 2; omit removed protocol field. All model state, both RNG states, config and metrics remain in the digest.",
+  "normalization": "Current checkpoint version 2; omit removed protocol field. Naming Game visual layout coordinates are rounded to 12 decimal places to normalize platform libm roundoff. All other model state, both RNG states, config and metrics remain exact in the digest.",
+  "coordinate_decimal_places": 12,
   "cases": [
     {
       "kind": "naming",
@@ -12,7 +13,7 @@
         "label_order": "QM"
       },
       "steps": 240,
-      "sha256": "e9fba014271b5b808fcac30e7227859da05ffb2c64db7bfb96c82dd130510333"
+      "sha256": "672194570457540bfe207ef2ba00fda3fd4484d7221ba94312ab6844c060bdd9"
     },
     {
       "kind": "naming",
@@ -24,7 +25,7 @@
         "label_order": "MQ"
       },
       "steps": 240,
-      "sha256": "5fa65a85cc820666a4f68fdf0db4a5427e3a76312853eb566d90cd01fb7788cc"
+      "sha256": "1ee94c7c6faa11963384f38ed293ba887d4ab2c81cc1f6acda5690e6a77c511e"
     },
     {
       "kind": "naming",
@@ -36,7 +37,7 @@
         "label_order": "QM"
       },
       "steps": 240,
-      "sha256": "b63dc93fe121931781a65548e5315c43665e8c0f92db25e28535d2a778da5663"
+      "sha256": "640d07a40b5c6878339f49f6e042462a96bdffdcca45f1f1f3f45bc36475ee9f"
     },
     {
       "kind": "naming",
@@ -48,7 +49,7 @@
         "label_order": "MQ"
       },
       "steps": 240,
-      "sha256": "ce0f0c1f292266b708c389d4148bbc63332b634219e2a6932b7ac5a16c75e4bc"
+      "sha256": "19809695d8edd423e71cbc6bdfa013acd0cb05eda11ebac9342edd1f31c1e6d1"
     },
     {
       "kind": "commons",

@@ -63,6 +63,8 @@ All five packages already exist on npm. The registry check on 2026-10-21 found n
 
 ## Resuming a batch
 
+The first `py-v0.3.7` validation attempt stopped before uploading because the historical Naming Game fixture hashed platform-dependent libm coordinate bits. The corrected regression check rounds only visual layout coordinates and retains exact scientific/RNG state checks. Keep that tag unchanged; retry Python 0.3.7 through manual `python-publish` from corrected `main`, since the Python binding sources/package version are unchanged and the failed attempt uploaded no artifact.
+
 When retrying a partially completed release, select only unpublished package versions. Leave already published dependencies out of the selection; the preflight verifies that their required versions exist. Selecting an already published version intentionally fails before any package is uploaded.
 
 Version/changelog preparation and a branch push do not publish packages. The `network-v*`, `protocol-v*`, `js-v*` and `app-v*` tags trigger publishing or app builds; do not create/push them or dispatch release workflows during a preparation-only change. A feature-branch push also leaves the Web deployment, which runs on `main`, untouched.
