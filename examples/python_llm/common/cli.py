@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import importlib
+import inspect
 import json
 import os
+import shlex
 import sys
 import time
 from dataclasses import asdict, fields
@@ -13,6 +16,32 @@ from pathlib import Path
 
 from .config import LLMConfig, integer
 from .llm import DecisionError, DecisionTape
+
+
+def require_binding() -> None:
+    """Check the imported API before loading views with declarative bindings."""
+    source = Path(__file__).resolve().parents[3] / "packages" / "tensnap-python"
+    if os.getenv("TENSNAP_USE_SOURCE") == "1":
+        sys.path.insert(0, str(source))
+    install = (
+        f"{shlex.quote(sys.executable)} -m pip install -e {shlex.quote(str(source))}"
+    )
+    try:
+        binding = importlib.import_module("tensnap")
+    except ModuleNotFoundError as exc:
+        if exc.name != "tensnap":
+            raise
+        raise ValueError(
+            f"Serving requires TenSnap Python >=0.3.7. Install: {install}"
+        ) from exc
+    if "data" not in inspect.signature(binding.edge).parameters:
+        raise ValueError(
+            "Serving requires TenSnap Python >=0.3.7 with edge(data=...). "
+            f"Loaded {binding.__version__} from {binding.__file__}. "
+            f"Install into this interpreter: {install}. "
+            "For checkout development, TENSNAP_USE_SOURCE=1 also selects source "
+            "without installing dependencies."
+        )
 
 
 def parser(
@@ -101,6 +130,10 @@ async def execute(
     configs = [config_type(**{**config_fields, "seed": seed}) for seed in seeds]
     if scenarios is not None and args.scenario is not None:
         configs = [scenarios[args.scenario].configure(config) for config in configs]
+    if args.command == "serve":
+        if args.checkpoint_in:
+            raise ValueError("Use scene restore for a connected TenSnap server")
+        require_binding()
     providers = {}
     try:
         if args.policy == "llm" or args.command == "serve":
@@ -116,18 +149,6 @@ async def execute(
             providers["replay"] = DecisionTape(replay=args.replay)
         provider = providers.get(args.policy)
         if args.command == "serve":
-            if args.checkpoint_in:
-                raise ValueError("Use scene restore for a connected TenSnap server")
-            # Match the existing examples' opt-in source import behavior.
-            if os.getenv("TENSNAP_USE_SOURCE") == "1":
-                sys.path.insert(
-                    0,
-                    str(
-                        Path(__file__).resolve().parents[3]
-                        / "packages"
-                        / "tensnap-python"
-                    ),
-                )
             from .viz import serve
 
             await serve(

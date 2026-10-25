@@ -68,13 +68,15 @@ source examples/python_llm/.venv/bin/activate
 
 Alternatively, use `examples/python_llm/.venv/bin/python` directly wherever these instructions use `python`.
 
-After routes A–C, check the binding and server dependency:
+Serving these views requires **TenSnap Python 0.3.7 or newer**, including `edge(data=...)`. After routes A–C, check the actual imported binding and server dependency:
 
 ```bash
-python -c 'import tensnap, websockets; print(tensnap.__file__); print(websockets.__version__); from websockets.asyncio.server import serve'
+python -c 'import inspect, tensnap, websockets; print(tensnap.__version__, tensnap.__file__); print(websockets.__version__); assert "data" in inspect.signature(tensnap.edge).parameters; from websockets.asyncio.server import serve'
 ```
 
 The server requires `websockets>=13`. For development, prefix a `serve` command with `TENSNAP_USE_SOURCE=1` to select the checked-out binding explicitly. This does not install dependencies.
+
+If startup reports `BindEdgeConfig.__init__() got an unexpected keyword argument 'data'`, that interpreter loaded an older binding. Re-run route B with the **same Python executable used to start the model**, or use `TENSNAP_USE_SOURCE=1`. Re-activating an existing venv does not update its installed package. The serve command checks this API before importing either view and reports the loaded version, import path, and installation command. The version here describes the prepared source release; the editable install works before it is published. Upgrading `@tensnap/agent` does not upgrade the Python binding.
 
 ### Route D: headless rules without the TenSnap binding
 

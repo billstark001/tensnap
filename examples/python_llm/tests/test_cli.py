@@ -1,6 +1,7 @@
 """Exercise the documented public entrypoints as fresh processes."""
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -8,6 +9,55 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+@pytest.mark.parametrize("kind", ["naming_game", "mini_commons_harvest"])
+def test_serve_reports_old_binding_with_same_interpreter_install_command(
+    kind, tmp_path
+):
+    package = tmp_path / "tensnap"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        '__version__ = "0.3.6"\ndef edge(source="source", target="target"): pass\n'
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", f"examples.python_llm.{kind}", "serve"],
+        cwd=ROOT,
+        env={**os.environ, "PYTHONPATH": str(tmp_path), "TENSNAP_USE_SOURCE": "0"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "TenSnap Python >=0.3.7 with edge(data=...)" in result.stderr
+    assert f"Loaded 0.3.6 from {package}" in result.stderr
+    assert sys.executable in result.stderr
+    assert "-m pip install -e" in result.stderr
+    assert "TENSNAP_USE_SOURCE=1" in result.stderr
+    assert "unexpected keyword" not in result.stderr
+    assert "Traceback" not in result.stderr
+
+
+def test_headless_rule_does_not_import_binding(tmp_path):
+    (tmp_path / "tensnap.py").write_text('raise AssertionError("binding imported")\n')
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "examples.python_llm.mini_commons_harvest",
+            "run",
+            "--policy",
+            "rule",
+            "--steps",
+            "1",
+        ],
+        cwd=ROOT,
+        env={**os.environ, "PYTHONPATH": str(tmp_path)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(result.stdout)["runs"][0]["metrics"]["tick"] == 1
 
 
 @pytest.mark.parametrize("kind", ["naming_game", "mini_commons_harvest"])
