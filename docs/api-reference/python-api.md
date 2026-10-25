@@ -95,12 +95,16 @@ if __name__ == "__main__":
 - `trajectory_layer(...)`: attach a trajectory layer config.
 - `background_layer(...)`: attach a background layer config.
 - `agent(...)`: attach an item projector for agent-like objects.
-- `edge(...)`: attach an item projector for edge-like objects.
-- `trajectory_item(...)`: attach an item projector for trajectory config objects.
+- `edge(...)`: attach an item projector for edge-like objects. Since Python binding **0.3.7**, optional `data=` projects application data alongside endpoints and style, using the same selectors and callbacks as agent data; it is omitted by default, even when the object has a `data` attribute.
+- `trajectory_item(...)`: attach an item projector for trajectory config objects. Since Python binding **0.3.7**, opt-in `data=` uses the same item-field compiler and copying policy as `edge(data=...)`; omitted data retains the previous projection.
 - `param(...)` / `BindParameterConfig(...)`: attach explicit parameter metadata.
 - `params(...)` / `BindParametersConfig(...)`: configure automatic parameter discovery. `BindParametersConfig.EXCLUDE_ALL` is the built-in exclude-all config.
 - `chart(...)`: attach chart metadata to a function or method.
 - `action(...)`: attach action metadata to a function or method.
+
+For example, `edge(data="details")(Link)` selects each link's `details`, and `edge(data=lambda link: {"tick": link.tick})(Link)` computes it. An undecorated edge record can also contain `data`; `(source, target, attrs)` tuples/lists retain all `attrs` fields, including `data` and application extensions, through the ordinary record projection path. Tuple endpoints remain authoritative. Nested data uses the ordinary safe projection/copying rules. Item `data` is separate from `edge_layer(metadata={...})`, which describes the whole layer. These are binding conveniences over the existing extensible edge wire record; they do not change protocol `0.3`.
+
+When an example uses an unfamiliar keyword, inspect the package actually loaded by its interpreter: `python -c 'import inspect, tensnap; print(tensnap.__version__, tensnap.__file__); print(inspect.signature(tensnap.edge))'`. Source documentation may describe a prepared release ahead of the installed distribution. In a checkout, `python -m pip install -e packages/tensnap-python` installs that source into the selected interpreter.
 
 ### Readback helpers
 

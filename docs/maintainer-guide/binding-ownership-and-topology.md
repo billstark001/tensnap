@@ -12,6 +12,19 @@ This document is the shared contract for the Python, Go, Julia, and JS model bin
 6. Metadata reads must use the owning object and check the expected metadata type. Declaration writers must reject unsupported owner kinds and must not mutate an inherited or unrelated declaration as a side effect.
 7. Environment and layer IDs are separate components of an identity. IDs may contain `/`, `:`, or other separators. Use structured tuple keys or an injective encoding for cross-environment caches and restore plans; a human-readable `environment/layer` diagnostic is not a key and must never be split to recover IDs.
 
+## Item infrastructure
+
+All item-bearing layers use a common record pipeline within each language. Adding an item field must not require another layer-specific copy, diff, or restore engine. Metadata-only grid/background layers do not need item machinery. Language APIs retain their own syntax and established defaults.
+
+| Binding | Shared implementation | Layer-specific adapters |
+| --- | --- | --- |
+| Python | `BindItemConfig` compiles item fields; `LayerBinding` owns projection/publication and keyed diffs; the restore plan uses the same layer declarations. | Agent/Mesa field defaults, edge tuple-to-record adaptation, trajectory config defaults, and keyed map/matrix/indexed sources. Edge tuples preserve extension fields; endpoints stay authoritative. |
+| Go | `itemLayer` owns projection/copy policy, full/incremental diffs, replay seeding, reset, and restore readback. | Agent/edge/trajectory builders declare metadata and item keys; map/matrix wrap agent layers. Agent reset deletes and recreates items to retain renderer trajectory lifecycle behavior. |
+| JS/TS | Ordinary item builders compile `fields` through `itemLayerOptions`/`projectFields`; source adapters feed records into the same bound-session item sync, ownership, diff, and restore paths. | Agent visual shortcuts and map/matrix entry selectors adapt model data; edge keys and trajectory metadata remain layer-specific. |
+| Julia | All item-bearing builders create `Layer` and use `_layer_items`, `_layer_item_deltas!`, and the common restore plan. | Agent/map/matrix constructors supply source projectors; edge/trajectory declare keys, dependencies, and metadata. No separate item-data engine is needed. |
+
+Item application `data` belongs to the record, separately from layer metadata. Python edge/trajectory `data=` remains opt-in in 0.3.7. Go 0.3.4 shares `Field`/`Select`/`Const` across item builders; JS 0.3.6 shares `fields` across ordinary item layers. Source adapters may need different callback arguments, stable IDs, and validated inverses; those differences do not justify duplicating publication or diff logic. Preserve safe ownership and existing reset behavior when extending the common pipeline.
+
 ## Python binding
 
 - `@env`, layer decorators, `@params`, `@scene_restore`, and `@checkpoint` attach class-owned metadata. `@layer_restore` may modify only a layer declared on that same class; it requires `layer_id` when more than one local layer matches. The model instance is a readback target, not a metadata owner.

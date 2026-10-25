@@ -26,6 +26,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## tensnap [0.3.5] - 2026-10-25
+
+### Fixed
+
+- Run repository Python lint/format with an explicit Python 3.10 target, preserving compatible exception handling in the conformance runner when Ruff's inferred/default target is newer.
+
+## @tensnap/python [0.3.7] - 2026-10-25
+
+### Added
+
+- Add opt-in `edge(data=...)` and `trajectory_item(data=...)` selectors/callbacks through the common item projector, with safe nested snapshots. Omitted data retains the previous projection behavior; the wire protocol remains 0.3.
+
+### Fixed
+
+- Preserve application fields, including `data`, in `(source, target, attrs)` edge tuples/lists through the common record path, matching dictionary edge records while keeping tuple endpoints authoritative.
+- Detect an incompatible installed binding before importing either LLM example view. Report its version, import path, and an installation command using the serving interpreter, plus the source-checkout option. Keep headless rule runs independent of the binding.
+- Stage Python wheel builds from a clean temporary source tree so stale local setuptools files cannot enter the artifact; preserve existing local build outputs.
+
+### Changed
+
+- Document the minimum Python binding version and distinguish edge item data from layer metadata across all four language APIs. Cover edge data and nested updates across Python, Go, Julia, and JS, and verify examples against a built Python wheel.
+
+## @tensnap/js [0.3.6] - 2026-10-25
+
+### Added
+
+- Share declarative `fields` compilation across agent, edge, trajectory, and custom item layers. Keep type-specific metadata and source adapters separate from the common projection, copy, diff, and restore pipeline.
+
+### Fixed
+
+- Allow `color`, `icon`, and `size` shortcuts without a `fields` mapping on agent, map-agent, and matrix-agent builders. Standalone agent shortcuts preserve the source record's identity and data. Preserve duplicate-field and custom-projector conflict checks.
+
+## @tensnap/go [0.3.4] - 2026-10-25
+
+### Changed
+
+- Share item projection, ownership, incremental/full keyed diffs, replay seeding, reset, and restore readback between agent, edge, and trajectory layers. Map/matrix adapters reuse that pipeline through agent layers. Keep the existing agent reset delete/recreate policy and per-layer keys/metadata.
+
+### Added
+
+- Expose `Select` and `Const` on edge and trajectory builders using the same field resolver as agent layers.
+
+## @tensnap/agent [0.3.10] - 2026-10-25
+
+### Changed
+
+- Refresh the bundled offline binding APIs and skills with language-specific item-data declarations, Python 0.3.7 requirements, and installed-binding diagnostics. CLI runtime behavior is unchanged; the CLI does not install or upgrade native bindings.
+
 ## @tensnap/python [0.3.6] - 2026-10-23
 
 ### Fixed

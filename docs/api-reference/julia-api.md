@@ -259,10 +259,12 @@ Checkpoint callbacks work with model data only. Byte vectors use `application/oc
 - `agents_layer(id, getagents=agents_getter; projector=autoagentprojector(), data=nothing, dependency_layer_ids=Dict(), item_key_fields=["id"])`
 - `grid_layer(id, items; data=nothing, item_key_fields=["x", "y"])`
 - `patch_layer(id, items; data=nothing, item_key_fields=["x", "y"])`
-- `edge_layer(id, items; data=nothing, dependency_layer_ids=Dict(), item_key_fields=["source", "target"])`
+- `edge_layer(id, items; data=nothing, dependency_layer_ids=Dict("agent"=>"agents"), item_key_fields=["source", "target"])`
 - `trajectory_layer(id, items; length=nothing, width=nothing, color=nothing, z_index=nothing, on_agent_delete=nothing, on_state_sync=nothing, on_reset=nothing, data=nothing, dependency_layer_ids=Dict("agent"=>"agents"))`
 
 Trajectory lifecycle defaults are agent-delete `"delete"`, state-sync `"preserve"`, and reset `"clear"`. `"retain"` and preserved resets close the current segment before later points are appended.
+
+The `data` keyword on a layer is **layer metadata**. Edge application data belongs in each item record returned by `items`, for example `Dict("source" => "a", "target" => "b", "data" => Dict("tick" => 1))`. Use `dictprojector` or `propertyprojector` when constructing records from a different model shape. Item data is retained and safely detached at publication by default; nested changes produce item updates. Python's `edge(data=selector)` spelling is not a Julia item option.
 
 ### Registration Helpers
 

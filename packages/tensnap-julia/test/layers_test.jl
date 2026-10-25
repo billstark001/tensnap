@@ -1,3 +1,15 @@
+@testset "edge item data is independent of layer metadata" begin
+  item = Dict{String,Any}("source" => "a", "target" => "b", "data" => Dict("count" => 0))
+  edges = edge_layer("edges", model -> [model]; data = _ -> Dict("label" => "contacts"))
+  first = TenSnap._layer_items(edges, item)
+  TenSnap._remember_layer_items!(edges, first)
+  item["data"]["count"] = 1
+  _, updates, _ = TenSnap._layer_item_deltas!(edges, item)
+  @test first[1]["data"] == Dict("count" => 0)
+  @test only(updates)["data"] == Dict("count" => 1)
+  @test TenSnap._layer_data(edges, item) == Dict("label" => "contacts")
+end
+
 @testset "layer topology is compiled at registration" begin
   scenario = Scenario()
   agents = agents_layer("agents", _ -> Any[])

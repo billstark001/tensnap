@@ -118,9 +118,10 @@ Important helpers:
 - `binding.NewEnv`: environment builder.
 - `binding.NewGridLayer`: grid layer metadata builder.
 - `binding.NewAgentLayer`: agent layer builder with replay and diff support. Use `Field(name, fn)` for a computed field, `Select(name, path)` for a struct field or indexed path, and `Const(name, value)` for a fixed field.
+- `binding.NewEdgeLayer`: edge builder keyed by `source`/`target`. Use scoped struct tags with `.ProjectTags()`, `.Field(name, fn)`, or `.Project(fn)` for item fields. For example, `Data map[string]any` tagged with `tensnap:"data,scope=edge"` carries application data, or add `.Field("data", func(m *Model, link *Link) any { return link.Details })`. This is item data; layer `.Data(fn)` describes the whole layer's metadata. Since Go binding **0.3.4**, edge and trajectory builders also expose `Select(name, path)` and `Const(name, value)` through the same item infrastructure as agent layers.
 - `binding.NewMapAgentLayer[M,K,V]`: project model-owned map entries in stable encoded-ID order. `Source` reads the map; `Field`, `Select`, and `Const` declare individual visual fields, while `Project` supplies a full record. `Changed` enables sparse projection through the existing tracker, and `RestoreSource(nil,nil)` installs a validated inverse for `data.value`.
 - `binding.NewMatrixAgentLayer[M,V]`: bind `[][]V` with `Source`, or flat storage with `Flat(shape,at)`. Shape is `(height,width)`; item IDs are `cell:row:col`, and renderer coordinates are `(col,height-1-row)`. `Field`, `Select`, and `Const` work as on the ordinary agent builder; matrix callbacks receive `(model,row,col,value)`. `RestoreSource` validates a complete dense snapshot and accepts a replacement callback for flat storage or changed dimensions.
-- `binding.NewTrajectoryLayer`: trajectory items plus typed metadata/lifecycle methods.
+- `binding.NewTrajectoryLayer`: trajectory items plus typed metadata/lifecycle methods. Item `Field`, `Select`, and `Const` are separate from layer `Length`, `Width`, and `Color`.
 - `binding.NewMonitor`: current-value monitor metadata and getter.
 - `binding.ProjectTags` and `AgentLayer.ProjectTagsRequired`: item projectors from scoped struct tags.
 - `binding.MustMetadataFromTags`: environment/layer metadata projector from scoped struct tags.

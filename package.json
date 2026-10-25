@@ -1,6 +1,6 @@
 {
   "name": "tensnap",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -55,7 +55,7 @@
     "i18n:verify": "pnpm i18n:extract && pnpm i18n:check",
     "build": "pnpm -r build",
     "lint": "pnpm run lint:js && pnpm run lint:python && pnpm run lint:julia && pnpm -r lint",
-    "lint:python": "ruff check . && ruff format --check .",
+    "lint:python": "ruff check --target-version py310 . && ruff format --target-version py310 --check .",
     "lint:julia": "jlfmt --indent=2 --check packages/tensnap-julia examples/julia benchmarks/schelling/v1/subjects/julia conformance/fixtures/julia.jl",
     "format:js": "oxfmt --write '**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}' .pnpmfile.cjs",
     "format:md": "oxfmt --write '**/*.md' '.agents/**/*.md' '.github/**/*.md'",

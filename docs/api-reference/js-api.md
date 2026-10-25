@@ -204,6 +204,8 @@ builder
 
 Layer `items(...)` returns the current authoritative item list. The binding tracks previous records and emits creates, field-level updates, and deletes.
 
+Edge items can include application `data` directly. If the model calls it `details`, use `fields: { source: 'source', target: 'target', data: 'details' }` on `.edgeLayer(...)`. Since JS binding **0.3.6**, `fields` is shared by agent, edge, trajectory, and custom item layer builders; it compiles through the same `projectFields` helper exported from `@tensnap/js/bindings`. All item layers accept `items` with either `fields` or `project`, and reject combining the latter two. Direct item visual shortcuts `color`, `icon`, and `size` belong to agent builders; trajectory `color` is layer metadata, while `fields.color` is an item field. Layer `metadata` describes the whole layer and does not populate item data. Without `fields`, agent visual shortcuts augment the source record and preserve its identity/data; the fix for that combination ships in JS binding **0.3.6**.
+
 Trajectory layers expose every v0.3 trajectory field directly and normalize camelCase builder options to canonical snake_case wire metadata:
 
 ```ts

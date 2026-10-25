@@ -13,6 +13,8 @@ metadata:
 
 Use this skill to drive a TenSnap simulator through `tensnap-agent`. Run `tensnap-agent --version` first. If the CLI is a project dependency, use `npx --no-install tensnap-agent` in place of `tensnap-agent`. The npm bundle identifies its matching CLI version in this skill’s metadata. If the versions differ, check `tensnap-agent --help` before relying on an option described here.
 
+The simulator's language binding is a separate dependency. A Python startup error about an unexpected binding keyword must be checked in the simulator's Python environment (version, import path, and callable signature); upgrading this CLI does not update that package. Use the binding skill's language API reference when repairing simulator declarations.
+
 Consult the bundled [runtime guide](references/docs/user-guide/agent-runtime.md) when handling result contracts, recording persistence, or exit codes. The [protocol specification](references/packages/protocol/SPECIFICATION.md) describes sync and wire semantics. These files work offline without a TenSnap checkout.
 
 ## When To Use
