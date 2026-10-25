@@ -646,10 +646,12 @@ UniformAgentItemFields: TypeAlias = Literal["id", "color", "icon", "size", "data
 AgentItemFields: TypeAlias = UniformAgentItemFields | Literal["x", "y", "heading"]
 
 EdgeItemFields: TypeAlias = Literal[
-    "source", "target", "directed", "style", "width", "color"
+    "source", "target", "directed", "style", "width", "color", "data"
 ]
 
-TrajectoryConfigItemFields: TypeAlias = Literal["id", "length", "width", "color"]
+TrajectoryConfigItemFields: TypeAlias = Literal[
+    "id", "length", "width", "color", "data"
+]
 
 
 # endregion

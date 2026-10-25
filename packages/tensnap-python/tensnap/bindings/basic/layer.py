@@ -106,20 +106,16 @@ def _normalize_projector_names(projector_name: ProjectorName | None) -> tuple[st
 
 def _edge_item_to_dict(value: Any) -> dict[EdgeItemFields, Any]:
     if isinstance(value, dict):
-        edge_data = dict(value)
+        edge_data = _identity_item_to_dict(value)
         edge_data.setdefault("directed", False)
         return cast(dict[EdgeItemFields, Any], edge_data)
 
     if isinstance(value, (tuple, list)) and len(value) >= 2:
-        tuple_edge_data: dict[str, Any] = {
-            "source": value[0],
-            "target": value[1],
-            "directed": False,
-        }
+        tuple_edge_data: dict[str, Any] = {}
         if len(value) >= 3 and isinstance(value[2], dict):
-            for field in ("directed", "style", "width", "color"):
-                if field in value[2]:
-                    tuple_edge_data[field] = value[2][field]
+            tuple_edge_data = _identity_item_to_dict(value[2])
+        tuple_edge_data.update(source=value[0], target=value[1])
+        tuple_edge_data.setdefault("directed", False)
         return cast(dict[EdgeItemFields, Any], tuple_edge_data)
 
     raise TypeError(
@@ -461,6 +457,7 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
         style: ProjectorFieldForInit = None,
         color: ProjectorFieldForInit = None,
         width: ProjectorFieldForInit = None,
+        data: ProjectorFieldForInit = None,
     ) -> None:
         super().__init__(
             source=source,
@@ -470,6 +467,8 @@ class BindEdgeConfig(BindItemConfig[EdgeItemFields]):
             color=color,
             width=width,
         )
+        if data is not None:
+            self.projector_dict_init["data"] = data
 
     def __call__(self, cls: type[TClass]) -> type[TClass]:
         return self.attach(cls, self.binding_name, [], {})
@@ -495,6 +494,7 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
         length: ProjectorFieldForInit = "length",
         width: ProjectorFieldForInit = "width",
         color: ProjectorFieldForInit = "color",
+        data: ProjectorFieldForInit = None,
     ) -> None:
         super().__init__(
             id=id,
@@ -502,6 +502,8 @@ class BindTrajectoryConfigConfig(BindItemConfig[TrajectoryConfigItemFields]):
             width=width,
             color=color,
         )
+        if data is not None:
+            self.projector_dict_init["data"] = data
 
     def __call__(self, cls: type[TClass]) -> type[TClass]:
         return self.attach(

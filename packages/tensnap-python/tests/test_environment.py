@@ -13,6 +13,8 @@ from tensnap.bindings import (
     edge_layer,
     env,
     grid_layer,
+    trajectory_item,
+    trajectory_layer,
     value,
 )
 from tensnap.bindings.basic import layer_utils
@@ -336,6 +338,7 @@ class TestEnvironmentRegistration:
             def __init__(self, source: str, target: str):
                 self.source = source
                 self.target = target
+                self.data = {"not_projected_without_data_option": True}
 
         @edge_layer("links", item_iterable_projector="links")
         class Model:
@@ -348,6 +351,97 @@ class TestEnvironmentRegistration:
         assert binding.build_item_list(model) == [
             {"source": "a", "target": "b", "directed": False}
         ]
+
+    @pytest.mark.parametrize("data", ["details", lambda link: link.details])
+    def test_edge_data_is_detached_and_nested_changes_are_projected(self, data):
+        @edge(directed=False, data=data)
+        class Link:
+            source, target = "a", "b"
+
+            def __init__(self):
+                self.details = {"ticks": [1], "success": True}
+
+        @edge_layer("links")
+        class Model:
+            def __init__(self):
+                self.links = [Link()]
+
+        model = Model()
+        binding = binding_api.layer_bindings(model)[0]
+        retained = binding.build_item_list(model)
+        model.links[0].details["ticks"].append(2)
+        current = binding.build_item_list(model)
+        assert retained == [
+            {
+                "source": "a",
+                "target": "b",
+                "directed": False,
+                "data": {"ticks": [1], "success": True},
+            }
+        ]
+        assert current[0]["data"] == {"ticks": [1, 2], "success": True}
+
+    @pytest.mark.parametrize("container", [tuple, list, dict])
+    def test_edge_records_preserve_nested_data(self, container):
+        details = {"ticks": [1]}
+        attrs = {"data": details, "width": 0.1, "custom": {"ready": True}}
+        item = (
+            {"source": "a", "target": "b", **attrs}
+            if container is dict
+            else container(("a", "b", {**attrs, "source": "ignored"}))
+        )
+
+        @edge_layer("links")
+        class Model:
+            def __init__(self):
+                self.links = [item]
+
+        model = Model()
+        binding = binding_api.layer_bindings(model)[0]
+        retained = binding.build_item_list(model)
+        details["ticks"].append(2)
+        current = binding.build_item_list(model)
+        assert retained == [
+            {
+                "source": "a",
+                "target": "b",
+                "directed": False,
+                "width": 0.1,
+                "data": {"ticks": [1]},
+                "custom": {"ready": True},
+            }
+        ]
+        assert current[0]["data"] == {"ticks": [1, 2]}
+
+    @pytest.mark.parametrize("data", [None, "details", lambda item: item.details])
+    def test_trajectory_uses_common_item_data_projection(self, data):
+        @trajectory_item(data=data)
+        class Trace:
+            id = "a"
+            length = 10
+            width = 0.1
+            color = "red"
+
+            def __init__(self):
+                self.details = {"ticks": [1]}
+                self.data = {"not_inferred": True}
+
+        @trajectory_layer("traces", item_iterable_projector="traces")
+        class Model:
+            def __init__(self):
+                self.traces = [Trace()]
+
+        model = Model()
+        binding = binding_api.layer_bindings(model)[0]
+        retained = binding.build_item_list(model)
+        model.traces[0].details["ticks"].append(2)
+        current = binding.build_item_list(model)
+        assert current[0]["id"] == "a"
+        if data is None:
+            assert "data" not in retained[0] and "data" not in current[0]
+        else:
+            assert retained[0]["data"] == {"ticks": [1]}
+            assert current[0]["data"] == {"ticks": [1, 2]}
 
 
 class FakeServer:
