@@ -26,12 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## @tensnap/tauri [0.3.10] - 2026-10-26
-
-### Changed
-
-- Prepare new macOS arm64/x64, Linux, and Windows desktop artifacts from the binding compatibility and LLM example release checkout, preserving the published 0.3.9 assets.
-
 ## tensnap [0.3.5] - 2026-10-25
 
 ### Fixed
