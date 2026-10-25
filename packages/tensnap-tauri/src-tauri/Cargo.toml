@@ -1,6 +1,6 @@
 [package]
 name = "tensnap-tauri"
-version = "0.3.9"
+version = "0.3.10"
 description = "A Tauri App for TenSnap visualization"
 authors = ["Bill Toshiaki Stark"]
 license = ""
