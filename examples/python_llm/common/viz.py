@@ -11,11 +11,21 @@ from tensnap import (
     SimulationScenario,
     action,
     monitor,
+    scene_restore,
 )
 
 from .config import integer
+from .restore import prepare_restore
 
 
+@scene_restore(
+    time="restore_time",
+    validate="validate_scene",
+    before_apply="begin_scene_restore",
+    after_apply="finish_scene_restore",
+    checkpoint_capture="capture",
+    checkpoint_restore="restore",
+)
 class ModelView:
     initial_options = ()
     selected_agent: Annotated[
@@ -199,15 +209,55 @@ class ModelView:
             }
         return {
             **status,
-            "active_policy": self.model.provider.mode
-            if self.model.provider
-            else "rule",
+            "active_policy": self.active_policy,
             "available_policies": ["rule", *self._providers],
         }
 
     @monitor("metrics", "Current metrics", render_hint="tree")
     def metrics(self):
         return self.model.metrics()
+
+    @property
+    def active_policy(self):
+        return self.model.provider.mode if self.model.provider else "rule"
+
+    def validate_scene(self, payload):
+        """Validate model values on a detached candidate before the transaction."""
+        self._restored_model = prepare_restore(self, payload)
+
+    def begin_scene_restore(self, payload):
+        if "envs" not in payload:
+            return
+        restored = self._restored_model
+        # Only changed constructor settings need a fresh structural model.
+        # Layer inverses then install the validated public state.
+        if self.model.config != restored.config:
+            base = type(self.model)(restored.config)
+            base.rng, base.policy_rng, base.tick = (
+                self.model.rng,
+                self.model.policy_rng,
+                self.model.tick,
+            )
+            self.model._install(base)
+        self.model.provider = restored.provider
+        self._active_scenario = None
+        self._refresh_selection()
+
+    def restore_derived(self, value):
+        """Derived layers and metadata were checked against active configuration."""
+
+    def restore_agents(self, items):
+        self.model.agents = self._restored_model.agents
+
+    def restore_time(self, value):
+        self.model.tick = integer(value, "restore time", 0, 10**9)
+        self.simulation.set_time_step(self.model.tick)
+
+    def finish_scene_restore(self, payload):
+        if "envs" in payload:
+            self.restore_measurements(self._restored_model)
+        self._refresh_selection()
+        self._restored_model = None
 
     @action("reseed", "Reset with next seed")
     async def reseed(self):
@@ -221,9 +271,7 @@ class ModelView:
             "controls": {
                 "seed": self.seed,
                 "policy": self.policy,
-                "active_policy": self.model.provider.mode
-                if self.model.provider
-                else "rule",
+                "active_policy": self.active_policy,
                 "scenario": self._pending_scenario,
                 "active_scenario": self._active_scenario,
                 "options": dict(self._pending_options),
@@ -280,12 +328,6 @@ async def build_scenario(model, view_type, port=8765, *, providers=None):
     view.simulation = scenario
     scenario.add_all(view)
     scenario.parameters["selected_agent"].max = len(model.agents) - 1
-    # The adapter owns protocol clock synchronization; the model owns RNG state.
-    scenario.configure_scene_restore(
-        None,
-        checkpoint_capture=view.capture,
-        checkpoint_restore=view.restore,
-    )
 
     async def step():
         try:
@@ -306,14 +348,18 @@ async def build_scenario(model, view_type, port=8765, *, providers=None):
                 parameter.value = current
                 await scenario.server.broadcast_param_sync(param_id, current)
 
-    await scenario.register_model_handler(model_step=step, model_reset=reset)
+    await scenario.register_model_handler(
+        model_init=lambda: scenario.set_time_step(model.tick),
+        model_step=step,
+        model_reset=reset,
+    )
     return scenario, view
 
 
 async def serve(kind, model, port, view_type, *, providers=None):
     scenario, view = await build_scenario(model, view_type, port, providers=providers)
     print(
-        f"TenSnap {kind} ({'rule' if model.provider is None else model.provider.mode}): "
+        f"TenSnap {kind} ({view.active_policy}): "
         f"ws://127.0.0.1:{port}; available policies: {', '.join(['rule', *view._providers])}"
     )
     for provider in view._providers.values():

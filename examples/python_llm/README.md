@@ -257,6 +257,27 @@ python -m examples.python_llm.naming_game run --policy rule --steps 20 \
 
 For LLM continuations, use `--policy replay --replay <complete-tape>` and a matching provider-backed checkpoint. Replaying a trajectory adds no independent sample and does not test a changed condition.
 
+## Projected scene restore
+
+Both examples support **projected restore** through `@scene_restore` and per-layer `@layer_restore` declarations. Use the GUI's scene restore or `frame restore --mode projected` to restore visible state without a checkpoint:
+
+```bash
+# With a backend/runtime already connected; use new output paths.
+tensnap-agent frame save --checkpoint none --env main \
+  --output examples/python_llm/artifacts/projected-frame --context llm-demo
+tensnap-agent action run step --wait --context llm-demo
+tensnap-agent frame restore examples/python_llm/artifacts/projected-frame \
+  --mode projected --history replace --context llm-demo
+```
+
+Restoration includes model time, parameter values, agent positions and inspection data. Naming restores allowed contacts and recent interaction edges; Commons restores the complete resource grid, harvest totals and recent local messages, converting scene y coordinates back to model rows. Public agent-layer metadata retains the active model configuration and policy separately from staged controls. All values must satisfy the receiving simulator's parameter constraints. Invalid identities, missing cells, inconsistent topology, future history and invalid values are rejected before model mutation. Restore itself makes no LLM requests.
+
+Projected restore preserves the **current RNG states, provider decision cursor, caches and paid usage**. Naming's measurement window is rebuilt from available bounded agent histories; long decision notes retain their displayed text. Chart history is managed by the renderer (`--history replace` above). This restores the public scene and permits continuation; it does not promise the same stochastic future or recover missing private history. Replay after a projected rewind still requires a matching decision cursor and input. Existing checkpoint functionality remains separate and unchanged.
+
+New scenes include interaction timestamps needed to restore Naming edges. Older scenes can recover them from retained agent histories when available; otherwise restoration reports the missing timing instead of inventing it. An older scene without active-configuration metadata requires matching launch settings on the receiver.
+
+The restore code follows three stages: `prepare_restore` decodes public data into a detached model and checks pending controls; each model's `restore_layers` reuses its normal `load_state` validation; the declarative hooks apply the validated layers. Naming keeps its `@edge(...)` declaration and adds `data=` for interaction timing and outcome.
+
 ## Standard recording, historical frames and restoration
 
 Use a fresh rule-mode or replay-mode backend for this workflow. It needs no new LLM calls. Output paths must be new; frame evidence directories are never overwritten.
@@ -333,7 +354,7 @@ Size budgets for the intended run. Check retained ranges, truncation, resource c
 
 Restoration does not rewind paid usage or replay diagnostics. Cached answers are keyed by logical decision index and exact input fingerprint. Keep the complete tape for portable replay; a checkpoint alone cannot reproduce future remote generations. Changing prompts or observations can require a new decision branch. Replay mode fails on a missing entry with zero live requests.
 
-Use `frame diff` to compare continuations, with an explicit policy if ignoring nonrewinding diagnostics such as `inference.replayed_calls`. Checkpoint and selected scene equality are separate results; `frame compare` retains strict behavior. These models support checkpoint restoration, not projected-scene restoration. See the [comparison contract](../../docs/user-guide/agent-runtime.md#bounded-queries-and-explicit-comparison).
+Use `frame diff` to compare continuations, with an explicit policy if ignoring nonrewinding diagnostics such as `inference.replayed_calls`. Checkpoint and selected scene equality are separate results; `frame compare` retains strict behavior. Both models support projected-scene and checkpoint restoration with the distinct guarantees described above. See the [comparison contract](../../docs/user-guide/agent-runtime.md#bounded-queries-and-explicit-comparison).
 
 ## Tests
 

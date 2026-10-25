@@ -40,6 +40,8 @@ python -m examples.python_llm.mini_commons_harvest serve \
 
 A replay tape must match the current observations and prompt. For older experiments and prompt branches, use the [historical Git snapshot](../HISTORY.md). See [shared workflows](../README.md) for replay matching, budgets, recordings and restoration.
 
+Projected scene restore is supported without a checkpoint; see [restore scope and commands](../README.md#projected-scene-restore). It restores harvesters, resource cells, recent messages and time while preserving current RNG/provider state.
+
 ## State and parameters
 
 | Setting | Default | Meaning |

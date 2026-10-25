@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from dataclasses import asdict, dataclass, field, replace
 
@@ -380,10 +381,12 @@ class NamingGame(CheckpointModel):
         players = [Player(**item) for item in state["agents"]]
         if [p.id for p in players] != [p.id for p in self.agents]:
             raise ValueError("Invalid naming-game agent identities")
-        for player, initial in zip(players, self.agents, strict=True):
-            if player.name not in (None, "Q", "M") or (player.x, player.y) != (
-                initial.x,
-                initial.y,
+        for player in players:
+            if player.name not in (None, "Q", "M") or any(
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                for value in (player.x, player.y)
             ):
                 raise ValueError("Invalid player state")
             integer(player.score, "score", -(10**9), 10**9)

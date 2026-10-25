@@ -1,6 +1,6 @@
 """Commons resource grid, harvesters, local messages, and charts."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from typing import Annotated
 
 from tensnap import (
@@ -9,6 +9,7 @@ from tensnap import (
     chart,
     env,
     grid_layer,
+    layer_restore,
     matrix_agent_layer,
     monitor,
 )
@@ -16,6 +17,7 @@ from tensnap import (
 from ..common.config import probability
 from ..common.viz import ModelView
 from .model import Harvester
+from .restore import restore_layers
 from .scenarios import COMMONS_RULES, COMMONS_SCENARIOS
 
 
@@ -39,6 +41,11 @@ def resource_color(view, row, col, resource):
     return ["#fde6c8", "#bbf7d0", "#4ade80", "#15803d"][resource]
 
 
+@layer_restore(layer_id="agents", replace="restore_agents", metadata="restore_derived")
+@layer_restore(
+    layer_id="resources", replace="restore_resources", metadata="restore_derived"
+)
+@layer_restore(layer_id="grid", metadata="restore_derived")
 @grid_layer(
     "grid",
     width=lambda view: view.model.config.width,
@@ -51,6 +58,10 @@ def resource_color(view, row, col, resource):
     height=lambda view: view.model.config.height,
     item_dynamic_projector=harvester_item,
     z_index=2,
+    metadata={
+        "model_config": lambda view: asdict(view.model.config),
+        "active_policy": "active_policy",
+    },
 )
 @matrix_agent_layer(
     "resources",
@@ -74,6 +85,15 @@ class CommonsView(ModelView):
     regrowth: Annotated[float, BindParameterConfig("number", min=0, max=1, step=0.05)]
     rule: Annotated[str, BindParameterConfig("enum", options=list(COMMONS_RULES))]
     scenarios = COMMONS_SCENARIOS
+
+    restore_layers = staticmethod(restore_layers)
+
+    def restore_resources(self, items):
+        self.model.resources = self._restored_model.resources
+
+    def restore_measurements(self, candidate):
+        self.model.messages = candidate.messages
+        self.model.last_event = candidate.last_event
 
     @property
     def regrowth(self) -> float:

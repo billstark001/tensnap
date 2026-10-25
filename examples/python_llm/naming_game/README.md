@@ -41,6 +41,8 @@ python -m examples.python_llm.naming_game serve \
 
 See [shared workflows](../README.md) for credentials, caps, recordings and restoration.
 
+Projected scene restore is supported without a checkpoint; see [restore scope and commands](../README.md#projected-scene-restore). It restores players, contacts, recent interaction edges and time while preserving current RNG/provider state.
+
 ## State and parameters
 
 | Setting | Default | Meaning |

@@ -1,6 +1,6 @@
 """Naming-game graph, agent inspection, controls, and charts."""
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 from typing import Annotated
 
 from tensnap import (
@@ -11,24 +11,38 @@ from tensnap import (
     edge,
     edge_layer,
     env,
+    layer_restore,
     monitor,
 )
 
 from ..common.config import integer, probability
 from ..common.viz import ModelView
 from .model import Interaction, Player
+from .restore import restore_layers
 from .scenarios import INITIAL_NAMES, LAYOUTS, NAMING_SCENARIOS, TOPOLOGIES
 
 agent(id="id", x="x", y="y", color="color", icon="circle", size=0.65, data="data")(
     Player
 )
+
+
 edge(
     directed=False,
     color=lambda contact: "#059669" if contact.success else "#94a3b8",
     width=lambda contact: 0.08 if contact.age == 0 else 0.025,
+    data=lambda contact: {"tick": contact.tick, "success": contact.success},
 )(Interaction)
 
 
+@layer_restore(layer_id="agents", replace="restore_agents", metadata="restore_derived")
+@layer_restore(
+    layer_id="contacts", replace="restore_derived", metadata="restore_derived"
+)
+@layer_restore(
+    layer_id="interactions",
+    replace="restore_interactions",
+    metadata="restore_derived",
+)
 @edge_layer(
     "contacts",
     agent_layer_id="agents",
@@ -46,7 +60,15 @@ edge(
     collision_radius=0,
     z_index=1,
 )
-@agent_layer("agents", coord_offset="float", z_index=2)
+@agent_layer(
+    "agents",
+    coord_offset="float",
+    z_index=2,
+    metadata={
+        "model_config": lambda view: asdict(view.model.config),
+        "active_policy": "active_policy",
+    },
+)
 @env("main")
 class NamingView(ModelView):
     """Declare graph projection and researcher-facing controls around one model."""
@@ -56,6 +78,18 @@ class NamingView(ModelView):
     ]
     scenarios = NAMING_SCENARIOS
     initial_options = ("agents", "topology", "initial_names", "layout", "degree")
+
+    restore_layers = staticmethod(restore_layers)
+
+    def restore_interactions(self, items):
+        self.model.recent_edges = self._restored_model.recent_edges
+
+    def restore_measurements(self, candidate):
+        self.model.successes = candidate.successes
+        self.model.events = candidate.events
+        self.model.last_interaction = candidate.last_interaction
+        self.model.treatment_tick = candidate.treatment_tick
+
     agent_count: Annotated[
         int,
         BindParameterConfig(
