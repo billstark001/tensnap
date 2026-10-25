@@ -33,7 +33,7 @@ python -m examples.python_llm.mini_commons_harvest serve --policy replay \
 python -m examples.python_llm.mini_commons_harvest serve --policy llm \
   --env-file /path/to/private.env --agents 4 --max-calls 8 --port 8766
 
-# Start with rules; select policy=llm in the GUI, then Reset and run.
+# Start with rules; select policy=llm in the GUI, then Step or run.
 python -m examples.python_llm.mini_commons_harvest serve \
   --env-file /path/to/private.env --max-calls 8 --port 8766
 ```
@@ -63,7 +63,7 @@ Three fertile regions have Manhattan radius two around `(width//4, height//3)`, 
 
 Harvesters have stable IDs, position, cumulative harvest, last action/message and bounded personal history. Initial positions are sampled without replacement; later movement allows sharing a cell. There is no energy cost, survival requirement, birth or death.
 
-Grid dimensions, population and memory are launch-time settings. `seed`, `policy` and the `scenario` enum stage choices for the next Reset. The twelve scenarios cross `greedy`/`conserve`/`signal`, message delivery on/off and normal/drought weather. Drought presets reuse a configured schedule or default to rounds 40–79. LLM credentials supplied at startup enable the `llm` policy even when starting with the default rule policy; without credentials, selecting it is rejected. Replay requires a configured replay tape. `regrowth` and the `rule` enum are editable at runtime; `rule` affects rule mode only. `selected_agent` affects inspection only. Reset restarts the selected seed; **Reset with next seed** starts the next seed.
+Grid dimensions, population and memory are launch-time settings. `seed` and the `scenario` enum stage choices for the next Reset. The twelve scenarios cross `greedy`/`conserve`/`signal`, message delivery on/off and normal/drought weather. Drought presets reuse a configured schedule or default to rounds 40–79. Switching `policy` between `rule` and `llm` applies at the next individual activation, preserving the trajectory; it can occur within a population round. The inference monitor shows the current and next Step policies. LLM credentials supplied at startup enable the `llm` policy even when starting with the default rule policy; without credentials, selecting it is rejected. Replay requires a configured tape, and switches involving replay require Reset. `regrowth` and the `rule` enum are editable at runtime; `rule` affects rule mode only. `selected_agent` affects inspection only. Reset restarts the selected seed; **Reset with next seed** starts the next seed. See [policy boundaries and restoration](../README.md#start-the-model-backend) for details.
 
 ## One activation, in order
 

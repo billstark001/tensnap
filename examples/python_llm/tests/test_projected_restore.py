@@ -368,9 +368,29 @@ async def test_projected_restore_does_not_rewind_or_contact_live_provider():
     assert provider.status() == before
     assert len(calls) == 4
     assert view.model.provider is provider
+    assert view.policy_status()["recent_changes"] == [
+        {"after_tick": 1, "policy": "llm"}
+    ]
     await scenario._advance_step()
     assert len(calls) == 6
     await provider.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("factory,view_type", MODELS)
+async def test_time_only_restore_rebases_policy_history(factory, view_type):
+    scenario, view = await build_scenario(factory(), view_type)
+    scenario.server.send = AsyncMock()
+    for tick in (10, 0):
+        result = await restore(scenario, {"time": tick}, f"time-{tick}")
+        assert result["status"] == "ok"
+        assert view.policy_status()["recent_changes"] == [
+            {"after_tick": tick, "policy": "rule"}
+        ]
+        # Rewinding time must leave a self-consistent continuation checkpoint.
+        saved = view.capture()
+        view.restore(saved)
+        assert view.capture() == saved
 
 
 @pytest.mark.asyncio
