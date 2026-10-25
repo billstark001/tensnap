@@ -33,6 +33,10 @@ jobs:
       - run: python -m pip install -e 'packages/tensnap-python[dev]'
       - run: pnpm --filter @tensnap/python lint
       - run: python -m pytest -q -o addopts='' packages/tensnap-python/tests
+      - name: Verify installed Python wheel and example views
+        run: |
+          python -m pip install -r examples/python_llm/requirements.txt wheel 'setuptools>=61'
+          python packages/tensnap-python/scripts/verify_package.py
 
   cross-binding-core:
     runs-on: ubuntu-latest

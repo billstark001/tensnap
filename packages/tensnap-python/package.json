@@ -2,12 +2,13 @@
   "name": "@tensnap/python",
   "private": true,
   "scripts": {
-    "build": "python -m pip wheel --no-deps . -w dist",
+    "build": "python scripts/build_package.py",
     "test": "pytest",
+    "test:package": "python scripts/verify_package.py",
     "typecheck": "python -m pyright -p ../../pyrightconfig.json --warnings",
-    "lint": "pnpm run typecheck && ruff check tensnap tests benchmarks ../../examples && pnpm run format:check",
-    "format": "ruff format tensnap tests benchmarks ../../examples",
-    "format:check": "ruff format --check tensnap tests benchmarks ../../examples",
+    "lint": "pnpm run typecheck && ruff check tensnap tests scripts benchmarks ../../examples && pnpm run format:check",
+    "format": "ruff format tensnap tests scripts benchmarks ../../examples",
+    "format:check": "ruff format --check tensnap tests scripts benchmarks ../../examples",
     "clean": "rm -rf build dist *.egg-info __pycache__"
   }
 }
