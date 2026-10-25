@@ -1,4 +1,10 @@
-import type { FieldSelector, ItemRecord, LayerProjector, LiteralField } from './types';
+import type {
+  FieldSelector,
+  ItemRecord,
+  LayerOptions,
+  LayerProjector,
+  LiteralField,
+} from './types';
 import { compilePath, ownItemValues } from './utils';
 import { registerBorrowedView } from './projection-ownership';
 
@@ -8,6 +14,16 @@ export function literal<TValue>(value: TValue): LiteralField<TValue> {
 
 export function assetIcon(id: string): `asset:${string}` {
   return `asset:${id}`;
+}
+
+/** All item layer builders compile field declarations through the same path. */
+export function itemLayerOptions<M, I extends object>(
+  options: LayerOptions<M, I>,
+): LayerOptions<M, I> {
+  const { fields, ...layer } = options;
+  if (fields === undefined) return options;
+  if (options.project !== undefined) throw new Error('use project or fields, not both');
+  return { ...layer, project: projectFields(fields, options.projectorDeepCopy) };
 }
 
 /**

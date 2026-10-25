@@ -353,6 +353,7 @@ export interface LayerOptions<
   items?(model: TModel, ctx: LayerRuntimeContext): readonly TItem[];
   updates?(model: TModel, ctx: LayerRuntimeContext): readonly Partial<TItem>[];
   project?: LayerProjector<TModel, TItem>;
+  fields?: Readonly<Record<string, FieldSelector<TModel, TItem>>>;
   updateProject?: LayerProjector<TModel, Partial<TItem> & object>;
   key?: ItemKeySelector<TItem>;
   updateKey?: ItemKeySelector<Partial<TItem> & object>;

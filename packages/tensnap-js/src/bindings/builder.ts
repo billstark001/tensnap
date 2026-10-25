@@ -4,6 +4,7 @@ import { chartBinding, chartGroupBinding } from './charts';
 import { monitorBinding } from './monitors';
 import { buildScenarioDefinition, getCurrentConfig } from './definition';
 import { EnvironmentBuilder } from './layers';
+import { itemLayerOptions } from './fields';
 import {
   booleanParameter,
   createConfigParameter,
@@ -188,6 +189,10 @@ export function buildBinding<TConfig extends object, TModel, TMetadata extends M
   }
   const normalized: typeof binding = {
     ...binding,
+    environments: binding.environments.map((environment) => ({
+      ...environment,
+      layers: environment.layers.map((layer) => ({ id: layer.id, ...itemLayerOptions(layer) })),
+    })),
     options: {
       ...binding.options,
       captureCheckpoint: binding.options.checkpoint?.capture ?? binding.options.captureCheckpoint,

@@ -34,7 +34,7 @@ export function agentLayerOptions<M, I extends object>(
     throw new Error('use project or fields and visual shortcuts, not both');
   }
   for (const name of Object.keys(shortcuts)) {
-    if (Object.prototype.hasOwnProperty.call(fields, name)) {
+    if (fields && Object.prototype.hasOwnProperty.call(fields, name)) {
       throw new Error(`visual field declared twice: ${name}`);
     }
   }
@@ -42,12 +42,23 @@ export function agentLayerOptions<M, I extends object>(
   if (color !== undefined) configured.color = typeof color === 'function' ? color : literal(color);
   if (icon !== undefined) configured.icon = typeof icon === 'function' ? icon : literal(icon);
   if (size !== undefined) configured.size = typeof size === 'function' ? size : literal(size);
+  let project = projectFields(configured, options.projectorDeepCopy);
+  if (fields === undefined && Object.keys(shortcuts).length > 0) {
+    // Standalone shortcuts augment identity projection, including keys and data.
+    const visuals = projectFields(configured, false);
+    const raw = (model: M, item: I): ItemRecord => ({ ...item, ...visuals(model, item) });
+    const deepCopy = options.projectorDeepCopy !== false;
+    project = registerBorrowedView(
+      Object.assign((model: M, item: I) => cloneItem(raw(model, item), undefined, deepCopy), {
+        ownsValues: deepCopy,
+      }),
+      deepCopy ? raw : undefined,
+    );
+  }
   return {
     ...layerOptions,
     type: 'agent',
-    ...(fields !== undefined || Object.keys(shortcuts).length > 0
-      ? { project: projectFields(configured, options.projectorDeepCopy) }
-      : {}),
+    ...(fields !== undefined || Object.keys(shortcuts).length > 0 ? { project } : {}),
   };
 }
 
@@ -78,7 +89,7 @@ function sourceFields(
     throw new Error('use project or fields and visual shortcuts, not both');
   }
   for (const name of Object.keys(shortcuts)) {
-    if (Object.prototype.hasOwnProperty.call(fields, name)) {
+    if (fields && Object.prototype.hasOwnProperty.call(fields, name)) {
       throw new Error(`visual field declared twice: ${name}`);
     }
   }

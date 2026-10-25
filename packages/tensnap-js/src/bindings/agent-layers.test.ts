@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mapAgentLayerOptions, matrixAgentLayerOptions } from './agent-layers';
+import { agentLayerOptions, mapAgentLayerOptions, matrixAgentLayerOptions } from './agent-layers';
 import type { RestorableLayer } from './types';
 import { modelBuilder } from './index';
 import { literal } from './fields';
@@ -8,6 +8,46 @@ import type { SimulatorToRendererMessage } from '@tensnap/protocol';
 const context = { phase: 'sync' as const, full: true };
 
 describe('map and matrix agent layers', () => {
+  it('accepts visual shortcuts without a fields mapping on all agent builders', () => {
+    const model = { agents: [{ id: 'a' }], flags: new Map([['a', false]]), cells: [[1]] };
+    const agent = agentLayerOptions({
+      items: (m: typeof model) => m.agents,
+      color: 'navy',
+      icon: () => 'circle',
+      size: 0.5,
+    });
+    expect(agent.project!(model, model.agents[0]!)).toEqual({
+      id: 'a',
+      color: 'navy',
+      icon: 'circle',
+      size: 0.5,
+    });
+    const map = mapAgentLayerOptions({
+      source: (m: typeof model) => m.flags,
+      color: (_m, _key, value) => (value ? 'black' : 'white'),
+      icon: 'square',
+      size: 1,
+    });
+    expect(map.items!(model, context)[0]).toMatchObject({
+      color: 'white',
+      icon: 'square',
+      size: 1,
+      data: { value: false },
+    });
+    const matrix = matrixAgentLayerOptions({
+      source: (m: typeof model) => m.cells,
+      color: 'navy',
+      icon: 'square',
+      size: (_m, _row, _col, value) => value,
+    });
+    expect(matrix.items!(model, context)[0]).toMatchObject({
+      color: 'navy',
+      icon: 'square',
+      size: 1,
+      data: { value: 1 },
+    });
+  });
+
   it('uses direct selectors, constants, and visual shortcuts', () => {
     const model = { flags: new Map([['a', false]]), cells: [[1]] };
     const map = mapAgentLayerOptions({

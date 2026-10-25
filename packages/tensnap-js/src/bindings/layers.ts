@@ -13,6 +13,7 @@ import type {
   MatrixAgentLayerOptions,
 } from './agent-layers';
 import { cloneItem } from './utils';
+import { itemLayerOptions } from './fields';
 
 export class EnvironmentBuilder<TConfig extends object, TModel> {
   constructor(
@@ -21,7 +22,7 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
   ) {}
 
   layer<TItem extends object = ItemRecord>(id: string, options: LayerOptions<TModel, TItem>): this {
-    this.environment.layers.push({ id, ...options });
+    this.environment.layers.push({ id, ...itemLayerOptions(options) });
     return this;
   }
 
@@ -44,7 +45,7 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
     id: string,
     options: Omit<
       LayerOptions<TModel>,
-      'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'
+      'type' | 'items' | 'updates' | 'project' | 'fields' | 'updateProject' | 'key' | 'updateKey'
     > = {},
   ): this {
     return this.layer(id, { ...options, type: 'grid' });
@@ -97,7 +98,7 @@ export class EnvironmentBuilder<TConfig extends object, TModel> {
     id: string,
     options: Omit<
       LayerOptions<TModel>,
-      'type' | 'items' | 'updates' | 'project' | 'updateProject' | 'key' | 'updateKey'
+      'type' | 'items' | 'updates' | 'project' | 'fields' | 'updateProject' | 'key' | 'updateKey'
     > = {},
   ): this {
     return this.layer(id, { ...options, type: 'background' });

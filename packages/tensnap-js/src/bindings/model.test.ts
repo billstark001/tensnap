@@ -6,6 +6,7 @@ import type {
 } from '@tensnap/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { modelBuilder } from './index';
+import { literal } from './fields';
 
 function emptyStateSync(modelId: string, requestId = 'sync-1'): StateSyncRequest {
   return {
@@ -27,6 +28,147 @@ async function initialize(
 }
 
 describe('modelBuilder', () => {
+  it.each(['agent', 'edge', 'trajectory', 'custom:items'])(
+    '%s uses the common fields, ownership, and item-diff pipeline',
+    async (type) => {
+      const builder = modelBuilder(
+        { id: 'item-fields', name: 'Item fields', description: 'all item layers' },
+        {
+          defaults: {},
+          create: () => ({ item: { id: 'a', source: 'a', target: 'b', details: { count: 0 } } }),
+          step(model) {
+            model.item.details.count++;
+          },
+        },
+      );
+      const env = builder
+        .env('main')
+        .agentLayer('agents', { items: () => [{ id: 'a' }, { id: 'b' }] });
+      const options = {
+        items: (model: {
+          item: { id: string; source: string; target: string; details: { count: number } };
+        }) => [model.item],
+        fields: {
+          id: 'id',
+          source: 'source',
+          target: 'target',
+          data: 'details',
+          color: literal('orange'),
+        },
+      };
+      if (type === 'agent') env.agentLayer('items', options);
+      else if (type === 'edge') env.edgeLayer('items', options);
+      else if (type === 'trajectory') env.trajectoryLayer('items', { ...options, color: 'navy' });
+      else env.layer('items', { ...options, type });
+      const session = builder.build().createSession();
+      const messages: SimulatorToRendererMessage[] = [];
+      session.attach((message) => {
+        messages.push(message);
+      });
+      await session.open();
+      await initialize(session, 'item-fields');
+      const initial = messages.find(
+        (message) =>
+          message.type === 'item_create' &&
+          'layer_id' in message.payload &&
+          message.payload.layer_id === 'items',
+      );
+      expect(initial).toMatchObject({
+        payload: { items: [{ id: 'a', data: { count: 0 }, color: 'orange' }] },
+      });
+      messages.length = 0;
+      await session.dispatch({
+        type: 'action_invoke',
+        payload: { id: 'step', request_id: 'item-step' },
+      });
+      expect(messages).toContainEqual(
+        expect.objectContaining({
+          type: 'item_update',
+          payload: expect.objectContaining({
+            layer_id: 'items',
+            items: [expect.objectContaining({ data: { count: 1 } })],
+          }),
+        }),
+      );
+      expect(initial).toMatchObject({ payload: { items: [{ data: { count: 0 } }] } });
+      await session.close();
+    },
+  );
+
+  it('rejects fields combined with a projector on any item layer', () => {
+    const builder = modelBuilder(
+      { id: 'invalid-fields', name: 'Invalid', description: 'conflict' },
+      { defaults: {}, create: () => ({}), step() {} },
+    );
+    expect(() =>
+      builder.env('main').edgeLayer('links', {
+        fields: { source: 'source' },
+        project: () => ({}),
+      }),
+    ).toThrow('use project or fields');
+  });
+
+  it('preserves edge data through field projection, initial sync, and nested updates', async () => {
+    const builder = modelBuilder(
+      { id: 'edge-data', name: 'Edge Data', description: 'edge application data' },
+      {
+        defaults: {},
+        create: () => ({ links: [{ source: 'a', target: 'b', details: { count: 0 } }] }),
+        step(model) {
+          model.links[0]!.details.count++;
+        },
+      },
+    );
+    builder
+      .env('main')
+      .agentLayer('agents', { items: () => [{ id: 'a' }, { id: 'b' }], color: 'navy' })
+      .edgeLayer('links', {
+        items: (model) => model.links,
+        fields: { source: 'source', target: 'target', data: 'details' },
+      });
+    const session = builder.build().createSession();
+    const messages: SimulatorToRendererMessage[] = [];
+    session.attach((message) => {
+      messages.push(message);
+    });
+    await session.open();
+    await initialize(session, 'edge-data');
+    expect(messages).toContainEqual({
+      type: 'item_create',
+      payload: {
+        env_id: 'main',
+        layer_id: 'agents',
+        items: [
+          { id: 'a', color: 'navy' },
+          { id: 'b', color: 'navy' },
+        ],
+      },
+    });
+    const initial = messages.find(
+      (message) =>
+        message.type === 'item_create' &&
+        'layer_id' in message.payload &&
+        message.payload.layer_id === 'links',
+    );
+    messages.length = 0;
+    await session.dispatch({
+      type: 'action_invoke',
+      payload: { id: 'step', request_id: 'edge-step' },
+    });
+    expect(initial).toMatchObject({
+      payload: { items: [{ source: 'a', target: 'b', data: { count: 0 } }] },
+    });
+    expect(messages).toContainEqual({
+      type: 'item_update',
+      payload: {
+        env_id: 'main',
+        layer_id: 'links',
+        items: [{ source: 'a', target: 'b', data: { count: 1 } }],
+      },
+    });
+    await session.close();
+  });
+
   it('emits an update when model-owned nested data mutates in place', async () => {
     const builder = modelBuilder(
       { id: 'nested-data', name: 'Nested Data', description: 'snapshot ownership fixture' },
@@ -38,7 +180,7 @@ describe('modelBuilder', () => {
         },
       },
     );
-    builder.env('main').agentLayer('agents', { items: (model) => [model.agent] });
+    builder.env('main').agentLayer('agents', { items: (model) => [model.agent], color: 'navy' });
     const session = builder.build().createSession();
     const messages: SimulatorToRendererMessage[] = [];
     session.attach((message) => {
