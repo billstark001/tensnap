@@ -194,28 +194,18 @@ func (l *GridLayer[T]) data(target T) map[string]any {
 // #region Edge Layer
 
 type EdgeLayer[T any, I any] struct {
-	copyPolicy         projectionCopy
+	itemLayer[T, I]
 	restore            *RestoreLayer[T]
 	ID                 string
 	metadata           func(T) map[string]any
 	dependencyLayerIDs map[string]string
-	items              func(T) []I
-	base               func(T, I) map[string]any
-	project            func(T, I) map[string]any
-	scanProject        func(T, I, map[string]any) map[string]any
-	fields             map[string]ItemFieldFunc[T, I]
-	diff               *abm.NaiveItemDiffTracker
-	tracker            *abm.ItemDiffTracker[I]
-	itemID             func(T, I) any
-	changed            func(T, I) bool
 }
 
 func NewEdgeLayer[T any, I any](id string) *EdgeLayer[T, I] {
 	return &EdgeLayer[T, I]{
 		ID:                 id,
 		dependencyLayerIDs: map[string]string{"agent": "agents"},
-		diff:               abm.NewNaiveItemDiffTracker("source", "target"),
-		tracker:            abm.NewItemDiffTracker[I](),
+		itemLayer:          newItemLayer[T, I]("source", "target"),
 	}
 }
 
@@ -296,6 +286,14 @@ func (l *EdgeLayer[T, I]) ProjectTagsRequired(required ...string) *EdgeLayer[T, 
 	return l
 }
 
+func (l *EdgeLayer[T, I]) Const(name string, value any) *EdgeLayer[T, I] {
+	return l.Field(name, Const[T, I](value))
+}
+
+func (l *EdgeLayer[T, I]) Select(name, path string) *EdgeLayer[T, I] {
+	return l.Field(name, selectItemField[T, I](path))
+}
+
 func (l *EdgeLayer[T, I]) Field(name string, fn ItemFieldFunc[T, I]) *EdgeLayer[T, I] {
 	if l.fields == nil {
 		l.fields = make(map[string]ItemFieldFunc[T, I])
@@ -303,28 +301,6 @@ func (l *EdgeLayer[T, I]) Field(name string, fn ItemFieldFunc[T, I]) *EdgeLayer[
 	l.fields[name] = fn
 	l.rebuildProjector()
 	return l
-}
-
-func (l *EdgeLayer[T, I]) rebuildProjector() {
-	raw := l.base
-	if len(l.fields) > 0 && l.base == nil {
-		l.copyPolicy.builtin = true
-	}
-	l.copyPolicy.configureInjectedValues()
-	if len(l.fields) > 0 {
-		raw = composeProjector(l.base, l.fields, l.copyPolicy.copyInjectedValues)
-	}
-	l.project = ownedProjector(raw, &l.copyPolicy)
-	if l.base == nil && len(l.fields) > 0 && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() {
-		// Detach as fields are read, without a second pass over scalar records.
-		l.project = composeProjector[T, I](nil, l.fields, true)
-	}
-	l.scanProject = nil
-	if raw != nil && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
-		l.scanProject = borrowedProjector(l.base, l.fields)
-	}
-	l.diff.DeepCopy = l.copyPolicy.copiesPublication()
-	l.tracker.DeepCopy = l.copyPolicy.copiesPublication()
 }
 
 func (l *EdgeLayer[T, I]) Restore(spec RestoreLayer[T]) *EdgeLayer[T, I] {
@@ -343,50 +319,15 @@ func (l *EdgeLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLay
 }
 
 func (l *EdgeLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitter) error {
-	items := l.itemList(target)
-	snapshots := l.projectItems(target, items)
-	if len(snapshots) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, snapshots); err != nil {
-			return err
-		}
-	}
-	if l.usesIncrementalDiff() {
-		l.tracker.SeedOwnedSnapshots(items, snapshots, func(item I) any {
-			return l.itemID(target, item)
-		})
-	} else {
-		l.diff.SeedOwned(snapshots)
-	}
-	return nil
+	return l.replayState(target, envID, l.ID, emitter)
+}
+
+func (l *EdgeLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
+	return l.pushDiffs(target, envID, l.ID, emitter)
 }
 
 func (l *EdgeLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitter) error {
 	return l.PushDiffs(target, envID, emitter)
-}
-
-func (l *EdgeLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
-	created, updated, deleted := l.computeDiffs(target)
-	if len(created) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, created); err != nil {
-			return err
-		}
-	}
-	if len(updated) > 0 {
-		if err := emitter.ItemUpdate(envID, l.ID, updated); err != nil {
-			return err
-		}
-	}
-	if len(deleted) > 0 {
-		if err := emitter.ItemDelete(envID, l.ID, deleted); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (l *EdgeLayer[T, I]) Reset() {
-	l.diff.Reset()
-	l.tracker.Reset()
 }
 
 func (l *EdgeLayer[T, I]) data(target T) map[string]any {
@@ -396,89 +337,24 @@ func (l *EdgeLayer[T, I]) data(target T) map[string]any {
 	return l.metadata(target)
 }
 
-func (l *EdgeLayer[T, I]) usesIncrementalDiff() bool {
-	return l.itemID != nil && l.changed != nil
-}
-
-func (l *EdgeLayer[T, I]) computeDiffs(target T) (created, updated []map[string]any, deleted []any) {
-	items := l.itemList(target)
-	if l.project == nil {
-		return nil, nil, nil
-	}
-	if l.scanProject != nil {
-		var scratch map[string]any
-		if len(l.fields) > 0 {
-			scratch = make(map[string]any, len(l.fields))
-		}
-		if l.usesIncrementalDiff() {
-			return l.tracker.ComputeBorrowed(items,
-				func(item I) any { return l.itemID(target, item) },
-				func(item I) bool { return l.changed(target, item) },
-				func(item I) abm.ItemSnapshot { return l.scanProject(target, item, scratch) })
-		}
-		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index], scratch) })
-	}
-	if l.usesIncrementalDiff() {
-		return l.tracker.Compute(
-			items,
-			func(item I) any { return l.itemID(target, item) },
-			func(item I) bool { return l.changed(target, item) },
-			func(item I) abm.ItemSnapshot { return l.project(target, item) },
-		)
-	}
-	return l.diff.Compute(l.projectItems(target, items, false))
-}
-
-func (l *EdgeLayer[T, I]) itemList(target T) []I {
-	if l.items == nil {
-		return nil
-	}
-	return l.items(target)
-}
-
-func (l *EdgeLayer[T, I]) projectItems(target T, items []I, deepCopy ...bool) []map[string]any {
-	copyValues := l.copyPolicy.copiesPublication()
-	if len(deepCopy) > 0 {
-		copyValues = deepCopy[0]
-	}
-	if l.project == nil {
-		return nil
-	}
-	snapshots := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		snapshots = append(snapshots, abm.SnapshotItem(l.project(target, item), copyValues))
-	}
-	return snapshots
-}
-
 // #endregion Edge Layer
 
 // #region Trajectory Layer
 
 type TrajectoryLayer[T any, I any] struct {
-	copyPolicy         projectionCopy
+	itemLayer[T, I]
 	restore            *RestoreLayer[T]
 	ID                 string
 	metadata           func(T) map[string]any
-	metadataFields     map[string]any
 	dependencyLayerIDs map[string]string
-	items              func(T) []I
-	base               func(T, I) map[string]any
-	project            func(T, I) map[string]any
-	scanProject        func(T, I, map[string]any) map[string]any
-	fields             map[string]ItemFieldFunc[T, I]
-	diff               *abm.NaiveItemDiffTracker
-	tracker            *abm.ItemDiffTracker[I]
-	itemID             func(T, I) any
-	changed            func(T, I) bool
+	metadataFields     map[string]any
 }
 
 func NewTrajectoryLayer[T any, I any](id string) *TrajectoryLayer[T, I] {
 	return &TrajectoryLayer[T, I]{
 		ID:                 id,
 		dependencyLayerIDs: map[string]string{"agent": "agents"},
-		diff:               abm.NewNaiveItemDiffTracker("id"),
-		tracker:            abm.NewItemDiffTracker[I](),
+		itemLayer:          newItemLayer[T, I]("id"),
 	}
 }
 
@@ -599,6 +475,14 @@ func (l *TrajectoryLayer[T, I]) ProjectTagsRequired(required ...string) *Traject
 	return l
 }
 
+func (l *TrajectoryLayer[T, I]) Const(name string, value any) *TrajectoryLayer[T, I] {
+	return l.Field(name, Const[T, I](value))
+}
+
+func (l *TrajectoryLayer[T, I]) Select(name, path string) *TrajectoryLayer[T, I] {
+	return l.Field(name, selectItemField[T, I](path))
+}
+
 func (l *TrajectoryLayer[T, I]) Field(name string, fn ItemFieldFunc[T, I]) *TrajectoryLayer[T, I] {
 	if l.fields == nil {
 		l.fields = make(map[string]ItemFieldFunc[T, I])
@@ -606,28 +490,6 @@ func (l *TrajectoryLayer[T, I]) Field(name string, fn ItemFieldFunc[T, I]) *Traj
 	l.fields[name] = fn
 	l.rebuildProjector()
 	return l
-}
-
-func (l *TrajectoryLayer[T, I]) rebuildProjector() {
-	raw := l.base
-	if len(l.fields) > 0 && l.base == nil {
-		l.copyPolicy.builtin = true
-	}
-	l.copyPolicy.configureInjectedValues()
-	if len(l.fields) > 0 {
-		raw = composeProjector(l.base, l.fields, l.copyPolicy.copyInjectedValues)
-	}
-	l.project = ownedProjector(raw, &l.copyPolicy)
-	if l.base == nil && len(l.fields) > 0 && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() {
-		// Detach as fields are read, without a second pass over scalar records.
-		l.project = composeProjector[T, I](nil, l.fields, true)
-	}
-	l.scanProject = nil
-	if raw != nil && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
-		l.scanProject = borrowedProjector(l.base, l.fields)
-	}
-	l.diff.DeepCopy = l.copyPolicy.copiesPublication()
-	l.tracker.DeepCopy = l.copyPolicy.copiesPublication()
 }
 
 func (l *TrajectoryLayer[T, I]) Restore(spec RestoreLayer[T]) *TrajectoryLayer[T, I] {
@@ -646,50 +508,15 @@ func (l *TrajectoryLayer[T, I]) CreatePayload(target T, envID string) *protocol.
 }
 
 func (l *TrajectoryLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitter) error {
-	items := l.itemList(target)
-	snapshots := l.projectItems(target, items)
-	if len(snapshots) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, snapshots); err != nil {
-			return err
-		}
-	}
-	if l.usesIncrementalDiff() {
-		l.tracker.SeedOwnedSnapshots(items, snapshots, func(item I) any {
-			return l.itemID(target, item)
-		})
-	} else {
-		l.diff.SeedOwned(snapshots)
-	}
-	return nil
+	return l.replayState(target, envID, l.ID, emitter)
+}
+
+func (l *TrajectoryLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
+	return l.pushDiffs(target, envID, l.ID, emitter)
 }
 
 func (l *TrajectoryLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitter) error {
 	return l.PushDiffs(target, envID, emitter)
-}
-
-func (l *TrajectoryLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
-	created, updated, deleted := l.computeDiffs(target)
-	if len(created) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, created); err != nil {
-			return err
-		}
-	}
-	if len(updated) > 0 {
-		if err := emitter.ItemUpdate(envID, l.ID, updated); err != nil {
-			return err
-		}
-	}
-	if len(deleted) > 0 {
-		if err := emitter.ItemDelete(envID, l.ID, deleted); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (l *TrajectoryLayer[T, I]) Reset() {
-	l.diff.Reset()
-	l.tracker.Reset()
 }
 
 func (l *TrajectoryLayer[T, I]) data(target T) map[string]any {
@@ -706,61 +533,6 @@ func (l *TrajectoryLayer[T, I]) data(target T) map[string]any {
 		result[key] = value
 	}
 	return result
-}
-
-func (l *TrajectoryLayer[T, I]) usesIncrementalDiff() bool {
-	return l.itemID != nil && l.changed != nil
-}
-
-func (l *TrajectoryLayer[T, I]) computeDiffs(target T) (created, updated []map[string]any, deleted []any) {
-	items := l.itemList(target)
-	if l.project == nil {
-		return nil, nil, nil
-	}
-	if l.scanProject != nil {
-		var scratch map[string]any
-		if len(l.fields) > 0 {
-			scratch = make(map[string]any, len(l.fields))
-		}
-		if l.usesIncrementalDiff() {
-			return l.tracker.ComputeBorrowed(items,
-				func(item I) any { return l.itemID(target, item) },
-				func(item I) bool { return l.changed(target, item) },
-				func(item I) abm.ItemSnapshot { return l.scanProject(target, item, scratch) })
-		}
-		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index], scratch) })
-	}
-	if l.usesIncrementalDiff() {
-		return l.tracker.Compute(
-			items,
-			func(item I) any { return l.itemID(target, item) },
-			func(item I) bool { return l.changed(target, item) },
-			func(item I) abm.ItemSnapshot { return l.project(target, item) },
-		)
-	}
-	return l.diff.Compute(l.projectItems(target, items, false))
-}
-
-func (l *TrajectoryLayer[T, I]) itemList(target T) []I {
-	if l.items == nil {
-		return nil
-	}
-	return l.items(target)
-}
-
-func (l *TrajectoryLayer[T, I]) projectItems(target T, items []I, deepCopy ...bool) []map[string]any {
-	copyValues := l.copyPolicy.copiesPublication()
-	if len(deepCopy) > 0 {
-		copyValues = deepCopy[0]
-	}
-	if l.project == nil {
-		return nil
-	}
-	snapshots := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		snapshots = append(snapshots, abm.SnapshotItem(l.project(target, item), copyValues))
-	}
-	return snapshots
 }
 
 // #endregion Trajectory Layer
@@ -823,14 +595,8 @@ func (l *GridLayer[T]) restoreDefinition() *RestoreLayer[T] { return l.restore }
 func (l *GridLayer[T]) restoreCurrent(T) []map[string]any   { return nil }
 
 func (l *EdgeLayer[T, I]) restoreDefinition() *RestoreLayer[T] { return l.restore }
-func (l *EdgeLayer[T, I]) restoreCurrent(target T) []map[string]any {
-	return l.projectItems(target, l.itemList(target))
-}
 
 func (l *TrajectoryLayer[T, I]) restoreDefinition() *RestoreLayer[T] { return l.restore }
-func (l *TrajectoryLayer[T, I]) restoreCurrent(target T) []map[string]any {
-	return l.projectItems(target, l.itemList(target))
-}
 
 func (l *BackgroundLayer[T]) restoreDefinition() *RestoreLayer[T] { return l.restore }
 func (l *BackgroundLayer[T]) restoreCurrent(T) []map[string]any   { return nil }

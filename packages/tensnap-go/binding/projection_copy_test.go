@@ -6,6 +6,30 @@ import (
 	"github.com/billstark001/tensnap/packages/tensnap-go/abm"
 )
 
+func TestEdgeDataTagsAndFields(t *testing.T) {
+	type link struct {
+		Source string         `tensnap:"source,scope=edge"`
+		Target string         `tensnap:"target,scope=edge"`
+		Data   map[string]any `tensnap:"data,scope=edge"`
+	}
+	for _, useField := range []bool{false, true} {
+		item := &link{Source: "a", Target: "b", Data: map[string]any{"count": 0}}
+		layer := NewEdgeLayer[*link, *link]("edges").
+			Items(func(m *link) []*link { return []*link{m} }).ProjectTags()
+		if useField {
+			layer.Field("data", func(_ *link, item *link) any { return item.Data })
+		}
+		created, _, _ := layer.computeDiffs(item)
+		item.Data["count"] = 1
+		_, updated, _ := layer.computeDiffs(item)
+		if len(created) != 1 || len(updated) != 1 ||
+			created[0]["data"].(map[string]any)["count"] != 0 ||
+			updated[0]["data"].(map[string]any)["count"] != 1 {
+			t.Fatalf("edge data must survive tags/fields and nested mutation: created=%v updated=%v", created, updated)
+		}
+	}
+}
+
 func TestLayerProjectionOwnership(t *testing.T) {
 	type model struct{ item map[string]any }
 	type diffLayer interface {

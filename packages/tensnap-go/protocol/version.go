@@ -4,4 +4,4 @@ package protocol
 const ProtocolVersion = "0.3"
 
 // BindingVersion is the version announced by the Go binding.
-const BindingVersion = "0.3.3"
+const BindingVersion = "0.3.4"

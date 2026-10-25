@@ -10,27 +10,17 @@ import (
 // #region Agent Layer
 
 type AgentLayer[T any, I any] struct {
-	copyPolicy  projectionCopy
-	restore     *RestoreLayer[T]
-	ID          string
-	metadata    func(T) map[string]any
-	items       func(T) []I
-	base        func(T, I) map[string]any
-	project     func(T, I) map[string]any
-	scanProject func(T, I, map[string]any) map[string]any
-	fields      map[string]ItemFieldFunc[T, I]
-	diff        *abm.NaiveItemDiffTracker
-	tracker     *abm.ItemDiffTracker[I]
-	itemID      func(T, I) any
-	changed     func(T, I) bool
-	resetIDs    []any
+	itemLayer[T, I]
+	restore  *RestoreLayer[T]
+	ID       string
+	metadata func(T) map[string]any
+	resetIDs []any
 }
 
 func NewAgentLayer[T any, I any](id string) *AgentLayer[T, I] {
 	return &AgentLayer[T, I]{
-		ID:      id,
-		diff:    abm.NewNaiveItemDiffTracker("id"),
-		tracker: abm.NewItemDiffTracker[I](),
+		ID:        id,
+		itemLayer: newItemLayer[T, I]("id"),
 	}
 }
 
@@ -119,35 +109,7 @@ func (l *AgentLayer[T, I]) Const(name string, value any) *AgentLayer[T, I] {
 
 // Select reads an item field by default; model.* selects model state.
 func (l *AgentLayer[T, I]) Select(name, path string) *AgentLayer[T, I] {
-	root, parts := compileSourcePath(path, "item", "item", "model")
-	return l.Field(name, func(model T, item I) any {
-		if root == "model" {
-			return readSourcePath(model, parts)
-		}
-		return readSourcePath(item, parts)
-	})
-}
-
-func (l *AgentLayer[T, I]) rebuildProjector() {
-	raw := l.base
-	if len(l.fields) > 0 && l.base == nil {
-		l.copyPolicy.builtin = true
-	}
-	l.copyPolicy.configureInjectedValues()
-	if len(l.fields) > 0 {
-		raw = composeProjector(l.base, l.fields, l.copyPolicy.copyInjectedValues)
-	}
-	l.project = ownedProjector(raw, &l.copyPolicy)
-	if l.base == nil && len(l.fields) > 0 && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() {
-		// Detach as fields are read, without a second pass over scalar records.
-		l.project = composeProjector[T, I](nil, l.fields, true)
-	}
-	l.scanProject = nil
-	if raw != nil && l.copyPolicy.builtin && l.copyPolicy.copiesProjection() && !l.copyPolicy.copiesPublication() {
-		l.scanProject = borrowedProjector(l.base, l.fields)
-	}
-	l.diff.DeepCopy = l.copyPolicy.copiesPublication()
-	l.tracker.DeepCopy = l.copyPolicy.copiesPublication()
+	return l.Field(name, selectItemField[T, I](path))
 }
 
 func (l *AgentLayer[T, I]) Restore(spec RestoreLayer[T]) *AgentLayer[T, I] {
@@ -165,21 +127,7 @@ func (l *AgentLayer[T, I]) CreatePayload(target T, envID string) *protocol.EnvLa
 }
 
 func (l *AgentLayer[T, I]) ReplayState(target T, envID string, emitter abm.Emitter) error {
-	items := l.itemList(target)
-	snapshots := l.projectItems(target, items)
-	if len(snapshots) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, snapshots); err != nil {
-			return err
-		}
-	}
-	if l.usesIncrementalDiff() {
-		l.tracker.SeedOwnedSnapshots(items, snapshots, func(item I) any {
-			return l.itemID(target, item)
-		})
-	} else {
-		l.diff.SeedOwned(snapshots)
-	}
-	return nil
+	return l.replayState(target, envID, l.ID, emitter)
 }
 
 func (l *AgentLayer[T, I]) PrepareReset(target T) {
@@ -203,6 +151,10 @@ func (l *AgentLayer[T, I]) CancelReset() {
 	l.resetIDs = nil
 }
 
+func (l *AgentLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
+	return l.pushDiffs(target, envID, l.ID, emitter)
+}
+
 func (l *AgentLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitter) error {
 	if len(l.resetIDs) > 0 {
 		if err := emitter.ItemDelete(envID, l.ID, l.resetIDs); err != nil {
@@ -210,46 +162,7 @@ func (l *AgentLayer[T, I]) ReplayReset(target T, envID string, emitter abm.Emitt
 		}
 	}
 	l.resetIDs = nil
-	items := l.itemList(target)
-	snapshots := l.projectItems(target, items)
-	if len(snapshots) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, snapshots); err != nil {
-			return err
-		}
-	}
-	if l.usesIncrementalDiff() {
-		l.tracker.SeedOwnedSnapshots(items, snapshots, func(item I) any {
-			return l.itemID(target, item)
-		})
-	} else {
-		l.diff.SeedOwned(snapshots)
-	}
-	return nil
-}
-
-func (l *AgentLayer[T, I]) PushDiffs(target T, envID string, emitter abm.Emitter) error {
-	created, updated, deleted := l.computeDiffs(target)
-	if len(created) > 0 {
-		if err := emitter.ItemCreate(envID, l.ID, created); err != nil {
-			return err
-		}
-	}
-	if len(updated) > 0 {
-		if err := emitter.ItemUpdate(envID, l.ID, updated); err != nil {
-			return err
-		}
-	}
-	if len(deleted) > 0 {
-		if err := emitter.ItemDelete(envID, l.ID, deleted); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (l *AgentLayer[T, I]) Reset() {
-	l.diff.Reset()
-	l.tracker.Reset()
+	return l.replayState(target, envID, l.ID, emitter)
 }
 
 func (l *AgentLayer[T, I]) data(target T) map[string]any {
@@ -259,64 +172,6 @@ func (l *AgentLayer[T, I]) data(target T) map[string]any {
 	return l.metadata(target)
 }
 
-func (l *AgentLayer[T, I]) usesIncrementalDiff() bool {
-	return l.itemID != nil && l.changed != nil
-}
-
-func (l *AgentLayer[T, I]) computeDiffs(target T) (created, updated []map[string]any, deleted []any) {
-	items := l.itemList(target)
-	if l.project == nil {
-		return nil, nil, nil
-	}
-	if l.scanProject != nil {
-		var scratch map[string]any
-		if len(l.fields) > 0 {
-			scratch = make(map[string]any, len(l.fields))
-		}
-		if l.usesIncrementalDiff() {
-			return l.tracker.ComputeBorrowed(items,
-				func(item I) any { return l.itemID(target, item) },
-				func(item I) bool { return l.changed(target, item) },
-				func(item I) abm.ItemSnapshot { return l.scanProject(target, item, scratch) })
-		}
-		return l.diff.ComputeBorrowed(len(items), func(index int) abm.ItemSnapshot { return l.scanProject(target, items[index], scratch) })
-	}
-	if l.usesIncrementalDiff() {
-		return l.tracker.Compute(
-			items,
-			func(item I) any { return l.itemID(target, item) },
-			func(item I) bool { return l.changed(target, item) },
-			func(item I) abm.ItemSnapshot { return l.project(target, item) },
-		)
-	}
-	return l.diff.Compute(l.projectItems(target, items, false))
-}
-
-func (l *AgentLayer[T, I]) itemList(target T) []I {
-	if l.items == nil {
-		return nil
-	}
-	return l.items(target)
-}
-
-func (l *AgentLayer[T, I]) projectItems(target T, items []I, deepCopy ...bool) []map[string]any {
-	copyValues := l.copyPolicy.copiesPublication()
-	if len(deepCopy) > 0 {
-		copyValues = deepCopy[0]
-	}
-	if l.project == nil {
-		return nil
-	}
-	snapshots := make([]map[string]any, 0, len(items))
-	for _, item := range items {
-		snapshots = append(snapshots, abm.SnapshotItem(l.project(target, item), copyValues))
-	}
-	return snapshots
-}
-
 // #endregion Agent Layer
 
 func (l *AgentLayer[T, I]) restoreDefinition() *RestoreLayer[T] { return l.restore }
-func (l *AgentLayer[T, I]) restoreCurrent(target T) []map[string]any {
-	return l.projectItems(target, l.itemList(target))
-}
